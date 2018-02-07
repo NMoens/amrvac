@@ -6,26 +6,33 @@ module mod_srhd_phys
   !> The adiabatic index
   double precision, public :: srhd_gamma = 5.d0/3.0d0
 
+  !> Whether ideal eos is used
+  logical, public, protected              :: srhd_ideal = .false.
+
+  !> Whether Mathews eos is used
+  logical, public, protected              :: srhd_mathews = .false.
+
+! Probably not necessary
   !> Index of the energy density (-1 if not present)
   integer, public, protected              :: e_
 
-  !> Index of the proper density
+  !> Index of the density (lab frame)
   integer, public, protected              :: d_
 
-  !> Index of the density
-  integer, public, protected              :: rho_
-
-  !> Index of proper density (primitive?)
+  !> Index of the  density (primitive?)
   integer, public, protected              :: s0_
 
-  !> Indices of the momentum density
+!  !> Index of the density
+!  integer, public, protected              :: rho_
+
+  !> Indices of the momentum density (this is the old s1,s2,s3)
   integer, allocatable, public, protected :: rmom(:)
 
-  !> Index of some quantity connected to the pressure
+  !> Index of the total energy density 
   integer, public, protected              :: tau_
 
   !> Index of the pressure
-  integer, public, protected              :: pp_
+  integer, public, protected              :: p_
 
   !> Number of tracer species
   integer, public, protected              :: hd_n_tracer = 0
@@ -33,29 +40,56 @@ module mod_srhd_phys
   !> Indices of the tracers
   integer, allocatable, public, protected :: tracer(:)
 
+  !Auxiliary variables
   !> Index of Lorentz factor
   integer, public, protected :: lfac_
-
-  ! polar variable names
-  ! integer,parameter:: sr_=s0_+r_
-  ! integer,parameter:: sphi_=s0_+phi_
-  ! integer,parameter:: sz_=s0_+z_
-  ! integer,parameter:: vr_=v0_+r_
-  ! integer,parameter:: vphi_=v0_+phi_
-  ! integer,parameter:: vz_=v0_+z_
+  
+  !> Index of pressure
+  integer, public, protected :: p_
 
   integer, parameter :: nvector=1                             ! No. vector vars
   integer, dimension(nvector), parameter :: iw_vector=(/ s0_ /)
 
-  INTEGER,PARAMETER:: gamma_=1,neqpar=1                     ! equation parameters
+  integer, parameter:: gamma_=1,neqpar=1                     ! equation parameters
 
   double precision :: smalltau,smallxi,minrho,minp
 
+! Public methods ??
+!  public :: srhd_phys_init
+!  public :: srhd_kin_en
+!  public :: srhd_get_pthermal
+!  public :: srhd_to_conserved
+!  public :: srhd_to_primitive
+
 contains
 
+!---------------------------------------------------------------------
+  subroutine srhd_read_params(files)
+    use mod_global_parameters
+    character(len=*), intent(in) :: files(:)
+    integer                      :: n
+
+    namelist /srhd_list/srhd_energy, srhd_n_tracer,srhd_gamma
+    
+    do n = 1, size(files)
+       open(unitpar, file=trim(files(n)), status="old")
+       read(unitpar, hd_list, end=111)
+111    close(unitpar)
+    end do
+
+  end subroutine srhd_read_params
+!---------------------------------------------------------------------
+!
+!add the srhd write info subroutine ?
+!
+!----------------------------------------- ---------------------------
+
+!> Initialize the module
   subroutine srhd_phys_init()
     use mod_global_parameters
     use mod_physics
+
+    integer :: itr, idir
 
     call srhd_read_params(par_files)
 
@@ -71,6 +105,14 @@ contains
 
     ! Set index of energy variable
     e_ = var_set_energy()
+!   related to the choice of eos ??
+!    if (hd_energy) then
+!       e_ = var_set_energy()
+!       p_ = e_
+!    else
+!       e_ = -1
+!       p_ = -1
+!    end if
 
     lfac_ = var_set_extravar("lfac", "lfac")
     p_ = var_set_extravar("pressure", "pressure")
@@ -92,6 +134,17 @@ contains
     ! Whether diagonal ghost cells are required for the physics (TODO: true?)
     phys_req_diagonal = .true.
 
+    ! derive units from basic units (TO BE ADDED FOR SRHD)
+!    call srhd_physical_units()
+
+    allocate(tracer(srhd_n_tracer))
+
+    ! Set starting index of tracers
+    do itr = 1, srhd_n_tracer
+       tracer(itr) = var_set_fluxvar("trc", "trp", itr, need_bc=.false.)
+    end do
+
+
     ! Check whether custom flux types have been defined
     if (.not. allocated(flux_type)) then
        allocate(flux_type(ndir, nw))
@@ -105,7 +158,32 @@ contains
     iw_vector(1) = rmom(1) - 1
 
   end subroutine srhd_phys_init
+!==============================================================================
+!  subroutine srhd_physical_units
+!    use mod_global_parameters
+!    double precision :: mp,kB
+!    ! Derive scaling units
+!    if(SI_unit) then
+!      mp=mp_SI
+!      kB=kB_SI
+!    else
+!      mp=mp_cgs
+!      kB=kB_cgs
+!    end if
+!    if(unit_velocity==0) then
+!      unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
+!      unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*kB*unit_temperature
+!      unit_velocity=dsqrt(unit_pressure/unit_density)
+!      unit_time=unit_length/unit_velocity
+!    else
+!      unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
+!      unit_pressure=unit_density*unit_velocity**2
+!      unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*kB)
+!      unit_time=unit_length/unit_velocity
+!    end if
 
+!  end subroutine srhd_physical_units
+!==============================================================================
   subroutine checkglobaldata
 
     use mod_global_parameters
@@ -116,29 +194,18 @@ contains
     call smallvaluesEOS
 
   end subroutine checkglobaldata
-  !=============================================================================
-  subroutine initglobaldata
-
-    ! set default values 
-
-    use mod_global_parameters
-
-    !-----------------------------------------------------------------------------
-    eqpar(gamma_)=5./3.
-
-  end subroutine initglobaldata
-  !=============================================================================
-  subroutine checkw(checkprimitive,ixI^L,ixO^L,w,flag)
-
+!=============================================================================
+  subroutine srhd_check_w(checkprimitive,ixI^L,ixO^L,w,flag)
     use mod_global_parameters
 
     logical, intent(in)          :: checkprimitive
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S,nw)
     logical, intent(out)         :: flag(ixG^T)
+!    double precision             :: tmp(ixI^S)
     !-----------------------------------------------------------------------------
 
-    flag(ixG^T)=.true.
+    flag(iO^S)= 0
 
     if (checkprimitive) then
        if(useprimitiveRel)then
@@ -147,21 +214,19 @@ contains
                (w(ixO^S,pp_)  >= minp)
        else
           ! check  v^2 < 1, rho>=0, p>=smallp
-          flag(ixO^S) = (sum(w(ixO^S,rmom(:))**2) < one).and. &
+          flag(ixO^S) = (sum(w(ixO^S,rmom(:))**2.0d0) < one).and. &
                (w(ixO^S,rho_) >= minrho).and. &
-               (w(ixO^S,pp_)  >= minp){#IFDEF EPSINF .and. &
-               (w(ixO^S,ne_) >= minrho)}
+               (w(ixO^S,pp_)  >= minp)
        endif
     else
        ! Check D>=0 and lower limit for tau
        flag(ixO^S) = (w(ixO^S,d_)    >= minrho).and. &
-            (w(ixO^S,tau_)  >= smalltau){#IFDEF EPSINF .and. &
-            (w(ixO^S,ne_) >= minrho)}
+            (w(ixO^S,tau_)  >= smalltau)
     endif
 
-  end subroutine checkw
+  end subroutine srhd_check_w
   !=============================================================================
-  subroutine conserve(ixI^L,ixO^L,w,x,patchw)
+  subroutine srhd_to_conserved(ixI^L,ixO^L,w,x,patchw)
 
     ! Transform primitive variables into conservative ones
     ! (rho,v,p) ---> (D,S,tau)
@@ -175,19 +240,20 @@ contains
     double precision, intent(inout)   :: w(ixI^S,nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     logical, intent(in)               :: patchw(ixG^T)
+    integer                         :: idir, itr
 
     double precision,dimension(ixG^T) :: xi
     !-----------------------------------------------------------------------------
 
     if(useprimitiveRel)then
        ! assumes four velocity computed in primitive (rho u p) with u=lfac*v
-       xi(ixO^S)=one+({^C&w(ixO^S,u^C_)**2.0d0+})
+       xi(ixO^S)=one+(sum(w(ixO^S,uvel(:))**2.0d0))
        ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
        w(ixO^S,lfac_)=dsqrt(xi(ixO^S))
        w(ixO^S,p_)=w(ixO^S,pp_)
     else
        ! assumes velocity in primitive (rho v p) 
-       xi(ixO^S)=one-({^C&w(ixO^S,v^C_)**2.0d0+})
+       xi(ixO^S)=one-(sum(w(ixO^S,vvel(:))**2.0d0))
        ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
        w(ixO^S,lfac_)=one/dsqrt(xi(ixO^S))
        w(ixO^S,p_)=w(ixO^S,pp_)
@@ -205,109 +271,30 @@ contains
 
     if(useprimitiveRel)then
        w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
-       ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,u^C_);
+       do idir = 1, ndir
+       w(ixO^S, rmom(idir)) = xi(ixO^S)*w(ixO^S,uvel(idir))
+       end do
+!       ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,u^C_);
        w(ixO^S,tau_)=xi(ixO^S)*w(ixO^S,lfac_) - w(ixO^S,p_) - w(ixO^S,d_)
     else
        w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
-       ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,v^C_);
+       do idir = 1, ndir
+       w(ixO^S, rmom(idir)) = xi(ixO^S)*w(ixO^S,vvel(idir))
+       end do
+!       ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,v^C_);
        w(ixO^S,tau_)=xi(ixO^S) - w(ixO^S,p_) - w(ixO^S,d_)
     endif
 
-    {#IFDEF TRACER
+!    if (srhd_n_tracer)
     ! We got D, now we can get the conserved tracers:
-    {^FL&w(ixO^S,tr^FL_) = w(ixO^S,d_)*w(ixO^S,tr^FL_)\}
-    }
-    {#IFDEF EPSINF
-    w(ixO^S,Dne_) =w(ixO^S,ne_)*w(ixO^S,lfac_)
-    w(ixO^S,Dne0_) =w(ixO^S,Dne_)*w(ixO^S,ne0_)
-    w(ixO^S,Depsinf_) = w(ixO^S,epsinf_)*w(ixO^S,Dne_)**(2.0d0/3.0d0) &
-         *w(ixO^S,lfac_)**(1.0d0/3.0d0)
-    }
+!    {w(ixO^S,tr^FL_) = w(ixO^S,d_)*w(ixO^S,tr^FL_)\}
+!    end if
 
-    if(fixsmall) call smallvalues(w,x,ixI^L,ixO^L,"conserve")
+    if(check_small_values) call srhd_handle_smallvalues(.false.,w,x,ixI^L,ixO^L,"srhd_to_conserved")
 
-  end subroutine conserve
+  end subroutine srhd_to_conserved
   !=============================================================================
-  subroutine conserven(ixI^L,ixO^L,w,patchw)
-
-    ! Transform primitive variables into conservative ones
-    ! (rho,v,p) ---> (D,S,tau)
-    ! no call to smallvalues
-    ! --> latter only used for correcting procedure in correctaux
-    ! --> input array patchw for spatially selective transformation
-
-    use mod_global_parameters
-
-    integer, intent(in)               :: ixI^L, ixO^L
-    double precision, intent(inout)   :: w(ixI^S,nw)
-    logical, intent(in)               :: patchw(ixG^T)
-
-    double precision,dimension(ixG^T) :: xi
-    !-----------------------------------------------------------------------------
-
-    if(useprimitiveRel)then
-       ! assumes four velocity computed in primitive (rho u p) with u=lfac*v
-       where(.not.patchw(ixO^S))
-          xi(ixO^S)=one+({^C&w(ixO^S,u^C_)**2.0d0+})
-          ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
-          w(ixO^S,lfac_)=dsqrt(xi(ixO^S))
-          w(ixO^S,p_)=w(ixO^S,pp_)
-       endwhere
-    else
-       ! assumes velocity in primitive (rho v p) 
-       where(.not.patchw(ixO^S))
-          xi(ixO^S)=one-({^C&w(ixO^S,v^C_)**2.0d0+})
-          ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
-          w(ixO^S,lfac_)=one/dsqrt(xi(ixO^S))
-          w(ixO^S,p_)=w(ixO^S,pp_)
-       endwhere
-    endif
-
-    call Enthalpy(w,ixI^L,ixO^L,patchw,xi)
-
-    if(useprimitiveRel)then
-       ! compute xi=Lfac w  (enthalphy w)
-       where(.not.patchw(ixO^S))
-          xi(ixO^S)=w(ixO^S,lfac_)*xi(ixO^S)
-       endwhere
-    else
-       ! compute xi=Lfac^2 w  (enthalphy w)
-       where(.not.patchw(ixO^S))
-          xi(ixO^S)=w(ixO^S,lfac_)*w(ixO^S,lfac_)*xi(ixO^S)     
-       endwhere
-    endif
-
-    if(useprimitiveRel)then
-       where(.not.patchw(ixO^S))
-          w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
-          ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,u^C_);
-          w(ixO^S,tau_)=xi(ixO^S)*w(ixO^S,lfac_) - w(ixO^S,p_) - w(ixO^S,d_)
-       endwhere
-    else
-       where(.not.patchw(ixO^S))
-          w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
-          ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,v^C_);
-          w(ixO^S,tau_)=xi(ixO^S) - w(ixO^S,p_) - w(ixO^S,d_)
-       endwhere
-    endif
-
-    {#IFDEF TRACER
-    ! We got D, now we can get the conserved tracers:
-    where(.not.patchw(ixO^S))
-       {^FL&w(ixO^S,tr^FL_) = w(ixO^S,d_)*w(ixO^S,tr^FL_)\}
-    end where
-    }{#IFDEF EPSINF
-    where(.not.patchw(ixO^S))
-       w(ixO^S,Dne_) =w(ixO^S,ne_)*w(ixO^S,lfac_)
-       w(ixO^S,Dne0_) =w(ixO^S,Dne_)*w(ixO^S,ne0_)
-       w(ixO^S,Depsinf_) = w(ixO^S,epsinf_)*w(ixO^S,Dne_)**(2.0d0/3.0d0) &
-            *w(ixO^S,lfac_)**(1.0d0/3.0d0)
-    endwhere
-    }
-
-  end subroutine conserven
-  !=============================================================================
-  subroutine primitive(ixI^L,ixO^L,w,x)
+  subroutine srhd_to_primitive(ixI^L,ixO^L,w,x)
 
     ! Transform conservative variables into primitive ones
     ! (D,S,tau) ---> (rho,v,p)
@@ -317,6 +304,7 @@ contains
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S,nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
+    integer                         :: itr, idir
     !-----------------------------------------------------------------------------
     ! Calculate pressure and Lorentz factor from conservative variables only
     ! these are put in lfac_ and p_ auxiliaries
@@ -327,76 +315,28 @@ contains
     ! replace conservative with primitive variables
     ! compute velocity
     if(useprimitiveRel)then
-       ^C&w(ixO^S,u^C_)=w(ixO^S,lfac_)*w(ixO^S,s^C_)/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
+       do idir=1, ndir
+       w(ixO^S,uvel(idur))=w(ixO^S,lfac_)*w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
+       end do
     else
-       ^C&w(ixO^S,v^C_)=w(ixO^S,s^C_)/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
+       do idir=1, ndir
+       w(ixO^S,vvel(idir))=w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
+       end do
     endif
+
     ! compute density
     w(ixO^S,rho_)=w(ixO^S,d_)/w(ixO^S,lfac_)
     ! fill pressure
     w(ixO^S,pp_)=w(ixO^S,p_)
 
-    {#IFDEF TRACER
-    ! We got lor, rho, Dtr, now we can get the tracers:
-    {^FL&w(ixO^S,tr^FL_) = w(ixO^S,Dtr^FL_)/w(ixO^S,lfac_)/w(ixO^S,rho_)\}
-    }
-    {#IFDEF EPSINF
-    w(ixO^S,ne_)   = w(ixO^S,Dne_)/w(ixO^S,lfac_)
-    w(ixO^S,ne0_)   = w(ixO^S,Dne0_)/w(ixO^S,lfac_)/w(ixO^S,ne_)
-    w(ixO^S,epsinf_) = w(ixO^S,Depsinf_)/(w(ixO^S,lfac_) &
-         *w(ixO^S,ne_)**(2.0d0/3.0d0))
-    }
+ !   {#IFDEF TRACER
+ !   ! We got lor, rho, Dtr, now we can get the tracers:
+ !   {^FL&w(ixO^S,tr^FL_) = w(ixO^S,Dtr^FL_)/w(ixO^S,lfac_)/w(ixO^S,rho_)\}
+ !   }
 
-    if (tlow>zero) call fixp_usr(ixI^L,ixO^L,w,x)
+!    if (tlow>zero) call fixp_usr(ixI^L,ixO^L,w,x)
 
-  end subroutine primitive
-  !=============================================================================
-  subroutine primitiven(ixI^L,ixO^L,w,patchw)
-
-    ! Transform conservative variables into primitive ones
-    ! (D,S,tau) ---> (rho,v,p)
-    ! similar to subroutine primitive, but no call to getaux here!!
-    ! --> only used for correcting procedure in correctaux
-    ! --> input array patchw for spatially selective transformation
-
-    use mod_global_parameters
-
-    integer, intent(in)             :: ixI^L, ixO^L
-    double precision, intent(inout) :: w(ixI^S,nw)
-    logical, intent(in),dimension(ixG^T)   :: patchw
-    !-----------------------------------------------------------------------------
-
-    if(useprimitiveRel)then
-       where(.not.patchw(ixO^S))
-          ^C&w(ixO^S,u^C_)=w(ixO^S,lfac_)*w(ixO^S,s^C_)/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
-       end where
-    else
-       where(.not.patchw(ixO^S))
-          ^C&w(ixO^S,v^C_)=w(ixO^S,s^C_)/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
-       end where
-    endif
-    where(.not.patchw(ixO^S))
-       ! compute density
-       w(ixO^S,rho_)=w(ixO^S,d_)/w(ixO^S,lfac_)
-       ! fill pressure
-       w(ixO^S,pp_)=w(ixO^S,p_)
-    end where
-
-    {#IFDEF TRACER
-    ! We got lor, rho, Dtr, now we can get the tracers:
-    where(.not.patchw(ixO^S))
-       {^FL&w(ixO^S,tr^FL_) = w(ixO^S,Dtr^FL_)/w(ixO^S,lfac_)/w(ixO^S,rho_)\}
-    endwhere
-    }
-    {#IFDEF EPSINF
-    where(.not.patchw(ixO^S))
-       w(ixO^S,ne_)      = w(ixO^S,Dne_)/w(ixO^S,lfac_)
-       w(ixO^S,ne0_)     = w(ixO^S,Dne0_)/w(ixO^S,lfac_)/w(ixO^S,ne_)
-       w(ixO^S,epsinf_) = w(ixO^S,Depsinf_)/(w(ixO^S,lfac_) &
-            *w(ixO^S,ne_)**(2.0d0/3.0d0))
-    end where
-    }
-  end subroutine primitiven
+  end subroutine srhd_to_primitive(ixI^L,ixO^L,w,x) 
   !=============================================================================
   subroutine e_to_rhos(ixI^L,ixO^L,w,x)
 
@@ -406,6 +346,14 @@ contains
     double precision :: w(ixI^S,nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     !-----------------------------------------------------------------------------
+
+ !   ADD CORRECT FLAG FOR EACH EOS
+ !   if (hd_energy) then
+ !      w(ixO^S, e_) = (hd_gamma - 1.0d0) * w(ixO^S, rho_)**(1.0d0 - hd_gamma) * &
+ !           (w(ixO^S, e_) - hd_kin_en(w, ixI^L, ixO^L))
+ !   else
+ !      call mpistop("energy from entropy can not be used with -eos = iso !")
+ !   end if
 
     call mpistop("e to rhos for SRHDEOS unavailable")
 
@@ -420,68 +368,76 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     !-----------------------------------------------------------------------------
 
+ !   ADD CORRECT FLAG FOR EACH EOS
+!    if (hd_energy) then
+!       w(ixO^S, e_) = w(ixO^S, rho_)**(hd_gamma - 1.0d0) * w(ixO^S, e_) &
+!            / (hd_gamma - 1.0d0) + hd_kin_en(w, ixI^L, ixO^L)
+!    else
+!       call mpistop("entropy from energy can not be used with -eos = iso !")
+!    end if
+
     call mpistop("rhos to e for SRHDEOS unavailable")
 
   end subroutine rhos_to_e
   !=============================================================================
-  subroutine ppmflatcd(ixI^L,ixO^L,ixL^L,ixR^L,w,d2w,drho,dp)
+ ! subroutine ppmflatcd(ixI^L,ixO^L,ixL^L,ixR^L,w,d2w,drho,dp)
 
-    use mod_global_parameters
+ !   use mod_global_parameters
 
-    integer, intent(in)           :: ixI^L,ixO^L,ixL^L,ixR^L
-    double precision, intent(in)  :: w(ixI^S,nw),d2w(ixG^T,1:nwflux)
+ !   integer, intent(in)           :: ixI^L,ixO^L,ixL^L,ixR^L
+ !   double precision, intent(in)  :: w(ixI^S,nw),d2w(ixG^T,1:nwflux)
 
-    double precision, intent(out) :: drho(ixG^T),dp(ixG^T)
+ !   double precision, intent(out) :: drho(ixG^T),dp(ixG^T)
     !-----------------------------------------------------------------------------
 
-    if(useprimitive)then
-       call Calcule_Geffect(w,ixI^L,ixO^L,.false.,drho)
-       drho(ixO^S) =drho(ixO^S)*dabs(d2w(ixO^S,rho_))&
-            /min(w(ixL^S,rho_),w(ixR^S,rho_))
-       dp(ixO^S) = dabs(d2w(ixO^S,pp_))/min(w(ixL^S,pp_),w(ixR^S,pp_))
-    end if
+ !   if(useprimitive)then
+ !      call Calcule_Geffect(w,ixI^L,ixO^L,.false.,drho)
+ !      drho(ixO^S) =drho(ixO^S)*dabs(d2w(ixO^S,rho_))&
+ !           /min(w(ixL^S,rho_),w(ixR^S,rho_))
+ !      dp(ixO^S) = dabs(d2w(ixO^S,pp_))/min(w(ixL^S,pp_),w(ixR^S,pp_))
+ !   end if
 
-  end subroutine ppmflatcd
+ ! end subroutine ppmflatcd
   !=============================================================================
-  subroutine ppmflatsh(ixI^L,ixO^L,ixLL^L,ixL^L,ixR^L,ixRR^L,idims,w,drho,dp,dv)
+ ! subroutine ppmflatsh(ixI^L,ixO^L,ixLL^L,ixL^L,ixR^L,ixRR^L,idims,w,drho,dp,dv)
 
-    use mod_global_parameters
+ !   use mod_global_parameters
 
-    integer, intent(in)           :: ixI^L,ixO^L,ixLL^L,ixL^L,ixR^L,ixRR^L
-    integer, intent(in)           :: idims
-    double precision, intent(in)  :: w(ixI^S,nw)
+ !   integer, intent(in)           :: ixI^L,ixO^L,ixLL^L,ixL^L,ixR^L,ixRR^L
+ !   integer, intent(in)           :: idims
+ !   double precision, intent(in)  :: w(ixI^S,nw)
 
-    double precision, intent(out) :: drho(ixG^T),dp(ixG^T),dv(ixG^T)
+ !    double precision, intent(out) :: drho(ixG^T),dp(ixG^T),dv(ixG^T)
 
-    double precision :: v(ixG^T)
+ !   double precision :: v(ixG^T)
     !-----------------------------------------------------------------------------
 
-    if(useprimitive)then
+ !   if(useprimitive)then
        ! eq. B15, page 218, Mignone and Bodo 2005, ApJS (beta1)
-       where (dabs(w(ixRR^S,pp_)-w(ixLL^S,pp_))>smalldouble)
-          drho(ixO^S) = dabs((w(ixR^S,pp_)-w(ixL^S,pp_))&
-               /(w(ixRR^S,pp_)-w(ixLL^S,pp_)))
-       elsewhere
-          drho(ixO^S) = zero
-       end where
+ !      where (dabs(w(ixRR^S,pp_)-w(ixLL^S,pp_))>smalldouble)
+ !         drho(ixO^S) = dabs((w(ixR^S,pp_)-w(ixL^S,pp_))&
+ !              /(w(ixRR^S,pp_)-w(ixLL^S,pp_)))
+ !      elsewhere
+ !         drho(ixO^S) = zero
+ !      end where
 
        !  eq. B76, page 48, Miller and Collela 2002, JCP 183, 26 
        !  use "dp" to save sound speed
-       call getcsound2(w,ixI^L,ixO^L,.false.,dv,dp)
+ !      call getcsound2(w,ixI^L,ixO^L,.false.,dv,dp)
 
-       dp(ixO^S) = dabs(w(ixR^S,pp_)-w(ixL^S,pp_))&
-            /(w(ixO^S,rho_)*dp(ixO^S))
-       if (useprimitiveRel) then
-          v(ixI^S)  = w(ixI^S,u0_+idims)/w(ixI^S,lfac_)
-       else
-          v(ixI^S)  = w(ixI^S,v0_+idims)
-       end if
-       call gradient(v,ixI^L,ixO^L,idims,dv)
-    end if
+ !      dp(ixO^S) = dabs(w(ixR^S,pp_)-w(ixL^S,pp_))&
+ !           /(w(ixO^S,rho_)*dp(ixO^S))
+ !      if (useprimitiveRel) then
+ !         v(ixI^S)  = w(ixI^S,u0_+idims)/w(ixI^S,lfac_)
+ !      else
+ !         v(ixI^S)  = w(ixI^S,v0_+idims)
+ !      end if
+ !      call gradient(v,ixI^L,ixO^L,idims,dv)
+ !   end if
 
-  end subroutine ppmflatsh
+ ! end subroutine ppmflatsh
   !=============================================================================
-  subroutine getv(w,x,ixI^L,ixO^L,idim,v)
+  subroutine srhd_get_v(w,x,ixI^L,ixO^L,idim,v)
 
     ! Calculate v_idim=m_idim/rho within ixO^L
 
@@ -505,9 +461,9 @@ contains
             (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
     endwhere
 
-  end subroutine getv
+  end subroutine srhd_get_v
   !=============================================================================
-  subroutine getcmax(new_cmax,w,x,ixI^L,ixO^L,idims,cmax,cmin,needcmin)
+  subroutine srhd_get_cmax(new_cmax,w,x,ixI^L,ixO^L,idims,cmax,cmin,needcmin)
 
     ! Calculate cmax_idim=csound+abs(v_idim) within ixO^L
 
@@ -525,8 +481,10 @@ contains
     call getcsound2(w,ixI^L,ixO^L,.true.,rhoh,csound2)
 
     if(.not.needcmin)then
-       v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
+       v2(ixO^S)=(sum(w(ixO^S,rmom(:))**2.0d0)/ &
             ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
+ !      v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
+ !           ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
     else
        vidim(ixO^S)=(w(ixO^S,s0_+idims)/ &
             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
@@ -552,8 +510,10 @@ contains
           cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-dsqrt(csound2(ixO^S)))/ &
                (one-dsqrt(csound2(ixO^S))*vidim(ixO^S))))
        else
-          v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
+          v2(ixO^S)=(sum(w(ixO^S,mom(:))**2.0d0)/ &
                (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0
+ !         v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
+ !              (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0
 
           cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
                dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
@@ -567,9 +527,9 @@ contains
        endif
     endif
 
-  end subroutine getcmax
+  end subroutine srhd_get_cmax
   !=============================================================================
-  subroutine getflux(w,x,ixI^L,ixO^L,iw,idim,f,transport)
+  subroutine srhd_get_flux(w,x,ixI^L,ixO^L,iw,idim,f,transport)
 
     ! Calculate non-transport flux f_idim[iw] within ixO^L.
 
@@ -584,18 +544,11 @@ contains
     if(iw==s0_+idim)then
        ! f_i[s_i]=v_i*s_i + p
        f(ixO^S)=w(ixO^S,p_) 
-       {#IFDEF TRACER
-       {else if (iw==tr^FL_) then 
-       f(ixO^S)=zero\}
-       }
-       {#IFDEF EPSINF
-    else if (iw==epsinf_) then 
-       f(ixO^S)=zero
-    else if (iw==ne_) then 
-       f(ixO^S)=zero
-    else if (iw==ne0_) then 
-       f(ixO^S)=zero
-       }
+!       {#IFDEF TRACER
+!       {else if (iw==tr^FL_) then 
+!       f(ixO^S)=zero\}
+!       }
+
     else if(iw==tau_)then
        ! f_i[tau]=v_i*tau + v_i*p
        ! first case only happens when d=0 and p/tau are at enforced minimal
@@ -613,9 +566,9 @@ contains
 
     transport=.true.
 
-  end subroutine getflux
+  end subroutine srhd_get_flux
   !=============================================================================
-  subroutine getfluxforhllc(w,x,ixI^L,ixO^L,iw,idims,f,transport)
+  subroutine srhd_get_flux_forhllc(w,x,ixI^L,ixO^L,iw,idims,f,transport)
 
     ! Calculate non-transport flux f_idim[iw] within ixO^L.
 
@@ -634,18 +587,11 @@ contains
     if(iw==s0_+idims)then
        ! f_i[s_i]=v_i*s_i + p
        f(ixO^S,iw)=w(ixO^S,p_)
-       {#IFDEF TRACER
-       {else if (iw==tr^FL_) then 
-       f(ixO^S,iw)=zero\}
-       }
-       {#IFDEF EPSINF
-    else if (iw==epsinf_) then 
-       f(ixO^S,iw)=zero
-    else if (iw==ne_) then 
-       f(ixO^S,iw)=zero
-    else if (iw==ne0_) then 
-       f(ixO^S,iw)=zero
-       }
+!       {#IFDEF TRACER
+!       {else if (iw==tr^FL_) then 
+!       f(ixO^S,iw)=zero\}
+!       }
+
     else if(iw==tau_)then
        ! f_i[tau]=v_i*tau + v_i*p
        ! first case only happens when d=0 and p/tau are at enforced minimal
@@ -663,9 +609,9 @@ contains
 
     transport=.true.
 
-  end subroutine getfluxforhllc
+  end subroutine srhd_get_flux_forhllc
   !=============================================================================
-  subroutine con2prim(pressure,lfac,d,s^C,tau,ierror)
+  subroutine srhd_con2prim(pressure,lfac,d,s^C,tau,ierror)
     !use ieee_arithmetic
     use mod_global_parameters
 
@@ -964,9 +910,9 @@ contains
     endif
     !------------------------------!
 
-  end subroutine con2prim
+  end subroutine srhd_con2prim
   !=============================================================================
-  subroutine addgeometry(qdt,ixI^L,ixO^L,wCT,w,x)
+  subroutine srhd_add_geometry(qdt,ixI^L,ixO^L,wCT,w,x)
 
     ! Add geometrical source terms to w
 
@@ -1059,9 +1005,9 @@ contains
        end do
     end select
 
-  end subroutine addgeometry
-
-  subroutine correctaux(ixI^L,ixO^L,w,x,patchierror,subname)
+  end subroutine srhd_add_geometry
+!=============================================================================
+  subroutine srhd_correctaux(ixI^L,ixO^L,w,x,patchierror,subname)
 
     use mod_global_parameters
 
@@ -1124,9 +1070,9 @@ contains
     end if
     {enddo^D&\}
 
-  end subroutine correctaux
+  end subroutine srhd_correctaux
   !=============================================================================
-  subroutine smallvalues(w,x,ixI^L,ixO^L,subname)
+  subroutine srhd_handle_small_values(w,x,ixI^L,ixO^L,subname)
 
     use mod_global_parameters
 
@@ -1179,27 +1125,16 @@ contains
        end where
     end if\}
 
-    {#IFDEF EPSINF 
-    ! fix to floor:
-    if(any(w(ixO^S,Dne_)<eqpar(rho1e_)) &
-         .or. any(w(ixO^S,Dne0_)<eqpar(rho1e_)*eqpar(rho0floor_))) then 
-       where(w(ixO^S,Dne_)<eqpar(rho1e_).or. w(ixO^S,Dne0_)<eqpar(rho1e_)*eqpar(rho0floor_))
-          w(ixO^S,Dne_)=eqpar(rho1e_)
-          w(ixO^S,Dne0_)=w(ixO^S,Dne_)*eqpar(rho0floor_)
-          w(ixO^S,Depsinf_) = eqpar(epsfloor_)*w(ixO^S,Dne_)**(2.0d0/3.0d0)
-       end where
-    end if\}
-
-  end subroutine smallvalues
+    end subroutine srhd_handle_small_values
   !=============================================================================
-  subroutine getaux(clipping,w,x,ixI^L,ixO^L,subname)
+  subroutine srhd_getaux(clipping,w,x,ixI^L,ixO^L,subname)
 
     ! Calculate auxilary variables ixO^L from non-auxiliary entries in w
     ! clipping can be set to .true. to e.g. correct unphysical pressures,
     ! densities, v>c,  etc.
 
     use mod_global_parameters
-
+    use mod_small_values
     logical, intent(in)             :: clipping
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S,nw)
@@ -1214,7 +1149,7 @@ contains
     ! artificial replacement of small D and tau values
     ! with corresponding smallrho/smallp settings,
     ! together with nullifying momenta
-    call smallvalues(w,x,ixI^L,ixO^L,subname)
+    call srhd_handle_small_values(w,x,ixI^L,ixO^L,subname)
 
     ! we compute auxiliaries p, lfac from D,S,tau
     ! put the p and lfac in the auxiliary fields lfac_ and p_
@@ -1229,7 +1164,7 @@ contains
     lfacold=w(ix^D,lfac_)
     { ^C&sold^C_=w(ix^D,s^C_);}
 
-    call con2prim(w(ix^D,p_),w(ix^D,lfac_), &
+    call srhd_con2prim(w(ix^D,p_),w(ix^D,lfac_), &
          w(ix^D,d_),{^C&w(ix^D,s^C_)},w(ix^D,tau_),err)
     patchierror(ix^D)=err
     if (err/=0.and.strictgetaux) then
@@ -1247,9 +1182,8 @@ contains
     {enddo^D&\}
 
     if(.not.strictgetaux.and.any(patchierror(ixO^S)/=0)) &
-         call correctaux(ixI^L,ixO^L,w,x,patchierror,subname)
+         call srhd_correctaux(ixI^L,ixO^L,w,x,patchierror,subname)
 
-
-  end subroutine getaux
-
+  end subroutine srhd_getaux
+!=============================================================================
 end module mod_srhd_phys

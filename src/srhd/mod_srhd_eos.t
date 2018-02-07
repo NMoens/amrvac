@@ -6,7 +6,7 @@ module mod_srhd_eos
 
 contains
 
-subroutine Enthalpy(w,ixI^L,ixO^L,patchw,rhoh)
+subroutine srhd_enthalpy(w,ixI^L,ixO^L,patchw,rhoh)
 
 !================== IMPORTANT ==================!
 !This subroutine is used only with primitive variables on input w
@@ -31,7 +31,7 @@ where(.not.patchw(ixO^S))
 end where
 
 return
-end subroutine Enthalpy
+end subroutine srhd_enthalpy
 !===========================================================================
 subroutine Einternal(w,ixI^L,ixO^L,patchw,varconserve,E)
 

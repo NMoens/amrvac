@@ -3,6 +3,17 @@ module mod_srhd_phys
   implicit none
   private
 
+  !Normally there are 2 auxiliary variables in the srhd module
+  !the Lorentz factor and the pressure
+  !These are used in the calculation of the proper density (d), the
+  !momentum density (rmom, previously s)  and the total energy density (tau)
+
+  ! In the previous version, srhd and srhdeos used an ideal or a Mathews EOS
+  ! respectively. Better if we merge these two by adding a switch?
+  
+ 
+  !Declare variable names for the srhd module
+
   !> The adiabatic index
   double precision, public :: srhd_gamma = 5.d0/3.0d0
 

@@ -17,14 +17,14 @@ module mod_srhd_phys
   !> The adiabatic index
   double precision, public :: srhd_gamma = 5.d0/3.0d0
 
-  !> Whether ideal eos is used
+  !> Decide if ideal eos is used
   logical, public, protected              :: srhd_ideal = .false.
 
-  !> Whether Mathews eos is used
+  !> Decide if Mathews eos is used
   logical, public, protected              :: srhd_mathews = .false.
 
-! Probably not necessary
   !> Index of the energy density (-1 if not present)
+  ! Probably not necessary ?
   integer, public, protected              :: e_
 
   !> Index of the density (lab frame)
@@ -46,7 +46,7 @@ module mod_srhd_phys
   integer, public, protected              :: p_
 
   !> Number of tracer species
-  integer, public, protected              :: hd_n_tracer = 0
+  integer, public, protected              :: srhd_n_tracer = 0
 
   !> Indices of the tracers
   integer, allocatable, public, protected :: tracer(:)
@@ -170,6 +170,8 @@ contains
 
   end subroutine srhd_phys_init
 !==============================================================================
+!For now not necessary, maybe add later? The temperature is not really needed...
+
 !  subroutine srhd_physical_units
 !    use mod_global_parameters
 !    double precision :: mp,kB
@@ -349,7 +351,10 @@ contains
 
   end subroutine srhd_to_primitive(ixI^L,ixO^L,w,x) 
   !=============================================================================
-  subroutine e_to_rhos(ixI^L,ixO^L,w,x)
+  !The subroutines e_to_rhos and rhos_to_e are only used in the shrdeos (Mathews
+  !eos) only. We need to activate accordingly 
+
+ subroutine e_to_rhos(ixI^L,ixO^L,w,x)
 
     use mod_global_parameters
 

@@ -1,4 +1,5 @@
-!Relativistic hydrodynamics HLLC module (original from ZM)
+!Relativistic hydrodynamics HLLC module (translated from the original of Zakaria Meliani in the old version)
+
 module mod_srhd_hllc
   use mod_srhd_phys
 
@@ -244,12 +245,6 @@ where(abs(patchf(ixO^S))==1)
 {#IFDEF TRACER
    !--- Tracer ---!
 {^FL& wCD(ixO^S,Dtr^FL_)   = wSub(ixO^S,Dtr^FL_)*Ratio_CD(ixO^S) \}
-}
-{#IFDEF EPSINF
-  !--- Particle evolution ---!
-  wCD(ixO^S,epsinf_)   = wSub(ixO^S,epsinf_)*Ratio_CD(ixO^S)
-  wCD(ixO^S,ne_)        = wSub(ixO^S,ne_)*Ratio_CD(ixO^S)
-  wCD(ixO^S,ne0_)       = wSub(ixO^S,ne0_)*Ratio_CD(ixO^S)
 }
    !--- Pressure ---!
    wCD(ixO^S,p_) = (lambdaCD(ixO^S)*cspeed(ixO^S)&

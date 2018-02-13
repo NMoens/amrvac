@@ -1,27 +1,42 @@
-!HLLC for SRHD  (ZM)
+!Relativistic hydrodynamics HLLC module (original from ZM)
 module mod_srhd_hllc
+  use mod_srhd_phys
+
+  implicit none
+  private
+
+  public :: srhd_hllc_init
 
 contains
 
-subroutine diffuse_hllcd(ixI^L,ixO^L,idims,wLC,wRC,fLC,fRC,patchf)
+  subroutine srhd_hllc_init()
+    use mod_physics_hllc
+    phys_diffuse_hllcd => srhd_diffuse_hllcd
+    phys_get_lCD => srhd_get_lCD
+    phys_get_wCD => srhd_get_wCD
+  end subroutine srhd_hllc_init
 
-! when method is hllcd or hllcd1 then:
+!=============================================================================
+  subroutine srhd_diffuse_hllcd(ixI^L,ixO^L,idim,wLC,wRC,fLC,fRC,patchf)
 
-! this subroutine is to impose enforce regions where we AVOID HLLC 
-! and use TVDLF instead: this is achieved by setting patchf to 4 in
-! certain regions. An additional input parameter is nxdiffusehllc
-! which sets the size of the fallback region.
+    ! when method is hllcd or hllcd1 then:
 
-use mod_global_parameters
+    ! this subroutine is to impose enforce regions where we AVOID HLLC 
+    ! and use TVDLF instead: this is achieved by setting patchf to 4 in
+    ! certain regions. An additional input parameter is nxdiffusehllc
+    ! which sets the size of the fallback region.
 
-integer, intent(in)                                      :: ixI^L,ixO^L,idims
-double precision, dimension(ixI^S,1:nw), intent(in)      :: wRC,wLC
-double precision, dimension(ixI^S,1:nwflux),intent(in) :: fLC, fRC
+  use mod_global_parameters
 
-integer         , dimension(ixG^T), intent(inout)        :: patchf
+  integer, intent(in)                                      :: ixI^L,ixO^L,idim
+  double precision, dimension(ixI^S,1:nw), intent(in)      :: wRC,wLC
+  double precision, dimension(ixI^S,1:nwflux),intent(in) :: fLC, fRC
 
-integer                                           :: ixOO^D,TxOO^L
-integer                                           :: iw
+  integer         , dimension(ixG^T), intent(inout)        :: patchf
+
+  integer                                           :: ixOO^D,TxOO^L
+! use the following necessary?
+  integer                                           :: iw
 !-----------------------------------
 
 if(all(abs(patchf(ixO^S))==1) &
@@ -48,38 +63,39 @@ else
   {enddo^D&\}
 endif 
 
-end subroutine diffuse_hllcd
+  end subroutine srhd_diffuse_hllcd
 !=============================================================================
-subroutine getlCD(wLC,wRC,fLC,fRC,cmin,cmax,idims,ixI^L,ixO^L,&
+  subroutine srhd_get_lCD(wLC,wRC,fLC,fRC,cmin,cmax,idims,ixI^L,ixO^L,&
                   whll,Fhll,lambdaCD,patchf)
   
-! Calculate lambda at CD and set the patchf to know the orientation
-! of the riemann fan and decide on the flux choice
-! We also compute here the HLL flux and w value, for fallback strategy
+    ! Calculate lambda at CD and set the patchf to know the orientation
+    ! of the riemann fan and decide on the flux choice
+    ! We also compute here the HLL flux and w value, for fallback strategy
   
-use mod_global_parameters
+    use mod_global_parameters
   
-integer, intent(in)                                        :: ixI^L,ixO^L,idims
-double precision, dimension(ixI^S,1:nw), intent(in)        :: wLC,wRC
-double precision, dimension(ixG^T,1:nwflux), intent(in)  :: fLC,fRC
-double precision, dimension(ixG^T), intent(in)             :: cmax,cmin
+    integer, intent(in)                                        :: ixI^L,ixO^L,idim
+    double precision, dimension(ixI^S,1:nw), intent(in)        :: wLC,wRC
+    double precision, dimension(ixG^T,1:nwflux), intent(in)  :: fLC,fRC
+    double precision, dimension(ixG^T), intent(in)             :: cmax,cmin
 
-integer         , dimension(ixG^T), intent(inout)          :: patchf
+    integer         , dimension(ixG^T), intent(inout)          :: patchf
 
-double precision, dimension(ixG^T,1:nwflux), intent(out) :: Fhll,whll
-double precision, dimension(ixG^T), intent(out)            :: lambdaCD
+    double precision, dimension(ixG^T,1:nwflux), intent(out) :: Fhll,whll
+    double precision, dimension(ixG^T), intent(out)            :: lambdaCD
 
-double precision, dimension(ixG^T)      :: Aco,Bco,Cco,Delta
-logical         , dimension(ixG^T)      :: Cond_patchf
-integer                                 :: iw
-double precision                        :: Epsilon
-!--------------------------------------------
-! on entry, patch is preset to contain values from -2,1,2,4
-!      -2: take left flux, no computation here
-!      +2: take right flux, no computation here
-!      +4: take TVDLF flux, no computation here
-!       1: compute the characteristic speed for the CD
-Cond_patchf(ixO^S)=(abs(patchf(ixO^S))==1)
+    double precision, dimension(ixG^T)      :: Aco,Bco,Cco,Delta !are those needed?
+    logical         , dimension(ixG^T)      :: Cond_patchf
+    integer                                 :: iw
+    double precision                        :: Epsilon
+    !--------------------------------------------
+    ! on entry, patch is preset to contain values from -2,1,2,4
+    !      -2: take left flux, no computation here
+    !      +2: take right flux, no computation here
+    !      +4: take TVDLF flux, no computation here
+    !       1: compute the characteristic speed for the CD
+
+    Cond_patchf(ixO^S)=(abs(patchf(ixO^S))==1)
 
 do iw=1,nwflux
   where(Cond_patchf(ixO^S))
@@ -175,32 +191,33 @@ if(any(patchf(ixO^S)==0))then
 endif
 
 return 
-end subroutine getlCD
+   end subroutine srhd_get_lCD
 !=============================================================================
-subroutine getwCD(wLC,wRC,whll,vLC,vRC,fRC,fLC,Fhll,patchf,&
+   subroutine srhd_get_wCD(wLC,wRC,whll,vLC,vRC,fRC,fLC,Fhll,patchf,&
                   lambdaCD,cmin,cmax,ixI^L,ixO^L,idims,f)
 
-! compute the intermediate state U*
-! only needed where patchf=-1/1
+   ! compute the intermediate state U*
+   ! only needed where patchf=-1/1
 
-! For SRHD: compute D*, S*, tau*, p* and v* 
+   ! For SRHD: compute D*, S*, tau*, p* and v* 
   
-use mod_global_parameters
+   use mod_global_parameters
 
-integer, intent(in)                                      :: ixI^L,ixO^L,idims
-double precision, dimension(ixI^S,1:nw), intent(in)      :: wRC,wLC
-double precision, dimension(ixG^T,1:nwflux), intent(in)  :: whll, Fhll
-double precision, dimension(ixG^T), intent(in)           :: vRC,vLC,lambdaCD
-double precision, dimension(ixG^T), intent(in)           :: cmax,cmin
-double precision, dimension(ixG^T,1:nwflux), intent(in)  :: fRC,fLC
-double precision, dimension(ixG^T,1:nwflux), intent(out) :: f
+   integer, intent(in)                                      :: ixI^L,ixO^L,idim
+   double precision, dimension(ixI^S,1:nw), intent(in)      :: wRC,wLC
+   double precision, dimension(ixG^T,1:nwflux), intent(in)  :: whll, Fhll
+   double precision, dimension(ixG^T), intent(in)           :: vRC,vLC,lambdaCD
+   double precision, dimension(ixG^T), intent(in)           :: cmax,cmin
+   double precision, dimension(ixG^T,1:nwflux), intent(in)  :: fRC,fLC
+   double precision, dimension(ixG^T,1:nwflux), intent(out) :: f
 
-integer         , dimension(ixG^T), intent(in)           :: patchf
-
-double precision, dimension(ixG^T,1:nw)      :: wCD,wSub
-double precision, dimension(ixG^T)           :: cspeed,vsub,Ratio_CD
-integer                                      :: iw
-!--------------------------------------------
+   integer         , dimension(ixG^T), intent(in)           :: patchf
+!
+!there's something to change here, not in agreement with the hd
+   double precision, dimension(ixG^T,1:nw)      :: wCD,wSub
+   double precision, dimension(ixG^T)           :: cspeed,vsub,Ratio_CD
+   integer                                      :: iw
+   !--------------------------------------------
 
 !-------------- auxiliary Speed and array-------------!
 where(patchf(ixO^S)== 1)
@@ -266,6 +283,6 @@ do iw=1,nwflux
 end do
 
 return 
-end subroutine getwCD
+end subroutine srhd_get_wCD
 
 end module mod_srhd_hllc

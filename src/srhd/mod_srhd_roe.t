@@ -1,10 +1,111 @@
-module mod_srhd_roe
-! module vacphys.srhdroe - subroutines for Roe-type Riemann solver for SRHD
+!> Module with Roe-type Riemann solver for relativistic hydrodynamics
 
-  integer,parameter :: soundRW_ = 1,soundLW_=2,entropW_=3,shearW0_=3 ! waves
-  integer,parameter :: nworkroe = 3
+module mod_srhd_roe
+  use mod_srhd_phys
+  use mod_physics_roe
+
+  implicit none
+  private
+
+!  integer,parameter :: soundRW_ = 1,soundLW_=2,entropW_=3,shearW0_=3 ! waves
+!  integer,parameter :: nworkroe = 3
+
+  integer :: soundRW_ = -1
+  integer :: soundLW_ = -1
+  integer :: entropW_ = -1
+  integer :: shearW0_ = -1
+
+  public :: srhd_roe_init
 
 contains
+
+    subroutine srhd_roe_init()
+    use mod_global_parameters, only: entropycoef, nw
+
+    integer :: iw
+
+    if (srhd_energy) then
+       ! Characteristic waves
+       soundRW_ = 1
+       soundLW_ = 2
+       entropW_ = 3
+       shearW0_ = 3
+       nworkroe = 3
+
+       phys_average => srhd_average
+       phys_get_eigenjump => srhd_get_eigenjump
+       phys_rtimes => srhd_rtimes
+    else
+       ! Characteristic waves
+       soundRW_ = 1
+       soundLW_ = 2
+       shearW0_ = 2
+       nworkroe = 1
+
+       phys_average => srhd_average_iso
+       phys_get_eigenjump => srhd_get_eigenjump_iso
+       phys_rtimes => srhd_rtimes_iso
+    end if
+
+    allocate(entropycoef(nw))
+
+    do iw = 1, nw
+       if (iw == soundRW_ .or. iw == soundLW_) then
+          ! TODO: Jannis: what's this?
+          entropycoef(iw) = 0.2d0
+       else
+          entropycoef(iw) = -1.0d0
+       end if
+    end do
+
+  end subroutine srhd_roe_init
+
+!> Calculate the Roe average of w, assignment of variables:
+  !> rho -> rho, m -> v, e -> h but these are for the hd
+  !>I guess the equivalent for srhd is
+  !>  -> rho, rmom -> v, e -> 
+  !>The old code assumed
+  !> rho -> v0, m -> v, e-> v4
+
+  subroutine srhd_average(wL,wR,x,ix^L,idim,wroe,workroe)
+    use mod_global_parameters
+    integer, intent(in)             :: ix^L, idim
+    double precision, intent(in)    :: wL(ixG^T, nw), wR(ixG^T, nw)
+    double precision, intent(inout) :: wroe(ixG^T, nw)
+    double precision, intent(inout) :: workroe(ixG^T, nworkroe)
+    double precision, intent(in)    :: x(ixG^T, 1:^ND)
+    integer                         :: idir
+
+    ! call average2(wL,wR,x,ix^L,idim,wroe,workroe(ixG^T,1),workroe(ixG^T,2))
+    workroe(ix^S, 1) = sqrt(wL(ix^S,rho_))
+    workroe(ix^S, 2) = sqrt(wR(ix^S,rho_))
+
+    ! The averaged density is sqrt(rhoL*rhoR)
+    wroe(ix^S,rho_)  = workroe(ix^S, 1)*workroe(ix^S, 2)
+
+    ! Now the ratio sqrt(rhoL/rhoR) is put into workroe(ix^S, 1)
+    workroe(ix^S, 1) = workroe(ix^S, 1)/workroe(ix^S, 2)
+
+    ! Roe-average velocities
+    do idir = 1, ndir
+       wroe(ix^S,mom(idir)) = (wL(ix^S,mom(idir))/wL(ix^S,rho_) * workroe(ix^S,
+1)+&
+            wR(ix^S,mom(idir))/wR(ix^S,rho_))/(one+workroe(ix^S, 1))
+    end do
+
+    ! Calculate enthalpyL, then enthalpyR, then Roe-average. Use tmp2 for
+    ! pressure.
+    call srhd_get_pthermal(wL,x,ixG^LL,ix^L, workroe(ixG^T, 2))
+
+    wroe(ix^S,e_)    = (workroe(ix^S, 2)+wL(ix^S,e_))/wL(ix^S,rho_)
+
+    call srhd_get_pthermal(wR,x,ixG^LL,ix^L, workroe(ixG^T, 2))
+
+    workroe(ix^S, 2) = (workroe(ix^S, 2)+wR(ix^S,e_))/wR(ix^S,rho_)
+    wroe(ix^S,e_)    = (wroe(ix^S,e_)*workroe(ix^S, 1) + workroe(ix^S,
+2))/(one+workroe(ix^S, 1))
+  end subroutine srhd_average
+
   
 subroutine average(wL,wR,x,ix^L,idim,wroe,workroe)
 
@@ -68,7 +169,7 @@ subroutine average2(wL,wR,x,ix^L,idim,wroe,tmp,tmp2)
   
 end subroutine average2
 !=============================================================================
-subroutine geteigenjump(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump,workroe)
+subroutine srhd_geteigenjump(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump,workroe)
 
 ! Calculate the il-th characteristic speed and the jump in the il-th 
 ! characteristic variable in the idim direction within ixL. 
@@ -86,7 +187,7 @@ subroutine geteigenjump(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump,workroe)
   call geteigenjump2(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump, &
        workroe(ixG^T,1),workroe(ixG^T,2),workroe(ixG^T,3))
 
-end subroutine geteigenjump
+end subroutine srhd_geteigenjump
 !=============================================================================
 subroutine geteigenjump2(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump, &
      csound,del,dv)
@@ -205,7 +306,7 @@ subroutine geteigenjump2(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump, &
   
 end subroutine geteigenjump2
 !=============================================================================
-subroutine rtimes(q,wroe,ix^L,iw,il,idim,rq,workroe)
+subroutine srhd_rtimes(q,wroe,ix^L,iw,il,idim,rq,workroe)
 
 ! Multiply q by R(il,iw), where R is the right eigenvalue matrix at wroe
 
@@ -219,7 +320,7 @@ subroutine rtimes(q,wroe,ix^L,iw,il,idim,rq,workroe)
 
   call rtimes2(q,wroe,ix^L,iw,il,idim,rq,workroe(ixG^T,1))
 
-end subroutine rtimes
+end subroutine srhd_rtimes
 !=============================================================================
 subroutine rtimes2(q,wroe,ix^L,iw,il,idim,rq,csound)
 
@@ -302,5 +403,9 @@ subroutine rtimes2(q,wroe,ix^L,iw,il,idim,rq,csound)
   end select
   
 end subroutine rtimes2
+
+! Are we going to add here the relevant functions for the ideal gas ?
+! (the same way that isothermal is included in the hd_module?
+
 
 end module mod_srhd_roe

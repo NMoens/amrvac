@@ -37,8 +37,7 @@ module mod_srhd_phys
   !> Index of the  density (primitive?)
   integer, public, protected              :: s0_
 
-!  !> Index of the density
-!  integer, public, protected              :: rho_
+
 
   !> Indices of the momentum density (this is the old s1,s2,s3)
   integer, allocatable, public, protected :: rmom(:)
@@ -203,9 +202,17 @@ contains
     use mod_global_parameters
 
     !-----------------------------------------------------------------------------
-    minp   = max(zero,smallp)
-    minrho = max(zero,smallrho)
-    call smallvaluesEOS
+
+!*DM* Maybe add something like in the srmhd module...
+    {#IFDEF IDEAL
+      minp    = max(zero,smallp)
+      minrho  = max(zero,smallrho)
+      smalltau= minp/(eqpar(gamma_)-one)
+      smallxi = minrho + minp*eqpar(gamma_)/(eqpar(gamma_)-one) }
+    {#IFDEF MATHEWS
+      minp   = max(zero,smallp)
+      minrho = max(zero,smallrho)
+      call smallvaluesEOS}   
 
   end subroutine checkglobaldata
 !=============================================================================

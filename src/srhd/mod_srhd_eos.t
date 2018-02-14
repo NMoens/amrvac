@@ -2,11 +2,11 @@
 ! module amrvacphys - srhdeos  
 ! This module is developed using the paper Meliani et al 2004
 
-!!I assume it means the "Relativistic Parker winds with 
-!!variable effective polytropic index"
+!*DM* I assume it means the "Relativistic Parker winds with 
+!*DM* variable effective polytropic index"
 
-!!The srhd_eos uses the Mathews equation of state
-!!The srhd uses an ideal law
+!*DM  The srhd_eos uses the Mathews equation of state
+!*DM* The srhd uses an ideal law
 !===========================================================================
 module mod_srhd_eos
 

@@ -3,32 +3,32 @@ module mod_srhd_phys
   implicit none
   private
 
-  !Normally there are 2 auxiliary variables in the srhd module
-  !the Lorentz factor and the pressure
-  !These are used in the calculation of the proper density (d), the
-  !momentum density (rmom, previously s)  and the total energy density (tau)
+  !*DM* Normally there are 2 auxiliary variables in the srhd module
+  !*DM* the Lorentz factor and the pressure
+  !*DM* These are used in the calculation of the proper density (d), the
+  !*DM* momentum density (rmom, previously s)  and the total energy density (tau)
 
-  ! In the previous version, srhd and srhdeos used an ideal or a Mathews EOS
-  ! respectively. Better if we merge these two by adding a switch?
-  ! ~check comment1
+  !*DM* In the previous version, srhd and srhdeos used an ideal or a Mathews EOS
+  !*DM* respectively. Better if we merge these two by adding a switch?
+  !*DM* ~check comment1
 
-  !Declare variable names for the srhd module (mostly translating the old
-  !file amrvacpar.t
+  !*DM* Declare variable names for the srhd module (mostly translating the old
+  !*DM* file amrvacpar.t
 
   !> The adiabatic index
   double precision, public :: srhd_gamma = 5.d0/3.0d0
   
-  ! comment1
+  !*DM*  comment1
   !> Decide if ideal eos is used
   ! It has to be consistent with the way we handle different eos in hd 
   !logical, public, protected              :: srhd_ideal = .false.
 
   !> Decide if Mathews eos is used
   !logical, public, protected              :: srhd_mathews = .false.
-  ! comment1
+  !*DM*  comment1
 
   !> Index of the energy density
-  ! Is that necessary ?
+  !*DM*  Is that necessary ?
   integer, public, protected              :: e_
 
   !> Index of the density (lab frame)
@@ -91,9 +91,9 @@ contains
 
   end subroutine srhd_read_params
 !---------------------------------------------------------------------
-!
+!*DM* 
 !add the srhd write info subroutine ?
-!
+!*DM* 
 !---------------------------------------------------------------------
 !> Initialize the module
   subroutine srhd_phys_init()
@@ -116,8 +116,8 @@ contains
 
     ! Set index of energy variable
     e_ = var_set_energy()
-!   related to the choice of eos ??
-!   maybe decide which variables we acoordingly...
+!*DM* related to the choice of eos ??
+!*DM* maybe decide which variables we acoordingly...
 !    if (srhd_energy) then
 !       e_ = var_set_energy()
 !       p_ = e_
@@ -146,11 +146,12 @@ contains
     ! Whether diagonal ghost cells are required for the physics (TODO: true?)
     phys_req_diagonal = .true.
 
-    ! derive units from basic units (TO BE ADDED FOR SRHD)
+!*DM* derive units from basic units (TO BE ADDED FOR SRHD)
 !    call srhd_physical_units()
 
     allocate(tracer(srhd_n_tracer))
 
+!*DM* Check this... also, do we define the conservative? 
     ! Set starting index of tracers
     do itr = 1, srhd_n_tracer
        tracer(itr) = var_set_fluxvar("trc", "trp", itr, need_bc=.false.)
@@ -170,7 +171,7 @@ contains
 
   end subroutine srhd_phys_init
 !==============================================================================
-!For now not necessary, maybe add later? The temperature is not really needed...
+!*DM* For now not necessary, maybe add later? The temperature is not really needed...
 
 !  subroutine srhd_physical_units
 !    use mod_global_parameters
@@ -227,6 +228,7 @@ contains
                (w(ixO^S,pp_)  >= minp)
        else
           ! check  v^2 < 1, rho>=0, p>=smallp
+!*DM* Check use of primitive/conservative...
           flag(ixO^S) = (sum(w(ixO^S,rmom(:))**2.0d0) < one).and. &
                (w(ixO^S,rho_) >= minrho).and. &
                (w(ixO^S,pp_)  >= minp)
@@ -240,7 +242,7 @@ contains
   end subroutine srhd_check_w
   !=============================================================================
   subroutine srhd_to_conserved(ixI^L,ixO^L,w,x,patchw)
-
+    !*DM*
     ! Transform primitive variables into conservative ones
     ! (rho,v,p) ---> (D,S,tau) **THIS IS THE OLD VERSION**
     ! (rho,v,p) ---> (D,rmom, tau) **THIS SHOULD BE THE NEW TRANSFORMATION**
@@ -249,7 +251,7 @@ contains
     ! call to smallvalues **OLD**
     ! --> latter only used for correcting procedure in correctaux **OLD**
     ! --> input array patchw for spatially selective transformation **OLD**
-
+    !*DM*
     use mod_global_parameters
 
     integer, intent(in)               :: ixI^L, ixO^L
@@ -260,6 +262,7 @@ contains
 
     double precision,dimension(ixG^T) :: xi
     !-----------------------------------------------------------------------------
+!*DM* Here I changed basically rmom only...
 
     if(useprimitiveRel)then
        ! assumes four velocity computed in primitive (rho u p) with u=lfac*v
@@ -305,7 +308,7 @@ contains
     ! We got D, now we can get the conserved tracers:
      ! {w(ixO^S,tr^FL_) = w(ixO^S,d_)*w(ixO^S,tr^FL_)\}
        do itr=1,srhd_n_tracer  
-!    ** CHECK IF CORRECTLY TRANSLATED **
+!*DM*    ** CHECK IF CORRECTLY TRANSLATED **
        w(ixO^S,tracer(itr))=w(ixO^S,_d)*w(ixO^S,tracer(itr))
        end do
     end if
@@ -315,7 +318,7 @@ contains
   end subroutine srhd_to_conserved
   !=============================================================================
   subroutine srhd_to_primitive(ixI^L,ixO^L,w,x)
-
+    !*DM*
     ! Transform conservative variables into primitive ones
     ! (D,S,tau) ---> (rho,v,p) **THIS IS THE OLD VERSION**
     ! (D,rmom,tau) ---> (rho,v,p) **THIS IS THE NEW VERSION**
@@ -332,7 +335,7 @@ contains
     ! these are put in lfac_ and p_ auxiliaries
 
     call getaux(.true.,w,x,ixI^L,ixO^L,'primitive')
-    !**OLD**
+    !*DM* **OLD**
     ! note: on exit from getaux: gauranteed 
     !    xi=(d+tau+p)>smallp*gamma/(gamma-1), lfac>=1, p>smallp
 
@@ -358,7 +361,7 @@ contains
 !    ! We got lor, rho, Dtr, now we can get the tracers:
 !    {^FL&w(ixO^S,tr^FL_) = w(ixO^S,Dtr^FL_)/w(ixO^S,lfac_)/w(ixO^S,rho_)\}
        do itr=1,srhd_n_tracer
-!    ** CHECK IF CORRECTLY TRANSLATED **
+!*DM*  ** CHECK IF CORRECTLY TRANSLATED **
        w(ixO^S,tracer(itr))=w(ixO^S,tracer(itr))/w(ixO^S,lfac_)/*w(ixO^S,rho_)
        end do
 
@@ -368,9 +371,9 @@ contains
 
   end subroutine srhd_to_primitive(ixI^L,ixO^L,w,x) 
   !=============================================================================
-  !!The subroutines e_to_rhos and rhos_to_e are different for srhd/shrdeos.
-  !!e_to _rhos is "empty" for srhdeos and as follows for srhd
-  !!We need to activate accordingly... maybe inspire from the old srmhd 
+  !!*DM* The subroutines e_to_rhos and rhos_to_e are different for srhd/shrdeos.
+  !!*DM* e_to _rhos is "empty" for srhdeos and as follows for srhd
+  !!*DM* We need to activate accordingly... maybe inspire from the old srmhd 
 
  subroutine e_to_rhos(ixI^L,ixO^L,w,x)
 
@@ -381,11 +384,11 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     !-----------------------------------------------------------------------------
 
- !   ADD CORRECT FLAG FOR EACH EOS
- !   THE FOLLOWING JUST TRANSLATE THE NAMES, DID NOT CHECK THE PHYSICS
- !   if (srhd_energy) then
- !      w(ixO^S, e_) = (srhd_gamma - 1.0d0) * w(ixO^S, rho_)**(1.0d0 - srhd_gamma) * &
- !           (w(ixO^S, e_) - hd_kin_en(w, ixI^L, ixO^L))
+ !*DM*    ADD CORRECT FLAG FOR EACH EOS
+ !*DM*    THE FOLLOWING JUST TRANSLATE THE NAMES, DID NOT CHECK THE PHYSICS
+ !    if (srhd_energy) then
+ !       w(ixO^S, e_) = (srhd_gamma - 1.0d0) * w(ixO^S, rho_)**(1.0d0 - srhd_gamma) * &
+ !            (w(ixO^S, e_) - hd_kin_en(w, ixI^L, ixO^L))
  !   else
  !      call mpistop("energy from entropy can not be used with -eos = iso !")
  !   end if
@@ -396,7 +399,7 @@ contains
   !=============================================================================
   subroutine rhos_to_e(ixI^L,ixO^L,w,x)
 
-!!  SAME COMMENT AS ABOVE...
+!!*DM*  SAME COMMENT AS ABOVE...
     use mod_global_parameters
 
     integer, intent(in) :: ixI^L, ixO^L
@@ -404,7 +407,7 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     !-----------------------------------------------------------------------------
 
- !   ADD CORRECT FLAG FOR EACH EOS
+!*DM*    ADD CORRECT FLAG FOR EACH EOS
 !    if (srhd_energy) then
 !       w(ixO^S, e_) = w(ixO^S, rho_)**(srhd_gamma - 1.0d0) * w(ixO^S, e_) &
 !            / (srhd_gamma - 1.0d0) + srhd_kin_en(w, ixI^L, ixO^L)
@@ -416,6 +419,8 @@ contains
 
   end subroutine rhos_to_e
   !=============================================================================
+!*DM* I commented out the following ppm* routines, are we using ppm ?
+
  ! subroutine ppmflatcd(ixI^L,ixO^L,ixL^L,ixR^L,w,d2w,drho,dp)
 
  !   use mod_global_parameters
@@ -475,7 +480,7 @@ contains
   !=============================================================================
   subroutine srhd_get_v(w,x,ixI^L,ixO^L,idim,v)
 
-!!THIS SHOULD BE THE SAME AS IN THE OLD VERSION....
+!*DM* THIS SHOULD BE THE SAME AS IN THE OLD VERSION....
     ! Calculate v_idim=m_idim/rho within ixO^L
 
     use mod_global_parameters
@@ -502,8 +507,8 @@ contains
   !=============================================================================
   subroutine srhd_get_cmax(new_cmax,w,x,ixI^L,ixO^L,idims,cmax,cmin,needcmin)
 
-!! THIS IS DIFFERENT FOR SRHD/SRHDEOS
-!! HERE I COPIED ONLY THE SRHDEOS ONE...
+!*DM* THIS IS DIFFERENT FOR SRHD/SRHDEOS
+!*DM*  HERE I COPIED ONLY THE SRHDEOS ONE...
     ! Calculate cmax_idim=csound+abs(v_idim) within ixO^L
 
     use mod_global_parameters
@@ -567,7 +572,7 @@ contains
     endif
   
 
-  !!PROBABALY ADD HERE AN IFDEF ENERGY TO SWITCH TO
+!*DM* PROBABALY ADD HERE AN IFDEF ENERGY TO SWITCH TO
 !rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_) + &
 !         eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
 !csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
@@ -613,12 +618,13 @@ contains
 !                 ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
 !  endif
 !endif
+!*DM* The commented out part is copied from the old version, no translation
 
   end subroutine srhd_get_cmax
   !=============================================================================
   subroutine srhd_get_flux(w,x,ixI^L,ixO^L,iw,idim,f,transport)
 
-  !!THE SAME IN BOTH SRHD/SRHDEOS...
+  !*DM* THE SAME IN BOTH SRHD/SRHDEOS...
 
     ! Calculate non-transport flux f_idim[iw] within ixO^L.
 
@@ -701,6 +707,8 @@ contains
   end subroutine srhd_get_flux_forhllc
   !=============================================================================
   subroutine srhd_con2prim(pressure,lfac,d,s^C,tau,ierror)
+  !*DM* I did nothing here...
+
     !use ieee_arithmetic
     use mod_global_parameters
 
@@ -1002,6 +1010,8 @@ contains
   end subroutine srhd_con2prim
   !=============================================================================
   subroutine srhd_add_geometry(qdt,ixI^L,ixO^L,wCT,w,x)
+
+!*DM* I did nothing here... How do we handle these geometrical switches now?
 
     ! Add geometrical source terms to w
 

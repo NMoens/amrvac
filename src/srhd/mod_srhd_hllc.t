@@ -1,4 +1,5 @@
-!Relativistic hydrodynamics HLLC module (translated from the original of Zakaria Meliani in the old version)
+!*DM* Relativistic hydrodynamics HLLC module
+!*DM* (translated from the original of Zakaria Meliani in the old version)
 
 module mod_srhd_hllc
   use mod_srhd_phys

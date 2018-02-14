@@ -1,4 +1,5 @@
 !> Module with Roe-type Riemann solver for relativistic hydrodynamics
+!*DM* This should be independent of the srhd/srhdeos choice...
 
 module mod_srhd_roe
   use mod_srhd_phys
@@ -24,6 +25,7 @@ contains
 
     integer :: iw
 
+!*DM* Copy paste from the hd module
     if (srhd_energy) then
        ! Characteristic waves
        soundRW_ = 1
@@ -42,6 +44,7 @@ contains
        shearW0_ = 2
        nworkroe = 1
 
+!*DM* Are those needed ? We won't use isothermal... Modify for ideal/Mathews?
        phys_average => srhd_average_iso
        phys_get_eigenjump => srhd_get_eigenjump_iso
        phys_rtimes => srhd_rtimes_iso
@@ -59,13 +62,13 @@ contains
     end do
 
   end subroutine srhd_roe_init
-
-!> Calculate the Roe average of w, assignment of variables:
-  !> rho -> rho, m -> v, e -> h but these are for the hd
-  !>I guess the equivalent for srhd is
-  !>  -> rho, rmom -> v, e -> 
-  !>The old code assumed
-  !> rho -> v0, m -> v, e-> v4
+!=============================================================================
+  !*DM* Calculate the Roe average of w, assignment of variables:
+  !*DM* rho -> rho, m -> v, e -> h but these are for the hd
+  
+  !*DM* What is the equivalent for srhd?
+  !*DM* The old code assumed
+  !*DM* rho -> v0, m -> v, e-> v4
 
   subroutine srhd_average(wL,wR,x,ix^L,idim,wroe,workroe)
     use mod_global_parameters
@@ -88,9 +91,10 @@ contains
 
     ! Roe-average velocities
     do idir = 1, ndir
-       wroe(ix^S,mom(idir)) = (wL(ix^S,mom(idir))/wL(ix^S,rho_) * workroe(ix^S,
+   !*DM* Here I changed mom to rmom 
+       wroe(ix^S,rmom(idir)) = (wL(ix^S,rmom(idir))/wL(ix^S,rho_) * workroe(ix^S,
 1)+&
-            wR(ix^S,mom(idir))/wR(ix^S,rho_))/(one+workroe(ix^S, 1))
+            wR(ix^S,rmom(idir))/wR(ix^S,rho_))/(one+workroe(ix^S, 1))
     end do
 
     ! Calculate enthalpyL, then enthalpyR, then Roe-average. Use tmp2 for
@@ -105,7 +109,7 @@ contains
     wroe(ix^S,e_)    = (wroe(ix^S,e_)*workroe(ix^S, 1) + workroe(ix^S,
 2))/(one+workroe(ix^S, 1))
   end subroutine srhd_average
-
+!=============================================================================
   
 subroutine average(wL,wR,x,ix^L,idim,wroe,workroe)
 
@@ -403,9 +407,9 @@ subroutine rtimes2(q,wroe,ix^L,iw,il,idim,rq,csound)
   end select
   
 end subroutine rtimes2
-
-! Are we going to add here the relevant functions for the ideal gas ?
-! (the same way that isothermal is included in the hd_module?
+!=============================================================================
+! *DM* Are we going to add here the relevant functions for the ideal gas ?
+! *DM* (the same way that isothermal is included in the hd_module?
 
 
 end module mod_srhd_roe

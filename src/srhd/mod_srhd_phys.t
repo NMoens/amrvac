@@ -502,6 +502,8 @@ contains
   !=============================================================================
   subroutine srhd_get_cmax(new_cmax,w,x,ixI^L,ixO^L,idims,cmax,cmin,needcmin)
 
+!! THIS IS DIFFERENT FOR SRHD/SRHDEOS
+!! HERE I COPIED ONLY THE SRHDEOS ONE...
     ! Calculate cmax_idim=csound+abs(v_idim) within ixO^L
 
     use mod_global_parameters
@@ -563,10 +565,60 @@ contains
                ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
        endif
     endif
+  
+
+  !!PROBABALY ADD HERE AN IFDEF ENERGY TO SWITCH TO
+!rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_) + &
+!         eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
+!csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
+!if(.not.needcmin)then
+!   v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
+!             ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
+!else
+!   vidim(ixO^S)=(w(ixO^S,s0_+idim)/ &
+!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
+!endif
+!
+!if(.not.needcmin)then
+!  if (ndir==1) then
+!     cmax(ixO^S)= (dsqrt(v2(ixO^S))+dsqrt(csound2(ixO^S)))/ &
+!                  (one+dsqrt(csound2(ixO^S)*v2(ixO^S)))
+!  else
+!     vidim2(ixO^S)=(w(ixO^S,s0_+idim)/ &
+!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2.0d0
+
+!     cmax(ixO^S)=( dsqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
+!                dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+!        one-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(one-csound2(ixO^S))) &
+!               ) ) / (one-v2(ixO^S)*csound2(ixO^S))
+!  endif
+!else
+!  if (ndir==1) then
+!     cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+dsqrt(csound2(ixO^S)))/ &
+!                  (one+dsqrt(csound2(ixO^S))*vidim(ixO^S))))
+!     cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-dsqrt(csound2(ixO^S)))/ &
+!                  (one-dsqrt(csound2(ixO^S))*vidim(ixO^S))))
+!  else
+!     v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
+!             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0
+
+!     cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
+!      dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+!      one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
+!       ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
+
+!     cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
+!       dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+!       one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
+!                 ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
+!  endif
+!endif
 
   end subroutine srhd_get_cmax
   !=============================================================================
   subroutine srhd_get_flux(w,x,ixI^L,ixO^L,iw,idim,f,transport)
+
+  !!THE SAME IN BOTH SRHD/SRHDEOS...
 
     ! Calculate non-transport flux f_idim[iw] within ixO^L.
 

@@ -247,7 +247,7 @@ contains
 
   end subroutine srhd_check_w
 !=============================================================================
-  subroutine srhd_to_conserved(ixI^L,ixO^L,w,x,patchw)
+  subroutine srhd_to_conserved(ixI^L,ixO^L,w,x) !*DM* I removed the patchw 
     !*DM*
     ! Transform primitive variables into conservative ones
     ! (rho,v,p) ---> (D,S,tau) **THIS IS THE OLD VERSION**
@@ -268,51 +268,30 @@ contains
 
     double precision,dimension(ixG^T) :: xi
     !-----------------------------------------------------------------------------
-!*DM* Here I changed basically rmom only...
-
-!    if(useprimitiveRel)then
-       ! assumes four velocity computed in primitive (rho u p) with u=lfac*v
+    
+    !*DM* useprimitiveRel is always true now, I deleted everything else
+       ! This assumes four velocity computed in primitive (rho u p) with u=lfac*v
        ! TODO: fix sum(...) below
        xi(ixO^S)=1.0d0+sum(w(ixO^S,uvel(:))**2, dim=ndim+1)
        ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
        w(ixO^S,lfac_)=sqrt(xi(ixO^S))
        w(ixO^S,p_)=w(ixO^S,pp_)
-!    else !*DM* Assume useprimitiveRel always 
-!       ! assumes velocity in primitive (rho v p) 
-!       xi(ixO^S)=one-(sum(w(ixO^S,vvel(:))**2))
-!       ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
-!       w(ixO^S,lfac_)=one/sqrt(xi(ixO^S))
-!       w(ixO^S,p_)=w(ixO^S,pp_)
-!    endif
 
     call Enthalpy(w,ixI^L,ixO^L,patchw,xi) !*DM* This is used for srhdeos I think
 
-!    if(useprimitiveRel)then !*DM* always true
        ! compute xi=Lfac w  (enthalphy w)
        xi(ixO^S)=w(ixO^S,lfac_)*xi(ixO^S)
-!    else
-!       ! compute xi=Lfac^2 w  (enthalphy w)
-!       xi(ixO^S)=w(ixO^S,lfac_)*w(ixO^S,lfac_)*xi(ixO^S)     
-!    endif
 
-!    if(useprimitiveRel)then !*DM* this is always
        w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
        do idir = 1, ndir
        w(ixO^S, rmom(idir)) = xi(ixO^S)*w(ixO^S,uvel(idir))
        end do
 !       ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,u^C_);
        w(ixO^S,tau_)=xi(ixO^S)*w(ixO^S,lfac_) - w(ixO^S,p_) - w(ixO^S,d_)
-!    else !*DM* useprimitiveRel true
-!       w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
-!       do idir = 1, ndir
-!       w(ixO^S, rmom(idir)) = xi(ixO^S)*w(ixO^S,vvel(idir))
-!       end do
-!       ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,v^C_);
-!       w(ixO^S,tau_)=xi(ixO^S) - w(ixO^S,p_) - w(ixO^S,d_)
-!    endif
 
 !*DM* No need to do anything for the tracer 
-    if(check_small_values) call srhd_handle_smallvalues(.false.,w,x,ixI^L,ixO^L,"srhd_to_conserved")
+
+   if(check_small_values) call srhd_handle_smallvalues(.false.,w,x,ixI^L,ixO^L,"srhd_to_conserved")
 
   end subroutine srhd_to_conserved
   !=============================================================================
@@ -341,23 +320,18 @@ contains
     ! replace conservative with primitive variables
     ! compute velocity
     !**OLD**
-!    if(useprimitiveRel)then !*DM* always true
+
+    !* Again, useprimitiveRel is always true, delete the rest
        do idir=1, ndir
        w(ixO^S,uvel(idir))=w(ixO^S,lfac_)*w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
        end do
-!    else
-!       do idir=1, ndir
-!       w(ixO^S,vvel(idir))=w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
-!       end do
-!    endif
 
     ! compute density
     w(ixO^S,rho_)=w(ixO^S,d_)/w(ixO^S,lfac_)
     ! fill pressure
     w(ixO^S,pp_)=w(ixO^S,p_)
 
-! Nothing to do for the tracer here
-
+!    *DM* Check later
 !    if (tlow>zero) call fixp_usr(ixI^L,ixO^L,w,x)
 
   end subroutine srhd_to_primitive(ixI^L,ixO^L,w,x) 
@@ -1145,6 +1119,7 @@ contains
        end if ! strict
     end if
 
+!*DM* Well, I don't think we should include the tracers in that now...
     {#IFDEF TRACER
     if(any(w(ixO^S,Dtr1_) < minrho) .or. &
          any(w(ixO^S,Dtr1_) > 10.d10 ))then

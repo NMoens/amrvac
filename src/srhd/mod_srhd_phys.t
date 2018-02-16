@@ -12,13 +12,8 @@ module mod_srhd_phys
   !*DM* respectively. Better if we merge these two by adding a switch?
   !*DM* ~check comment1
 
-  !*DM* Declare variable names for the srhd module (mostly translating the old
-  !*DM* file amrvacpar.t
-
   !> The adiabatic index
   double precision, public :: srhd_gamma = 5.d0/3.0d0
-  
-  !*DM*  comment1
   
   ! It has to be consistent with the way we handle different eos in hd 
   !logical, public, protected              :: srhd_ideal = .false.
@@ -30,21 +25,16 @@ module mod_srhd_phys
   integer, parameter :: eos_ideal   = 1
   integer, parameter :: eos_mathews = 2
 
-  !> Decide if Mathews eos is used
-  !logical, public, protected              :: srhd_mathews = .false.
-  !*DM*  comment1
-
   !> Index of the energy density
-  !*DM*  Is that necessary ?
   integer, public, protected              :: e_
 
   !> Index of the density (lab frame)
   integer, public, protected              :: d_
 
-  !> Index of the  density (primitive?)
+  !> Index of the  density (primitive?) (*DM* we delete this one I guess...)
   integer, public, protected              :: s0_
 
-  !> Indices of the momentum density (this is the old s1,s2,s3)
+  !> Indices of the momentum density
   integer, allocatable, public, protected :: rmom(:)
 
   !> Index of the total energy density 
@@ -70,6 +60,7 @@ module mod_srhd_phys
 
   double precision :: smalltau,smallxi,minrho,minp
 
+  ! *DM* We don't need this anymore then !
   !> If true, velocity is lfac * v. ALWAYS TRUE
   logical :: useprimitiveRel
 
@@ -77,8 +68,8 @@ module mod_srhd_phys
   public :: srhd_phys_init
 !  public :: srhd_kin_en
 !  public :: srhd_get_pthermal
-!  public :: srhd_to_conserved
-!  public :: srhd_to_primitive
+  public :: srhd_to_conserved
+  public :: srhd_to_primitive
 
 contains
 
@@ -102,7 +93,7 @@ contains
     case ("mathews")
        eos_type = eos_mathews
     case default
-       call mpistop("Invalid srhd_eos")
+       call mpistop("Invalid srhd_eos, available eos are Ideal and Mathews")
     end select
 
   end subroutine srhd_read_params
@@ -122,7 +113,7 @@ contains
     call srhd_read_params(par_files)
 
     physics_type = "srhd"
-    phys_energy  = srhd_energy
+    phys_energy  = srhd_energy !*DM* Not necessary now, we choose between two eos !
 
     ! Determine flux variables
     rho_ = var_set_rho()
@@ -179,7 +170,7 @@ contains
     end if
 
     nvector      = 1 ! No. vector vars
-    allocate(iw_vector(nvector))
+    allocate(iw_vector(nvector)) !*DM* Are we keeping iw in the end ??
     iw_vector(1) = rmom(1) - 1
 
     if (eos_type == eos_ideal) then
@@ -222,8 +213,7 @@ contains
 
 !  end subroutine srhd_physical_units
 !==============================================================================
-
-  ! Fix later, probably have to switch flag (see mod_hd_phys)
+! Fix later, probably have to switch flag (see mod_hd_phys)
   subroutine srhd_check_w(checkprimitive,ixI^L,ixO^L,w,flag)
     use mod_global_parameters
 
@@ -237,17 +227,18 @@ contains
     flag(iO^S)= 0
 
     if (checkprimitive) then
-       if(useprimitiveRel)then
+!       if(useprimitiveRel)then !*DM* useprimitiveRel is always true now
           ! check   rho>=0, p>=smallp
           flag(ixO^S) = (w(ixO^S,rho_) >= minrho).and. &
                (w(ixO^S,pp_)  >= minp)
-       else
+       !else
           ! check  v^2 < 1, rho>=0, p>=smallp
 !*DM* Check use of primitive/conservative...
-          flag(ixO^S) = (sum(w(ixO^S,rmom(:))**2) < one).and. &
-               (w(ixO^S,rho_) >= minrho).and. &
-               (w(ixO^S,pp_)  >= minp)
-       endif
+!*Delete this probably, useprimitiveRel always true...
+       !   flag(ixO^S) = (sum(w(ixO^S,rmom(:))**2) < one).and. &
+       !        (w(ixO^S,rho_) >= minrho).and. &
+       !        (w(ixO^S,pp_)  >= minp)
+       !endif
     else
        ! Check D>=0 and lower limit for tau
        flag(ixO^S) = (w(ixO^S,d_)    >= minrho).and. &
@@ -255,7 +246,7 @@ contains
     endif
 
   end subroutine srhd_check_w
-  !=============================================================================
+!=============================================================================
   subroutine srhd_to_conserved(ixI^L,ixO^L,w,x,patchw)
     !*DM*
     ! Transform primitive variables into conservative ones
@@ -279,56 +270,48 @@ contains
     !-----------------------------------------------------------------------------
 !*DM* Here I changed basically rmom only...
 
-    if(useprimitiveRel)then
+!    if(useprimitiveRel)then
        ! assumes four velocity computed in primitive (rho u p) with u=lfac*v
        ! TODO: fix sum(...) below
        xi(ixO^S)=1.0d0+sum(w(ixO^S,uvel(:))**2, dim=ndim+1)
        ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
        w(ixO^S,lfac_)=sqrt(xi(ixO^S))
        w(ixO^S,p_)=w(ixO^S,pp_)
-    else
-       ! assumes velocity in primitive (rho v p) 
-       xi(ixO^S)=one-(sum(w(ixO^S,vvel(:))**2))
-       ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
-       w(ixO^S,lfac_)=one/sqrt(xi(ixO^S))
-       w(ixO^S,p_)=w(ixO^S,pp_)
-    endif
+!    else !*DM* Assume useprimitiveRel always 
+!       ! assumes velocity in primitive (rho v p) 
+!       xi(ixO^S)=one-(sum(w(ixO^S,vvel(:))**2))
+!       ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
+!       w(ixO^S,lfac_)=one/sqrt(xi(ixO^S))
+!       w(ixO^S,p_)=w(ixO^S,pp_)
+!    endif
 
-    call Enthalpy(w,ixI^L,ixO^L,patchw,xi)
+    call Enthalpy(w,ixI^L,ixO^L,patchw,xi) !*DM* This is used for srhdeos I think
 
-    if(useprimitiveRel)then
+!    if(useprimitiveRel)then !*DM* always true
        ! compute xi=Lfac w  (enthalphy w)
        xi(ixO^S)=w(ixO^S,lfac_)*xi(ixO^S)
-    else
-       ! compute xi=Lfac^2 w  (enthalphy w)
-       xi(ixO^S)=w(ixO^S,lfac_)*w(ixO^S,lfac_)*xi(ixO^S)     
-    endif
+!    else
+!       ! compute xi=Lfac^2 w  (enthalphy w)
+!       xi(ixO^S)=w(ixO^S,lfac_)*w(ixO^S,lfac_)*xi(ixO^S)     
+!    endif
 
-    if(useprimitiveRel)then
+!    if(useprimitiveRel)then !*DM* this is always
        w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
        do idir = 1, ndir
        w(ixO^S, rmom(idir)) = xi(ixO^S)*w(ixO^S,uvel(idir))
        end do
 !       ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,u^C_);
        w(ixO^S,tau_)=xi(ixO^S)*w(ixO^S,lfac_) - w(ixO^S,p_) - w(ixO^S,d_)
-    else
-       w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
-       do idir = 1, ndir
-       w(ixO^S, rmom(idir)) = xi(ixO^S)*w(ixO^S,vvel(idir))
-       end do
+!    else !*DM* useprimitiveRel true
+!       w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
+!       do idir = 1, ndir
+!       w(ixO^S, rmom(idir)) = xi(ixO^S)*w(ixO^S,vvel(idir))
+!       end do
 !       ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,v^C_);
-       w(ixO^S,tau_)=xi(ixO^S) - w(ixO^S,p_) - w(ixO^S,d_)
-    endif
+!       w(ixO^S,tau_)=xi(ixO^S) - w(ixO^S,p_) - w(ixO^S,d_)
+!    endif
 
-    if (srhd_n_tracer)
-    ! We got D, now we can get the conserved tracers:
-     ! {w(ixO^S,tr^FL_) = w(ixO^S,d_)*w(ixO^S,tr^FL_)\}
-       do itr=1,srhd_n_tracer  
-!*DM*    ** CHECK IF CORRECTLY TRANSLATED **
-       w(ixO^S,tracer(itr))=w(ixO^S,_d)*w(ixO^S,tracer(itr))
-       end do
-    end if
-
+!*DM* No need to do anything for the tracer 
     if(check_small_values) call srhd_handle_smallvalues(.false.,w,x,ixI^L,ixO^L,"srhd_to_conserved")
 
   end subroutine srhd_to_conserved
@@ -358,35 +341,27 @@ contains
     ! replace conservative with primitive variables
     ! compute velocity
     !**OLD**
-    if(useprimitiveRel)then
+!    if(useprimitiveRel)then !*DM* always true
        do idir=1, ndir
        w(ixO^S,uvel(idir))=w(ixO^S,lfac_)*w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
        end do
-    else
-       do idir=1, ndir
-       w(ixO^S,vvel(idir))=w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
-       end do
-    endif
+!    else
+!       do idir=1, ndir
+!       w(ixO^S,vvel(idir))=w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
+!       end do
+!    endif
 
     ! compute density
     w(ixO^S,rho_)=w(ixO^S,d_)/w(ixO^S,lfac_)
     ! fill pressure
     w(ixO^S,pp_)=w(ixO^S,p_)
 
-!    {#IFDEF TRACER
-!    ! We got lor, rho, Dtr, now we can get the tracers:
-!    {^FL&w(ixO^S,tr^FL_) = w(ixO^S,Dtr^FL_)/w(ixO^S,lfac_)/w(ixO^S,rho_)\}
-       do itr=1,srhd_n_tracer
-!*DM*  ** CHECK IF CORRECTLY TRANSLATED **
-       w(ixO^S,tracer(itr))=w(ixO^S,tracer(itr))/w(ixO^S,lfac_)/*w(ixO^S,rho_)
-       end do
-
- !   }
+! Nothing to do for the tracer here
 
 !    if (tlow>zero) call fixp_usr(ixI^L,ixO^L,w,x)
 
   end subroutine srhd_to_primitive(ixI^L,ixO^L,w,x) 
-
+!=============================================================================
   subroutine srhd_get_v(w,x,ixI^L,ixO^L,idim,v)
 
 !*DM* THIS SHOULD BE THE SAME AS IN THE OLD VERSION....
@@ -406,8 +381,7 @@ contains
          (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
 
   end subroutine srhd_get_v
-
-  !=============================================================================
+!=============================================================================
   ! Look at mod_hd_phys
   subroutine srhd_get_cmax(w,x,ixI^L,ixO^L,idim,cmax)
 
@@ -525,7 +499,7 @@ contains
 !*DM* The commented out part is copied from the old version, no translation
 
   end subroutine srhd_get_cmax
-
+!=============================================================================
   ! TODO: add srhd_get_cbounds (look at mod_hd_phys)
   subroutine srhd_get_cbounds(wLC, wRC, wLp, wRp, x, ixI^L, ixO^L, idim, cmax, cmin)
 
@@ -622,8 +596,7 @@ contains
 !*DM* The commented out part is copied from the old version, no translation
 
   end subroutine srhd_get_cmax
-
-  !=============================================================================
+!=============================================================================
   subroutine srhd_get_flux(w,x,ixI^L,ixO^L,idim,f)
 
     ! Calculate non-transport flux f_idim[iw] within ixO^L.
@@ -660,7 +633,7 @@ contains
        endwhere
 
   end subroutine srhd_get_flux
-
+!=============================================================================
   subroutine srhd_con2prim(pressure,lfac,d,s^C,tau,ierror)
   !*DM* I did nothing here...
 
@@ -963,7 +936,7 @@ contains
     !------------------------------!
 
   end subroutine srhd_con2prim
-
+!=============================================================================
   ! Fix later (first do Cartesian)
   subroutine srhd_add_geometry(qdt,ixI^L,ixO^L,wCT,w,x)
 
@@ -986,6 +959,7 @@ contains
 !!! now handled in tvdmusclf/getaux/hll variants
 !!!if(typeaxial /= 'slab') call getaux(.true.,wCT,ixI^L,ixO^L,'addgeometry')
 
+!*DM* For now, we only deal with cartesian
     select case (typeaxial)
     case ('slab')
        ! No source terms in slab symmetry
@@ -1130,7 +1104,7 @@ contains
     {enddo^D&\}
 
   end subroutine srhd_correctaux
-
+!=============================================================================
   ! Fix later
   subroutine srhd_handle_small_values(w,x,ixI^L,ixO^L,subname)
 
@@ -1186,7 +1160,7 @@ contains
     end if\}
 
     end subroutine srhd_handle_small_values
-  !=============================================================================
+ !============================================================================
   subroutine srhd_getaux(clipping,w,x,ixI^L,ixO^L,subname)
 
     ! Calculate auxilary variables ixO^L from non-auxiliary entries in w

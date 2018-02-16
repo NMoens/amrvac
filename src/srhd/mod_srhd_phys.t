@@ -3,21 +3,19 @@ module mod_srhd_phys
   implicit none
   private
 
+  !-------------------------Comments-----------------------------------------------
   !*DM* Normally there are 2 auxiliary variables in the srhd module
   !*DM* the Lorentz factor and the pressure
-  !*DM* These are used in the calculation of the proper density (d), the
-  !*DM* momentum density (rmom, previously s)  and the total energy density (tau)
-
+  !*DM* These are used in the calculation of the proper density (d), 
+  !*DM* the momentum density (rmom, previously s) and the total energy density (tau)
+  !--------------------------------------------------------------------------------
   !*DM* In the previous version, srhd and srhdeos used an ideal or a Mathews EOS
-  !*DM* respectively. Better if we merge these two by adding a switch?
-  !*DM* ~check comment1
+  !*DM* respectively. Now we add a switch 
+  !-------------------------------------------------------------------------------- 
 
   !> The adiabatic index
   double precision, public :: srhd_gamma = 5.d0/3.0d0
   
-  ! It has to be consistent with the way we handle different eos in hd 
-  !logical, public, protected              :: srhd_ideal = .false.
-
   !> The equation of state (options: ideal, mathews)
   character(len=std_len) :: srhd_eos = "ideal"
 
@@ -37,6 +35,12 @@ module mod_srhd_phys
   !> Indices of the momentum density
   integer, allocatable, public, protected :: rmom(:)
 
+  !> Indices of the four velocity
+  integer, allocatable, public, protected :: uvel(:)
+
+  !> Indices of the three-velocity
+  integer, allocatable, public, protected :: vvel(:)
+
   !> Index of the total energy density 
   integer, public, protected              :: tau_
 
@@ -47,6 +51,7 @@ module mod_srhd_phys
   integer, allocatable, public, protected :: tracer(:)
 
   !Auxiliary variables
+  !*DM* we have to make sure that these are available everywhere needed!
   !> Index of Lorentz factor
   integer, public, protected :: lfac_
   
@@ -60,11 +65,7 @@ module mod_srhd_phys
 
   double precision :: smalltau,smallxi,minrho,minp
 
-  ! *DM* We don't need this anymore then !
-  !> If true, velocity is lfac * v. ALWAYS TRUE
-  logical :: useprimitiveRel
-
-! Public methods ??
+ !Public methods ??
   public :: srhd_phys_init
 !  public :: srhd_kin_en
 !  public :: srhd_get_pthermal
@@ -97,7 +98,7 @@ contains
     end select
 
   end subroutine srhd_read_params
-!---------------------------------------------------------------------
+!=============================================================================
 !*DM* 
 !add the srhd write info subroutine ?
 ! Can do this later
@@ -113,7 +114,7 @@ contains
     call srhd_read_params(par_files)
 
     physics_type = "srhd"
-    phys_energy  = srhd_energy !*DM* Not necessary now, we choose between two eos !
+!    phys_energy  = srhd_energy !*DM* Not necessary now, we choose between two eos !
 
     ! Determine flux variables
     rho_ = var_set_rho()
@@ -121,6 +122,11 @@ contains
 
     allocate(rmom(ndir))
     rmom(:) = var_set_momentum(ndir)
+    !*DM* I guess we also need those now...
+    allocate(uvel(ndir))
+    uvel(:) = var_set_fourvelocity(ndir)
+    allocate(rmom(ndir))
+    vvel(:) = var_set_threevelocity(ndir)
 
     if (eos_type == eos_mathews) then
        ! Set index of energy variable
@@ -227,18 +233,9 @@ contains
     flag(iO^S)= 0
 
     if (checkprimitive) then
-!       if(useprimitiveRel)then !*DM* useprimitiveRel is always true now
-          ! check   rho>=0, p>=smallp
-          flag(ixO^S) = (w(ixO^S,rho_) >= minrho).and. &
-               (w(ixO^S,pp_)  >= minp)
-       !else
-          ! check  v^2 < 1, rho>=0, p>=smallp
-!*DM* Check use of primitive/conservative...
-!*Delete this probably, useprimitiveRel always true...
-       !   flag(ixO^S) = (sum(w(ixO^S,rmom(:))**2) < one).and. &
-       !        (w(ixO^S,rho_) >= minrho).and. &
-       !        (w(ixO^S,pp_)  >= minp)
-       !endif
+       ! check   rho>=0, p>=smallp
+       flag(ixO^S) = (w(ixO^S,rho_) >= minrho).and. &
+                     (w(ixO^S,pp_)  >= minp)
     else
        ! Check D>=0 and lower limit for tau
        flag(ixO^S) = (w(ixO^S,d_)    >= minrho).and. &
@@ -277,6 +274,7 @@ contains
        w(ixO^S,lfac_)=sqrt(xi(ixO^S))
        w(ixO^S,p_)=w(ixO^S,pp_)
 
+   !*DM* so, patchw has to be deleted as well?
     call Enthalpy(w,ixI^L,ixO^L,patchw,xi) !*DM* This is used for srhdeos I think
 
        ! compute xi=Lfac w  (enthalphy w)
@@ -298,8 +296,8 @@ contains
   subroutine srhd_to_primitive(ixI^L,ixO^L,w,x)
     !*DM*
     ! Transform conservative variables into primitive ones
-    ! (D,S,tau) ---> (rho,v,p) **THIS IS THE OLD VERSION**
-    ! (D,rmom,tau) ---> (rho,v,p) **THIS IS THE NEW VERSION**
+    ! (D,S,tau) ---> (rho,v,p) *Notation in the old MPI-AMRVAC version*
+    ! (D,rmom,tau) ---> (rho,v,p) *Notation in the new version*
 
     use mod_global_parameters
 
@@ -321,7 +319,7 @@ contains
     ! compute velocity
     !**OLD**
 
-    !* Again, useprimitiveRel is always true, delete the rest
+    !* Again, useprimitiveRel is always true, I deleted the rest
        do idir=1, ndir
        w(ixO^S,uvel(idir))=w(ixO^S,lfac_)*w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
        end do
@@ -608,19 +606,19 @@ contains
 
   end subroutine srhd_get_flux
 !=============================================================================
-  subroutine srhd_con2prim(pressure,lfac,d,s^C,tau,ierror)
-  !*DM* I did nothing here...
+  subroutine srhd_con2prim(pressure,lfac,d,rmom,tau,ierror) 
+  !*DM* Change s^C to rmom
 
     !use ieee_arithmetic
     use mod_global_parameters
 
     double precision:: pressure,lfac
-    double precision:: d,s^C,tau
+    double precision:: d,rmom,tau  !*DM* rmom instead of s^C
     integer:: ierror
 
     integer:: ni,niiter
     double precision:: pcurrent,pnew
-    double precision:: er,er1,ff,df,dp,v^C
+    double precision:: er,er1,ff,df,dp,vvel !vvel instead of v^C
     double precision:: pmin,lfac2inv,pLabs,pRabs,pprev
     double precision:: s2overcubeG2rh,sqrs
     double precision:: xicurrent
@@ -648,7 +646,7 @@ contains
        return
     endif
 
-    sqrs={s^C**2+}
+    sqrs={s^C**2+} !*DM* what?
 
     if(sqrs==zero)then
        call pressureNoFlow(pressure,tau,d)
@@ -700,14 +698,17 @@ contains
              print *,'for pressure iterate p',pcurrent
              print *,'pressure bracket pLabs pRabs',pLabs,pRabs
              print *,'iteration number:',ni
-             print *,'values for d,s,tau,s^2:',d,s^C,tau,sqrs
+             print *,'values for d,s,tau,rmom^2:',d,rmom,tau,sqrs
           endif
           ierror=3 
           return
        endif
 
-       {v^C=s^C/xicurrent\}
-       lfac2inv=one - ({v^C**2+})
+!*DM* Check the following substitution...
+!       {v^C=s^C/xicurrent\}
+!       lfac2inv=one - ({v^C**2+})
+       vvel(:)=rmom(:)/xicurrent
+       lfac2inv=1-sum(vvel(:)**2)
        if(lfac2inv>zero) then
           lfac=one/sqrt(lfac2inv)
        else
@@ -717,8 +718,8 @@ contains
              print *,'for pressure iterate p',pcurrent
              print *,'absolute pressure bracket pLabs pRabs',pLabs,pRabs
              print *,'iteration number:',ni
-             print *,'values for d,s,tau,s^2:',d,s^C,tau,sqrs
-             print *,'values for v,xi:',v^C,xicurrent
+             print *,'values for d,s,tau,s^2:',d,rmom(:),tau,sqrs
+             print *,'values for v,xi:',vvel(:),xicurrent
           endif
           ierror=4
           return
@@ -727,7 +728,7 @@ contains
 
        s2overcubeG2rh=sqrs/(xicurrent**3.0d0)
        !== ZM calculation done using the EOS ==!
-       call FuncEnthalpy(pcurrent,lfac2inv,d,s^C,tau,sqrs,xicurrent,&
+       call FuncEnthalpy(pcurrent,lfac2inv,d,rmom(:),tau,sqrs,xicurrent,&
             s2overcubeG2rh,h,dhdp,ierror)
        !=======================================!   
        ff=-xicurrent*lfac2inv + h 
@@ -764,8 +765,10 @@ contains
              !=====================!
              pcurrent=pnewi*500.0d0
              xicurrent=tau+d+pcurrent
-             {v^C=s^C/xicurrent\}
-             lfac2inv=one - ({v^C**2+})
+             vvel(:)=rmom(:)/xicurrent !*DM*
+             lfac2inv=1.0d0-sum(vvel(:)**2)
+             !{v^C=s^C/xicurrent\}
+             !lfac2inv=one - ({v^C**2+})
              !=====================!
 
              !=====================!
@@ -830,8 +833,10 @@ contains
              Dicho:  do ni3=1,maxitnr
                 !===================!
                 xicurrent=tau+d+pcurrent
-                {v^C=s^C/xicurrent\}
-                lfac2inv=one - ({v^C**2+})
+                vvel(:)=rmom(:)/xicurrent
+                lfac2inv=1-sum(vvel(:)**2)
+                !{v^C=s^C/xicurrent\}
+                !lfac2inv=one - ({v^C**2+})
                 if(lfac2inv>zero)then
                    lfac=one/sqrt(lfac2inv)
                 else
@@ -842,7 +847,7 @@ contains
 
 
                 !== ZM calculation done using the EOS ==!
-                call Bisection_Enthalpy(pnew,lfac2inv,d,s^C,&
+                call Bisection_Enthalpy(pnew,lfac2inv,d,rmom,&
                      tau,sqrs,xicurrent,h,ierror)
                 Nff=-xicurrent*lfac2inv + h 
                 !=======================================!
@@ -899,8 +904,10 @@ contains
     !--end result for pressure and lorentz factor------!
     pressure=pcurrent
     xicurrent=tau+d+pressure
-    {v^C = s^C/xicurrent\}
-    lfac2inv=one - ({v^C**2+})
+!    {v^C = s^C/xicurrent\}
+!    lfac2inv=one - ({v^C**2+})
+    vvel(:)=rmom(:)/xicurrent
+    lfac2inv=1-sum(vvel(:)**2)
     if(lfac2inv>zero) then
        lfac=one/sqrt(lfac2inv)
     else

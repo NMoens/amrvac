@@ -19,9 +19,16 @@ module mod_srhd_phys
   double precision, public :: srhd_gamma = 5.d0/3.0d0
   
   !*DM*  comment1
-  !> Decide if ideal eos is used
+  
   ! It has to be consistent with the way we handle different eos in hd 
   !logical, public, protected              :: srhd_ideal = .false.
+
+  !> The equation of state (options: ideal, mathews)
+  character(len=std_len) :: srhd_eos = "ideal"
+
+  integer            :: eos_type    = 1
+  integer, parameter :: eos_ideal   = 1
+  integer, parameter :: eos_mathews = 2
 
   !> Decide if Mathews eos is used
   !logical, public, protected              :: srhd_mathews = .false.
@@ -36,8 +43,6 @@ module mod_srhd_phys
 
   !> Index of the  density (primitive?)
   integer, public, protected              :: s0_
-
-
 
   !> Indices of the momentum density (this is the old s1,s2,s3)
   integer, allocatable, public, protected :: rmom(:)
@@ -65,8 +70,11 @@ module mod_srhd_phys
 
   double precision :: smalltau,smallxi,minrho,minp
 
+  !> If true, velocity is lfac * v. ALWAYS TRUE
+  logical :: useprimitiveRel
+
 ! Public methods ??
-!  public :: srhd_phys_init
+  public :: srhd_phys_init
 !  public :: srhd_kin_en
 !  public :: srhd_get_pthermal
 !  public :: srhd_to_conserved
@@ -80,18 +88,28 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /srhd_list/srhd_energy, srhd_n_tracer,srhd_gamma
-    
+    namelist /srhd_list/ srhd_eos, srhd_n_tracer, srhd_gamma
+
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
        read(unitpar, hd_list, end=111)
 111    close(unitpar)
     end do
 
+    select case (srhd_eos)
+    case ("ideal")
+       eos_type = eos_ideal
+    case ("mathews")
+       eos_type = eos_mathews
+    case default
+       call mpistop("Invalid srhd_eos")
+    end select
+
   end subroutine srhd_read_params
 !---------------------------------------------------------------------
 !*DM* 
 !add the srhd write info subroutine ?
+! Can do this later
 !*DM* 
 !---------------------------------------------------------------------
 !> Initialize the module
@@ -113,17 +131,14 @@ contains
     allocate(rmom(ndir))
     rmom(:) = var_set_momentum(ndir)
 
-    ! Set index of energy variable
-    e_ = var_set_energy()
-!*DM* related to the choice of eos ??
-!*DM* maybe decide which variables we acoordingly...
-!    if (srhd_energy) then
-!       e_ = var_set_energy()
-!       p_ = e_
-!    else
-!       e_ = -1
-!       p_ = -1
-!    end if
+    if (eos_type == eos_mathews) then
+       ! Set index of energy variable
+       e_ = var_set_energy()
+       p_ = e_
+    else
+       e_ = -1
+       p_ = -1
+    end if
 
     lfac_ = var_set_extravar("lfac", "lfac")
     p_ = var_set_extravar("pressure", "pressure")
@@ -140,20 +155,19 @@ contains
     phys_check_w             => srhd_check_w
     phys_get_pthermal        => srhd_get_pthermal
     phys_write_info          => srhd_write_info
-    phys_handle_small_values => srhd_handle_small_values
+    phys_handle_small_values => srhd_handle_small_values ! Can fix later
 
     ! Whether diagonal ghost cells are required for the physics (TODO: true?)
     phys_req_diagonal = .true.
 
-!*DM* derive units from basic units (TO BE ADDED FOR SRHD)
+!*DM* derive units from basic units (TO BE ADDED FOR SRHD) ! Can fix later
 !    call srhd_physical_units()
 
     allocate(tracer(srhd_n_tracer))
 
-!*DM* Check this... also, do we define the conservative? 
     ! Set starting index of tracers
     do itr = 1, srhd_n_tracer
-       tracer(itr) = var_set_fluxvar("trc", "trp", itr, need_bc=.false.)
+       tracer(itr) = var_set_fluxvar("tr", "tr", itr, need_bc=.false.)
     end do
 
     ! Check whether custom flux types have been defined
@@ -167,6 +181,17 @@ contains
     nvector      = 1 ! No. vector vars
     allocate(iw_vector(nvector))
     iw_vector(1) = rmom(1) - 1
+
+    if (eos_type == eos_ideal) then
+      minp    = max(zero,smallp)
+      minrho  = max(zero,smallrho)
+      smalltau= minp/(srhd_gamma-1)
+      smallxi = minrho + minp*srhd_gamma/(srhd_gamma-1)
+    else
+      minp   = max(zero,smallp)
+      minrho = max(zero,smallrho)
+      ! call smallvaluesEOS() ! Check later
+   end if
 
   end subroutine srhd_phys_init
 !==============================================================================
@@ -186,7 +211,7 @@ contains
 !    if(unit_velocity==0) then
 !      unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
 !      unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*kB*unit_temperature
-!      unit_velocity=dsqrt(unit_pressure/unit_density)
+!      unit_velocity=sqrt(unit_pressure/unit_density)
 !      unit_time=unit_length/unit_velocity
 !    else
 !      unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
@@ -197,25 +222,8 @@ contains
 
 !  end subroutine srhd_physical_units
 !==============================================================================
-  subroutine checkglobaldata
 
-    use mod_global_parameters
-
-    !-----------------------------------------------------------------------------
-
-!*DM* Maybe add something like in the srmhd module...
-    {#IFDEF IDEAL
-      minp    = max(zero,smallp)
-      minrho  = max(zero,smallrho)
-      smalltau= minp/(eqpar(gamma_)-one)
-      smallxi = minrho + minp*eqpar(gamma_)/(eqpar(gamma_)-one) }
-    {#IFDEF MATHEWS
-      minp   = max(zero,smallp)
-      minrho = max(zero,smallrho)
-      call smallvaluesEOS}   
-
-  end subroutine checkglobaldata
-!=============================================================================
+  ! Fix later, probably have to switch flag (see mod_hd_phys)
   subroutine srhd_check_w(checkprimitive,ixI^L,ixO^L,w,flag)
     use mod_global_parameters
 
@@ -236,7 +244,7 @@ contains
        else
           ! check  v^2 < 1, rho>=0, p>=smallp
 !*DM* Check use of primitive/conservative...
-          flag(ixO^S) = (sum(w(ixO^S,rmom(:))**2.0d0) < one).and. &
+          flag(ixO^S) = (sum(w(ixO^S,rmom(:))**2) < one).and. &
                (w(ixO^S,rho_) >= minrho).and. &
                (w(ixO^S,pp_)  >= minp)
        endif
@@ -273,15 +281,16 @@ contains
 
     if(useprimitiveRel)then
        ! assumes four velocity computed in primitive (rho u p) with u=lfac*v
-       xi(ixO^S)=one+(sum(w(ixO^S,uvel(:))**2.0d0))
+       ! TODO: fix sum(...) below
+       xi(ixO^S)=1.0d0+sum(w(ixO^S,uvel(:))**2, dim=ndim+1)
        ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
-       w(ixO^S,lfac_)=dsqrt(xi(ixO^S))
+       w(ixO^S,lfac_)=sqrt(xi(ixO^S))
        w(ixO^S,p_)=w(ixO^S,pp_)
     else
        ! assumes velocity in primitive (rho v p) 
-       xi(ixO^S)=one-(sum(w(ixO^S,vvel(:))**2.0d0))
+       xi(ixO^S)=one-(sum(w(ixO^S,vvel(:))**2))
        ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
-       w(ixO^S,lfac_)=one/dsqrt(xi(ixO^S))
+       w(ixO^S,lfac_)=one/sqrt(xi(ixO^S))
        w(ixO^S,p_)=w(ixO^S,pp_)
     endif
 
@@ -377,114 +386,7 @@ contains
 !    if (tlow>zero) call fixp_usr(ixI^L,ixO^L,w,x)
 
   end subroutine srhd_to_primitive(ixI^L,ixO^L,w,x) 
-  !=============================================================================
-  !!*DM* The subroutines e_to_rhos and rhos_to_e are different for srhd/shrdeos.
-  !!*DM* e_to _rhos is "empty" for srhdeos and as follows for srhd
-  !!*DM* We need to activate accordingly... maybe inspire from the old srmhd 
 
- subroutine e_to_rhos(ixI^L,ixO^L,w,x)
-
-    use mod_global_parameters
-
-    integer, intent(in) :: ixI^L, ixO^L
-    double precision :: w(ixI^S,nw)
-    double precision, intent(in)    :: x(ixI^S,1:ndim)
-    !-----------------------------------------------------------------------------
-
- !*DM*    ADD CORRECT FLAG FOR EACH EOS
- !*DM*    THE FOLLOWING JUST TRANSLATE THE NAMES, DID NOT CHECK THE PHYSICS
- !    if (srhd_energy) then
- !       w(ixO^S, e_) = (srhd_gamma - 1.0d0) * w(ixO^S, rho_)**(1.0d0 - srhd_gamma) * &
- !            (w(ixO^S, e_) - hd_kin_en(w, ixI^L, ixO^L))
- !   else
- !      call mpistop("energy from entropy can not be used with -eos = iso !")
- !   end if
-
-!    call mpistop("e to rhos for SRHDEOS unavailable")
-
-  end subroutine e_to_rhos
-  !=============================================================================
-  subroutine rhos_to_e(ixI^L,ixO^L,w,x)
-
-!!*DM*  SAME COMMENT AS ABOVE...
-    use mod_global_parameters
-
-    integer, intent(in) :: ixI^L, ixO^L
-    double precision :: w(ixI^S,nw)
-    double precision, intent(in)    :: x(ixI^S,1:ndim)
-    !-----------------------------------------------------------------------------
-
-!*DM*    ADD CORRECT FLAG FOR EACH EOS
-!    if (srhd_energy) then
-!       w(ixO^S, e_) = w(ixO^S, rho_)**(srhd_gamma - 1.0d0) * w(ixO^S, e_) &
-!            / (srhd_gamma - 1.0d0) + srhd_kin_en(w, ixI^L, ixO^L)
-!    else
-!       call mpistop("entropy from energy can not be used with -eos = iso !")
-!    end if
-
-!    call mpistop("rhos to e for SRHDEOS unavailable")
-
-  end subroutine rhos_to_e
-  !=============================================================================
-!*DM* I commented out the following ppm* routines, are we using ppm ?
-
- ! subroutine ppmflatcd(ixI^L,ixO^L,ixL^L,ixR^L,w,d2w,drho,dp)
-
- !   use mod_global_parameters
-
- !   integer, intent(in)           :: ixI^L,ixO^L,ixL^L,ixR^L
- !   double precision, intent(in)  :: w(ixI^S,nw),d2w(ixG^T,1:nwflux)
-
- !   double precision, intent(out) :: drho(ixG^T),dp(ixG^T)
-    !-----------------------------------------------------------------------------
-
- !   if(useprimitive)then
- !      call Calcule_Geffect(w,ixI^L,ixO^L,.false.,drho)
- !      drho(ixO^S) =drho(ixO^S)*dabs(d2w(ixO^S,rho_))&
- !           /min(w(ixL^S,rho_),w(ixR^S,rho_))
- !      dp(ixO^S) = dabs(d2w(ixO^S,pp_))/min(w(ixL^S,pp_),w(ixR^S,pp_))
- !   end if
-
- ! end subroutine ppmflatcd
-  !=============================================================================
- ! subroutine ppmflatsh(ixI^L,ixO^L,ixLL^L,ixL^L,ixR^L,ixRR^L,idims,w,drho,dp,dv)
-
- !   use mod_global_parameters
-
- !   integer, intent(in)           :: ixI^L,ixO^L,ixLL^L,ixL^L,ixR^L,ixRR^L
- !   integer, intent(in)           :: idims
- !   double precision, intent(in)  :: w(ixI^S,nw)
-
- !    double precision, intent(out) :: drho(ixG^T),dp(ixG^T),dv(ixG^T)
-
- !   double precision :: v(ixG^T)
-    !-----------------------------------------------------------------------------
-
- !   if(useprimitive)then
-       ! eq. B15, page 218, Mignone and Bodo 2005, ApJS (beta1)
- !      where (dabs(w(ixRR^S,pp_)-w(ixLL^S,pp_))>smalldouble)
- !         drho(ixO^S) = dabs((w(ixR^S,pp_)-w(ixL^S,pp_))&
- !              /(w(ixRR^S,pp_)-w(ixLL^S,pp_)))
- !      elsewhere
- !         drho(ixO^S) = zero
- !      end where
-
-       !  eq. B76, page 48, Miller and Collela 2002, JCP 183, 26 
-       !  use "dp" to save sound speed
- !      call getcsound2(w,ixI^L,ixO^L,.false.,dv,dp)
-
- !      dp(ixO^S) = dabs(w(ixR^S,pp_)-w(ixL^S,pp_))&
- !           /(w(ixO^S,rho_)*dp(ixO^S))
- !      if (useprimitiveRel) then
- !         v(ixI^S)  = w(ixI^S,u0_+idims)/w(ixI^S,lfac_)
- !      else
- !         v(ixI^S)  = w(ixI^S,v0_+idims)
- !      end if
- !      call gradient(v,ixI^L,ixO^L,idims,dv)
- !   end if
-
- ! end subroutine ppmflatsh
-  !=============================================================================
   subroutine srhd_get_v(w,x,ixI^L,ixO^L,idim,v)
 
 !*DM* THIS SHOULD BE THE SAME AS IN THE OLD VERSION....
@@ -495,24 +397,19 @@ contains
     integer, intent(in)           :: ixI^L, ixO^L, idim
     double precision, intent(in)  :: w(ixI^S,nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
-    double precision, intent(out) :: v(ixG^T)
+    double precision, intent(out) :: v(ixI^S)
     !-----------------------------------------------------------------------------
     ! assuming getv FOLLOWS a getaux call for updated p_ entry and
     ! well-behaved xi=d+tau+p
 
-    ! first case only happens when d=0 and p/tau are at enforced minimal
-    ! values, namely p=smallp and tau=smallp/(gamma-1) (no velocities)
-    ! This will typically NEVER be the case, but still...
-    where(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_)==smallxi)
-       v(ixO^S)=zero
-    elsewhere
-       v(ixO^S)=w(ixO^S,s0_+idim)/ &
-            (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
-    endwhere
+    v(ixO^S) = w(ixO^S, rmom(idim)) / &
+         (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
 
   end subroutine srhd_get_v
+
   !=============================================================================
-  subroutine srhd_get_cmax(new_cmax,w,x,ixI^L,ixO^L,idims,cmax,cmin,needcmin)
+  ! Look at mod_hd_phys
+  subroutine srhd_get_cmax(w,x,ixI^L,ixO^L,idim,cmax)
 
 !*DM* THIS IS DIFFERENT FOR SRHD/SRHDEOS
 !*DM*  HERE I COPIED ONLY THE SRHDEOS ONE...
@@ -521,7 +418,7 @@ contains
     use mod_global_parameters
 
     logical, intent(in)                               :: new_cmax,needcmin
-    integer, intent(in)                               :: ixI^L, ixO^L, idims
+    integer, intent(in)                               :: ixI^L, ixO^L, idim
     double precision, dimension(ixI^S,nw), intent(in) :: w
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, dimension(ixG^T), intent(out)   :: cmax,cmin
@@ -532,48 +429,48 @@ contains
     call getcsound2(w,ixI^L,ixO^L,.true.,rhoh,csound2)
 
     if(.not.needcmin)then
-       v2(ixO^S)=(sum(w(ixO^S,rmom(:))**2.0d0)/ &
-            ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
- !      v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
- !           ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
+       v2(ixO^S)=(sum(w(ixO^S,rmom(:))**2)/ &
+            ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2)
+ !      v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
+ !           ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2)
     else
-       vidim(ixO^S)=(w(ixO^S,s0_+idims)/ &
+       vidim(ixO^S)=(w(ixO^S,rmom(idim))/ &
             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
     endif
 
     if(.not.needcmin)then
        if (ndir==1) then
-          cmax(ixO^S)= (dsqrt(v2(ixO^S))+dsqrt(csound2(ixO^S)))/ &
-               (one+dsqrt(csound2(ixO^S)*v2(ixO^S)))
+          cmax(ixO^S)= (sqrt(v2(ixO^S))+sqrt(csound2(ixO^S)))/ &
+               (one+sqrt(csound2(ixO^S)*v2(ixO^S)))
        else
-          vidim2(ixO^S)=(w(ixO^S,s0_+idims)/ &
-               (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2.0d0
+          vidim2(ixO^S)=(w(ixO^S,rmom(idim))/ &
+               (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2
 
-          cmax(ixO^S)=( dsqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
-               dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+          cmax(ixO^S)=( sqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
+               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
                one-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(one-csound2(ixO^S))) &
                ) ) / (one-v2(ixO^S)*csound2(ixO^S))
        endif
     else
        if (ndir==1) then
-          cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+dsqrt(csound2(ixO^S)))/ &
-               (one+dsqrt(csound2(ixO^S))*vidim(ixO^S))))
-          cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-dsqrt(csound2(ixO^S)))/ &
-               (one-dsqrt(csound2(ixO^S))*vidim(ixO^S))))
+          cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+sqrt(csound2(ixO^S)))/ &
+               (one+sqrt(csound2(ixO^S))*vidim(ixO^S))))
+          cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-sqrt(csound2(ixO^S)))/ &
+               (one-sqrt(csound2(ixO^S))*vidim(ixO^S))))
        else
-          v2(ixO^S)=(sum(w(ixO^S,mom(:))**2.0d0)/ &
-               (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0
- !         v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
- !              (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0
+          v2(ixO^S)=(sum(w(ixO^S,mom(:))**2)/ &
+               (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
+ !         v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
+ !              (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
 
           cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
-               dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
+               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
                ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
 
           cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
-               dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
+               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
                ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
        endif
     endif
@@ -584,8 +481,8 @@ contains
 !         eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
 !csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
 !if(.not.needcmin)then
-!   v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
-!             ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
+!   v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
+!             ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2)
 !else
 !   vidim(ixO^S)=(w(ixO^S,s0_+idim)/ &
 !                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
@@ -593,100 +490,157 @@ contains
 !
 !if(.not.needcmin)then
 !  if (ndir==1) then
-!     cmax(ixO^S)= (dsqrt(v2(ixO^S))+dsqrt(csound2(ixO^S)))/ &
-!                  (one+dsqrt(csound2(ixO^S)*v2(ixO^S)))
+!     cmax(ixO^S)= (sqrt(v2(ixO^S))+sqrt(csound2(ixO^S)))/ &
+!                  (one+sqrt(csound2(ixO^S)*v2(ixO^S)))
 !  else
 !     vidim2(ixO^S)=(w(ixO^S,s0_+idim)/ &
-!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2.0d0
+!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2
 
-!     cmax(ixO^S)=( dsqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
-!                dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+!     cmax(ixO^S)=( sqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
+!                sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
 !        one-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(one-csound2(ixO^S))) &
 !               ) ) / (one-v2(ixO^S)*csound2(ixO^S))
 !  endif
 !else
 !  if (ndir==1) then
-!     cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+dsqrt(csound2(ixO^S)))/ &
-!                  (one+dsqrt(csound2(ixO^S))*vidim(ixO^S))))
-!     cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-dsqrt(csound2(ixO^S)))/ &
-!                  (one-dsqrt(csound2(ixO^S))*vidim(ixO^S))))
+!     cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+sqrt(csound2(ixO^S)))/ &
+!                  (one+sqrt(csound2(ixO^S))*vidim(ixO^S))))
+!     cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-sqrt(csound2(ixO^S)))/ &
+!                  (one-sqrt(csound2(ixO^S))*vidim(ixO^S))))
 !  else
-!     v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
-!             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0
+!     v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
+!             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
 
 !     cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
-!      dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-!      one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
+!      sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+!      one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
 !       ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
 
 !     cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
-!       dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-!       one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
+!       sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+!       one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
 !                 ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
 !  endif
 !endif
 !*DM* The commented out part is copied from the old version, no translation
 
   end subroutine srhd_get_cmax
-  !=============================================================================
-  subroutine srhd_get_flux(w,x,ixI^L,ixO^L,iw,idim,f,transport)
 
-  !*DM* THE SAME IN BOTH SRHD/SRHDEOS...
-
-    ! Calculate non-transport flux f_idim[iw] within ixO^L.
+  ! TODO: add srhd_get_cbounds (look at mod_hd_phys)
+  subroutine srhd_get_cbounds(wLC, wRC, wLp, wRp, x, ixI^L, ixO^L, idim, cmax, cmin)
 
     use mod_global_parameters
 
-    integer, intent(in)           :: ixI^L, ixO^L, iw, idim
-    double precision, intent(in)  :: w(ixI^S,nw)
-    double precision, intent(in)    :: x(ixI^S,1:ndim)
-    double precision, intent(out) ::  f(ixG^T)
-    logical, intent(out)          :: transport
+    integer, intent(in)             :: ixI^L, ixO^L, idim
+    ! conservative left and right status
+    double precision, intent(in)    :: wLC(ixI^S, nw), wRC(ixI^S, nw)
+    ! primitive left and right status
+    double precision, intent(in)    :: wLp(ixI^S, nw), wRp(ixI^S, nw)
+    double precision, intent(in)    :: x(ixI^S, 1:ndim)
+    double precision, intent(inout) :: cmax(ixI^S)
+    double precision, intent(inout), optional :: cmin(ixI^S)
+
+!*DM* THIS IS DIFFERENT FOR SRHD/SRHDEOS
+!*DM*  HERE I COPIED ONLY THE SRHDEOS ONE...
+    ! Calculate cmax_idim=csound+abs(v_idim) within ixO^L
+
     !-----------------------------------------------------------------------------
-    if(iw==s0_+idim)then
-       ! f_i[s_i]=v_i*s_i + p
-       f(ixO^S)=w(ixO^S,p_) 
-!       {#IFDEF TRACER
-!       {else if (iw==tr^FL_) then 
-!       f(ixO^S)=zero\}
-!       }
+    !== ZM calculation of sound speed using the EOS ==!
+    call getcsound2(w,ixI^L,ixO^L,.true.,rhoh,csound2)
 
-    else if(iw==tau_)then
-       ! f_i[tau]=v_i*tau + v_i*p
-       ! first case only happens when d=0 and p/tau are at enforced minimal
-       ! values, namely p=smallp and tau=smallp/(gamma-1) (no velocities)
-       ! This will typically NEVER be the case, but still...
-       where(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_)==smallxi)
-          f(ixO^S)=zero
-       elsewhere
-          f(ixO^S)=w(ixO^S,s0_+idim)*w(ixO^S,p_)/ &
-               (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
-       endwhere
-    else
-       f(ixO^S)=zero
-    endif
+       vidim(ixO^S)=(w(ixO^S,rmom(idim))/ &
+            (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
 
-    transport=.true.
+       if (ndir==1) then
+          cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+sqrt(csound2(ixO^S)))/ &
+               (one+sqrt(csound2(ixO^S))*vidim(ixO^S))))
+          cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-sqrt(csound2(ixO^S)))/ &
+               (one-sqrt(csound2(ixO^S))*vidim(ixO^S))))
+       else
+          v2(ixO^S)=(sum(w(ixO^S,rmom(:))**2)/ &
+               (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
+ !         v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
+ !              (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
 
-  end subroutine srhd_get_flux
+          cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
+               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
+               ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
+
+          cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
+               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
+               ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
+       endif
+
+!*DM* PROBABALY ADD HERE AN IFDEF ENERGY TO SWITCH TO
+!rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_) + &
+!         eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
+!csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
+!if(.not.needcmin)then
+!   v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
+!             ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2)
+!else
+!   vidim(ixO^S)=(w(ixO^S,s0_+idim)/ &
+!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
+!endif
+!
+!if(.not.needcmin)then
+!  if (ndir==1) then
+!     cmax(ixO^S)= (sqrt(v2(ixO^S))+sqrt(csound2(ixO^S)))/ &
+!                  (one+sqrt(csound2(ixO^S)*v2(ixO^S)))
+!  else
+!     vidim2(ixO^S)=(w(ixO^S,s0_+idim)/ &
+!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2
+
+!     cmax(ixO^S)=( sqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
+!                sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+!        one-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(one-csound2(ixO^S))) &
+!               ) ) / (one-v2(ixO^S)*csound2(ixO^S))
+!  endif
+!else
+!  if (ndir==1) then
+!     cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+sqrt(csound2(ixO^S)))/ &
+!                  (one+sqrt(csound2(ixO^S))*vidim(ixO^S))))
+!     cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-sqrt(csound2(ixO^S)))/ &
+!                  (one-sqrt(csound2(ixO^S))*vidim(ixO^S))))
+!  else
+!     v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
+!             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
+
+!     cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
+!      sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+!      one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
+!       ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
+
+!     cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
+!       sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+!       one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
+!                 ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
+!  endif
+!endif
+!*DM* The commented out part is copied from the old version, no translation
+
+  end subroutine srhd_get_cmax
+
   !=============================================================================
-  subroutine srhd_get_flux_forhllc(w,x,ixI^L,ixO^L,iw,idims,f,transport)
+  subroutine srhd_get_flux(w,x,ixI^L,ixO^L,idim,f)
 
     ! Calculate non-transport flux f_idim[iw] within ixO^L.
 
     use mod_global_parameters
 
-    integer, intent(in)           :: ixI^L,ixO^L,iw,idims
+    integer, intent(in)           :: ixI^L,ixO^L,idim
     double precision, intent(in)  :: w(ixI^S,1:nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(out) :: f(ixG^T,1:nwflux)
-    logical, intent(out)          :: transport
     !----------------------------------------------
 
     ! assuming getflux FOLLOWS a getaux call for updated p_ entry and
     ! well-behaved xi=d+tau+p, write:
 
-    if(iw==s0_+idims)then
+    ! TODO: compute all fluxes, including transport (look at mod_hd_phys)
+
        ! f_i[s_i]=v_i*s_i + p
        f(ixO^S,iw)=w(ixO^S,p_)
 !       {#IFDEF TRACER
@@ -694,7 +648,6 @@ contains
 !       f(ixO^S,iw)=zero\}
 !       }
 
-    else if(iw==tau_)then
        ! f_i[tau]=v_i*tau + v_i*p
        ! first case only happens when d=0 and p/tau are at enforced minimal
        ! values, namely p=smallp and tau=smallp/(gamma-1) (no velocities)
@@ -702,17 +655,12 @@ contains
        where(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_)==smallxi)
           f(ixO^S,iw)=zero
        elsewhere
-          f(ixO^S,iw)=w(ixO^S,s0_+idims)*w(ixO^S,p_)/ &
+          f(ixO^S,iw)=w(ixO^S,rmom(idim))*w(ixO^S,p_)/ &
                (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
        endwhere
-    else
-       f(ixO^S,iw)=zero
-    endif
 
-    transport=.true.
+  end subroutine srhd_get_flux
 
-  end subroutine srhd_get_flux_forhllc
-  !=============================================================================
   subroutine srhd_con2prim(pressure,lfac,d,s^C,tau,ierror)
   !*DM* I did nothing here...
 
@@ -753,7 +701,7 @@ contains
        return
     endif
 
-    sqrs={s^C**2.0d0+}
+    sqrs={s^C**2+}
 
     if(sqrs==zero)then
        call pressureNoFlow(pressure,tau,d)
@@ -762,7 +710,7 @@ contains
     endif
 
     ! left and right brackets for p-range
-    pmin=dsqrt(sqrs)/(one-dmaxvel)-tau-d
+    pmin=sqrt(sqrs)/(one-dmaxvel)-tau-d
     pLabs=max(minp,pmin)
     pRabs=1.0d99
     ! start value from input
@@ -812,9 +760,9 @@ contains
        endif
 
        {v^C=s^C/xicurrent\}
-       lfac2inv=one - ({v^C**2.0d0+})
+       lfac2inv=one - ({v^C**2+})
        if(lfac2inv>zero) then
-          lfac=one/dsqrt(lfac2inv)
+          lfac=one/sqrt(lfac2inv)
        else
           if(strictgetaux)then
              print*,'!--- amrvacphys/t.srhd-- con2prim ---!'
@@ -836,7 +784,7 @@ contains
             s2overcubeG2rh,h,dhdp,ierror)
        !=======================================!   
        ff=-xicurrent*lfac2inv + h 
-       df=- two*sqrs/(xicurrent)**2.0d0  + dhdp - lfac2inv
+       df=- two*sqrs/(xicurrent)**2  + dhdp - lfac2inv
 
        if (ff*df==zero) then
           if (ff==zero) then
@@ -870,12 +818,12 @@ contains
              pcurrent=pnewi*500.0d0
              xicurrent=tau+d+pcurrent
              {v^C=s^C/xicurrent\}
-             lfac2inv=one - ({v^C**2.0d0+})
+             lfac2inv=one - ({v^C**2+})
              !=====================!
 
              !=====================!
              if(lfac2inv>zero)then
-                lfac=one/dsqrt(lfac2inv)
+                lfac=one/sqrt(lfac2inv)
              else
                 ierror=4
                 return
@@ -936,9 +884,9 @@ contains
                 !===================!
                 xicurrent=tau+d+pcurrent
                 {v^C=s^C/xicurrent\}
-                lfac2inv=one - ({v^C**2.0d0+})
+                lfac2inv=one - ({v^C**2+})
                 if(lfac2inv>zero)then
-                   lfac=one/dsqrt(lfac2inv)
+                   lfac=one/sqrt(lfac2inv)
                 else
                    ierror=4
                    return
@@ -1005,9 +953,9 @@ contains
     pressure=pcurrent
     xicurrent=tau+d+pressure
     {v^C = s^C/xicurrent\}
-    lfac2inv=one - ({v^C**2.0d0+})
+    lfac2inv=one - ({v^C**2+})
     if(lfac2inv>zero) then
-       lfac=one/dsqrt(lfac2inv)
+       lfac=one/sqrt(lfac2inv)
     else
        ierror=4
        return
@@ -1015,7 +963,8 @@ contains
     !------------------------------!
 
   end subroutine srhd_con2prim
-  !=============================================================================
+
+  ! Fix later (first do Cartesian)
   subroutine srhd_add_geometry(qdt,ixI^L,ixO^L,wCT,w,x)
 
 !*DM* I did nothing here... How do we handle these geometrical switches now?
@@ -1040,79 +989,83 @@ contains
     select case (typeaxial)
     case ('slab')
        ! No source terms in slab symmetry
-    case ('spherical')
-       h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
-       do iw=1,nwflux
-          select case(iw)
-             ! s[s1]=((Stheta**2+Sphi**2)/xi+2*p)/r
-          case(s1_)
-             tmp(ixO^S)=wCT(ixO^S,p_)*x(ixO^S,1) &
-                  *(mygeo%surfaceC1(ixO^S)-mygeo%surfaceC1(h1x^S)) &
-                  /mygeo%dvolume(ixO^S){&^CE&
-                  +wCT(ixO^S,s^CE_)**2.0d0&
-                  /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_)) }
-             {^NOONEC
-             ! s[s2]=-(Sr*Stheta/xi)/r
-             !       + cot(theta)*(Sphi**2/xi+p)/r
-          case(s2_)
-             }
-             {^NOONED
-             tmp(ixO^S) = +wCT(ixO^S,p_)
-             w(ixO^S,iw)=w(ixO^S,iw) &
-                  +qdt*tmp(ixO^S)*(mygeo%surfaceC2(ixO^S)-mygeo%surfaceC2(h2x^S)) &
-                  /mygeo%dvolume(ixO^S)
-             }
-             {^NOONEC
-             tmp(ixO^S)=-(wCT(ixO^S,s1_)*wCT(ixO^S,s2_)&
-                  /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_)))
-             }
-             {^IFTHREEC
-             {^NOONED
-             tmp(ixO^S)=tmp(ixO^S)+(wCT(ixO^S,s3_)**2.0&
-                  /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))) &
-                  *dcos(x(ixO^S,2))/dsin(x(ixO^S,2))
-             }
-             ! s[s3]=-(sphi*sr/xi)/r
-             !       -cot(theta)*(stheta*sphi/xi)/r
-          case(s3_)
-             if(.not.angmomfix) &
-                  tmp(ixO^S)=-(wCT(ixO^S,s3_)*wCT(ixO^S,s1_)&
-                  /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))){^NOONED &
-                  -(wCT(ixO^S,s2_)*wCT(ixO^S,s3_)&
-                  /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))) &
-                  *dcos(x(ixO^S,2))/dsin(x(ixO^S,2)) }
-             }
-          end select
-          ! Divide by radius and add to w
-          if(iw==s1_{^NOONEC.or.iw==s2_}{^IFTHREEC  &
-               .or.(iw==s3_.and..not.angmomfix)}) &
-               w(ixO^S,iw)=w(ixO^S,iw)+qdt*tmp(ixO^S)/x(ixO^S,1)
-       end do
-    case ('cylindrical')
-       do iw=1,nwflux
-          select case (iw)
-             ! source[sr]=sphi*vphi/radius + p/radius
-          case (sr_)
-             w(ixO^S,sr_)=w(ixO^S,sr_)+qdt*wCT(ixO^S,p_)/x(ixO^S,1)
-             tmp(ixO^S)=zero
-             {^IFPHI
-             tmp(ixO^S)=tmp(ixO^S)+wCT(ixO^S,sphi_)**2/ &
-                  (wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))
-             ! source[sphi]=(-sphi*vr)/radius
-          case (sphi_)
-             tmp(ixO^S)=-wCT(ixO^S,sphi_)*wCT(ixO^S,sr_)/ &
-                  (wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))
-             }
-          end select
-          ! Divide by radius and add to w
-          if (iw==sr_.or.iw==sphi_) then
-             w(ixO^S,iw)=w(ixO^S,iw)+qdt*tmp(ixO^S)/x(ixO^S,1)
-          end if
-       end do
+    case default
+       call mpistop("Non-slab geometry not yet supported")
     end select
+
+    ! case ('spherical')
+    !    h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
+    !    do iw=1,nwflux
+    !       select case(iw)
+    !          ! s[s1]=((Stheta**2+Sphi**2)/xi+2*p)/r
+    !       case(s1_)
+    !          tmp(ixO^S)=wCT(ixO^S,p_)*x(ixO^S,1) &
+    !               *(mygeo%surfaceC1(ixO^S)-mygeo%surfaceC1(h1x^S)) &
+    !               /mygeo%dvolume(ixO^S){&^CE&
+    !               +wCT(ixO^S,s^CE_)**2&
+    !               /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_)) }
+    !          {^NOONEC
+    !          ! s[s2]=-(Sr*Stheta/xi)/r
+    !          !       + cot(theta)*(Sphi**2/xi+p)/r
+    !       case(s2_)
+    !          }
+    !          {^NOONED
+    !          tmp(ixO^S) = +wCT(ixO^S,p_)
+    !          w(ixO^S,iw)=w(ixO^S,iw) &
+    !               +qdt*tmp(ixO^S)*(mygeo%surfaceC2(ixO^S)-mygeo%surfaceC2(h2x^S)) &
+    !               /mygeo%dvolume(ixO^S)
+    !          }
+    !          {^NOONEC
+    !          tmp(ixO^S)=-(wCT(ixO^S,s1_)*wCT(ixO^S,s2_)&
+    !               /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_)))
+    !          }
+    !          {^IFTHREEC
+    !          {^NOONED
+    !          tmp(ixO^S)=tmp(ixO^S)+(wCT(ixO^S,s3_)**2.0&
+    !               /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))) &
+    !               *cos(x(ixO^S,2))/sin(x(ixO^S,2))
+    !          }
+    !          ! s[s3]=-(sphi*sr/xi)/r
+    !          !       -cot(theta)*(stheta*sphi/xi)/r
+    !       case(s3_)
+    !          if(.not.angmomfix) &
+    !               tmp(ixO^S)=-(wCT(ixO^S,s3_)*wCT(ixO^S,s1_)&
+    !               /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))){^NOONED &
+    !               -(wCT(ixO^S,s2_)*wCT(ixO^S,s3_)&
+    !               /(wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))) &
+    !               *cos(x(ixO^S,2))/sin(x(ixO^S,2)) }
+    !          }
+    !       end select
+    !       ! Divide by radius and add to w
+    !       if(iw==s1_{^NOONEC.or.iw==s2_}{^IFTHREEC  &
+    !            .or.(iw==s3_.and..not.angmomfix)}) &
+    !            w(ixO^S,iw)=w(ixO^S,iw)+qdt*tmp(ixO^S)/x(ixO^S,1)
+    !    end do
+    ! case ('cylindrical')
+    !    do iw=1,nwflux
+    !       select case (iw)
+    !          ! source[sr]=sphi*vphi/radius + p/radius
+    !       case (sr_)
+    !          w(ixO^S,sr_)=w(ixO^S,sr_)+qdt*wCT(ixO^S,p_)/x(ixO^S,1)
+    !          tmp(ixO^S)=zero
+    !          {^IFPHI
+    !          tmp(ixO^S)=tmp(ixO^S)+wCT(ixO^S,sphi_)**2/ &
+    !               (wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))
+    !          ! source[sphi]=(-sphi*vr)/radius
+    !       case (sphi_)
+    !          tmp(ixO^S)=-wCT(ixO^S,sphi_)*wCT(ixO^S,sr_)/ &
+    !               (wCT(ixO^S,tau_)+wCT(ixO^S,d_)+wCT(ixO^S,p_))
+    !          }
+    !       end select
+    !       ! Divide by radius and add to w
+    !       if (iw==sr_.or.iw==sphi_) then
+    !          w(ixO^S,iw)=w(ixO^S,iw)+qdt*tmp(ixO^S)/x(ixO^S,1)
+    !       end if
+    !    end do
 
   end subroutine srhd_add_geometry
 !=============================================================================
+  ! Fix later
   subroutine srhd_correctaux(ixI^L,ixO^L,w,x,patchierror,subname)
 
     use mod_global_parameters
@@ -1177,7 +1130,8 @@ contains
     {enddo^D&\}
 
   end subroutine srhd_correctaux
-  !=============================================================================
+
+  ! Fix later
   subroutine srhd_handle_small_values(w,x,ixI^L,ixO^L,subname)
 
     use mod_global_parameters

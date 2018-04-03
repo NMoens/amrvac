@@ -125,7 +125,7 @@ contains
     !*DM* I guess we also need those now...
     allocate(uvel(ndir))
     uvel(:) = var_set_fourvelocity(ndir)
-    allocate(rmom(ndir))
+    allocate(vvel(ndir))
     vvel(:) = var_set_threevelocity(ndir)
 
     if (eos_type == eos_mathews) then
@@ -569,16 +569,96 @@ contains
 
   end subroutine srhd_get_cmax
 !=============================================================================
-  subroutine srhd_get_flux(w,x,ixI^L,ixO^L,idim,f)
+!=============================================================================
+!!*DM*
+!!Copying and adapting the hd routine here
+!! Calculate flux f_idim[iw]
+  subroutine srhd_get_flux_cons(w, x, ixI^L, ixO^L, idim, f)
+    use mod_global_parameters
+
+    integer, intent(in)             :: ixI^L, ixO^L, idim
+    double precision, intent(in)    :: w(ixI^S, 1:nw), x(ixI^S, 1:ndim)
+    double precision, intent(out)   :: f(ixI^S, nwflux)
+    double precision                :: pth(ixI^S), v(ixI^S)
+    integer                         :: idir, itr
+
+    call srhd_get_pthermal(w, x, ixI^L, ixO^L, pth)
+    call srhd_get_v(w, x, ixI^L, ixO^L, idim, v)
+
+    f(ixO^S, d_) = uvel(ixO^S) * w(ixO^S, rho_)
+
+    ! Momentum flux is v_i*m_i, +p in direction idim
+    do idir = 1, ndir
+      f(ixO^S, rmom(idir)) = w(ixO^S, lfac_) * w(ixO^S, mom(idir))
+    end do
+
+    f(ixO^S, mom(idim)) = f(ixO^S, mom(idim)) + pth(ixO^S)
+
+!*DM* this is not needed I think
+!    if(hd_energy) then
+      ! Energy flux is v_i*e + v*p ! Check? m_i/rho*p
+!      f(ixO^S, e_) = v(ixO^S) * (w(ixO^S, e_) + pth(ixO^S))
+!    end if
+
+    do itr = 1, srhd_n_tracer
+       f(ixO^S, tracer(itr)) = v(ixO^S) * w(ixO^S, tracer(itr))
+    end do
+
+  end subroutine srhd_get_flux_cons
+!=============================================================================
+ ! Calculate flux f_idim[iw]
+  subroutine srhd_get_flux(wC, w, x, ixI^L, ixO^L, idim, f)
+    use mod_global_parameters
+
+    integer, intent(in)             :: ixI^L, ixO^L, idim
+    ! conservative w
+    double precision, intent(in)    :: wC(ixI^S, 1:nw)
+    ! primitive w
+    double precision, intent(in)    :: w(ixI^S, 1:nw)
+    double precision, intent(in)    :: x(ixI^S, 1:ndim)
+    double precision, intent(out)   :: f(ixI^S, nwflux)
+    double precision                :: pth(ixO^S)
+    integer                         :: idir, itr
+
+!*DM* this is also not needed...
+!    if (hd_energy) then
+!       pth(ixO^S) = w(ixO^S,p_)
+!    else
+!       pth(ixO^S) = hd_adiab * w(ixO^S, rho_)**hd_gamma
+!    end if
+
+!*DM* This is also ok ?
+    f(ixO^S, rho_) = w(ixO^S,mom(idim)) * w(ixO^S, rho_)
+
+    ! Momentum flux is v_i*m_i, +p in direction idim
+    do idir = 1, ndir
+      f(ixO^S, mom(idir)) = w(ixO^S,mom(idim)) * wC(ixO^S, mom(idir))
+    end do
+
+    f(ixO^S, mom(idim)) = f(ixO^S, mom(idim)) + pth(ixO^S)
+
+!*DM* not needed ?
+!    if(hd_energy) then
+      ! Energy flux is v_i*e + v*p ! Check? m_i/rho*p
+!      f(ixO^S, e_) = w(ixO^S,mom(idim)) * (wC(ixO^S, e_) + w(ixO^S,p_))
+!    end if
+
+    do itr = 1, srhd_n_tracer
+       f(ixO^S, tracer(itr)) = w(ixO^S,mom(idim)) * w(ixO^S, tracer(itr))
+    end do
+
+  end subroutine srhd_get_flux
+!=============================================================================
+!  subroutine srhd_get_flux(w,x,ixI^L,ixO^L,idim,f)
 
     ! Calculate non-transport flux f_idim[iw] within ixO^L.
 
-    use mod_global_parameters
+!    use mod_global_parameters
 
-    integer, intent(in)           :: ixI^L,ixO^L,idim
-    double precision, intent(in)  :: w(ixI^S,1:nw)
-    double precision, intent(in)    :: x(ixI^S,1:ndim)
-    double precision, intent(out) :: f(ixG^T,1:nwflux)
+!    integer, intent(in)           :: ixI^L,ixO^L,idim
+!    double precision, intent(in)  :: w(ixI^S,1:nw)
+!    double precision, intent(in)    :: x(ixI^S,1:ndim)
+!    double precision, intent(out) :: f(ixG^T,1:nwflux)
     !----------------------------------------------
 
     ! assuming getflux FOLLOWS a getaux call for updated p_ entry and
@@ -587,24 +667,20 @@ contains
     ! TODO: compute all fluxes, including transport (look at mod_hd_phys)
 
        ! f_i[s_i]=v_i*s_i + p
-       f(ixO^S,iw)=w(ixO^S,p_)
-!       {#IFDEF TRACER
-!       {else if (iw==tr^FL_) then 
-!       f(ixO^S,iw)=zero\}
-!       }
+!       f(ixO^S,iw)=w(ixO^S,p_)
 
        ! f_i[tau]=v_i*tau + v_i*p
        ! first case only happens when d=0 and p/tau are at enforced minimal
        ! values, namely p=smallp and tau=smallp/(gamma-1) (no velocities)
        ! This will typically NEVER be the case, but still...
-       where(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_)==smallxi)
-          f(ixO^S,iw)=zero
-       elsewhere
-          f(ixO^S,iw)=w(ixO^S,rmom(idim))*w(ixO^S,p_)/ &
-               (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
-       endwhere
+!       where(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_)==smallxi)
+!          f(ixO^S,iw)=zero
+!       elsewhere
+!          f(ixO^S,iw)=w(ixO^S,rmom(idim))*w(ixO^S,p_)/ &
+!               (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
+!       endwhere
 
-  end subroutine srhd_get_flux
+!  end subroutine srhd_get_flux
 !=============================================================================
   subroutine srhd_con2prim(pressure,lfac,d,rmom,tau,ierror) 
   !*DM* Change s^C to rmom

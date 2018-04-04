@@ -457,7 +457,7 @@ endif
     integer                         :: idir, itr
 
 !*DM* this is also not needed...
-!    if (hd_energy) then
+!    if (srhd_energy) then
 !       pth(ixO^S) = w(ixO^S,p_)
 !    else
 !       pth(ixO^S) = hd_adiab * w(ixO^S, rho_)**hd_gamma
@@ -484,7 +484,6 @@ endif
     end do
 
   end subroutine srhd_get_flux
-
 !=============================================================================
   subroutine srhd_con2prim(pressure,lfac,d,rmom,tau,ierror) 
   !*DM* Change s^C to rmom
@@ -528,14 +527,14 @@ endif
 
     sqrs={s^C**2+} !*DM* what?
 
-    if(sqrs==zero)then
+    if(sqrs==0.0)then
        call pressureNoFlow(pressure,tau,d)
-       lfac=one
+       lfac=1.0d0
        return
     endif
 
     ! left and right brackets for p-range
-    pmin=sqrt(sqrs)/(one-dmaxvel)-tau-d
+    pmin=sqrt(sqrs)/(1.0d0-dmaxvel)-tau-d
     pLabs=max(minp,pmin)
     pRabs=1.0d99
     ! start value from input
@@ -561,7 +560,7 @@ endif
        if(nit>maxitnr/4)then
           !print *,'ni,er,p',ni,er,pcurrent
           ! mix pressure value for convergence
-          pcurrent=half*(pcurrent+pprev)
+          pcurrent=0.5d0*(pcurrent+pprev)
           ! relax accuracy requirement
           er1=10.*er1
           nit = nit - maxitnr/10
@@ -588,9 +587,9 @@ endif
 !       {v^C=s^C/xicurrent\}
 !       lfac2inv=one - ({v^C**2+})
        vvel(:)=rmom(:)/xicurrent
-       lfac2inv=1-sum(vvel(:)**2)
-       if(lfac2inv>zero) then
-          lfac=one/sqrt(lfac2inv)
+       lfac2inv=1.0-sum(vvel(:)**2)
+       if(lfac2inv>0.0) then
+          lfac=1.0d0/sqrt(lfac2inv)
        else
           if(strictgetaux)then
              print*,'!--- amrvacphys/t.srhd-- con2prim ---!'
@@ -612,10 +611,10 @@ endif
             s2overcubeG2rh,h,dhdp,ierror)
        !=======================================!   
        ff=-xicurrent*lfac2inv + h 
-       df=- two*sqrs/(xicurrent)**2  + dhdp - lfac2inv
+       df=- 2.0d0*sqrs/(xicurrent)**2.0d0  + dhdp - lfac2inv
 
-       if (ff*df==zero) then
-          if (ff==zero) then
+       if (ff*df==0.0) then
+          if (ff==0.0) then
              exit ! zero found
           else
              if(strictgetaux)print *,'stop: df becomes zero, non-monotonic f(p)!!'
@@ -624,7 +623,7 @@ endif
           endif
        else 
           pnew=pcurrent-ff/df
-          if (ff*df>zero) then
+          if (ff*df>0.0) then
              ! pressure iterate has decreased
              ! restrict to left 
              pnew=max(pnew,pLabs)
@@ -638,7 +637,7 @@ endif
 
        ! handle special case where NR incorrectly believes in convergence
        if(pnew == pLabs .and. pcurrent==pnew .and. &
-            abs(ff)> absaccnr .and. sqrs > zero)then
+            abs(ff)> absaccnr .and. sqrs > 0.0)then
           pnewi=pnew
           ! try 2 higher pressure values to locate a sign change for f(p)
           LoopCor:  do ni2=1,2
@@ -652,8 +651,8 @@ endif
              !=====================!
 
              !=====================!
-             if(lfac2inv>zero)then
-                lfac=one/sqrt(lfac2inv)
+             if(lfac2inv>0.0)then
+                lfac=1.0/sqrt(lfac2inv)
              else
                 ierror=4
                 return
@@ -671,7 +670,7 @@ endif
              !================================!
 
              !== find the interval where is the root ==!
-             if(Nff * ff <=zero)then
+             if(Nff * ff <=0.0)then
                 pnew=pcurrent
                 exit LoopCor
              endif
@@ -679,14 +678,14 @@ endif
           enddo LoopCor
 
           !== No possible solution, correct all including the conservatives ==!
-          if( Nff*ff>zero)then
+          if( Nff*ff>0.0)then
 
              ! following is in accord with trick done in smallvalues
-             d   = 2.0d0*(one + 10.0d0 * minrho) * minrho
-             tau = 2.0d0*(one + 10.0d0 * smalltau) * smalltau
-             {^C&s^C =zero;}
-             pressure     = (eqpar(gamma_)-one)*tau
-             lfac = one
+             d   = 2.0d0*(1.0 + 10.0d0 * minrho) * minrho
+             tau = 2.0d0*(1.0 + 10.0d0 * smalltau) * smalltau
+             {^C&s^C =0.0;}
+             pressure     = (eqpar(gamma_)-1.0)*tau
+             lfac = 1.0
 
              if(strictnr)ierror=7
              ! leave the do loop here
@@ -702,7 +701,7 @@ endif
        ! For very small values of pressure, NR algorithm is not efficient to
        ! find root, use Euler algorithm to find precise value of pressure
        if((dabs(oldff2-ff) < 1.0d-8 .or. niiter >= maxitnr-maxitnr/20).and.&
-            ff * oldff1 < zero    .and.  dabs(ff)>absaccnr)then
+            ff * oldff1 < 0.0    .and.  dabs(ff)>absaccnr)then
 
           n2it=n2it+1
           if(n2it <= 3) pcurrent=half*(pnew+pcurrent)
@@ -717,8 +716,8 @@ endif
                 lfac2inv=1-sum(vvel(:)**2)
                 !{v^C=s^C/xicurrent\}
                 !lfac2inv=one - ({v^C**2+})
-                if(lfac2inv>zero)then
-                   lfac=one/sqrt(lfac2inv)
+                if(lfac2inv>0.0)then
+                   lfac=1.0/sqrt(lfac2inv)
                 else
                    ierror=4
                    return
@@ -732,13 +731,13 @@ endif
                 Nff=-xicurrent*lfac2inv + h 
                 !=======================================!
                 !==== Iterate ====!
-                if(ff * Nff < zero)then
+                if(ff * Nff < 0.0)then
                    pleft=pcurrent
                 else
                    pright=pcurrent
                 endif
 
-                pcurrent=half*(pleft+pright)
+                pcurrent=0.5d0*(pleft+pright)
                 !==================!
 
                 !=== The iteration converge ===!
@@ -788,8 +787,8 @@ endif
 !    lfac2inv=one - ({v^C**2+})
     vvel(:)=rmom(:)/xicurrent
     lfac2inv=1-sum(vvel(:)**2)
-    if(lfac2inv>zero) then
-       lfac=one/sqrt(lfac2inv)
+    if(lfac2inv>0.0) then
+       lfac=1.0/sqrt(lfac2inv)
     else
        ierror=4
        return
@@ -970,15 +969,18 @@ endif
   subroutine srhd_handle_small_values(w,x,ixI^L,ixO^L,subname)
 
     use mod_global_parameters
-
+    use mod_small_values
+    logical, intent(in)             :: primitive
     integer, intent(in)             :: ixI^L,ixO^L
     double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
-    character(len=*), intent(in)    ::subname
+    character(len=*), intent(in)    :: subname
 
-    !!integer                         :: posvec(ndim)
-    integer, dimension(ixG^T)       :: patchierror
-    !-----------------------------------------------------------------------------
+    double precision :: smallone
+    integer :: idir, flag(ixI^S)
+
+!-----------------------------------------------------------------------------
+! *DM* we have to delete/modify things here...
 
     if(any(w(ixO^S,d_) < minrho) .or. any(w(ixO^S,tau_) < smalltau))then
        if(strictsmall)then
@@ -993,7 +995,7 @@ endif
                 w(ixO^S,d_)  = 2.0*(1.0d0 + 10.0d0 * minrho)*minrho
                 w(ixO^S,tau_)= 2.0*(1.0d0 + 10.0d0 * minp)*smalltau
                 {^C&w(ixO^S,s^C_) =zero;}
-                w(ixO^S,lfac_)=one
+                w(ixO^S,lfac_)=1.0
              end where
           else
              where(w(ixO^S,d_) < minrho .or. w(ixO^S,tau_) < smalltau)
@@ -1005,21 +1007,6 @@ endif
           end if
        end if ! strict
     end if
-
-!*DM* Well, I don't think we should include the tracers in that now...
-    {#IFDEF TRACER
-    if(any(w(ixO^S,Dtr1_) < minrho) .or. &
-         any(w(ixO^S,Dtr1_) > 10.d10 ))then
-       where(w(ixO^S,Dtr1_) < minrho .or. &
-            w(ixO^S,Dtr1_) > 10.d10) 
-          w(ixO^S,Dtr1_) = 0.d0
-       end where
-    end if
-    if(any(w(ixO^S,Dtr1_) .NE. w(ixO^S,Dtr1_)))then
-       where(w(ixO^S,Dtr1_) .NE. w(ixO^S,Dtr1_)) 
-          w(ixO^S,Dtr1_) = 0.d0
-       end where
-    end if\}
 
     end subroutine srhd_handle_small_values
  !============================================================================

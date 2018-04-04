@@ -21,16 +21,19 @@ module mod_srhd_phys
 
   integer            :: eos_type    = 1
   integer, parameter :: eos_ideal   = 1
-  integer, parameter :: eos_mathews = 2
+! *DM* do the ideal case first
+!  integer, parameter :: eos_mathews = 2 
 
-  !> Index of the energy density
-  integer, public, protected              :: e_
+!  !> Index of the energy density
+!  integer, public, protected              :: e_
+
+! *DM* Primitive variables (following the old version) 
 
   !> Index of the density (lab frame)
   integer, public, protected              :: d_
 
-  !> Index of the  density (primitive?) (*DM* we delete this one I guess...)
-  integer, public, protected              :: s0_
+!  !> Index of the  density (primitive?) (*DM* we delete this one I guess...)
+!  integer, public, protected              :: s0_
 
   !> Indices of the momentum density
   integer, allocatable, public, protected :: rmom(:)
@@ -67,7 +70,6 @@ module mod_srhd_phys
 
  !Public methods
   public :: srhd_phys_init
-!  public :: srhd_get_pthermal *DM this is probably not needed*
   public :: srhd_to_conserved
   public :: srhd_to_primitive
 
@@ -149,7 +151,6 @@ contains
     phys_to_primitive        => srhd_to_primitive
     phys_check_params        => srhd_check_params
     phys_check_w             => srhd_check_w
-!    phys_get_pthermal        => srhd_get_pthermal *DM delete this one*
     phys_write_info          => srhd_write_info
     phys_handle_small_values => srhd_handle_small_values ! Can fix later
 
@@ -222,6 +223,8 @@ contains
 
     flag(iO^S)= 0
 
+! *DM* Deleted the useprimitiveRel option, always true
+
     if (checkprimitive) then
        ! check   rho>=0, p>=smallp
        flag(ixO^S) = (w(ixO^S,rho_) >= minrho).and. &
@@ -234,62 +237,44 @@ contains
 
   end subroutine srhd_check_w
 !=============================================================================
-  subroutine srhd_to_conserved(ixI^L,ixO^L,w,x) !*DM* I removed the patchw 
+  subroutine srhd_to_conserved(ixI^L,ixO^L,w,x) 
+
     !*DM*
     ! Transform primitive variables into conservative ones
     ! (rho,v,p) ---> (D,S,tau) **THIS IS THE OLD VERSION**
     ! (rho,v,p) ---> (D,rmom, tau) **THIS SHOULD BE THE NEW TRANSFORMATION**
 
-    !**OLD**
-    ! call to smallvalues **OLD**
-    ! --> latter only used for correcting procedure in correctaux **OLD**
-    ! --> input array patchw for spatially selective transformation **OLD**
     !*DM*
     use mod_global_parameters
 
     integer, intent(in)               :: ixI^L, ixO^L
     double precision, intent(inout)   :: w(ixI^S,nw)
-    double precision, intent(in)    :: x(ixI^S,1:ndim)
-    logical, intent(in)               :: patchw(ixG^T)
     integer                         :: idir, itr
 
     double precision,dimension(ixG^T) :: xi
-    !-----------------------------------------------------------------------------
-    
-    !*DM* useprimitiveRel is always true now, I deleted everything else
-       ! This assumes four velocity computed in primitive (rho u p) with u=lfac*v
-       ! TODO: fix sum(...) below
-       xi(ixO^S)=1.0d0+sum(w(ixO^S,uvel(:))**2, dim=ndim+1)
-       ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
-       w(ixO^S,lfac_)=sqrt(xi(ixO^S))
-       w(ixO^S,p_)=w(ixO^S,pp_)
 
-      where(.not.patchw(ixO^S))
+  !-----------------------------------------------------------------------------
+  
+  !*DM* useprimitiveRel is always true now, I deleted everything else
+     ! This assumes four velocity computed in primitive (rho u p) with u=lfac*v
+
+  ! assumes four velocity computed in primitive (rho u p) with u=lfac*v
+     xi(ixO^S)=1.0d0+sum(w(ixO^S,uvel(:))**2, dim=ndim+1)
+      ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
+     w(ixO^S,lfac_)=dsqrt(xi(ixO^S))
+     w(ixO^S,p_)=w(ixO^S,pp_)
+
+   ! compute xi=Lfac w  (enthalphy w)
       xi(ixO^S)=w(ixO^S,lfac_)*(w(ixO^S,rho_)+w(ixO^S,p_)*eqpar(gamma_)/(eqpar(gamma_)-one))
-      endwhere
 
-      where(.not.patchw(ixO^S))
-      w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_)
-      w(ixO^S,rmom(:))=xi(ixO^S)*w(ixO^S,uvel(:)) !*DM* check
-      w(ixO^S,tau_)=xi(ixO^S)*w(ixO^S,lfac_) - w(ixO^S,p_) - w(ixO^S,d_)
-      endwhere
+    w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_)
+    do idir=1, ndir
+       w(ixO^S,rmom(idir))=xi(ixO^S)*w(ixO^S,uvel(idir))
+    end do
+    w(ixO^S,tau_)=xi(ixO^S)*w(ixO^S,lfac_) - w(ixO^S,p_) - w(ixO^S,d_)
 
-   !*DM* so, patchw has to be deleted as well?
-    call Enthalpy(w,ixI^L,ixO^L,patchw,xi) !*DM* This is used for srhdeos I think
-
-       ! compute xi=Lfac w  (enthalphy w)
-       xi(ixO^S)=w(ixO^S,lfac_)*xi(ixO^S)
-
-       w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_) 
-       do idir = 1, ndir
-       w(ixO^S, rmom(idir)) = xi(ixO^S)*w(ixO^S,uvel(idir))
-       end do
-!       ^C&w(ixO^S,s^C_)=xi(ixO^S)*w(ixO^S,u^C_);
-       w(ixO^S,tau_)=xi(ixO^S)*w(ixO^S,lfac_) - w(ixO^S,p_) - w(ixO^S,d_)
-
-!*DM* No need to do anything for the tracer 
-
-   if(check_small_values) call srhd_handle_smallvalues(.false.,w,x,ixI^L,ixO^L,"srhd_to_conserved")
+! *DM* add this later
+!   if(check_small_values) call srhd_handle_smallvalues(.false.,w,x,ixI^L,ixO^L,"srhd_to_conserved")
 
   end subroutine srhd_to_conserved
   !=============================================================================
@@ -310,27 +295,14 @@ contains
     ! Calculate pressure and Lorentz factor from conservative variables only
     ! these are put in lfac_ and p_ auxiliaries
 
-    call getaux(.true.,w,x,ixI^L,ixO^L,'primitive')
-    !*DM* **OLD**
-    ! note: on exit from getaux: gauranteed 
-    !    xi=(d+tau+p)>smallp*gamma/(gamma-1), lfac>=1, p>smallp
+  do idir=1, ndir
+     w(ixO^S,uvel(idir))=w(ixO^S,lfac_)*w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
+  end do
 
-    ! replace conservative with primitive variables
-    ! compute velocity
-    !**OLD**
-
-    !* Again, useprimitiveRel is always true, I deleted the rest
-       do idir=1, ndir
-       w(ixO^S,uvel(idir))=w(ixO^S,lfac_)*w(ixO^S,rmom(idir))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_));
-       end do
-
-    ! compute density
-    w(ixO^S,rho_)=w(ixO^S,d_)/w(ixO^S,lfac_)
-    ! fill pressure
-    w(ixO^S,pp_)=w(ixO^S,p_)
-
-!    *DM* Check later
-!    if (tlow>zero) call fixp_usr(ixI^L,ixO^L,w,x)
+  ! compute density
+  w(ixO^S,rho_)=w(ixO^S,d_)/w(ixO^S,lfac_)
+  ! fill pressure
+  w(ixO^S,pp_)=w(ixO^S,p_)
 
   end subroutine srhd_to_primitive(ixI^L,ixO^L,w,x) 
 !=============================================================================
@@ -349,8 +321,7 @@ contains
     ! assuming getv FOLLOWS a getaux call for updated p_ entry and
     ! well-behaved xi=d+tau+p
 
-    v(ixO^S) = w(ixO^S, rmom(idim)) / &
-         (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
+    v(ixO^S) = w(ixO^S,rmom(idim))/(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
 
   end subroutine srhd_get_v
 !=============================================================================
@@ -358,117 +329,52 @@ contains
   subroutine srhd_get_cmax(w,x,ixI^L,ixO^L,idim,cmax)
 
 !*DM* THIS IS DIFFERENT FOR SRHD/SRHDEOS
-!*DM*  HERE I COPIED ONLY THE SRHDEOS ONE...
+!*DM*  INCLUDE THE IDEAL CASE
     ! Calculate cmax_idim=csound+abs(v_idim) within ixO^L
 
     use mod_global_parameters
 
-    logical, intent(in)                               :: new_cmax,needcmin
-    integer, intent(in)                               :: ixI^L, ixO^L, idim
-    double precision, dimension(ixI^S,nw), intent(in) :: w
-    double precision, intent(in)    :: x(ixI^S,1:ndim)
-    double precision, dimension(ixG^T), intent(out)   :: cmax,cmin
+rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_)+eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
+csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
+if(.not.needcmin)then
+! xi(ixO^S)=1.0d0+sum(w(ixO^S,uvel(:))**2, dim=ndim+1)
+   v2(ixO^S)= sum(w(ixO^S,rmom(:))**2, dim=ndim+1)/((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
+else
+   vidim(ixO^S)=(w(ixO^S,s0_+idim)/(rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
+endif
 
-    double precision, dimension(ixG^T)                :: csound2,rhoh,vidim2,v2,vidim
-    !-----------------------------------------------------------------------------
-    !== ZM calculation of sound speed using the EOS ==!
-    call getcsound2(w,ixI^L,ixO^L,.true.,rhoh,csound2)
+if(.not.needcmin)then
+  if (ndir==1) then
+     cmax(ixO^S)= (dsqrt(v2(ixO^S))+dsqrt(csound2(ixO^S)))/(1.0d0+dsqrt(csound2(ixO^S)*v2(ixO^S)))
+  else
+     vidim2(ixO^S)=(w(ixO^S,s0_+idim)/rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2.0d0
 
-    if(.not.needcmin)then
-       v2(ixO^S)=(sum(w(ixO^S,rmom(:))**2)/ &
-            ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2)
- !      v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
- !           ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2)
-    else
-       vidim(ixO^S)=(w(ixO^S,rmom(idim))/ &
-            (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
-    endif
+     cmax(ixO^S)=( dsqrt(vidim2(ixO^S))*(1.0d0-csound2(ixO^S)) + &
+                dsqrt(csound2(ixO^S)*(1.0d0-v2(ixO^S))*( &
+        1.0d0-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(1.0d0-csound2(ixO^S))) &
+               ) ) / (1.0d0-v2(ixO^S)*csound2(ixO^S))
+  endif
+else
+  if (ndir==1) then
+     cmax(ixO^S)= min(1.0d0,max(0.0,(vidim(ixO^S)+dsqrt(csound2(ixO^S)))/ &
+                  (1.0d0+dsqrt(csound2(ixO^S))*vidim(ixO^S))))
+     cmin(ixO^S)= max(-1.0d0,min(0.0,(vidim(ixO^S)-dsqrt(csound2(ixO^S)))/ &
+                  (1.0d0-dsqrt(csound2(ixO^S))*vidim(ixO^S))))
+  else
+     v2(ixO^S)=sum(w(ixO^S,rmom(:))**2, dim=ndim+1)/ &
+             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0
 
-    if(.not.needcmin)then
-       if (ndir==1) then
-          cmax(ixO^S)= (sqrt(v2(ixO^S))+sqrt(csound2(ixO^S)))/ &
-               (one+sqrt(csound2(ixO^S)*v2(ixO^S)))
-       else
-          vidim2(ixO^S)=(w(ixO^S,rmom(idim))/ &
-               (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2
+     cmax(ixO^S)=min(1.0d0,max(0.0,(vidim(ixO^S)*(1.0d0-csound2(ixO^S)) + &
+      dsqrt(csound2(ixO^S)*(1.0d0-v2(ixO^S))*( &
+      1.0d0-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(1.0d0-csound2(ixO^S))) &
+       ) ) / (1.0d0-v2(ixO^S)*csound2(ixO^S))))
 
-          cmax(ixO^S)=( sqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
-               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-               one-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(one-csound2(ixO^S))) &
-               ) ) / (one-v2(ixO^S)*csound2(ixO^S))
-       endif
-    else
-       if (ndir==1) then
-          cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+sqrt(csound2(ixO^S)))/ &
-               (one+sqrt(csound2(ixO^S))*vidim(ixO^S))))
-          cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-sqrt(csound2(ixO^S)))/ &
-               (one-sqrt(csound2(ixO^S))*vidim(ixO^S))))
-       else
-          v2(ixO^S)=(sum(w(ixO^S,mom(:))**2)/ &
-               (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
- !         v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
- !              (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
-
-          cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
-               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
-               ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-
-          cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
-               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
-               ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-       endif
-    endif
-  
-
-!*DM* PROBABALY ADD HERE AN IFDEF ENERGY TO SWITCH TO
-!rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_) + &
-!         eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
-!csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
-!if(.not.needcmin)then
-!   v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
-!             ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2)
-!else
-!   vidim(ixO^S)=(w(ixO^S,s0_+idim)/ &
-!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
-!endif
-!
-!if(.not.needcmin)then
-!  if (ndir==1) then
-!     cmax(ixO^S)= (sqrt(v2(ixO^S))+sqrt(csound2(ixO^S)))/ &
-!                  (one+sqrt(csound2(ixO^S)*v2(ixO^S)))
-!  else
-!     vidim2(ixO^S)=(w(ixO^S,s0_+idim)/ &
-!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2
-
-!     cmax(ixO^S)=( sqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
-!                sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-!        one-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(one-csound2(ixO^S))) &
-!               ) ) / (one-v2(ixO^S)*csound2(ixO^S))
-!  endif
-!else
-!  if (ndir==1) then
-!     cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+sqrt(csound2(ixO^S)))/ &
-!                  (one+sqrt(csound2(ixO^S))*vidim(ixO^S))))
-!     cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-sqrt(csound2(ixO^S)))/ &
-!                  (one-sqrt(csound2(ixO^S))*vidim(ixO^S))))
-!  else
-!     v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
-!             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
-
-!     cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
-!      sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-!      one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
-!       ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-
-!     cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
-!       sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-!       one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
-!                 ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-!  endif
-!endif
-!*DM* The commented out part is copied from the old version, no translation
+     cmin(ixO^S)=max(-1.0d0,min(0.0,(vidim(ixO^S)*(1.0d0-csound2(ixO^S)) - &
+       dsqrt(csound2(ixO^S)*(1.0d0-v2(ixO^S))*( &
+       1.0d0-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(1.0d0-csound2(ixO^S))) &
+                 ) ) / (1.0d0-v2(ixO^S)*csound2(ixO^S))))
+  endif
+endif
 
   end subroutine srhd_get_cmax
 !=============================================================================
@@ -477,99 +383,64 @@ contains
 
     use mod_global_parameters
 
-   logical, intent(in)                               :: new_cmax,needcmin
-   integer, intent(in)                               :: ixI^L, ixO^L, idim
-   double precision, dimension(ixI^S,nw), intent(in) :: w
-   double precision, intent(in)    :: x(ixI^S,1:ndim)
-   double precision, dimension(ixG^T), intent(out)   :: cmax,cmin
-   double precision, dimension(ixG^T)                :: csound2,rhoh,vidim2,v2,vidim
-!-----------------------------------------------------------------------------
-!*DM* THIS IS DIFFERENT FOR SRHD/SRHDEOS
-!*DM*  CHECK THE IDEAL CASE...
-    ! Calculate cmax_idim=csound+abs(v_idim) within ixO^L
-rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_) + &
-         eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
-csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
-if(.not.needcmin)then
-   v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
-             ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
-else
-   vidim(ixO^S)=(w(ixO^S,s0_+idim)/ &
-                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
-endif
-
-if(.not.needcmin)then
-  if (ndir==1) then
-     cmax(ixO^S)= (dsqrt(v2(ixO^S))+dsqrt(csound2(ixO^S)))/ &
-                  (one+dsqrt(csound2(ixO^S)*v2(ixO^S)))
-  else
-     vidim2(ixO^S)=(w(ixO^S,s0_+idim)/ &
-                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2.0d0
-
-     cmax(ixO^S)=( dsqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
-                dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-        one-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(one-csound2(ixO^S))) &
-               ) ) / (one-v2(ixO^S)*csound2(ixO^S))
-  endif
-else
-  if (ndir==1) then
-     cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+dsqrt(csound2(ixO^S)))/ &
-                  (one+dsqrt(csound2(ixO^S))*vidim(ixO^S))))
-     cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-dsqrt(csound2(ixO^S)))/ &
-                  (one-dsqrt(csound2(ixO^S))*vidim(ixO^S))))
-  else
-     v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
-             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0
-
-     cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
-      dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-      one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
-       ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-
-     cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
-       dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-       one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
-                 ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-  endif
-endif
-
-  end subroutine srhd_get_cmax
-!=============================================================================
-!=============================================================================
-!!*DM*
-!!Copying and adapting the hd routine here
-!! Calculate flux f_idim[iw]
-  subroutine srhd_get_flux_cons(w, x, ixI^L, ixO^L, idim, f)
-    use mod_global_parameters
-
     integer, intent(in)             :: ixI^L, ixO^L, idim
-    double precision, intent(in)    :: w(ixI^S, 1:nw), x(ixI^S, 1:ndim)
-    double precision, intent(out)   :: f(ixI^S, nwflux)
-    double precision                :: pth(ixI^S), v(ixI^S)
-    integer                         :: idir, itr
+    ! conservative left and right status
+    double precision, intent(in)    :: wLC(ixI^S, nw), wRC(ixI^S, nw)
+    ! primitive left and right status
+    double precision, intent(in)    :: wLp(ixI^S, nw), wRp(ixI^S, nw)
+    double precision, intent(in)    :: x(ixI^S, 1:ndim)
+    double precision, intent(inout) :: cmax(ixI^S)
+    double precision, intent(inout), optional :: cmin(ixI^S)
 
-    call srhd_get_v(w, x, ixI^L, ixO^L, idim, v)
+    double precision :: wmean(ixI^S,nw)
+    double precision, dimension(ixI^S) :: umean, dmean, csoundL, csoundR, tmp1,tmp2,tmp3
 
-    f(ixO^S, d_) = uvel(ixO^S) * w(ixO^S, rho_)
+ if (typeboundspeed/='cmaxmean') then
+      ! This implements formula (10.52) from "Riemann Solvers and Numerical
+      ! Methods for Fluid Dynamics" by Toro.
 
-    ! Momentum flux is v_i*m_i, +p in direction idim
-    do idir = 1, ndir
-      f(ixO^S, rmom(idir)) = w(ixO^S, lfac_) * w(ixO^S, mom(idir))
-    end do
+      tmp1(ixO^S)=sqrt(wLp(ixO^S,rho_))
+      tmp2(ixO^S)=sqrt(wRp(ixO^S,rho_))
+      tmp3(ixO^S)=1.d0/(sqrt(wLp(ixO^S,rho_))+sqrt(wRp(ixO^S,rho_)))
+      umean(ixO^S)=(wLp(ixO^S,mom(idim))*tmp1(ixO^S)+wRp(ixO^S,mom(idim))*tmp2(ixO^S))*tmp3(ixO^S)
 
-    f(ixO^S, mom(idim)) = f(ixO^S, mom(idim)) + pth(ixO^S)
+!      if(srhd_energy) then
+!*DM* ideal
+        csoundL(ixO^S)=srhd_gamma*wLp(ixO^S,p_)/wLp(ixO^S,rho_)
+        csoundR(ixO^S)=srhd_gamma*wRp(ixO^S,p_)/wRp(ixO^S,rho_)
+!      else
+!        csoundL(ixO^S)=hd_gamma*hd_adiab*wLp(ixO^S,rho_)**(hd_gamma-one)
+!        csoundR(ixO^S)=hd_gamma*hd_adiab*wRp(ixO^S,rho_)**(hd_gamma-one)
+!      end if
 
-!*DM* this is not needed I think
-!    if(hd_energy) then
-      ! Energy flux is v_i*e + v*p ! Check? m_i/rho*p
-!      f(ixO^S, e_) = v(ixO^S) * (w(ixO^S, e_) + pth(ixO^S))
-!    end if
+      dmean(ixO^S) = (tmp1(ixO^S)*csoundL(ixO^S)+tmp2(ixO^S)*csoundR(ixO^S)) * &
+           tmp3(ixO^S) + 0.5d0*tmp1(ixO^S)*tmp2(ixO^S)*tmp3(ixO^S)**2 * &
+           (wRp(ixO^S,mom(idim))-wLp(ixO^S,mom(idim)))**2
 
-    do itr = 1, srhd_n_tracer
-       f(ixO^S, tracer(itr)) = v(ixO^S) * w(ixO^S, tracer(itr))
-    end do
+      dmean(ixO^S)=sqrt(dmean(ixO^S))
+      if(present(cmin)) then
+        cmin(ixO^S)=umean(ixO^S)-dmean(ixO^S)
+        cmax(ixO^S)=umean(ixO^S)+dmean(ixO^S)
+      else
+        cmax(ixO^S)=abs(umean(ixO^S))+dmean(ixO^S)
+      end if
 
-  end subroutine srhd_get_flux_cons
+ else
+      wmean(ixO^S,1:nwflux)=0.5d0*(wLC(ixO^S,1:nwflux)+wRC(ixO^S,1:nwflux))
+      tmp1(ixO^S)=wmean(ixO^S,mom(idim))/wmean(ixO^S,rho_)
+      call hd_get_csound2(wmean,x,ixI^L,ixO^L,csoundR)
+      csoundR(ixO^S) = sqrt(csoundR(ixO^S))
+
+      if(present(cmin)) then
+        cmax(ixO^S)=max(tmp1(ixO^S)+csoundR(ixO^S),zero)
+        cmin(ixO^S)=min(tmp1(ixO^S)-csoundR(ixO^S),zero)
+      else
+        cmax(ixO^S)=abs(tmp1(ixO^S))+csoundR(ixO^S)
+      end if
+
+ end if
+
+  end subroutine srhd_get_cbounds
 !=============================================================================
  ! Calculate flux f_idim[iw]
   subroutine srhd_get_flux(wC, w, x, ixI^L, ixO^L, idim, f)
@@ -613,39 +484,7 @@ endif
     end do
 
   end subroutine srhd_get_flux
-!=============================================================================
-!  subroutine srhd_get_flux(w,x,ixI^L,ixO^L,idim,f)
 
-    ! Calculate non-transport flux f_idim[iw] within ixO^L.
-
-!    use mod_global_parameters
-
-!    integer, intent(in)           :: ixI^L,ixO^L,idim
-!    double precision, intent(in)  :: w(ixI^S,1:nw)
-!    double precision, intent(in)    :: x(ixI^S,1:ndim)
-!    double precision, intent(out) :: f(ixG^T,1:nwflux)
-    !----------------------------------------------
-
-    ! assuming getflux FOLLOWS a getaux call for updated p_ entry and
-    ! well-behaved xi=d+tau+p, write:
-
-    ! TODO: compute all fluxes, including transport (look at mod_hd_phys)
-
-       ! f_i[s_i]=v_i*s_i + p
-!       f(ixO^S,iw)=w(ixO^S,p_)
-
-       ! f_i[tau]=v_i*tau + v_i*p
-       ! first case only happens when d=0 and p/tau are at enforced minimal
-       ! values, namely p=smallp and tau=smallp/(gamma-1) (no velocities)
-       ! This will typically NEVER be the case, but still...
-!       where(w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_)==smallxi)
-!          f(ixO^S,iw)=zero
-!       elsewhere
-!          f(ixO^S,iw)=w(ixO^S,rmom(idim))*w(ixO^S,p_)/ &
-!               (w(ixO^S,d_)+w(ixO^S,tau_)+w(ixO^S,p_))
-!       endwhere
-
-!  end subroutine srhd_get_flux
 !=============================================================================
   subroutine srhd_con2prim(pressure,lfac,d,rmom,tau,ierror) 
   !*DM* Change s^C to rmom

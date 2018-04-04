@@ -65,16 +65,15 @@ module mod_srhd_phys
 
   double precision :: smalltau,smallxi,minrho,minp
 
- !Public methods ??
+ !Public methods
   public :: srhd_phys_init
-!  public :: srhd_kin_en
-!  public :: srhd_get_pthermal
+!  public :: srhd_get_pthermal *DM this is probably not needed*
   public :: srhd_to_conserved
   public :: srhd_to_primitive
 
 contains
 
-!---------------------------------------------------------------------
+  !> Read this module's parameters from a file
   subroutine srhd_read_params(files)
     use mod_global_parameters
     character(len=*), intent(in) :: files(:)
@@ -150,12 +149,12 @@ contains
     phys_to_primitive        => srhd_to_primitive
     phys_check_params        => srhd_check_params
     phys_check_w             => srhd_check_w
-    phys_get_pthermal        => srhd_get_pthermal
+!    phys_get_pthermal        => srhd_get_pthermal *DM delete this one*
     phys_write_info          => srhd_write_info
     phys_handle_small_values => srhd_handle_small_values ! Can fix later
 
     ! Whether diagonal ghost cells are required for the physics (TODO: true?)
-    phys_req_diagonal = .true.
+    phys_req_diagonal = .false.
 
 !*DM* derive units from basic units (TO BE ADDED FOR SRHD) ! Can fix later
 !    call srhd_physical_units()
@@ -273,6 +272,16 @@ contains
        ! fill the auxiliary variable lfac_ (Lorentz Factor) and p_ (pressure)
        w(ixO^S,lfac_)=sqrt(xi(ixO^S))
        w(ixO^S,p_)=w(ixO^S,pp_)
+
+      where(.not.patchw(ixO^S))
+      xi(ixO^S)=w(ixO^S,lfac_)*(w(ixO^S,rho_)+w(ixO^S,p_)*eqpar(gamma_)/(eqpar(gamma_)-one))
+      endwhere
+
+      where(.not.patchw(ixO^S))
+      w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_)
+      w(ixO^S,rmom(:))=xi(ixO^S)*w(ixO^S,uvel(:)) !*DM* check
+      w(ixO^S,tau_)=xi(ixO^S)*w(ixO^S,lfac_) - w(ixO^S,p_) - w(ixO^S,d_)
+      endwhere
 
    !*DM* so, patchw has to be deleted as well?
     call Enthalpy(w,ixI^L,ixO^L,patchw,xi) !*DM* This is used for srhdeos I think
@@ -477,95 +486,61 @@ contains
 
     use mod_global_parameters
 
-    integer, intent(in)             :: ixI^L, ixO^L, idim
-    ! conservative left and right status
-    double precision, intent(in)    :: wLC(ixI^S, nw), wRC(ixI^S, nw)
-    ! primitive left and right status
-    double precision, intent(in)    :: wLp(ixI^S, nw), wRp(ixI^S, nw)
-    double precision, intent(in)    :: x(ixI^S, 1:ndim)
-    double precision, intent(inout) :: cmax(ixI^S)
-    double precision, intent(inout), optional :: cmin(ixI^S)
-
+   logical, intent(in)                               :: new_cmax,needcmin
+   integer, intent(in)                               :: ixI^L, ixO^L, idim
+   double precision, dimension(ixI^S,nw), intent(in) :: w
+   double precision, intent(in)    :: x(ixI^S,1:ndim)
+   double precision, dimension(ixG^T), intent(out)   :: cmax,cmin
+   double precision, dimension(ixG^T)                :: csound2,rhoh,vidim2,v2,vidim
+!-----------------------------------------------------------------------------
 !*DM* THIS IS DIFFERENT FOR SRHD/SRHDEOS
-!*DM*  HERE I COPIED ONLY THE SRHDEOS ONE...
+!*DM*  CHECK THE IDEAL CASE...
     ! Calculate cmax_idim=csound+abs(v_idim) within ixO^L
+rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_) + &
+         eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
+csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
+if(.not.needcmin)then
+   v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
+             ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
+else
+   vidim(ixO^S)=(w(ixO^S,s0_+idim)/ &
+                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
+endif
 
-    !-----------------------------------------------------------------------------
-    !== ZM calculation of sound speed using the EOS ==!
-    call getcsound2(w,ixI^L,ixO^L,.true.,rhoh,csound2)
+if(.not.needcmin)then
+  if (ndir==1) then
+     cmax(ixO^S)= (dsqrt(v2(ixO^S))+dsqrt(csound2(ixO^S)))/ &
+                  (one+dsqrt(csound2(ixO^S)*v2(ixO^S)))
+  else
+     vidim2(ixO^S)=(w(ixO^S,s0_+idim)/ &
+                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2.0d0
 
-       vidim(ixO^S)=(w(ixO^S,rmom(idim))/ &
-            (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
+     cmax(ixO^S)=( dsqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
+                dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+        one-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(one-csound2(ixO^S))) &
+               ) ) / (one-v2(ixO^S)*csound2(ixO^S))
+  endif
+else
+  if (ndir==1) then
+     cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+dsqrt(csound2(ixO^S)))/ &
+                  (one+dsqrt(csound2(ixO^S))*vidim(ixO^S))))
+     cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-dsqrt(csound2(ixO^S)))/ &
+                  (one-dsqrt(csound2(ixO^S))*vidim(ixO^S))))
+  else
+     v2(ixO^S)=({^C&w(ixO^S,s^C_)**2.0d0+})/ &
+             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0
 
-       if (ndir==1) then
-          cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+sqrt(csound2(ixO^S)))/ &
-               (one+sqrt(csound2(ixO^S))*vidim(ixO^S))))
-          cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-sqrt(csound2(ixO^S)))/ &
-               (one-sqrt(csound2(ixO^S))*vidim(ixO^S))))
-       else
-          v2(ixO^S)=(sum(w(ixO^S,rmom(:))**2)/ &
-               (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
- !         v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
- !              (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
+     cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
+      dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+      one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
+       ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
 
-          cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
-               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
-               ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-
-          cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
-               sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-               one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
-               ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-       endif
-
-!*DM* PROBABALY ADD HERE AN IFDEF ENERGY TO SWITCH TO
-!rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_) + &
-!         eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
-!csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
-!if(.not.needcmin)then
-!   v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
-!             ((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2)
-!else
-!   vidim(ixO^S)=(w(ixO^S,s0_+idim)/ &
-!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))
-!endif
-!
-!if(.not.needcmin)then
-!  if (ndir==1) then
-!     cmax(ixO^S)= (sqrt(v2(ixO^S))+sqrt(csound2(ixO^S)))/ &
-!                  (one+sqrt(csound2(ixO^S)*v2(ixO^S)))
-!  else
-!     vidim2(ixO^S)=(w(ixO^S,s0_+idim)/ &
-!                  (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_)))**2
-
-!     cmax(ixO^S)=( sqrt(vidim2(ixO^S))*(one-csound2(ixO^S)) + &
-!                sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-!        one-v2(ixO^S)*csound2(ixO^S)-vidim2(ixO^S)*(one-csound2(ixO^S))) &
-!               ) ) / (one-v2(ixO^S)*csound2(ixO^S))
-!  endif
-!else
-!  if (ndir==1) then
-!     cmax(ixO^S)= min(one,max(zero,(vidim(ixO^S)+sqrt(csound2(ixO^S)))/ &
-!                  (one+sqrt(csound2(ixO^S))*vidim(ixO^S))))
-!     cmin(ixO^S)= max(-one,min(zero,(vidim(ixO^S)-sqrt(csound2(ixO^S)))/ &
-!                  (one-sqrt(csound2(ixO^S))*vidim(ixO^S))))
-!  else
-!     v2(ixO^S)=({^C&w(ixO^S,s^C_)**2+})/ &
-!             (rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2
-
-!     cmax(ixO^S)=min(one,max(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) + &
-!      sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-!      one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
-!       ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-
-!     cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
-!       sqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
-!       one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2*(one-csound2(ixO^S))) &
-!                 ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
-!  endif
-!endif
-!*DM* The commented out part is copied from the old version, no translation
+     cmin(ixO^S)=max(-one,min(zero,(vidim(ixO^S)*(one-csound2(ixO^S)) - &
+       dsqrt(csound2(ixO^S)*(one-v2(ixO^S))*( &
+       one-v2(ixO^S)*csound2(ixO^S)-vidim(ixO^S)**2.0d0*(one-csound2(ixO^S))) &
+                 ) ) / (one-v2(ixO^S)*csound2(ixO^S))))
+  endif
+endif
 
   end subroutine srhd_get_cmax
 !=============================================================================
@@ -582,7 +557,6 @@ contains
     double precision                :: pth(ixI^S), v(ixI^S)
     integer                         :: idir, itr
 
-    call srhd_get_pthermal(w, x, ixI^L, ixO^L, pth)
     call srhd_get_v(w, x, ixI^L, ixO^L, idim, v)
 
     f(ixO^S, d_) = uvel(ixO^S) * w(ixO^S, rho_)
@@ -707,9 +681,9 @@ contains
 
     ierror=0
     ! ierror=0 : ok
-    !
+    ! 
     ! ierror<>0
-    !
+    ! 
     ! ierror=1 : error on entry: must have D>=minrho, tau>=smalltau
     ! ierror=2 : maxitnr reached without convergence
     ! ierror=3 : final pressure value < smallp or xi<smallxi during iteration

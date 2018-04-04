@@ -191,32 +191,23 @@ contains
 
   end subroutine srhd_phys_init
 !==============================================================================
-!*DM* For now not necessary, maybe add later? The temperature is not really needed...
-
-!  subroutine srhd_physical_units
-!    use mod_global_parameters
-!    double precision :: mp,kB
+  subroutine srhd_physical_units
+    use mod_global_parameters
+    double precision :: mp
 !    ! Derive scaling units
-!    if(SI_unit) then
-!      mp=mp_SI
-!      kB=kB_SI
-!    else
-!      mp=mp_cgs
-!      kB=kB_cgs
-!    end if
-!    if(unit_velocity==0) then
-!      unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
-!      unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*kB*unit_temperature
-!      unit_velocity=sqrt(unit_pressure/unit_density)
-!      unit_time=unit_length/unit_velocity
-!    else
-!      unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
-!      unit_pressure=unit_density*unit_velocity**2
-!      unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*kB)
-!      unit_time=unit_length/unit_velocity
-!    end if
+!*DM* I used the proton mass here again      
+    if(SI_unit) then
+      mp=mp_SI
+    else
+      mp=mp_cgs
+    end if
 
-!  end subroutine srhd_physical_units
+      unit_density=mp*unit_numberdensity
+      unit_pressure=unit_density*unit_velocity**2
+!      unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*kB)
+      unit_time=unit_length/unit_velocity
+
+  end subroutine srhd_physical_units
 !==============================================================================
 ! Fix later, probably have to switch flag (see mod_hd_phys)
   subroutine srhd_check_w(checkprimitive,ixI^L,ixO^L,w,flag)

@@ -21,6 +21,7 @@ module mod_srhd_phys
 
   integer            :: eos_type    = 1
   integer, parameter :: eos_ideal   = 1
+  integer, parameter :: eos_mathews   = 1
 ! *DM* do the ideal case first
 !  integer, parameter :: eos_mathews = 2 
 
@@ -41,7 +42,7 @@ module mod_srhd_phys
   !> Indices of the four velocity
   integer, allocatable, public, protected :: uvel(:)
 
-  !> Indices of the three-velocity
+  !> Indices of the velocity
   integer, allocatable, public, protected :: vvel(:)
 
   !> Index of the total energy density 
@@ -64,7 +65,8 @@ module mod_srhd_phys
   integer, parameter :: nvector=1                             ! No. vector vars
   integer, dimension(nvector), parameter :: iw_vector=(/ s0_ /)
 
-  integer, parameter:: gamma_=1,neqpar=1                     ! equation parameters
+  !*DM* not needed 
+!  integer, parameter:: gamma_=1,neqpar=1                     ! equation parameters
 
   double precision :: smalltau,smallxi,minrho,minp
 
@@ -223,7 +225,7 @@ contains
 
     flag(iO^S)= 0
 
-! *DM* Deleted the useprimitiveRel option, always true
+! *DM* Deleted the useprimitiveRel option, in 2.0 this is always "true"
 
     if (checkprimitive) then
        ! check   rho>=0, p>=smallp
@@ -265,7 +267,7 @@ contains
      w(ixO^S,p_)=w(ixO^S,pp_)
 
    ! compute xi=Lfac w  (enthalphy w)
-      xi(ixO^S)=w(ixO^S,lfac_)*(w(ixO^S,rho_)+w(ixO^S,p_)*eqpar(gamma_)/(eqpar(gamma_)-one))
+      xi(ixO^S)=w(ixO^S,lfac_)*(w(ixO^S,rho_)+w(ixO^S,p_)*srhd_gamma/(srhd_gamma-one))
 
     w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_)
     do idir=1, ndir
@@ -334,8 +336,8 @@ contains
 
     use mod_global_parameters
 
-rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_)+eqpar(gamma_)*w(ixO^S,p_)/(eqpar(gamma_)-one)
-csound2(ixO^S)=eqpar(gamma_)*w(ixO^S,p_)/rhoh(ixO^S)
+rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_)+srhd_gamma*w(ixO^S,p_)/(srhd_gamma-one)
+csound2(ixO^S)=srhd_gamma*w(ixO^S,p_)/rhoh(ixO^S)
 if(.not.needcmin)then
 ! xi(ixO^S)=1.0d0+sum(w(ixO^S,uvel(:))**2, dim=ndim+1)
    v2(ixO^S)= sum(w(ixO^S,rmom(:))**2, dim=ndim+1)/((rhoh(ixO^S)*w(ixO^S,lfac_)*w(ixO^S,lfac_))**2.0d0)
@@ -684,7 +686,7 @@ endif
              d   = 2.0d0*(1.0 + 10.0d0 * minrho) * minrho
              tau = 2.0d0*(1.0 + 10.0d0 * smalltau) * smalltau
              {^C&s^C =0.0;}
-             pressure     = (eqpar(gamma_)-1.0)*tau
+             pressure     = (srhd_gamma-1.0)*tau
              lfac = 1.0
 
              if(strictnr)ierror=7

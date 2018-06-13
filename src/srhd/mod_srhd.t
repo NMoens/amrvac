@@ -13,6 +13,7 @@ contains
     call srhd_phys_init()
     call srhd_hllc_init()
     call srhd_roe_init()
+    call srhd_eos_init()
   end subroutine srhd_activate
 
 end module mod_srhd

@@ -28,12 +28,12 @@ logical,          dimension(ixG^T)  :: patchw
 
 where(.not.patchw(ixO^S))
    !== thermal energy in polytropic definition ==!
-   E_Th(ixO^S) = w(ixO^S,pp_)/(srhd_gamma-one) 
+   E_Th(ixO^S) = w(ixO^S,pp_)/(srhd_gamma-1.0d0) 
    ! internal energy
    E(ixO^S) = (E_Th(ixO^S) + dsqrt(E_th(ixO^S)**2.0d0+w(ixO^S,rho_)**2.0d0))
    ! puposely writing rho/E/rho instead of rho^2/E for numerics
-   rhoh(ixO^S) = half*((srhd_gamma+one)*E(ixO^S)-&
-	    (srhd_gamma-one)*w(ixO^S,rho_)*(w(ixO^S,rho_)/E(ixO^S)))
+   rhoh(ixO^S) = 0.5d0*((srhd_gamma+1.0d0)*E(ixO^S)-&
+	    (srhd_gamma-1.0d0)*w(ixO^S,rho_)*(w(ixO^S,rho_)/E(ixO^S)))
 end where
 
 return
@@ -59,14 +59,14 @@ logical,          dimension(ixG^T)  :: patchw
 if (varconserve) then
 where(.not.patchw(ixO^S))
    !== thermal energy in polytropic definition ==!
-   E_Th(ixO^S) = w(ixO^S,p_)/(srhd_gamma-one)
+   E_Th(ixO^S) = w(ixO^S,p_)/(srhd_gamma-1.0d0)
    ! internal energy
    E(ixO^S) = (E_Th(ixO^S) + dsqrt(E_th(ixO^S)**2.0d0+(w(ixO^S,d_)/w(ixO^S,lfac_))**2.0d0))&
                      -(w(ixO^S,d_)/w(ixO^S,lfac_))
 end where
 else
    !== thermal energy in polytropic definition ==!
-   E_Th(ixO^S) = w(ixO^S,pp_)/(srhd_gamma-one)
+   E_Th(ixO^S) = w(ixO^S,pp_)/(srhd_gamma-1.0d0)
    ! internal energy
    E(ixO^S) = (E_Th(ixO^S) + dsqrt(E_th(ixO^S)**2.0d0+w(ixO^S,rho_)**2.0d0))&
                      -w(ixO^S,rho_)
@@ -94,27 +94,27 @@ double precision, dimension(ixG^T)    :: rhoh,csound2
 !_______________________________________________________________!
 if (vacconserve) then
   !== the thermal energy in polytropic definition ==!
-  E_th(ixO^S) = (one/(srhd_gamma-one) * w(ixO^S,p_))
+  E_th(ixO^S) = (1.0d0/(srhd_gamma-1.0d0) * w(ixO^S,p_))
   rho(ixO^S) = (w(ixO^S,d_)/w(ixO^S,lfac_))
   E(ixO^S) = (E_th(ixO^S) + dsqrt(E_th(ixO^S)**2.0d0+rho(ixO^S)**2.0d0))
-  rhoh(ixO^S) =  half*((srhd_gamma+one)*E(ixO^S)-&
-   	    (srhd_gamma-one)*rho(ixO^S)*(rho(ixO^S)/E(ixO^S)))
+  rhoh(ixO^S) =  0.5d0*((srhd_gamma+1.0d0)*E(ixO^S)-&
+   	    (srhd_gamma-1.0d0)*rho(ixO^S)*(rho(ixO^S)/E(ixO^S)))
 
   !====== The sound speed ======!
-  csound2(ixO^S)=half*w(ixO^S,p_)/rhoh(ixO^S)&
-                 *((srhd_gamma+one)&
-                 +(srhd_gamma-one)*(rho(ixO^S)/E(ixO^S))**2.0d0)
+  csound2(ixO^S)=0.5d0*w(ixO^S,p_)/rhoh(ixO^S)&
+                 *((srhd_gamma+1.0d0)&
+                 +(srhd_gamma-1.0d0)*(rho(ixO^S)/E(ixO^S))**2.0d0)
 else
   !== the thermal energy in polytropic definition ==!
-  E_th(ixO^S) = (one/(srhd_gamma-one) * w(ixO^S,p_))
+  E_th(ixO^S) = (1.0d0/(srhd_gamma-1.0d0) * w(ixO^S,p_))
   E(ixO^S) = (E_th(ixO^S) + dsqrt(E_th(ixO^S)**2.0d0+w(ixO^S,rho_)**2.0d0))
-  rhoh(ixO^S) =  half*((srhd_gamma+one)*E(ixO^S)-&
-   	    (srhd_gamma-one)*w(ixO^S,rho_)*(w(ixO^S,rho_)/E(ixO^S)))
+  rhoh(ixO^S) =  0.5d0*((srhd_gamma+1.0d0)*E(ixO^S)-&
+   	    (srhd_gamma-1.0d0)*w(ixO^S,rho_)*(w(ixO^S,rho_)/E(ixO^S)))
 
   !====== The sound speed ======!
-  csound2(ixO^S)=half*w(ixO^S,p_)/rhoh(ixO^S)&
-                 *((srhd_gamma+one)&
-                 +(srhd_gamma-one)*(w(ixO^S,rho_)/E(ixO^S))**2.0d0)
+  csound2(ixO^S)=0.5d0*w(ixO^S,p_)/rhoh(ixO^S)&
+                 *((srhd_gamma+1.0d0)&
+                 +(srhd_gamma-1.0d0)*(w(ixO^S,rho_)/E(ixO^S))**2.0d0)
 end if
 end subroutine getcsound2
 !=============================================================================
@@ -133,21 +133,21 @@ double precision:: dv2d2p,dE_thdp,dEdp
 !_______________________________________________________________!
 rho=d*sqrt(lfac2inv)
 !== The Classical definition of the thermal energy ==!
-E_th = pcurrent/(srhd_gamma-one)
+E_th = pcurrent/(srhd_gamma-1.0d0)
 E = (E_th + dsqrt(E_th**2.0+rho**2.0d0))
 !== Enthalpy ==!
-h = half *((srhd_gamma+one)*E-(srhd_gamma-one)*rho/(E/rho))
+h = 0.5d0 *((srhd_gamma+1.0d0)*E-(srhd_gamma-1.0d0)*rho/(E/rho))
 
 !=== Derivative of thermal energy ===!
-dE_thdp = (one/(srhd_gamma-one))
+dE_thdp = (1.0d0/(srhd_gamma-1.0d0))
 
 !=== Derivative of internal energy ===!
-dEdp = dE_thdp * (one+E_th/dsqrt(E_th**2.0d0+rho**2.0d0))&
+dEdp = dE_thdp * (1.0d0+E_th/dsqrt(E_th**2.0d0+rho**2.0d0))&
 	+  d**2.0d0*dv2d2p/dsqrt(E_th**2.0d0+rho**2.0d0)
 
 !====== Derivative of Enthalpy ======!
-dhdp = half*((srhd_gamma+one)*dEdp + &
- (srhd_gamma-one)*(rho**2.0d0/E)*(-2.0d0*dv2d2p/lfac2inv+dEdp/E)) 
+dhdp = 0.5d0*((srhd_gamma+1.0d0)*dEdp + &
+ (srhd_gamma-1.0d0)*(rho**2.0d0/E)*(-2.0d0*dv2d2p/lfac2inv+dEdp/E)) 
 
 return
 end subroutine FuncEnthalpy
@@ -160,15 +160,15 @@ double precision::Lsmallrho,Lsmallp,LsmallE
 !_______________________________________________________________!
 Lsmallrho=(1.0d0 + 10.0d0 * minrho) * minrho
 Lsmallp=(1.0d0 + 10.0d0 * minp) * minp
-LsmallE=Lsmallp/(srhd_gamma-one)+&
-	dsqrt((Lsmallp/(srhd_gamma-one))**2.0d0+Lsmallrho**2.0d0)
+LsmallE=Lsmallp/(srhd_gamma-1.0d0)+&
+	dsqrt((Lsmallp/(srhd_gamma-1.0d0))**2.0d0+Lsmallrho**2.0d0)
 
-smalltau=half*((srhd_gamma+one)*LsmallE-&
-    (srhd_gamma-one)*Lsmallrho**2.0d0/LsmallE)-Lsmallp-Lsmallrho
+smalltau=0.5d0*((srhd_gamma+1.0d0)*LsmallE-&
+    (srhd_gamma-1.0d0)*Lsmallrho**2.0d0/LsmallE)-Lsmallp-Lsmallrho
 ! may need to replace by smallxi above
 
-smallxi=half*((srhd_gamma+one)*LsmallE-&
-   (srhd_gamma-one)*Lsmallrho**2.0d0/LsmallE)
+smallxi=0.5d0*((srhd_gamma+1.0d0)*LsmallE-&
+   (srhd_gamma-1.0d0)*Lsmallrho**2.0d0/LsmallE)
 
 end subroutine smallvaluesEOS
 !=============================================================================!
@@ -185,10 +185,10 @@ double precision:: rho
 double precision:: E_th,E
 !_______________________________________________________________!
 rho=d*sqrt(lfac2inv)
-E_th = (one/(srhd_gamma-one) * pcurrent)
+E_th = (1.0d0/(srhd_gamma-1.0d0) * pcurrent)
 E = (E_th + dsqrt(E_th**2.0d0+rho**2.0d0))
 !== Enthalpy ==!
-h = half *((srhd_gamma+one) * E-(srhd_gamma-one) * rho*(rho/E))
+h = 0.5d0 *((srhd_gamma+1.0d0) * E-(srhd_gamma-1.0d0) * rho*(rho/E))
 
 return
 end subroutine Bisection_Enthalpy
@@ -200,7 +200,7 @@ use mod_global_parameters
 double precision:: pressure,tau,d
 !_______________________________________________________________!
 
-pressure=half*(srhd_gamma-one)*(tau+d-d**2/(tau+d))
+pressure=0.5d0*(srhd_gamma-1.0d0)*(tau+d-d**2/(tau+d))
 
 end subroutine pressureNoFlow
 !=============================================================================
@@ -221,14 +221,14 @@ double precision, dimension(ixG^T)    :: Geff
 ! assume we have the pressure in w(ixO^S,p_)
 ! and the Lorentz factor in lfac_ and the conserved variables
 if (varconserve) then
-  Geff(ixO^S) = srhd_gamma-half*(srhd_gamma-one) *          &
-       (one-((w(ixO^S,d_)/w(ixO^S,lfac_))/(w(ixO^S, p_)/(srhd_gamma-one)+  &
-       dsqrt((w(ixO^S,p_)/(srhd_gamma-one))**2.0d0+&
+  Geff(ixO^S) = srhd_gamma-0.5d0*(srhd_gamma-1.0d0) *          &
+       (1.0d0-((w(ixO^S,d_)/w(ixO^S,lfac_))/(w(ixO^S, p_)/(srhd_gamma-1.0d0)+  &
+       dsqrt((w(ixO^S,p_)/(srhd_gamma-1.0d0))**2.0d0+&
        (w(ixO^S,d_)/w(ixO^S,lfac_))**2.0d0)))**2.0d0)
 else
-  Geff(ixO^S) = srhd_gamma-half*(srhd_gamma-one) *          &
-       (one-(w(ixO^S,rho_)/(w(ixO^S, p_)/(srhd_gamma-one)+  &
-       dsqrt((w(ixO^S,p_)/(srhd_gamma-one))**2.0d0+&
+  Geff(ixO^S) = srhd_gamma-0.5d0*(srhd_gamma-1.0d0) *          &
+       (1.0d0-(w(ixO^S,rho_)/(w(ixO^S, p_)/(srhd_gamma-1.0d0)+  &
+       dsqrt((w(ixO^S,p_)/(srhd_gamma-1.0d0))**2.0d0+&
        w(ixO^S,rho_)**2.0d0)))**2.0d0)
 end if
 end subroutine Calcule_Geffect

@@ -267,7 +267,7 @@ contains
      w(ixO^S,p_)=w(ixO^S,pp_)
 
    ! compute xi=Lfac w  (enthalphy w)
-      xi(ixO^S)=w(ixO^S,lfac_)*(w(ixO^S,rho_)+w(ixO^S,p_)*srhd_gamma/(srhd_gamma-one))
+      xi(ixO^S)=w(ixO^S,lfac_)*(w(ixO^S,rho_)+w(ixO^S,p_)*srhd_gamma/(srhd_gamma-1.0d0))
 
     w(ixO^S,d_)=w(ixO^S,rho_)*w(ixO^S,lfac_)
     do idir=1, ndir
@@ -336,7 +336,7 @@ contains
 
     use mod_global_parameters
 
-rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_)+srhd_gamma*w(ixO^S,p_)/(srhd_gamma-one)
+rhoh(ixO^S) = w(ixO^S,d_)/w(ixO^S,lfac_)+srhd_gamma*w(ixO^S,p_)/(srhd_gamma-1.0d0)
 csound2(ixO^S)=srhd_gamma*w(ixO^S,p_)/rhoh(ixO^S)
 if(.not.needcmin)then
 ! xi(ixO^S)=1.0d0+sum(w(ixO^S,uvel(:))**2, dim=ndim+1)
@@ -410,9 +410,10 @@ endif
 !*DM* ideal
         csoundL(ixO^S)=srhd_gamma*wLp(ixO^S,p_)/wLp(ixO^S,rho_)
         csoundR(ixO^S)=srhd_gamma*wRp(ixO^S,p_)/wRp(ixO^S,rho_)
+!*DM* check for Mathews
 !      else
-!        csoundL(ixO^S)=hd_gamma*hd_adiab*wLp(ixO^S,rho_)**(hd_gamma-one)
-!        csoundR(ixO^S)=hd_gamma*hd_adiab*wRp(ixO^S,rho_)**(hd_gamma-one)
+!        csoundL(ixO^S)=srhd_gamma*hd_adiab*wLp(ixO^S,rho_)**(srhd_gamma-1.0d0)
+!        csoundR(ixO^S)=srhd_gamma*hd_adiab*wRp(ixO^S,rho_)**(srhd_gamma-1.0d0)
 !      end if
 
       dmean(ixO^S) = (tmp1(ixO^S)*csoundL(ixO^S)+tmp2(ixO^S)*csoundR(ixO^S)) * &
@@ -462,7 +463,7 @@ endif
 !    if (srhd_energy) then
 !       pth(ixO^S) = w(ixO^S,p_)
 !    else
-!       pth(ixO^S) = hd_adiab * w(ixO^S, rho_)**hd_gamma
+!       pth(ixO^S) = hd_adiab * w(ixO^S, rho_)**srhd_gamma
 !    end if
 
 !*DM* This is also ok ?
@@ -547,7 +548,7 @@ endif
        pcurrent = pLabs
     end if
 
-    er1=one
+    er1=1.0d0
     pprev=pcurrent
 
     ! Fudge Parameters
@@ -587,7 +588,7 @@ endif
 
 !*DM* Check the following substitution...
 !       {v^C=s^C/xicurrent\}
-!       lfac2inv=one - ({v^C**2+})
+!       lfac2inv=1.0d0 - ({v^C**2+})
        vvel(:)=rmom(:)/xicurrent
        lfac2inv=1.0-sum(vvel(:)**2)
        if(lfac2inv>0.0) then
@@ -649,7 +650,7 @@ endif
              vvel(:)=rmom(:)/xicurrent !*DM*
              lfac2inv=1.0d0-sum(vvel(:)**2)
              !{v^C=s^C/xicurrent\}
-             !lfac2inv=one - ({v^C**2+})
+             !lfac2inv=1.0d0 - ({v^C**2+})
              !=====================!
 
              !=====================!
@@ -717,7 +718,7 @@ endif
                 vvel(:)=rmom(:)/xicurrent
                 lfac2inv=1-sum(vvel(:)**2)
                 !{v^C=s^C/xicurrent\}
-                !lfac2inv=one - ({v^C**2+})
+                !lfac2inv=1.0d0 - ({v^C**2+})
                 if(lfac2inv>0.0)then
                    lfac=1.0/sqrt(lfac2inv)
                 else
@@ -786,7 +787,7 @@ endif
     pressure=pcurrent
     xicurrent=tau+d+pressure
 !    {v^C = s^C/xicurrent\}
-!    lfac2inv=one - ({v^C**2+})
+!    lfac2inv=1.0d0 - ({v^C**2+})
     vvel(:)=rmom(:)/xicurrent
     lfac2inv=1-sum(vvel(:)**2)
     if(lfac2inv>0.0) then

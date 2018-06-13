@@ -4,7 +4,7 @@
 module mod_srhd_hllc
   use mod_srhd_phys
 
-  implicit none
+  implicit n1.0d0
   private
 
   public :: srhd_hllc_init
@@ -183,7 +183,7 @@ end if
 !-----------------------------------------------------------------------!
 
 ! done with computations, remaining just for emergencies...
-if(any(dabs(lambdaCD(ixO^S))>one .and. Cond_patchf(ixO^S)))then
+if(any(dabs(lambdaCD(ixO^S))>1.0d0 .and. Cond_patchf(ixO^S)))then
  call mpistop("problems with lambdaCD>1")
 endif
 
@@ -252,7 +252,7 @@ where(abs(patchf(ixO^S))==1)
                 * (wSub(ixO^S,tau_)+wSub(ixO^S,d_))+wSub(ixO^S, p_)&
                 - wSub(ixO^S,s0_+idims) &
                 * (cspeed(ixO^S)+lambdaCD(ixO^S)-vSub(ixO^S)))&
-                  /(one-cspeed(ixO^S)*lambdaCD(ixO^S))
+                  /(1.0d0-cspeed(ixO^S)*lambdaCD(ixO^S))
    wCD(ixO^S,tau_) = (wSub(ixO^S,tau_)*(cspeed(ixO^S)-vSub(ixO^S))&
                  +wCD(ixO^S,p_)*lambdaCD(ixO^S)-wSub(ixO^S,p_)*vSub(ixO^S))&
                  /(cspeed(ixO^S)-lambdaCD(ixO^S))

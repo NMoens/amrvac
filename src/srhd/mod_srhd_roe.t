@@ -94,7 +94,7 @@ contains
    !*DM* Here I changed mom to rmom 
        wroe(ix^S,rmom(idir)) = (wL(ix^S,rmom(idir))/wL(ix^S,rho_) * workroe(ix^S,
 1)+&
-            wR(ix^S,rmom(idir))/wR(ix^S,rho_))/(one+workroe(ix^S, 1))
+            wR(ix^S,rmom(idir))/wR(ix^S,rho_))/(1.0d0+workroe(ix^S, 1))
     end do
 
     ! Calculate enthalpyL, then enthalpyR, then Roe-average. Use tmp2 for
@@ -107,7 +107,7 @@ contains
 
     workroe(ix^S, 2) = (workroe(ix^S, 2)+wR(ix^S,e_))/wR(ix^S,rho_)
     wroe(ix^S,e_)    = (wroe(ix^S,e_)*workroe(ix^S, 1) + workroe(ix^S,
-2))/(one+workroe(ix^S, 1))
+2))/(1.0d0+workroe(ix^S, 1))
   end subroutine srhd_average
 !=============================================================================
   
@@ -147,10 +147,10 @@ subroutine average2(wL,wR,x,ix^L,idim,wroe,tmp,tmp2)
   
   ! Calculate K_L
   tmp(ix^S) =sqrt((wL(ix^S,d_)/wL(ix^S,lfac_))+ &
-       eqpar(gamma_)*wL(ix^S,p_)/(eqpar(gamma_)-1) )
+       srhd_gamma*wL(ix^S,p_)/(srhd_gamma-1) )
   ! Calculate K_R, K=sqrt(rho*h)
   tmp2(ix^S) =sqrt((wR(ix^S,d_)/wR(ix^S,lfac_))+ &
-       eqpar(gamma_)*wR(ix^S,p_)/(eqpar(gamma_)-1) )
+       srhd_gamma*wR(ix^S,p_)/(srhd_gamma-1) )
 
   !!! Lorentz factor
   !!lfL(ix^S)=1/sqrt(1-(^C&wL(ix^S,v^C_)**2+))
@@ -214,12 +214,12 @@ subroutine geteigenjump2(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump, &
 
   if(il==1)then
      !Square of sound speed: s^2=0.5*gam*v4*(1+v0^2-v^2)-0.5(gam-1)(1-v0^2+v^2)
-     csound(ix^S)=half*eqpar(gamma_)*wroe(ix^S,tau_)*(one+ &
-     wroe(ix^S,d_)*wroe(ix^S,d_)-(^C&wroe(ix^S,s^C_)**2+))-half* &
-     (eqpar(gamma_)-one)*(one-wroe(ix^S,d_)*wroe(ix^S,d_)+(^C&wroe(ix^S,s^C_)**2+))
+     csound(ix^S)=0.5d0*srhd_gamma*wroe(ix^S,tau_)*(1.0d0+ &
+     wroe(ix^S,d_)*wroe(ix^S,d_)-(^C&wroe(ix^S,s^C_)**2+))-0.5d0* &
+     (srhd_gamma-1.0d0)*(1.0d0-wroe(ix^S,d_)*wroe(ix^S,d_)+(^C&wroe(ix^S,s^C_)**2+))
      
      ! Make sure that csound**2 is positive
-     !csound(ix^S)=max(eqpar(gamma_)*smalldouble/wroe(ix^S,d_),csound(ix^S))
+     !csound(ix^S)=max(srhd_gamma*smalldouble/wroe(ix^S,d_),csound(ix^S))
      
      ! Calculate uR-uL
      del(ix^S)=wR(ix^S,d_)-wL(ix^S,d_)
@@ -231,41 +231,41 @@ subroutine geteigenjump2(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump, &
   endif
 
   !Some help variables
-  cp(ix^S)=one+eqpar(gamma_)*wroe(ix^S,tau_)/(eqpar(gamma_)-one)
+  cp(ix^S)=1.0d0+srhd_gamma*wroe(ix^S,tau_)/(srhd_gamma-1.0d0)
   e(ix^S)=wroe(ix^S,d_)*wroe(ix^S,d_)-wroe(ix^S,s0_+idim)*wroe(ix^S,s0_+idim)
   k(ix^S)=wroe(ix^S,d_)*(del0(ix^S)+del(ix^S))-wroe(ix^S,s0_+idim)*dv(ix^S)
-  y2(ix^S)=(one-eqpar(gamma_)*wroe(ix^S,tau_))*e(ix^S)+csound(ix^S)*csound(ix^S)
+  y2(ix^S)=(1.0d0-srhd_gamma*wroe(ix^S,tau_))*e(ix^S)+csound(ix^S)*csound(ix^S)
 
   select case(il)
   case(soundRW_)
      !lambda+=lambda2=((1-g*v4)*v0*v1+s*y)/((1-g*v4)*v0*v0+s^2)
-     a(ix^S)=((one-eqpar(gamma_)*wroe(ix^S,tau_))*wroe(ix^S,d_)*wroe(ix^S,s0_+idim)+&
-          csound(ix^S)*sqrt(y2(ix^S)))/((one-eqpar(gamma_)*wroe(ix^S,tau_))*&
+     a(ix^S)=((1.0d0-srhd_gamma*wroe(ix^S,tau_))*wroe(ix^S,d_)*wroe(ix^S,s0_+idim)+&
+          csound(ix^S)*sqrt(y2(ix^S)))/((1.0d0-srhd_gamma*wroe(ix^S,tau_))*&
           wroe(ix^S,d_)*wroe(ix^S,d_)+csound(ix^S)*csound(ix^S))
      !alp2=(s^2*k-s*y*(v0*dv-v1*(del0+del)+(g-1)*e*(del+cp*(-v0*(del0+del)+v1*dv)))/(-2*e*s^2)
      jump(ix^S)=(csound(ix^S)*csound(ix^S)*k(ix^S)-csound(ix^S)*sqrt(y2(ix^S))*&
           (wroe(ix^S,d_)*dv(ix^S)-wroe(ix^S,s0_+idim)*(del0(ix^S)+&
-          del(ix^S)))+(eqpar(gamma_)-one)*e(ix^S)*(del(ix^S)+&
+          del(ix^S)))+(srhd_gamma-1.0d0)*e(ix^S)*(del(ix^S)+&
           cp(ix^S)*(-wroe(ix^S,d_)*(del0(ix^S)+del(ix^S))+&
           (^C&wroe(ix^S,s^C_)*(wR(ix^S,s^C_)-wL(ix^S,s^C_))+)  )))/&
           (-2*e(ix^S)*csound(ix^S)*csound(ix^S))
   case(soundLW_)
      !lambda-=lambda1=((1-g*v4)*v0*v1-s*y)/((1-g*v4)*v0*v0+s^2)
-     a(ix^S)=((one-eqpar(gamma_)*wroe(ix^S,tau_))*wroe(ix^S,d_)*wroe(ix^S,s0_+idim)-&
-          csound(ix^S)*sqrt(y2(ix^S)))/((one-eqpar(gamma_)*wroe(ix^S,tau_))*&
+     a(ix^S)=((1.0d0-srhd_gamma*wroe(ix^S,tau_))*wroe(ix^S,d_)*wroe(ix^S,s0_+idim)-&
+          csound(ix^S)*sqrt(y2(ix^S)))/((1.0d0-srhd_gamma*wroe(ix^S,tau_))*&
           wroe(ix^S,d_)*wroe(ix^S,d_)+csound(ix^S)*csound(ix^S))
      !alp1=(s^2*k+s*y*(v0*dv-v1*(del0+del)+(g-1)*e*(del+cp*(-v0*(del0+del)+v1*dv)))/(-2*e*s^2)
      jump(ix^S)=(csound(ix^S)*csound(ix^S)*k(ix^S)+csound(ix^S)*sqrt(y2(ix^S))*&
           (wroe(ix^S,d_)*dv(ix^S)-wroe(ix^S,s0_+idim)*(del0(ix^S)+&
-          del(ix^S)))+(eqpar(gamma_)-one)*e(ix^S)*(del(ix^S)+&
+          del(ix^S)))+(srhd_gamma-1.0d0)*e(ix^S)*(del(ix^S)+&
           cp(ix^S)*(-wroe(ix^S,d_)*(del0(ix^S)+del(ix^S))+&
           (^C&wroe(ix^S,s^C_)*(wR(ix^S,s^C_)-wL(ix^S,s^C_))+) )))/&
-          (-two*e(ix^S)*csound(ix^S)*csound(ix^S))
+          (-2.0d0*e(ix^S)*csound(ix^S)*csound(ix^S))
   case(entropW_)
      !lambda0=lambda3=v1/v0
      a(ix^S)=wroe(ix^S,s0_+idim)/wroe(ix^S,d_)
      !alp3=(2*s^2*k+(g-1)*e*(del+cp*(-v0*(del0+del)+v1*dv)))/(e*s^2)
-     jump(ix^S)=(two*csound(ix^S)*csound(ix^S)*k(ix^S)+(eqpar(gamma_)-one)*e(ix^S)*&
+     jump(ix^S)=(2.0d0*csound(ix^S)*csound(ix^S)*k(ix^S)+(srhd_gamma-1.0d0)*e(ix^S)*&
           (del(ix^S)+cp(ix^S)*(-wroe(ix^S,d_)*(del0(ix^S)+del(ix^S))+&
           (^C&wroe(ix^S,s^C_)*(wR(ix^S,s^C_)-wL(ix^S,s^C_))+) )))/&
           (e(ix^S)*csound(ix^S)*csound(ix^S))
@@ -292,14 +292,14 @@ subroutine geteigenjump2(wL,wR,wroe,x,ix^L,il,idim,smalla,a,jump, &
      select case(il)
      case(soundRW_)
         tmp(ix^S)=wL(ix^S,s0_+idim)/wL(ix^S,d_)&
-             + sqrt(eqpar(gamma_)*wL(ix^S,p_)/wL(ix^S,d_))
+             + sqrt(srhd_gamma*wL(ix^S,p_)/wL(ix^S,d_))
         tmp2(ix^S)=wR(ix^S,s0_+idim)/wR(ix^S,d_)&
-             + sqrt(eqpar(gamma_)*wR(ix^S,p_)/wR(ix^S,d_))
+             + sqrt(srhd_gamma*wR(ix^S,p_)/wR(ix^S,d_))
      case(soundLW_)
         tmp(ix^S)=wL(ix^S,s0_+idim)/wL(ix^S,d_)&
-             - sqrt(eqpar(gamma_)*wL(ix^S,p_)/wL(ix^S,d_))
+             - sqrt(srhd_gamma*wL(ix^S,p_)/wL(ix^S,d_))
         tmp2(ix^S)=wR(ix^S,s0_+idim)/wR(ix^S,d_)&
-             - sqrt(eqpar(gamma_)*wR(ix^S,p_)/wR(ix^S,d_))
+             - sqrt(srhd_gamma*wR(ix^S,p_)/wR(ix^S,d_))
      case default
         tmp(ix^S) =wL(ix^S,s0_+idim)/wL(ix^S,d_)
         tmp2(ix^S)=wR(ix^S,s0_+idim)/wR(ix^S,d_)
@@ -345,11 +345,11 @@ subroutine rtimes2(q,wroe,ix^L,iw,il,idim,rq,csound)
      idir=il-shearW0_; if(idir>=idim)idir=idir+1
   endif
 
-  cm(ix^S)=one-eqpar(gamma_)*wroe(ix^S,tau_)/(eqpar(gamma_)-1)
-  cp(ix^S)=one+eqpar(gamma_)*wroe(ix^S,tau_)/(eqpar(gamma_)-1)
+  cm(ix^S)=1.0d0-srhd_gamma*wroe(ix^S,tau_)/(srhd_gamma-1)
+  cp(ix^S)=1.0d0+srhd_gamma*wroe(ix^S,tau_)/(srhd_gamma-1)
   e(ix^S)=wroe(ix^S,d_)*wroe(ix^S,d_)-&
        wroe(ix^S,s0_+idim)*wroe(ix^S,s0_+idim)
-  y(ix^S)=sqrt((one-eqpar(gamma_)*wroe(ix^S,tau_))*e(ix^S)+&
+  y(ix^S)=sqrt((1.0d0-srhd_gamma*wroe(ix^S,tau_))*e(ix^S)+&
        csound(ix^S)*csound(ix^S))
   
   select case(iw)
@@ -361,7 +361,7 @@ subroutine rtimes2(q,wroe,ix^L,iw,il,idim,rq,csound)
         rq(ix^S)=q(ix^S)*cm(ix^S)
      case(entropW_)
         rq(ix^S)=q(ix^S)*(cm(ix^S)+csound(ix^S)*csound(ix^S)&
-             /(eqpar(gamma_)-one))
+             /(srhd_gamma-1.0d0))
      case default
         rq(ix^S)=-q(ix^S)*wroe(ix^S,s0_+idir)*cp(ix^S)
      end select
@@ -375,7 +375,7 @@ subroutine rtimes2(q,wroe,ix^L,iw,il,idim,rq,csound)
              wroe(ix^S,s0_+idim)/y(ix^S)-cm(ix^S))
      case(entropW_)
         rq(ix^S)=q(ix^S)*(wroe(ix^S,d_)-cm(ix^S)-&
-             csound(ix^S)*csound(ix^S)/(eqpar(gamma_)-1))
+             csound(ix^S)*csound(ix^S)/(srhd_gamma-1))
      case default
         rq(ix^S)=q(ix^S)*wroe(ix^S,s0_+idir)*cp(ix^S)
      end select

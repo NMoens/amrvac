@@ -5,6 +5,7 @@ doc/html/*
 *.out
 *.log
 *.mod
+*.png
 *.o
 *amrvac
 *.amrvac.log.shfp.*

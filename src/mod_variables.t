@@ -48,6 +48,9 @@ module mod_variables
   !> Index of the energy density
   integer, protected :: iw_e = -1
 
+  !> Index of the radiation energy density
+  integer, protected :: iw_r_e = -1
+
   !> Indices of the magnetic field components
   integer, allocatable, protected :: iw_mag(:)
 
@@ -144,6 +147,19 @@ contains
     cons_wnames(nwflux) = 'e'
     prim_wnames(nwflux) = 'p'
   end function var_set_energy
+
+  function var_set_radiation_energy() result(iw)
+    use mod_variables
+    integer :: iw
+
+    nwflux              = nwflux + 1
+    nwfluxbc            = nwfluxbc + 1
+    nw                  = nw + 1
+    iw_r_e              = nwflux
+    iw                  = nwflux
+    cons_wnames(nwflux) = 'r_e'
+    prim_wnames(nwflux) = 'r_e'
+  end function var_set_radiation_energy
 
   !> Set magnetic field variables
   function var_set_bfield(ndir) result(iw)

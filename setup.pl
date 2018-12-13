@@ -78,7 +78,7 @@ unless (-e("mod_usr.t") || -e("mod_usr.f")) {
     copy_if_not_present("mod_usr.t", "src", "mod_usr_template.t");
 
     unless ($phys) {
-        print "Please enter the physics name (e.g., hd, mhd, rho): ";
+        print "Please enter the physics name (e.g., hd, mhd, rhd, rho): ";
         $phys = <STDIN>;
         chomp($phys);
     }

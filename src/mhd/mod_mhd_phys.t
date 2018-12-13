@@ -5,7 +5,7 @@ module mod_mhd_phys
   private
 
   !> Whether an energy equation is used
-  logical, public, protected              :: mhd_energy = .true.
+  logical, public, protected              :: mhd_energy = .false.
 
   !> Whether thermal conduction is used
   logical, public, protected              :: mhd_thermal_conduction = .false.
@@ -1025,7 +1025,7 @@ contains
         !f_i[psi]=Ch^2*b_{i} Eq. 24e and Eq. 38c Dedner et al 2002 JCP, 175, 645
         f(ixO^S,psi_)  = cmax_global**2*w(ixO^S,mag(idim))
       else
-        !f_i[psi]=Ch*b_{i} Eq. 3.16e Derigs et al 2018 JCP, 364, 420 
+        !f_i[psi]=Ch*b_{i} Eq. 3.16e Derigs et al 2018 JCP, 364, 420
         f(ixO^S,psi_)  = vmax_global*w(ixO^S,mag(idim))
       end if
     end if

@@ -53,13 +53,13 @@ module mod_rhd_phys
   double precision, protected             :: small_e
 
   !> Helium abundance over Hydrogen
-  double precision, public, protected     :: He_abundance=0.1d0
+  double precision, public, protected     :: He_abundance = 0.1d0
 
   !> Index of the radiation energy
   integer, public, protected              :: r_e
 
   !> Formalism to treat radiation
-  character(len=8), public :: rhd_radiation_formalism = 'FLD'
+  character(len=8), public :: rhd_radiation_formalism = 'fld'
 
   !> Treat radiation fld_Rad_force
   logical, public, protected :: rhd_radiation_force = .true.
@@ -90,7 +90,8 @@ contains
 
     namelist /rhd_list/ rhd_energy, rhd_n_tracer, rhd_gamma, rhd_adiab, &
     rhd_dust, rhd_thermal_conduction, rhd_radiative_cooling, rhd_viscosity, &
-    rhd_gravity, He_abundance, SI_unit, rhd_particles
+    rhd_gravity, He_abundance, SI_unit, rhd_particles, rhd_radiation_formalism,&
+    rhd_radiation_force, rhd_energy_interact, rhd_radiation_diffusion
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -240,8 +241,8 @@ contains
     if (rhd_dust) call dust_init(rho_, mom(:), e_)
 
     select case (rhd_radiation_formalism)
-    case('FLD')
-      call fld_init()
+    case('fld')
+      call fld_init(He_abundance)
     case default
       call mpistop('Radiation formalism unknown')
     end select
@@ -614,7 +615,7 @@ contains
     double precision, intent(out):: prad(ixO^S)
 
     select case (rhd_radiation_formalism)
-    case('FLD')
+    case('fld')
       call fld_get_radpress(w, x, ixI^L, ixO^L, prad)
     case default
       call mpistop('Radiation formalism unknown')
@@ -918,7 +919,7 @@ contains
     logical, intent(inout) :: active
 
     select case(rhd_radiation_formalism)
-    case('FLD')
+    case('fld')
       !> radiation force
       if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
            rhd_energy,qsourcesplit,active)

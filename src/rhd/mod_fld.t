@@ -31,19 +31,6 @@ module mod_fld
 
     double precision :: fld_max_fracdt = 50.d0
 
-    !> Switch different terms on/off
-    !> Solve parabolic system using ADI (Diffusion)
-    logical :: fld_Diffusion = .true.
-
-    !> Use radiation force sourceterm
-    logical :: fld_Rad_force = .true.
-
-    !> Use Heating and Cooling sourceterms in e_
-    logical :: fld_Energy_interact = .true.
-
-    !> Let Vac advect radiative energy
-    logical :: fld_Energy_advect = .true.
-
     !> Use constant Opacity?
     character(len=8) :: fld_opacity_law = 'const'
 
@@ -83,9 +70,9 @@ module mod_fld
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /fld_list/ fld_kappa0, fld_mu, fld_split, fld_maxdw, fld_Diffusion,&
-    fld_Rad_force, fld_Energy_interact, fld_Energy_advect, fld_bisect_tol, fld_diff_testcase,&
-    fld_bound_min1, fld_bound_max1, fld_bound_min2, fld_bound_max2, fld_adi_tol, fld_max_fracdt,&
+    namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
+    fld_bisect_tol, fld_diff_testcase, fld_bound_min1, fld_bound_max1, &
+    fld_bound_min2, fld_bound_max2, fld_adi_tol, fld_max_fracdt,&
     fld_opacity_law, fld_complete_diffusion_limit
 
     do n = 1, size(files)
@@ -95,9 +82,11 @@ module mod_fld
     end do
   end subroutine fld_params_read
 
-  subroutine fld_init()
+  subroutine fld_init(He_abundance)
     use mod_global_parameters
     use mod_variables
+
+    double precision, intent(in) :: He_abundance
 
     !> read par files
     call fld_params_read(par_files)
@@ -105,6 +94,8 @@ module mod_fld
 
     !> Check if fld_numdt is not 1
     if (fld_maxdw .lt. 2) call mpistop("fld_maxdw should be an integer larger than 1")
+
+    fld_mu = (one - He_abundance + 2*He_abundance)/two
 
     !> Make kappa dimensionless !!!STILL NEED TO MULTIPLY W RHO
     fld_kappa0 = fld_kappa0*unit_time*unit_velocity*unit_density
@@ -145,22 +136,20 @@ module mod_fld
       active = .true.
 
       !> Add momentum sourceterms
-      if (fld_Rad_force) then
-        jx^L=ixO^L+kr(idir,^D);
-        !> Calculate the radiative flux using the FLD Approximation
-        call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
-        call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
+      jx^L=ixO^L+kr(idir,^D);
+      !> Calculate the radiative flux using the FLD Approximation
+      call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
+      call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
 
-        do idir = 1,ndir
-          !> Radiation force = kappa*rho/c *Flux
-          radiation_force(ixO^S,idir) = fld_kappa(ixO^S)*wCT(ixO^S,iw_rho)/fld_speedofligt_0*rad_flux(ixO^S, idir)
+      do idir = 1,ndir
+        !> Radiation force = kappa*rho/c *Flux
+        radiation_force(ixO^S,idir) = fld_kappa(ixO^S)*wCT(ixO^S,iw_rho)/fld_speedofligt_0*rad_flux(ixO^S, idir)
 
-          !> Momentum equation source term
-          w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
-              + qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
-              !> NOT SURE ON HOW TO AVERAGE OVER LEFTHANDSIDE AND RIGHTHANDSIDE FLUX EDGE
-        enddo
-      endif
+        !> Momentum equation source term
+        w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
+            + qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
+            !> NOT SURE ON HOW TO AVERAGE OVER LEFTHANDSIDE AND RIGHTHANDSIDE FLUX EDGE
+      enddo
     end if
   end subroutine get_fld_rad_force
 
@@ -183,12 +172,8 @@ module mod_fld
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
-
       !> Add energy sourceterms
-      if (fld_Energy_interact) then
-        call Energy_interaction(w, x, ixI^L, ixO^L)
-      endif
-
+      call Energy_interaction(w, x, ixI^L, ixO^L)
     end if
   end subroutine get_fld_energy_interact
 
@@ -211,12 +196,8 @@ module mod_fld
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
-
-      !> Begin by evolving the radiation energy field
-      if (fld_Diffusion) then
-        call Evolve_E_rad(w, x, ixI^L, ixO^L)
-      endif
-
+    !> Begin by evolving the radiation energy field
+      call Evolve_E_rad(w, x, ixI^L, ixO^L)
     end if
   end subroutine get_fld_diffusion
 
@@ -667,9 +648,9 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      ! D = unit_length/unit_velocity
-      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity
-      D(ixI^S,2) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity
+      D = unit_length/unit_velocity
+      ! D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))!*unit_length/unit_velocity
+      ! D(ixI^S,2) = x(ixI^S,2)/maxval(x(ixI^S,2))!*unit_length/unit_velocity
     else
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)

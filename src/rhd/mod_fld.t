@@ -2,6 +2,7 @@
 !> Module for including flux limited diffusion in hydrodynamics simulations
 !> Based on Turner and stone 2001
 module mod_fld
+    use mod_multigrid_coupling
     implicit none
 
     !> source split or not
@@ -36,6 +37,12 @@ module mod_fld
 
     !> Diffusion limit lambda = 0.33
     logical :: fld_complete_diffusion_limit = .false.
+
+    !> diffusion coefficient for multigrid method
+    integer :: i_diff_mg
+
+    !> Whicht method to solve diffusion part
+    character(len=8) :: fld_diff_scheme = 'adi'
 
     !> Boundary conditions for radiative Energy in ADI.
     character(len=8) :: fld_bound_min1 = 'periodic'
@@ -73,7 +80,7 @@ module mod_fld
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
     fld_bisect_tol, fld_diff_testcase, fld_bound_min1, fld_bound_max1, &
     fld_bound_min2, fld_bound_max2, fld_adi_tol, fld_max_fracdt,&
-    fld_opacity_law, fld_complete_diffusion_limit
+    fld_opacity_law, fld_complete_diffusion_limit, fld_diff_scheme
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -91,6 +98,14 @@ module mod_fld
     !> read par files
     call fld_params_read(par_files)
     !call params_read
+
+    if (fld_diff_scheme == 'mg') then
+      use_multigrid = .true.
+      i_diff_mg = var_set_extravar("eps", "eps")
+      mg%operator_type = mg_vhelmholtz
+      mg%bc(:, mg_iphi)%bc_type = mg_bc_dirichlet
+      mg%bc(:, mg_iphi)%bc_value = 2.d0
+    endif
 
     !> Check if fld_numdt is not 1
     if (fld_maxdw .lt. 2) call mpistop("fld_maxdw should be an integer larger than 1")
@@ -190,6 +205,7 @@ module mod_fld
     double precision, intent(in)    :: qdt, x(ixI^S,1:ndim)
     double precision, intent(in)    :: wCT(ixI^S,1:nw)
     double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision :: D_center(ixI^S)
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
 
@@ -197,7 +213,17 @@ module mod_fld
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
     !> Begin by evolving the radiation energy field
+    select case fld_diff_scheme
+    case('adi')
       call Evolve_E_rad(w, x, ixI^L, ixO^L)
+    case('mg')
+      call fld_get_diffcoef_central(w, x, ixI^L, ixO^L, D_center)
+      w(ixO^S, i_diff_mg) = D_center(ixO^S)
+      call set_mg_diffcoef()
+      call Diffuse_E_rad_mg(qdt, qt, active)
+    case default
+      call mpistop('Numerical diffusionscheme unknown, try adi or mg')
+    end select
     end if
   end subroutine get_fld_diffusion
 
@@ -421,6 +447,57 @@ module mod_fld
   end subroutine gradE
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!! Multigrid diffusion
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine Diffuse_E_rad_mg(qdt, qt, active)
+  use m_diffusion
+    double precision, intent(in) :: qdt
+    double precision, intent(in) :: qt
+    logical, intent(inout)       :: active
+    double precision             :: max_res
+
+    call mg_copy_to_tree(r_e, mg_iphi, .false., .false.)
+    call diffusion_solve(mg, qdt, diffusion_coeff, 1, 1d-4)
+    call mg_copy_from_tree(mg_iphi, r_e)
+    active = .true.
+  end subroutine Diffuse_E_rad_mg
+
+  subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L, D_center)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+    double precision, intent(out):: D_center(ixI^S)
+    double precision :: fld_kappa(ixO^S)
+    double precision :: fld_lambda(ixO^S), fld_R(ixO^S)
+    integer :: idir,i,j
+
+    if (fld_diff_testcase) then
+      ! D = unit_length/unit_velocity
+      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
+              !     *dcos(global_time*2*dpi)**2 &
+              !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
+              !     *dsin(global_time*2*dpi)**2
+      D(ixI^S,2) = D(ixI^S,1)
+    else
+      !> calculate lambda
+      call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
+
+      !> set Opacity
+      call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
+
+      !> calculate diffusion coefficient
+      D_center(ixO^S) = fld_speedofligt_0*fld_lambda(ixO^S)/(fld_kappa(ixO^S)*w(ixO^S,iw_rho))
+    endif
+  end subroutine fld_get_diffcoef_central
+
+  subroutine set_mg_diffcoef()
+    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
+  end subroutine set_mg_diffcoef
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!! ADI
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -636,6 +713,35 @@ module mod_fld
     E_new = E_m
   end subroutine Evolve_ADI
 
+  subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L, D_center)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+    double precision, intent(out):: D_center(ixI^S)
+    double precision :: fld_kappa(ixO^S)
+    double precision :: fld_lambda(ixO^S), fld_R(ixO^S)
+    integer :: idir,i,j
+
+    if (fld_diff_testcase) then
+      ! D = unit_length/unit_velocity
+      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
+              !     *dcos(global_time*2*dpi)**2 &
+              !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
+              !     *dsin(global_time*2*dpi)**2
+      D(ixI^S,2) = D(ixI^S,1)
+    else
+      !> calculate lambda
+      call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
+
+      !> set Opacity
+      call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
+
+      !> calculate diffusion coefficient
+      D_center(ixO^S) = fld_speedofligt_0*fld_lambda(ixO^S)/(fld_kappa(ixO^S)*w(ixO^S,iw_rho))
+    endif
+  end subroutine fld_get_diffcoef_central
 
   subroutine fld_get_diffcoef(w, x, ixI^L, ixO^L, D)
     use mod_global_parameters
@@ -651,11 +757,10 @@ module mod_fld
 
     if (fld_diff_testcase) then
       ! D = unit_length/unit_velocity
-      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
+      D_center(ixI^S) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
               !     *dcos(global_time*2*dpi)**2 &
               !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
               !     *dsin(global_time*2*dpi)**2
-      D(ixI^S,2) = D(ixI^S,1)
     else
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)

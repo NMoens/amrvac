@@ -7,6 +7,9 @@ use mod_forest
 use mod_global_parameters
 use mod_ghostcells_update
 use mod_usr_methods, only: usr_after_refine
+{^NOONED
+use mod_multigrid_coupling
+}
 
 integer :: iigrid, igrid, ipe, igridCo, ipeCo, level, ic^D
 integer, dimension(2^D&) :: igridFi, ipeFi
@@ -96,7 +99,7 @@ do ipe=0,npe-1
    end do
 end do
 
-! A crash occurs in later MPI_WAITALL when initial condition comsumes too 
+! A crash occurs in later MPI_WAITALL when initial condition comsumes too
 ! much time to filling new blocks with both gfortran and intel fortran compiler.
 ! This barrier cure this problem
 !TODO to find the reason
@@ -125,6 +128,10 @@ if (time_advance) then
 else
    call getbc(global_time,0.d0,ps,0,nwflux+nwaux)
 end if
+
+{^NOONED
+if (use_multigrid) call mg_update_refinement(n_coarsen, n_refine)
+}
 
 if (associated(usr_after_refine)) then
    call usr_after_refine(n_coarsen, n_refine)

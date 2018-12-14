@@ -95,7 +95,7 @@ module mod_fld
     !> Check if fld_numdt is not 1
     if (fld_maxdw .lt. 2) call mpistop("fld_maxdw should be an integer larger than 1")
 
-    fld_mu = (one - He_abundance + 2*He_abundance)/two
+    fld_mu = (1.d0+4.d0*He_abundance)/two
 
     !> Make kappa dimensionless !!!STILL NEED TO MULTIPLY W RHO
     fld_kappa0 = fld_kappa0*unit_time*unit_velocity*unit_density
@@ -239,6 +239,8 @@ module mod_fld
         Temp0 = one
         n = -7.d0/two
         fld_kappa(ixO^S) = fld_kappa0*(w(ixO^S,iw_rho)/rho0)*(Temp(ixO^S)/Temp0)**n
+      case('opal')
+        call mpistop("Not implemented yet, hold your bloody horses")
       case default
         call mpistop("Doesn't know opacity law")
       end select
@@ -648,9 +650,12 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      D = unit_length/unit_velocity
-      ! D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))!*unit_length/unit_velocity
-      ! D(ixI^S,2) = x(ixI^S,2)/maxval(x(ixI^S,2))!*unit_length/unit_velocity
+      ! D = unit_length/unit_velocity
+      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity &
+                   *dcos(global_time*2*dpi)**2 &
+                + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
+                   *dsin(global_time*2*dpi)**2
+      D(ixI^S,2) = D(ixI^S,1)
     else
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)

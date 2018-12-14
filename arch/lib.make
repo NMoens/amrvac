@@ -27,8 +27,6 @@ include $(addsuffix /makefile, $(SRC_DIRS))
 include $(AMRVAC_DIR)/arch/$(ARCH).defs
 include $(AMRVAC_DIR)/arch/rules.make
 
-
-
 # Get .t files from SRC_DIRS
 vpath %.t $(SRC_DIRS)
 
@@ -37,7 +35,6 @@ OBJECTS := $(FOBJECTS:.t=.o) $(INCLUDES:.t=.o)
 # Include multigrid coupling
 ifneq ($(NDIM), 1)
 LIBOMGDIR := $(AMRVAC_DIR)/external_libs/octree-mg
-
 vpath %.f90 $(LIBOMGDIR)/src
 
 ifeq ($(NDIM), 3)

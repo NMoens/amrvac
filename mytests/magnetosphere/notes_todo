@@ -1,0 +1,2 @@
+!> compute int-dt rho2vr/rho2, rho2, rho, vr, vtheta, mag(vecv)
+!> FOR FLD isothermal, remove cheaty boundary flux

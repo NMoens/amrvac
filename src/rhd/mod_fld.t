@@ -209,8 +209,7 @@ module mod_fld
 
       !> Begin by evolving the radiation energy field
       if (fld_Diffusion) then
-        !call Evolve_E_rad(w, x, ixI^L, ixO^L)
-        call multigrid_diffusion(qdt, qt, active)
+        call Evolve_E_rad(w, x, ixI^L, ixO^L)
       endif
 
     end if

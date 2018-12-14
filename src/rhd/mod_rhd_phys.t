@@ -869,6 +869,8 @@ contains
     double precision :: gravity_field(ixI^S, 1:ndim)
     integer :: idust, idim
 
+    call rhd_add_radiation_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
+
     if(rhd_dust) then
       call dust_add_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
     end if

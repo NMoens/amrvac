@@ -651,10 +651,10 @@ module mod_fld
 
     if (fld_diff_testcase) then
       ! D = unit_length/unit_velocity
-      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity &
-                   *dcos(global_time*2*dpi)**2 &
-                + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
-                   *dsin(global_time*2*dpi)**2
+      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
+              !     *dcos(global_time*2*dpi)**2 &
+              !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
+              !     *dsin(global_time*2*dpi)**2
       D(ixI^S,2) = D(ixI^S,1)
     else
       !> calculate lambda

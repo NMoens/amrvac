@@ -64,4 +64,4 @@ contains
     end if
   end subroutine rhd_ppm_flatsh
 
-end module mod_hd_ppm
+end module mod_rhd_ppm

@@ -53,10 +53,10 @@ module mod_rhd_phys
   double precision, protected             :: small_e
 
   !> Helium abundance over Hydrogen
-  double precision, public, protected  :: He_abundance=0.1d0
+  double precision, public, protected     :: He_abundance=0.1d0
 
   !> Index of the radiation energy
-  integer, public, protected :: r_e
+  integer, public, protected              :: r_e
 
   !> Formalism to treat radiation
   character(len=8), public :: rhd_radiation_formalism = 'FLD'
@@ -64,14 +64,19 @@ module mod_rhd_phys
   !> Treat radiation fld_Rad_force
   logical, public, protected :: rhd_radiation_force = .true.
 
-  !> Treat radiation energy interaction
+  !> Treat radiation-gas energy interaction
   logical, public, protected :: rhd_energy_interact = .true.
+
+  !> Treat radiation energy diffusion
+  logical, public, protected :: rhd_radiation_diffusion = .true.
 
 
   ! Public methods
   public :: rhd_phys_init
   public :: rhd_kin_en
   public :: rhd_get_pthermal
+  public :: rhd_get_pradiation
+  public :: rhd_get_ptot
   public :: rhd_to_conserved
   public :: rhd_to_primitive
 
@@ -181,7 +186,7 @@ contains
     use mod_viscosity, only: viscosity_init
     use mod_gravity, only: gravity_init
     use mod_particles, only: particles_init
-    use mod_fld, only: fld_init
+    use mod_fld
     use mod_physics
 
     integer :: itr, idir
@@ -599,8 +604,9 @@ contains
   end subroutine rhd_get_pthermal
 
   !> Calculate radiation pressure within ixO^L
-  subroutine rhd_get_pradiation(w, x, ixI^L, ixO^L, pth)
+  subroutine rhd_get_pradiation(w, x, ixI^L, ixO^L, prad)
     use mod_global_parameters
+    use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S, 1:nw)
@@ -630,7 +636,7 @@ contains
 
     ptot(ixO^S) = pth(ixO^S) + prad(ixO^S)
 
-  end subroutine rhd_get_pradiation
+  end subroutine rhd_get_ptot
 
   ! Calculate flux f_idim[iw]
   subroutine rhd_get_flux_cons(w, x, ixI^L, ixO^L, idim, f)
@@ -902,24 +908,26 @@ contains
     use mod_constants
     use mod_global_parameters
     use mod_usr_methods
+    use mod_fld
+
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: qdt, x(ixI^S,1:ndim)
     double precision, intent(in)    :: wCT(ixI^S,1:nw)
     double precision, intent(inout) :: w(ixI^S,1:nw)
-    logical, intent(in) :: energy,qsourcesplit
+    logical, intent(in) :: qsourcesplit
     logical, intent(inout) :: active
 
     select case(rhd_radiation_formalism)
     case('FLD')
       !> radiation force
-      if (rhd_radiation_force) call fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
-           energy,qsourcesplit,active)
+      if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
+           rhd_energy,qsourcesplit,active)
       !> photon tiring, heating and cooling
-      if (rhd_energy_interact) call fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
-           energy,qsourcesplit,active)
+      if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
+           rhd_energy,qsourcesplit,active)
       !> diffusion
-      if (rhd_radiation_diffusion) call fld_radiation_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
-           energy,qsourcesplit,active)
+      if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
+           rhd_energy,qsourcesplit,active)
     case default
       call mpistop('Radiation formalism unknown')
     end select

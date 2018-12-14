@@ -156,12 +156,11 @@ contains
        ! Include one layer of ghost cells on grid leaves
        {^IFTWOD
        mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = &
-            pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+       pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
        }
        {^IFTHREED
        mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = &
-            pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-            ixMlo3-1:ixMhi3+1, iw_from)
+       pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, ixMlo3-1:ixMhi3+1, iw_from)
        }
     end do
 

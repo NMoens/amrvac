@@ -149,7 +149,6 @@ contains
   end function var_set_energy
 
   function var_set_radiation_energy() result(iw)
-    use mod_variables
     integer :: iw
 
     nwflux              = nwflux + 1

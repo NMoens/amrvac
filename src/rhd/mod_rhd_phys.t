@@ -207,7 +207,7 @@ contains
        p_ = -1
     end if
 
-    !> set radiation energy mod_variables
+    !> set radiation energy
     r_e = var_set_radiation_energy()
 
     phys_get_dt              => rhd_get_dt

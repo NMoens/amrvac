@@ -102,6 +102,7 @@ module mod_fld
     if (fld_diff_scheme == 'mg') then
       use_multigrid = .true.
       i_diff_mg = var_set_extravar("D", "D")
+      print*, nwextra
       mg%operator_type = mg_vhelmholtz
       mg%bc(:, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(:, mg_iphi)%bc_value = 2.d0

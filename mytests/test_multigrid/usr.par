@@ -80,6 +80,7 @@
  fld_diff_testcase = .true.
  fld_opacity_law = 'const'
  fld_complete_diffusion_limit = .false.
+ fld_diff_scheme = 'mg'
  fld_bound_min1 = 'periodic'
  fld_bound_max1 = 'periodic'
  fld_bound_min2 = 'periodic'

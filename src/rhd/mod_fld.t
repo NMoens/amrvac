@@ -101,7 +101,7 @@ module mod_fld
 
     if (fld_diff_scheme == 'mg') then
       use_multigrid = .true.
-      i_diff_mg = var_set_extravar("eps", "eps")
+      i_diff_mg = var_set_extravar("D", "D")
       mg%operator_type = mg_vhelmholtz
       mg%bc(:, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(:, mg_iphi)%bc_value = 2.d0
@@ -213,14 +213,14 @@ module mod_fld
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
     !> Begin by evolving the radiation energy field
-    select case fld_diff_scheme
+    select case (fld_diff_scheme)
     case('adi')
       call Evolve_E_rad(w, x, ixI^L, ixO^L)
     case('mg')
       call fld_get_diffcoef_central(w, x, ixI^L, ixO^L, D_center)
       w(ixO^S, i_diff_mg) = D_center(ixO^S)
       call set_mg_diffcoef()
-      call Diffuse_E_rad_mg(qdt, qt, active)
+      call Diffuse_E_rad_mg(qdt, active)
     case default
       call mpistop('Numerical diffusionscheme unknown, try adi or mg')
     end select
@@ -450,16 +450,19 @@ module mod_fld
   !!!!!!!!!!!!!!!!!!! Multigrid diffusion
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine Diffuse_E_rad_mg(qdt, qt, active)
-  use m_diffusion
+  subroutine Diffuse_E_rad_mg(qdt, active)
+    use mod_global_parameters
+    use mod_multigrid_coupling
+    use m_diffusion
+
     double precision, intent(in) :: qdt
-    double precision, intent(in) :: qt
     logical, intent(inout)       :: active
     double precision             :: max_res
 
-    call mg_copy_to_tree(r_e, mg_iphi, .false., .false.)
-    call diffusion_solve(mg, qdt, diffusion_coeff, 1, 1d-4)
-    call mg_copy_from_tree(mg_iphi, r_e)
+    call mg_copy_to_tree(iw_r_e, mg_iphi)
+    !call diffusion_solve_vcoeff(mg, qdt, i_diff_mg, 1, 1.d-4)
+    call diffusion_solve_vcoeff(mg, qdt, 1, 1.d-4)
+    call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
   end subroutine Diffuse_E_rad_mg
 
@@ -475,12 +478,11 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      ! D = unit_length/unit_velocity
-      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
+      ! D_center = unit_length/unit_velocity
+      D_center(ixI^S) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
               !     *dcos(global_time*2*dpi)**2 &
               !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
               !     *dsin(global_time*2*dpi)**2
-      D(ixI^S,2) = D(ixI^S,1)
     else
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
@@ -494,7 +496,7 @@ module mod_fld
   end subroutine fld_get_diffcoef_central
 
   subroutine set_mg_diffcoef()
-    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
+    call mg_copy_to_tree(i_diff_mg, mg_iveps)
   end subroutine set_mg_diffcoef
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -713,35 +715,6 @@ module mod_fld
     E_new = E_m
   end subroutine Evolve_ADI
 
-  subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L, D_center)
-    use mod_global_parameters
-
-    integer, intent(in)          :: ixI^L, ixO^L
-    double precision, intent(in) :: w(ixI^S, 1:nw)
-    double precision, intent(in) :: x(ixI^S, 1:ndim)
-    double precision, intent(out):: D_center(ixI^S)
-    double precision :: fld_kappa(ixO^S)
-    double precision :: fld_lambda(ixO^S), fld_R(ixO^S)
-    integer :: idir,i,j
-
-    if (fld_diff_testcase) then
-      ! D = unit_length/unit_velocity
-      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
-              !     *dcos(global_time*2*dpi)**2 &
-              !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
-              !     *dsin(global_time*2*dpi)**2
-      D(ixI^S,2) = D(ixI^S,1)
-    else
-      !> calculate lambda
-      call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
-
-      !> set Opacity
-      call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
-
-      !> calculate diffusion coefficient
-      D_center(ixO^S) = fld_speedofligt_0*fld_lambda(ixO^S)/(fld_kappa(ixO^S)*w(ixO^S,iw_rho))
-    endif
-  end subroutine fld_get_diffcoef_central
 
   subroutine fld_get_diffcoef(w, x, ixI^L, ixO^L, D)
     use mod_global_parameters

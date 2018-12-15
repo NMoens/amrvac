@@ -1,5 +1,41 @@
 !> Module to couple the octree-mg library to AMRVAC. This file uses the VACPP
 !> preprocessor, but its use is kept to a minimum.
+{^IFONED
+!> In 1D, only provide a dummy module.
+module mod_multigrid_coupling
+  implicit none
+  public
+
+  type mg_t
+  end type mg_t
+
+contains
+
+  !> Setup multigrid for usage
+  subroutine mg_setup_multigrid()
+    error stop "Multigrid not available in 1D"
+  end subroutine mg_setup_multigrid
+
+  !> If the grid has changed, rebuild the full multigrid tree
+  subroutine mg_update_refinement(n_coarsen, n_refine)
+    integer, intent(in) :: n_coarsen
+    integer, intent(in) :: n_refine
+    error stop "Multigrid not available in 1D"
+  end subroutine mg_update_refinement
+
+  !> Copy a variable to the multigrid tree, including a layer of ghost cells
+  subroutine mg_copy_to_tree(iw_from, iw_to, restrict, restrict_gc)
+    integer, intent(in)      :: iw_from    !< Variable to use as right-hand side
+    integer, intent(in)      :: iw_to      !< Copy to this variable
+    logical, intent(in)      :: restrict   !< Restrict variable on multigrid tree
+    logical, intent(in)      :: restrict_gc !< Fill ghost cells after restrict
+
+    error stop "Multigrid not available in 1D"
+  end subroutine mg_copy_to_tree
+
+end module mod_multigrid_coupling
+}
+{^NOONED
 module mod_multigrid_coupling
   use m_octree_mg
 
@@ -9,33 +45,46 @@ module mod_multigrid_coupling
   !> Data structure containing the multigrid tree.
   type(mg_t) :: mg
 
+  !> If defined, this routine is called after a new multigrid tree is
+  !> constructed.
+  procedure(after_new_tree), pointer :: mg_after_new_tree => null()
+
+  interface
+     subroutine after_new_tree()
+     end subroutine after_new_tree
+  end interface
+
 contains
 
   !> Setup multigrid for usage
   subroutine mg_setup_multigrid()
     use mod_global_parameters
 
-    if (ndim == 1) then
+    if (ndim == 1) &
          error stop "Multigrid not available in 1D"
-    endif
 
-    if (ndim /= mg_ndim) then
+    if (ndim /= mg_ndim) &
          error stop "Multigrid module was compiled for different ndim"
-    endif
 
-    if (typeaxial /= "slab") then
-         error stop "Multigrid only supports slab geometry"
-    endif
+    select case (typeaxial)
+    case ("slab")
+       if (ndim == 1) error stop "Multigrid only support 2D, 3D"
+    case ("cylindrical")
+       if (ndim == 3) error stop "Multigrid does not support cylindrical 3D"
+       mg%geometry_type = mg_cylindrical
+    case default
+       error stop "Multigrid does not support your geometry"
+    end select
 
-    if (any([ block_nx^D ] /= block_nx1)) then
+    if (any([ block_nx^D ] /= block_nx1)) &
          error stop "Multigrid requires all block_nx to be equal"
-    endif
 
     call mg_comm_init(mg)
+    call mg_set_methods(mg)
     call mg_tree_from_amrvac(mg)
   end subroutine mg_setup_multigrid
 
-  !> Set multigrid boundary conditions according to variable iw
+  !> Set multigrid boundary conditions for the solution according to variable iw
   subroutine mg_copy_boundary_conditions(mg, iw)
     use mod_global_parameters
     type(mg_t), intent(inout) :: mg
@@ -80,18 +129,20 @@ contains
     end if
   end subroutine mg_update_refinement
 
-  !> Copy a variable to the multigrid tree
-  subroutine mg_copy_to_tree(iw_from, iw_to)
+  !> Copy a variable to the multigrid tree, including a layer of ghost cells
+  subroutine mg_copy_to_tree(iw_from, iw_to, restrict, restrict_gc)
     use mod_global_parameters
     use mod_forest
-    integer, intent(in)      :: iw_from !< Variable to use as right-hand side
-    integer, intent(in)      :: iw_to   !< Copy to this variable
+    integer, intent(in)      :: iw_from    !< Variable to use as right-hand side
+    integer, intent(in)      :: iw_to      !< Copy to this variable
+    logical, intent(in)      :: restrict   !< Restrict variable on multigrid tree
+    logical, intent(in)      :: restrict_gc !< Fill ghost cells after restrict
     integer                  :: iigrid, igrid, id
     integer                  :: nc, lvl
     type(tree_node), pointer :: pnode
 
     if (.not. mg%is_allocated) &
-         error stop "multigrid tree not allocated yet"
+         error stop "mg_copy_to_tree: tree not allocated yet"
 
     do iigrid = 1, igridstail
        igrid =  igrids(iigrid);
@@ -100,16 +151,56 @@ contains
        lvl   =  mg%boxes(id)%lvl
        nc    =  mg%box_size_lvl(lvl)
 
-{^IFTWOD
-       mg%boxes(id)%cc(1:nc, 1:nc, iw_to) = &
-            ps(igrid)%w(ixMlo1:ixMhi1, ixMlo2:ixMhi2, iw_from)
-}
-{^IFTHREED
-       mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, iw_to) = &
-            ps(igrid)%w(ixMlo1:ixMhi1, ixMlo2:ixMhi2, ixMlo3:ixMhi3, iw_from)
-}
+       ! Include one layer of ghost cells on grid leaves
+       {^IFTWOD
+       mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = &
+            pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+       }
+       {^IFTHREED
+       mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = &
+            pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+            ixMlo3-1:ixMhi3+1, iw_from)
+       }
     end do
+
+    if (restrict) then
+       call mg_restrict(mg, iw_to)
+       if (restrict_gc) call mg_fill_ghost_cells(mg, iw_to)
+    end if
+
   end subroutine mg_copy_to_tree
+
+!   !> Copy a variable to the multigrid tree with a single layer of ghost cells
+!   subroutine mg_copy_to_tree_gc(iw_from, iw_to)
+!     use mod_global_parameters
+!     use mod_forest
+!     integer, intent(in)      :: iw_from !< Variable to use as right-hand side
+!     integer, intent(in)      :: iw_to   !< Copy to this variable
+!     integer                  :: iigrid, igrid, id
+!     integer                  :: nc, lvl
+!     type(tree_node), pointer :: pnode
+
+!     if (.not. mg%is_allocated) &
+!          error stop "mg_copy_to_tree: tree not allocated yet"
+
+!     do iigrid = 1, igridstail
+!        igrid =  igrids(iigrid);
+!        pnode => igrid_to_node(igrid, mype)%node
+!        id    =  pnode%id
+!        lvl   =  mg%boxes(id)%lvl
+!        nc    =  mg%box_size_lvl(lvl)
+
+! {^IFTWOD
+!        mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = &
+!             pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+! }
+! {^IFTHREED
+!        mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = &
+!             pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+!             ixMlo3-1:ixMhi3+1, iw_from)
+! }
+!     end do
+!   end subroutine mg_copy_to_tree_gc
 
   !> Copy a variable from the multigrid tree
   subroutine mg_copy_from_tree(iw_from, iw_to)
@@ -122,7 +213,7 @@ contains
     type(tree_node), pointer :: pnode
 
     if (.not. mg%is_allocated) &
-         error stop "multigrid tree not allocated yet"
+         error stop "mg_copy_from_tree: tree not allocated yet"
 
     do iigrid = 1, igridstail
        igrid =  igrids(iigrid);
@@ -132,11 +223,11 @@ contains
        nc    =  mg%box_size_lvl(lvl)
 
 {^IFTWOD
-       ps(igrid)%w(ixMlo1:ixMhi1, ixMlo2:ixMhi2, iw_to) = &
+       pw(igrid)%w(ixMlo1:ixMhi1, ixMlo2:ixMhi2, iw_to) = &
             mg%boxes(id)%cc(1:nc, 1:nc, iw_from)
 }
 {^IFTHREED
-       ps(igrid)%w(ixMlo1:ixMhi1, ixMlo2:ixMhi2, ixMlo3:ixMhi3, iw_to) = &
+       pw(igrid)%w(ixMlo1:ixMhi1, ixMlo2:ixMhi2, ixMlo3:ixMhi3, iw_to) = &
             mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, iw_from)
 }
     end do
@@ -154,7 +245,7 @@ contains
     type(tree_node), pointer :: pnode
 
     if (.not. mg%is_allocated) &
-         error stop "multigrid tree not allocated yet"
+         error stop "mg_copy_from_tree_gc: tree not allocated yet"
 
     do iigrid = 1, igridstail
        igrid =  igrids(iigrid);
@@ -164,11 +255,11 @@ contains
        nc    =  mg%box_size_lvl(lvl)
 
 {^IFTWOD
-       ps(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_to) = &
+       pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_to) = &
             mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_from)
 }
 {^IFTHREED
-       ps(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+       pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
             ixMlo3-1:ixMhi3+1, iw_to) = &
             mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_from)
 }
@@ -253,6 +344,11 @@ contains
     ! Allocate storage for boxes owned by this process
     call mg_allocate_storage(mg)
 
+    if (associated(mg_after_new_tree)) then
+       call mg_after_new_tree()
+    end if
+
   end subroutine mg_tree_from_amrvac
 
 end module mod_multigrid_coupling
+}

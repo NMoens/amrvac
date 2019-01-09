@@ -441,7 +441,13 @@ module mod_fld
 
     converged = .false.
     ADI_Error = bigdouble
-    w_max = 1
+
+    !w_max = 1
+    !> Trying out something new
+    ! This should make sure that the amount of pseudotimesteps
+    ! Goes down with one after completing a hydro step.
+    w_max = max(1,w_max/2-1)
+
     frac_grid = two
     frac_dt = 1
 

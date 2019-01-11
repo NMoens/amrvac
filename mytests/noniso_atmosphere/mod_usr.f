@@ -8,7 +8,7 @@ use mod_global_parameters
 
 implicit none
 
-  integer, parameter :: nyc = 200
+  integer, parameter :: nyc = 104
 
   integer :: i_is(1:nyc)
   double precision :: y_is(1:nyc)
@@ -26,6 +26,9 @@ implicit none
   double precision :: dy_vac
   double precision :: tau_max
   character :: kap_law
+
+  double precision :: M_star, L_star, Gamma_e, R_core, R_up
+  double precision :: log_g, T_gas_core, rho_core, tau_core
 
 contains
 
@@ -63,21 +66,72 @@ end subroutine usr_init
 subroutine initglobaldata_usr
   use mod_global_parameters
 
+  character(len=20) :: dum1
+  double precision :: dum2,dum3,dum4
   integer :: i
 
-  OPEN(1,FILE='init_struc_amrvac')
-  do i = 1,domain_nx2
-    READ(1,'(1i4,1e20.10,5e18.8)') i_is(i), y_is(i), rho_is(i), tg_is(i),&
-        pg_is(i), er_is(i), tau_is(i)
-  enddo
+  !> Reading in parameters
+
+  OPEN(1,FILE='initial_conditions/init_indat')
+   READ(1,*) gamma0,mstar,rstar,yhe,ny_vac,dy_vac,tau_max,kap_law
   CLOSE(1)
 
-  OPEN(2,FILE='init_indat')
-   READ(2,*) gamma0,mstar,rstar,yhe,ny_vac,dy_vac,tau_max,kap_law
+  !> Perform checks to see if init_indat and usr.par agree
+  if (ny_vac .ne. nyc) call mpistop('Number of cells dont agree')
+
+  OPEN(2,FILE='initial_conditions/init_struc_amrvac')
+  do i = 1,domain_nx2+2*nghostcells
+    READ(2,'(1i4,1e20.10,5e18.8)') i_is(i), y_is(i), rho_is(i), tg_is(i),&
+        pg_is(i), er_is(i), tau_is(i)
+  enddo
   CLOSE(2)
 
-  !> Perform checks to see if init_indat and usr.par agree
-  !if (ny_vac .ne. domain_nx2) call mpistop('Number of cells dont agree')
+  OPEN(3,FILE='initial_conditions/init_params_amrvac')
+    READ(3,*) dum1, M_star
+    print*, 'M_star', M_star
+    READ(3,*) dum1, L_star
+    print*, 'L_star', L_star
+    READ(3,*) dum1, Gamma_e
+    print*, 'Gamma_e', Gamma_e
+    READ(3,*) dum1, R_core
+    print*, 'R_core', R_core
+    READ(3,*) dum1, R_up
+    print*, 'R_up', R_up
+    READ(3,*)
+    print*, 'dummies'
+    READ(3,*) dum1, log_g
+    print*, 'log_g', log_g
+    READ(3,*) dum1, T_gas_core
+    print*, 'T_gas_core', T_gas_core
+    READ(3,*) dum1, rho_core
+    print*, 'rho_core', rho_core
+    READ(3,*)
+    READ(3,*)
+    READ(3,*)
+    print*, 'dummies'
+    READ(3,*) dum1, tau_core
+    print*, 'tau_core', tau_core
+  CLOSE(3)
+
+
+  !> Define units
+  unit_numberdensity = rho_core/((1.d0+4.d0*He_abundance)*mp_cgs)
+  unit_temperature = T_gas_core
+  unit_length = R_core
+
+  !> Remaining units
+  unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
+  unit_pressure=(2.d0+3.d0*He_abundance&
+     )*unit_numberdensity*kB_cgs*unit_temperature
+  unit_velocity=dsqrt(unit_pressure/unit_density)
+  unit_time=unit_length/unit_velocity
+
+
+  !> Make input dimensionless:
+  rho_is = rho_is/unit_density
+  tg_is = tg_is/unit_temperature
+  pg_is = pg_is/unit_pressure
+  er_is = er_is/unit_pressure
 
 end subroutine initglobaldata_usr
 
@@ -99,8 +153,12 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   do i = ixGmin2,ixGmax2
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(i)
     w(ixGmin1: ixGmax1, i, mom(:)) = zero
-    w(ixGmin1: ixGmax1, i, e_) = pg_is(i)/(rhd_gamma-1)
+    w(ixGmin1: ixGmax1, i, e_) = pg_is(i)/(rhd_gamma-1.0)
     w(ixGmin1: ixGmax1, i, r_e) = er_is(i)
+  enddo
+
+  do i = ixGmin2, ixGmax2
+    print*, w(10, i, rho_),  w(10, i, e_),  w(10, i, r_e)
   enddo
 
 end subroutine initial_conditions

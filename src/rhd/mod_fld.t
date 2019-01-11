@@ -85,6 +85,7 @@ module mod_fld
   subroutine fld_init(He_abundance)
     use mod_global_parameters
     use mod_variables
+    use mod_opacity, only: init_opal
 
     double precision, intent(in) :: He_abundance
 
@@ -105,6 +106,7 @@ module mod_fld
 
     !> Dimensionless Boltzman constante sigma
     fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
+
   end subroutine fld_init
 
 
@@ -442,11 +444,11 @@ module mod_fld
     converged = .false.
     ADI_Error = bigdouble
 
-    !w_max = 1
+    ! w_max = 1
     !> Trying out something new
     ! This should make sure that the amount of pseudotimesteps
     ! Goes down with one after completing a hydro step.
-    w_max = max(1,w_max/2-1)
+    w_max = max(1,w_max/2)
 
     frac_grid = two
     frac_dt = 1

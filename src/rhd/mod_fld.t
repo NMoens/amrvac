@@ -85,7 +85,6 @@ module mod_fld
   subroutine fld_init(He_abundance)
     use mod_global_parameters
     use mod_variables
-    use mod_opacity, only: init_opal
 
     double precision, intent(in) :: He_abundance
 
@@ -1049,7 +1048,7 @@ module mod_fld
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1
     do j =  ixOmin2,ixOmax2
-      call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+        call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
     enddo
     enddo
 

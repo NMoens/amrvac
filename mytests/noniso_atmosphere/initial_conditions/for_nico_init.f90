@@ -323,20 +323,20 @@ enddo
 close(1)
 !
 open(1,file='init_params_amrvac')
-write(1,*) 'mass              =',mstar/msun
-write(1,*) 'lum               =',lstar/lsun
-write(1,*) 'gamma_base        =',gamma0
-write(1,*) 'r_core=rc         =',y_vac(1)
-write(1,*) 'r_up_b            =',y_vac(ny_vac)
-write(1,*) 'rc, r_up / rsun   =',y_vac(1)/rsun,y_vac(ny_vac)/rsun
-write(1,*) 'log g(rc)         =',log10(gnewt*mstar/y_vac(1)**2)
-write(1,*) 'Tgc=Trc           =',tg_vac(1)
-write(1,*) 'rhoc              =',rho_vac(1)
-write(1,*) 'hp(rc)/rc         =',hpl/y_vac(1)
-write(1,*) 'mu                =',mu
-write(1,*) 'kap0              =',kap0
-write(1,*) 'tauc              =',tau_vac(1)
-write(1,*) 'tau_up            =',tau_vac(ny_vac)
+write(1,*) 'mass',mstar/msun
+write(1,*) 'lum',lstar/lsun
+write(1,*) 'gamma_base',gamma0
+write(1,*) 'r_core=rc',y_vac(1)
+write(1,*) 'r_up_b',y_vac(ny_vac)
+write(1,*) 'rc,r_up:rsun',y_vac(1)/rsun,y_vac(ny_vac)/rsun
+write(1,*) 'log_g(rc)',log10(gnewt*mstar/y_vac(1)**2)
+write(1,*) 'Tgc=Trc',tg_vac(1)
+write(1,*) 'rhoc',rho_vac(1)
+write(1,*) 'hp(rc):rc',hpl/y_vac(1)
+write(1,*) 'mu',mu
+write(1,*) 'kap0',kap0
+write(1,*) 'tauc',tau_vac(1)
+write(1,*) 'tau_up',tau_vac(ny_vac)
 close(1)
 
 end subroutine calc_structure

@@ -169,12 +169,9 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   !> perturb rho
   call RANDOM_NUMBER(pert)
 
-
   w(ixG^S, rho_) = density(ixG^S)*(one + amplitude*pert(ixG^S))
 
-
-  call fld_get_opacity(w, x, ixG^L, ixG^L)
-
+  call fld_get_opacity(w, x, ixG^L, ix^L)
 
   print*, "R_star", R_star0, L_star0
   print*, "R_star", R_star, L_star

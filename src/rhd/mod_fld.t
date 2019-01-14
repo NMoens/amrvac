@@ -103,7 +103,17 @@ module mod_fld
     !> Dimensionless Boltzman constante sigma
     fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
 
+    !> Introduce opacity as a variable
+    i_op = var_set_extravar("Kappa", "Kappa")
+
+    !> Make kappa dimensionless !!!STILL NEED TO MULTIPLY W RHO
+    fld_kappa0 = fld_kappa0*unit_time*unit_velocity*unit_density
+
+    !> Read in opacity table if necesary
+    if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
+
   end subroutine fld_init
+
 
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO

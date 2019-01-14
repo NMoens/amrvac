@@ -8,81 +8,47 @@ module mod_opacity
     integer, parameter :: tmin = 7
     integer, parameter :: tmax = 76
 
-    real, public :: Kappa_vals(7:76,2:20)
-    real, public :: Kappa_vals1(7:76,2:20)
-    real, public :: Kappa_vals2(7:76,2:20)
-    real, public :: Log_R_list(2:20)
-    real, public :: Log_T_list(7:76)
+    double precision, public :: Kappa_vals(7:76,2:20)
+    double precision, public :: Kappa_vals1(7:76,2:20)
+    double precision, public :: Kappa_vals2(7:76,2:20)
+
+    double precision, public :: Log_R_list(2:20)
+    double precision, public :: Log_T_list(7:76)
+
+    !character(*), parameter, public :: fileplace = "$AMRVAC_DIR/src/rhd/Opacity_tables/"
+    character(*), parameter, public :: AMRVAC_DIR = "/lhome/nicolasm/amrvac/"
+    character(*), parameter, public :: fileplace = AMRVAC_DIR//"src/rhd/Opacity_tables/"
 
     public :: init_opal
     public :: set_opal_opacity
 
-
-        !> This is a fortran program to read in one of the tables found in the GN93hz Opal opacities files.
-        ! This only works for fixed metalicity. Part of the table has to be copied to a file called 'My_table'
-        !
-        ! Update: One can now interpolate between two tables as well
-        !
-        !
-        ! integer, parameter :: rmin = 2
-        ! integer, parameter :: rmax = 20
-        ! integer, parameter :: tmin = 7
-        ! integer, parameter :: tmax = 76
-        !
-        ! integer :: i
-        !
-        ! real :: Kappa_vals(7:76,2:20)
-        ! real :: Kappa_vals1(7:76,2:20)
-        ! real :: Kappa_vals2(7:76,2:20)
-        ! real :: Log_R_list(2:20)
-        ! real :: Log_T_list(7:76)
-        !
-        ! real :: R_input, T_input
-        ! real :: K_output
-        !
-        ! call read_table(Log_R_list, Log_T_list, Kappa_vals1,'My_table1')
-        ! call read_table(Log_R_list, Log_T_list, Kappa_vals2,'My_table2')
-        !
-        ! call interpolate_two_tables(1.000,9.990, 9.995, Kappa_vals1, Kappa_vals2, Kappa_vals)
-        !
-        ! !print*, Kappa_vals2(7:76,2:20)
-        !
-        !
-        ! do i = 7,76
-        !     print*, Kappa_vals1(i,:)
-        ! enddo
-        !
-        ! R_input = 0.0
-        ! T_input = 8.0
-        !
-        ! call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
-        !
-        ! !> If the outcome is 9.999, look right in the table
-        ! do while (K_output .gt. 9.0)
-        !     print*, 'K > 9', K_output, R_input, T_input
-        !     R_input = R_input + 0.5
-        !     call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
-        ! enddo
-        !
-        ! !> If the outcome is NaN, look left in the table
-        ! do while (K_output .eq. 0.0)
-        !     print*, 'K = NaN', K_output, R_input, T_input
-        !     R_input = R_input - 0.5
-        !     call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
-        ! enddo
-        !
-        ! print*, K_output
+  contains
 
 subroutine init_opal(He_abundance)
 
   double precision, intent(in) :: He_abundance
+  double precision :: Y1 = 0.1000
+  double precision :: Y2 = 0.0999
 
-  call read_table(Log_R_list, Log_T_list, Kappa_vals1,'My_table1')
-  call read_table(Log_R_list, Log_T_list, Kappa_vals2,'My_table2')
+  if (Y1 .gt. Y2) then
+    if (He_abundance .gt. Y1) call mpistop('OPAL table not covered')
+    if (He_abundance .lt. Y2) call mpistop('OPAL table not covered')
+  else
+    if (He_abundance .lt. Y1) call mpistop('OPAL table not covered')
+    if (He_abundance .gt. Y2) call mpistop('OPAL table not covered')
+  endif
 
-  call interpolate_two_tables(1.000,9.990, He_abundance, Kappa_vals1, Kappa_vals2, Kappa_vals)
+  call read_table(Log_R_list, Log_T_list, Kappa_vals1,'Y01000')
+  call read_table(Log_R_list, Log_T_list, Kappa_vals2,'Y00999')
 
-end subroutine init_opal()
+  if (He_abundance .eq. Y1) then
+    Kappa_vals = Kappa_vals1
+  elseif (He_abundance .eq. Y2) then
+    Kappa_vals = Kappa_vals2
+  else
+    call interpolate_two_tables(Y1,Y2, He_abundance, Kappa_vals1, Kappa_vals2, Kappa_vals)
+  endif
+end subroutine init_opal
 
 
 subroutine set_opal_opacity(rho,temp,kappa)
@@ -91,37 +57,42 @@ subroutine set_opal_opacity(rho,temp,kappa)
 
   double precision :: R_input, T_input, K_output
 
-  R = rho
-  T = temp
+  R_input = rho/(temp*1d-6)**3
+  T_input = temp
+
+  R_input = dlog10(R_input)
+  T_input = dlog10(T_input)
 
   call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
 
   !> If the outcome is 9.999, look right in the table
   do while (K_output .gt. 9.0)
-      print*, 'K > 9', K_output, R_input, T_input
+      print*, 'R,T datapoint out of opal table'
       R_input = R_input + 0.5
       call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
   enddo
 
   !> If the outcome is NaN, look left in the table
   do while (K_output .eq. 0.0)
-      print*, 'K = NaN', K_output, R_input, T_input
+      print*, 'R,T datapoint out of opal table'
       R_input = R_input - 0.5
       call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
   enddo
+
+  kappa = 10d0**K_output
 
 end subroutine set_opal_opacity
 
 subroutine read_table(R, T, K, filename)
     !> This routine reads in the the values for log kappa, and the values for log T and log R on the x and y axis
 
-    real, intent(out) :: K(7:76,2:20), R(2:20), T(7:76)
-    character(len=9), intent(in) :: filename
+    double precision, intent(out) :: K(7:76,2:20), R(2:20), T(7:76)
+    character(*), intent(in) :: filename
 
     character :: dum
     integer :: row, col
 
-    OPEN(1,FILE=filename)
+    OPEN(1,status = 'old', FILE=fileplace//filename)
 
     !> Skip first 4 lines
     do row = 1,4
@@ -147,9 +118,9 @@ end subroutine read_table
 subroutine interpolate_two_tables(Y1, Y2, Y_in, K1, K2, K_interp)
     !> This subroutine creates a new table for a given metalicity,
     ! by interpolating to known tables at every point in the R,T plane
-    real, intent(in) :: K1(7:76,2:20), K2(7:76,2:20)
-    real, intent(in) :: Y1, Y2, Y_in
-    real, intent(out) :: K_interp(7:76,2:20)
+    double precision, intent(in) :: K1(7:76,2:20), K2(7:76,2:20)
+    double precision, intent(in) :: Y1, Y2, Y_in
+    double precision, intent(out) :: K_interp(7:76,2:20)
 
     integer row, colum
 
@@ -168,12 +139,12 @@ subroutine get_kappa(Kappa_vals, Log_R_list, Log_T_list, R, T, K)
     !>This subroutine looks in the table for the four couples (T,R)
     !surrounding a given input for T and R
 
-    real, intent(in) :: Kappa_vals(7:76,2:20)
-    real, intent(in) :: Log_R_list(2:20)
-    real, intent(in) :: Log_T_list(7:76)
+    double precision, intent(in) :: Kappa_vals(7:76,2:20)
+    double precision, intent(in) :: Log_R_list(2:20)
+    double precision, intent(in) :: Log_T_list(7:76)
 
-    real, intent(in) :: R, T
-    real, intent(out) :: K
+    double precision, intent(in) :: R, T
+    double precision, intent(out) :: K
 
     integer :: low_r_index, up_r_index
     integer :: low_t_index, up_t_index
@@ -213,13 +184,13 @@ subroutine get_low_up_index(x, x_list, imin, imax, low_i, up_i)
     !> this subroutine finds the indexes in R and T arrays of the two values surrounding the input R and T
 
     integer, intent(in) :: imin, imax
-    real, intent(in) :: x
-    real, intent(in) :: x_list(imin:imax)
+    double precision, intent(in) :: x
+    double precision, intent(in) :: x_list(imin:imax)
 
     integer, intent(out) :: low_i, up_i
 
-    real :: low_val, up_val
-    real :: res(imin:imax)
+    double precision :: low_val, up_val
+    double precision :: res(imin:imax)
 
     res = x_list - x
 
@@ -240,15 +211,15 @@ subroutine interpolate_KRT(low_r, up_r, low_t, up_t, Log_R_list, Log_T_list, Kap
     !> This subroutine does a bilinear interpolation in the R,T-plane
 
     integer, intent(in) :: low_r, up_r, low_t, up_t
-    real, intent(in) :: Kappa_vals(7:76,2:20)
-    real, intent(in) :: Log_R_list(2:20)
-    real, intent(in) :: Log_T_list(7:76)
-    real, intent(in) :: R,T
-    real, intent(out) :: k_interp
+    double precision, intent(in) :: Kappa_vals(7:76,2:20)
+    double precision, intent(in) :: Log_R_list(2:20)
+    double precision, intent(in) :: Log_T_list(7:76)
+    double precision, intent(in) :: R,T
+    double precision, intent(out) :: k_interp
 
-    real :: r1,r2,t1,t2
-    real :: k1, k2, k3, k4
-    real :: ka, kb
+    double precision :: r1,r2,t1,t2
+    double precision :: k1, k2, k3, k4
+    double precision :: ka, kb
 
     !Cool ascii drawing of interpolation scheme: first interpolate twice in the T coord to get
     !ka and kb, then interpolate in the R coord to get ki
@@ -282,26 +253,15 @@ subroutine interpolate_KRT(low_r, up_r, low_t, up_t, Log_R_list, Log_T_list, Kap
     call interpolate1D(r1,r2,R,k3,k4,kb)
     call interpolate1D(t1,t2,T,ka,kb,k_interp)
 
-!     print*, '----------------------------------------------------------'
-!     print*, '----------------------------------------------------------'
-!     print*, '----------------------------------------------------------'
-!     print*, r1, R, r2
-!     print*, t1, T, t2
-!     print*, '----------------------------------------------------------'
-!     print*, k1, ka, k2
-!     print*, k3, kb, k4
-!     print*, '----------------------------------------------------------'
-!     print*, ka, k_interp, kb
-
 end subroutine interpolate_KRT
 
 
 
 subroutine interpolate1D(x1, x2, x, y1, y2, y)
 
-    real, intent(in) :: x, x1, x2
-    real, intent(in) :: y1, y2
-    real, intent(out) :: y
+    double precision, intent(in) :: x, x1, x2
+    double precision, intent(in) :: y1, y2
+    double precision, intent(out) :: y
 
     y = y1 + (x-x1)*(y2-y1)/(x2-x1)
 
@@ -311,12 +271,12 @@ end module mod_opacity
 
 !subroutine log_interpolate1D(x1, x2, x, y1, y2, y)
 !
-!    real, intent(in) :: x, x1, x2
-!    real, intent(in) :: y1, y2
-!    real, intent(out) :: y
+!    double precision, intent(in) :: x, x1, x2
+!    double precision, intent(in) :: y1, y2
+!    double precision, intent(out) :: y
 !
-!    real :: expx, expx1, expx2
-!    real :: expy1, expy2
+!    double precision :: expx, expx1, expx2
+!    double precision :: expy1, expy2
 !
 !    expx = 10**x
 !    expx1 = 10**x1

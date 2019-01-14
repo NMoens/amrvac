@@ -31,6 +31,9 @@ module mod_fld
 
     double precision :: fld_max_fracdt = 50.d0
 
+    !> Index for kappa
+    integer, public :: i_op
+
     !> Use constant Opacity?
     character(len=8) :: fld_opacity_law = 'const'
 
@@ -85,8 +88,11 @@ module mod_fld
   subroutine fld_init(He_abundance)
     use mod_global_parameters
     use mod_variables
+    use mod_opacity, only: init_opal
 
     double precision, intent(in) :: He_abundance
+
+    print*, He_abundance
 
     !> read par files
     call fld_params_read(par_files)
@@ -95,10 +101,8 @@ module mod_fld
     !> Check if fld_numdt is not 1
     if (fld_maxdw .lt. 2) call mpistop("fld_maxdw should be an integer larger than 1")
 
+    !> Need mean molecular weight
     fld_mu = (1.d0+4.d0*He_abundance)/two
-
-    !> Make kappa dimensionless !!!STILL NEED TO MULTIPLY W RHO
-    fld_kappa0 = fld_kappa0*unit_time*unit_velocity*unit_density
 
     !> Dimensionless speed of light
     fld_speedofligt_0 = const_c/unit_velocity
@@ -125,8 +129,6 @@ module mod_fld
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
 
-    double precision :: fld_kappa(ixO^S)
-
     double precision :: rad_flux(ixO^S,1:ndim)
     double precision :: radiation_force(ixO^S,1:ndim)
 
@@ -139,12 +141,11 @@ module mod_fld
       !> Add momentum sourceterms
       jx^L=ixO^L+kr(idir,^D);
       !> Calculate the radiative flux using the FLD Approximation
-      call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
 
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux
-        radiation_force(ixO^S,idir) = fld_kappa(ixO^S)*wCT(ixO^S,iw_rho)/fld_speedofligt_0*rad_flux(ixO^S, idir)
+        radiation_force(ixO^S,idir) = w(ixO^S,i_op)*wCT(ixO^S,iw_rho)/fld_speedofligt_0*rad_flux(ixO^S, idir)
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
@@ -203,18 +204,20 @@ module mod_fld
   end subroutine get_fld_diffusion
 
 
-  subroutine fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
+  subroutine fld_get_opacity(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
+    use mod_physics, only: phys_get_tgas
+    use mod_opacity
 
     integer, intent(in)          :: ixI^L, ixO^L
-    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
-    double precision, intent(out):: fld_kappa(ixO^S)
+    double precision :: fld_kappa(ixO^S)
     double precision :: Temp(ixI^S)
     double precision :: rho0,Temp0,n,sigma_b
 
-    integer :: i
+    integer :: i,j
 
     select case (fld_opacity_law)
       case('const')
@@ -241,10 +244,27 @@ module mod_fld
         n = -7.d0/two
         fld_kappa(ixO^S) = fld_kappa0*(w(ixO^S,iw_rho)/rho0)*(Temp(ixO^S)/Temp0)**n
       case('opal')
-        call mpistop("Not implemented yet, hold your bloody horses")
+        !call mpistop("Not implemented yet, hold your bloody horses")
+        print*, 'TEST !1!'
+        call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
+        print*, 'TEST !2!'
+        do i = ixOmin1,ixOmax1
+          do j= ixOmin2,ixOmax2
+            rho0 = w(i,j,iw_rho)*unit_density
+            Temp0 = Temp(i,j)*unit_temperature
+
+            call set_opal_opacity(rho0,Temp0,n)
+            print*,i,j, rho0, Temp0, n
+
+            fld_kappa(i,j) = n*unit_time*unit_velocity*unit_density
+          enddo
+        enddo
+
       case default
         call mpistop("Doesn't know opacity law")
       end select
+
+      w(ixO^S, i_op) = fld_kappa(ixO^S)
 
   end subroutine fld_get_opacity
 
@@ -257,7 +277,6 @@ module mod_fld
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out) :: fld_R(ixO^S), fld_lambda(ixO^S)
-    double precision :: fld_kappa(ixO^S)
     double precision ::  normgrad2(ixO^S)
     double precision :: grad_r_e(ixO^S)
     integer :: idir
@@ -273,8 +292,7 @@ module mod_fld
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
-      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(fld_kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       !> Levermore and Pomraning: lambda = (2 + R)/(6 + 3R + R^2)
@@ -293,7 +311,6 @@ module mod_fld
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out):: rad_flux(ixO^S, 1:ndim)
     double precision             :: L_star, R_star
-    double precision :: fld_kappa(ixO^S)
     double precision :: fld_lambda(ixO^S), fld_R(ixO^S), normgrad2(ixO^S), f(ixO^S)
     double precision :: grad_r_e(ixO^S, 1:ndim)
     integer :: idir
@@ -306,8 +323,7 @@ module mod_fld
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**2
     end do
 
-    call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
-    fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(fld_kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+    fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
 
     !> Calculate the flux limiter, lambda
     !> Levermore and Pomraning: lambda = (2 + R)/(6 + 3R + R^2)
@@ -321,7 +337,7 @@ module mod_fld
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndir
       call gradE(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,x,grad_r_e(ixO^S,idir))
-      rad_flux(ixO^S, idir) = -fld_speedofligt_0*fld_lambda(ixO^S)/(fld_kappa(ixO^S)*w(ixO^S,iw_rho)) *grad_r_e(ixO^S,idir)
+      rad_flux(ixO^S, idir) = -fld_speedofligt_0*fld_lambda(ixO^S)/(w(ixO^S,i_op)*w(ixO^S,iw_rho)) *grad_r_e(ixO^S,idir)
     end do
 
     ! !> Cheaty
@@ -341,7 +357,6 @@ module mod_fld
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out):: rad_pressure(ixO^S)
-    double precision :: fld_kappa(ixO^S)
     double precision :: fld_lambda(ixO^S), fld_R(ixO^S), normgrad2(ixO^S), f(ixO^S)
     double precision :: grad_r_e(ixO^S, 1:ndim)
     integer :: idir
@@ -355,8 +370,7 @@ module mod_fld
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
-    call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
-    fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(fld_kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+    fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
 
     !> Calculate the flux limiter, lambda
     !> Levermore and Pomraning: lambda = (2 + R)/(6 + 3R + R^2)
@@ -651,7 +665,6 @@ module mod_fld
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out):: D(ixI^S,1:ndim)
-    double precision :: fld_kappa(ixO^S)
     double precision :: fld_lambda(ixO^S), fld_R(ixO^S)
     double precision :: D_center(ixI^S)
     integer :: idir,i,j
@@ -667,11 +680,8 @@ module mod_fld
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
 
-      !> set Opacity
-      call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
-
       !> calculate diffusion coefficient
-      D_center(ixO^S) = fld_speedofligt_0*fld_lambda(ixO^S)/(fld_kappa(ixO^S)*w(ixO^S,iw_rho))
+      D_center(ixO^S) = fld_speedofligt_0*fld_lambda(ixO^S)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
 
       !> Extrapolate lambda to ghostcells
       !> Edges
@@ -1006,7 +1016,6 @@ module mod_fld
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
-    double precision :: fld_kappa(ixO^S)
     double precision :: rad_pressure(ixO^S)
     double precision :: temperature(ixI^S), div_v(ixI^S), vel(ixI^S,1:ndim)
     double precision :: a1(ixO^S), a2(ixO^S), a3(ixO^S)
@@ -1024,9 +1033,6 @@ module mod_fld
     !> calc Temperature as p/rho
     temperature(ixO^S)=temperature(ixO^S)/w(ixO^S,iw_rho)
 
-    !> set Opacity
-    call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
-
     !> calc photon tiring term
     do idir=1,ndim
       vel(ixI^S,idir)= w(ixI^S,iw_mom(idir))/w(ixI^S,iw_rho)
@@ -1038,8 +1044,8 @@ module mod_fld
     E_rad(ixO^S) = w(ixO^S,iw_r_e)
 
     !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*fld_kappa(ixO^S)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
-    a2(ixO^S) = fld_speedofligt_0*fld_kappa(ixO^S)*w(ixO^S,iw_rho)*dt
+    a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
+    a2(ixO^S) = fld_speedofligt_0*w(ixO^S,i_op)*w(ixO^S,iw_rho)*dt
     a3(ixO^S) = div_v(ixO^S)*rad_pressure(ixO^S)/E_rad(ixO^S)*dt
 
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
@@ -1063,7 +1069,7 @@ module mod_fld
     temperature(ixO^S)=(temperature(ixO^S)/w(ixO^S,iw_rho))
 
     !> Update a1
-    a1(ixO^S) = 4*fld_kappa(ixO^S)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
+    a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
 
     !> advance E_rad
     E_rad(ixO^S) = (a1*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2 + a3)

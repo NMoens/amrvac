@@ -56,6 +56,7 @@ subroutine usr_init()
 
   ! Special Boundary conditions
   usr_special_bc => special_bound
+  usr_radiation_bc => radiation_bound
 
   ! Keep the internal energy constant with internal bound
   usr_internal_bc => constant_e
@@ -201,7 +202,7 @@ end subroutine initial_conditions
 
 !==========================================================================================
 
-subroutine special_bound(qt,ixG^L,ixB^L,iB,w,x)
+subroutine special_bound_old(qt,ixG^L,ixB^L,iB,w,x)
 
   use mod_global_parameters
   use mod_variables
@@ -272,7 +273,6 @@ subroutine special_bound(qt,ixG^L,ixB^L,iB,w,x)
       enddo
     enddo
 
-
     !> Corners?
     w(ixGmin1,ixBmin2:ixBmax2,r_e) = w(ixGmax1-3,ixBmin2:ixBmax2,r_e)
     w(ixGmin1+1,ixBmin2:ixBmax2,r_e) = w(ixGmax1-2,ixBmin2:ixBmax2,r_e)
@@ -282,8 +282,80 @@ subroutine special_bound(qt,ixG^L,ixB^L,iB,w,x)
   case default
     call mpistop("BC not specified")
   end select
+end subroutine special_bound_old
+
+!==========================================================================================
+
+subroutine special_bound(qt,ixG^L,ixB^L,iB,w,x)
+  use mod_global_parameters
+  integer, intent(in)             :: ixG^L, ixB^L, iB
+  double precision, intent(in)    :: qt, x(ixG^S,1:ndim)
+  double precision, intent(inout) :: w(ixG^S,1:nw)
+  double precision                :: w_rad(ixG^S)
+
+  integer j
+
+  select case (iB)
+  case(3)
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmax2+1,rho_)
+      w(ixGmin1:ixGmax1,j,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1))
+      w(ixGmin1:ixGmax1,j,mom(2)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(2))
+      w(ixGmin1:ixGmax1,j,e_) = w(ixGmin1:ixGmax1,ixBmax2+1,e_)
+    enddo
+
+    call radiation_bound(qt,ixG^L,iB,w,w_rad,x)
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,r_e) = w_rad(ixGmin1:ixGmax1,j)
+    enddo
+
+  case(4)
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmax2+1,rho_)
+      w(ixGmin1:ixGmax1,j,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1))
+      w(ixGmin1:ixGmax1,j,mom(2)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(2))
+      w(ixGmin1:ixGmax1,j,e_) = w(ixGmin1:ixGmax1,ixBmax2+1,e_)
+    enddo
+
+    call radiation_bound(qt,ixG^L,iB,w,w_rad,x)
+
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,r_e) = w_rad(ixGmin1:ixGmax1,j)
+    enddo
+
+  case default
+    call mpistop('boundary not known')
+  end select
 end subroutine special_bound
 
+!==========================================================================================
+
+subroutine radiation_bound(qt,ixI^L,iB,w,w_rad,x)
+  use mod_global_parameters
+  integer, intent(in)             :: ixI^L, iB
+  double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
+  double precision, intent(in)    :: w(ixI^S,1:nw)
+  double precision, intent(out)   :: w_rad(ixI^S)
+
+  integer i
+
+  select case (iB)
+  case(3)
+    do i=ixImin1,ixImax1
+      w_rad(i,2) = 2.d0*w(i,3,r_e)-w(i,4,r_e)
+      w_rad(i,1) = 2.d0*w(i,2,r_e)-w(i,3,r_e)
+    enddo
+
+  case(4)
+    do i=ixImin1,ixImax1
+      w_rad(i,ixImax2-1) = 2.d0*w(i,ixImax2-2,r_e)-w(i,ixImax2-3,r_e)
+      w_rad(i,ixImax2) = 2.d0*w(i,ixImax2-1,r_e)-w(i,ixImax2-2,r_e)
+    enddo
+
+  case default
+    call mpistop('boundary not known')
+  end select
+end subroutine radiation_bound
 
 !==========================================================================================
 

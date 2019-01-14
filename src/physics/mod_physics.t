@@ -247,7 +247,7 @@ contains
     if (.not. associated(phys_get_pthermal)) &
          phys_get_pthermal => dummy_get_pthermal
 
-   if (.not. associated(phys_get_tgas)) &
+    if (.not. associated(phys_get_tgas)) &
         phys_get_tgas => dummy_get_tgas
 
     if (.not. associated(phys_boundary_adjust)) &

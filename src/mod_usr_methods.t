@@ -13,6 +13,7 @@ module mod_usr_methods
 
   ! Boundary condition related
   procedure(special_bc), pointer      :: usr_special_bc       => null()
+  procedure(radiation_bc), pointer    :: usr_radiation_bc     => null()
   procedure(internal_bc), pointer     :: usr_internal_bc      => null()
 
   ! Output related
@@ -42,7 +43,7 @@ module mod_usr_methods
 
   ! Usr defined space varying viscosity
   procedure(phys_visco), pointer      :: usr_setvisco         => null()
-  
+
   ! Refinement related procedures
   procedure(refine_grid), pointer     :: usr_refine_grid      => null()
   procedure(var_for_errest), pointer  :: usr_var_for_errest   => null()
@@ -85,6 +86,17 @@ module mod_usr_methods
        double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
        double precision, intent(inout) :: w(ixI^S,1:nw)
      end subroutine special_bc
+
+     !> Special boundary type for radiation hydrodynamics module, only used to
+     !> set the boundary conditions for the radiation energy. Called every
+     !> pseudo-timestep before every half step in the ADI flux_scheme
+     subroutine radiation_bc(qt,ixI^L,iB,w,w_rad,x)
+       use mod_global_parameters
+       integer, intent(in)             :: ixI^L, iB
+       double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
+       double precision, intent(in)    :: w(ixI^S,1:nw)
+       double precision, intent(out)   :: w_rad(ixI^S)
+     end subroutine radiation_bc
 
      !> internal boundary, user defined
      !

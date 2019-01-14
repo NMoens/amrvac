@@ -259,7 +259,7 @@ module mod_fld
             call set_opal_opacity(rho0,Temp0,n)
             print*,i,j, rho0, Temp0, n
 
-            fld_kappa(i,j) = n*unit_time*unit_velocity*unit_density
+            fld_kappa(i,j) = n/unit_opacity
           enddo
         enddo
 

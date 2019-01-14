@@ -163,6 +163,9 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
     w(ixGmin1: ixGmax1, i, r_e) = er_is(i)
   enddo
 
+  call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
+     ixmax1,ixmax2)
+
   do i = ixGmin2, ixGmax2
     print*, w(10, i, rho_),  w(10, i, e_),  w(10, i, r_e)
   enddo

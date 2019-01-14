@@ -65,7 +65,7 @@
  /
 
  &paramlist
-  courantpar       = 0.2d0
+  courantpar       = 0.1d0
   !dtpar = 1d-8
  /
 
@@ -84,7 +84,7 @@
   fld_split = .false.
   fld_maxdw = 2000
   fld_bisect_tol = 1.d-2
-  fld_adi_tol = 2.d-2
+  fld_adi_tol = 5.d-2
   fld_max_fracdt = 100.d0
   fld_diff_testcase = .false.
   fld_opacity_law = 'const'

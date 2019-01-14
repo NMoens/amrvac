@@ -96,7 +96,7 @@ subroutine initglobaldata_usr
     READ(3,*) dum1, R_core
     print*, 'R_core', R_core
     READ(3,*) dum1, R_up
-    print*, 'R_up', R_up
+    print*, 'R_up', R_up/R_core, 'R_core'
     READ(3,*)
     print*, 'dummies'
     READ(3,*) dum1, log_g

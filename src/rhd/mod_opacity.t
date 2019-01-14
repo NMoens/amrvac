@@ -95,7 +95,7 @@ subroutine set_opal_opacity(rho,temp,kappa)
   T = temp
 
   call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
-  
+
   !> If the outcome is 9.999, look right in the table
   do while (K_output .gt. 9.0)
       print*, 'K > 9', K_output, R_input, T_input

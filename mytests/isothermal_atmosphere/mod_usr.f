@@ -56,6 +56,7 @@ subroutine usr_init()
 
   ! Special Boundary conditions
   usr_special_bc => special_bound
+  usr_radiation_bc => radiation_bound
 
   ! Keep the internal energy constant with internal bound
   usr_internal_bc => constant_e
@@ -176,14 +177,11 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   !> perturb rho
   call RANDOM_NUMBER(pert)
 
-
   w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = density(ixGmin1:ixGmax1,&
      ixGmin2:ixGmax2)*(one + amplitude*pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2))
 
-
-  call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixGmin1,ixGmin2,&
-     ixGmax1,ixGmax2)
-
+  call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
+     ixmax1,ixmax2)
 
   print*, "R_star", R_star0, L_star0
   print*, "R_star", R_star, L_star
@@ -213,8 +211,8 @@ end subroutine initial_conditions
 
 !==========================================================================================
 
-subroutine special_bound(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,ixBmin2,&
-   ixBmax1,ixBmax2,iB,w,x)
+subroutine special_bound_old(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
+   ixBmin2,ixBmax1,ixBmax2,iB,w,x)
 
   use mod_global_parameters
   use mod_variables
@@ -304,8 +302,84 @@ subroutine special_bound(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,ixBmin2,&
   case default
     call mpistop("BC not specified")
   end select
+end subroutine special_bound_old
+
+!==========================================================================================
+
+subroutine special_bound(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,ixBmin2,&
+   ixBmax1,ixBmax2,iB,w,x)
+  use mod_global_parameters
+  integer, intent(in)             :: ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixBmin1,&
+     ixBmin2,ixBmax1,ixBmax2, iB
+  double precision, intent(in)    :: qt, x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+     1:ndim)
+  double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:nw)
+  double precision                :: w_rad(ixGmin1:ixGmax1,ixGmin2:ixGmax2)
+
+  integer j
+
+  select case (iB)
+  case(3)
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmax2+1,rho_)
+      w(ixGmin1:ixGmax1,j,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1))
+      w(ixGmin1:ixGmax1,j,mom(2)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(2))
+      w(ixGmin1:ixGmax1,j,e_) = w(ixGmin1:ixGmax1,ixBmax2+1,e_)
+    enddo
+
+    call radiation_bound(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,iB,w,w_rad,x)
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,r_e) = w_rad(ixGmin1:ixGmax1,j)
+    enddo
+
+  case(4)
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmax2+1,rho_)
+      w(ixGmin1:ixGmax1,j,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1))
+      w(ixGmin1:ixGmax1,j,mom(2)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(2))
+      w(ixGmin1:ixGmax1,j,e_) = w(ixGmin1:ixGmax1,ixBmax2+1,e_)
+    enddo
+
+    call radiation_bound(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,iB,w,w_rad,x)
+
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,r_e) = w_rad(ixGmin1:ixGmax1,j)
+    enddo
+
+  case default
+    call mpistop('boundary not known')
+  end select
 end subroutine special_bound
 
+!==========================================================================================
+
+subroutine radiation_bound(qt,ixImin1,ixImin2,ixImax1,ixImax2,iB,w,w_rad,x)
+  use mod_global_parameters
+  integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2, iB
+  double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
+     1:ndim)
+  double precision, intent(in)    :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+  double precision, intent(out)   :: w_rad(ixImin1:ixImax1,ixImin2:ixImax2)
+
+  integer i
+
+  select case (iB)
+  case(3)
+    do i=ixImin1,ixImax1
+      w_rad(i,2) = 2.d0*w(i,3,r_e)-w(i,4,r_e)
+      w_rad(i,1) = 2.d0*w(i,2,r_e)-w(i,3,r_e)
+    enddo
+
+  case(4)
+    do i=ixImin1,ixImax1
+      w_rad(i,ixImax2-1) = 2.d0*w(i,ixImax2-2,r_e)-w(i,ixImax2-3,r_e)
+      w_rad(i,ixImax2) = 2.d0*w(i,ixImax2-1,r_e)-w(i,ixImax2-2,r_e)
+    enddo
+
+  case default
+    call mpistop('boundary not known')
+  end select
+end subroutine radiation_bound
 
 !==========================================================================================
 

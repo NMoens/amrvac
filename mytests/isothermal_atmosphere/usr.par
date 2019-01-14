@@ -9,19 +9,14 @@
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
-  nwauxio = 11
+  nwauxio = 10
 /
 
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-<<<<<<< HEAD:mytests/noniso_atmosphere/bump.par:mytests/noniso_atmosphere/bump.par
    ditsave_dat     = 1
    ditsave_log     = 1
-=======
-   !ditsave_dat     = 1
-   !ditsave_log     = 1
->>>>>>> Opacity:mytests/isothermal_atmosphere/usr.par:mytests/isothermal_atmosphere/usr.par
    dtsave_dat     = 4.d-1
    dtsave_log     = 4.d-1
 /
@@ -29,11 +24,7 @@
  &stoplist
    time_max = 1.d1
    dtmin = 1.0d-20
-<<<<<<< HEAD:mytests/noniso_atmosphere/bump.par:mytests/noniso_atmosphere/bump.par
-   it_max = 11
-=======
-   it_max = 3
->>>>>>> Opacity:mytests/isothermal_atmosphere/usr.par:mytests/isothermal_atmosphere/usr.par
+   it_max = 10
 /
 
  &methodlist
@@ -50,10 +41,10 @@
 
 &boundlist
   nghostcells  =  2
-  typeboundary_min1 = 5*'special'
-  typeboundary_max1 = 5*'special'
+  typeboundary_min1 = 5*'periodic'
+  typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 5*'special'
-  typeboundary_max2 = 'noinflow','noinflow','noinflow','noinflow','special'
+  typeboundary_max2 = 5*'special'
   !typeghostfill= 'copy'
   internalboundary = T
 /
@@ -85,7 +76,7 @@
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .true.
   rhd_energy_interact = .false.
-  rhd_radiation_diffusion = .true.
+  rhd_radiation_diffusion = .false.
  /
 
  &fld_list
@@ -93,13 +84,9 @@
   fld_split = .false.
   fld_maxdw = 2000
   fld_bisect_tol = 1.d-4
-  fld_adi_tol = 2.d-2
+  fld_adi_tol = 1.d-4
   fld_max_fracdt = 100.d0
   fld_diff_testcase = .false.
   fld_opacity_law = 'const'
   fld_complete_diffusion_limit = .false.
-  fld_bound_min1 = 'periodic'
-  fld_bound_max1 = 'periodic'
-  fld_bound_min2 = 'fixed'
-  fld_bound_max2 = 'cont'
  /

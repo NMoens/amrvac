@@ -107,7 +107,7 @@ module mod_fld
     i_op = var_set_extravar("Kappa", "Kappa")
 
     !> Make kappa dimensionless !!!STILL NEED TO MULTIPLY W RHO
-    fld_kappa0 = fld_kappa0*unit_time*unit_velocity*unit_density
+    fld_kappa0 = fld_kappa0/unit_opacity
 
     !> Read in opacity table if necesary
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
@@ -248,16 +248,14 @@ module mod_fld
         fld_kappa(ixO^S) = fld_kappa0*(w(ixO^S,iw_rho)/rho0)*(Temp(ixO^S)/Temp0)**n
       case('opal')
         !call mpistop("Not implemented yet, hold your bloody horses")
-        print*, 'TEST !1!'
         call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
-        print*, 'TEST !2!'
         do i = ixOmin1,ixOmax1
           do j= ixOmin2,ixOmax2
             rho0 = w(i,j,iw_rho)*unit_density
             Temp0 = Temp(i,j)*unit_temperature
 
             call set_opal_opacity(rho0,Temp0,n)
-            print*,i,j, rho0, Temp0, n
+            !print*,i,j, rho0, Temp0, n
 
             fld_kappa(i,j) = n/unit_opacity
           enddo
@@ -597,8 +595,8 @@ module mod_fld
     + D(jx2^S,2)*(E_new(jx2^S) - E_new(ixO^S)) &
     - D(ixO^S,2)*(E_new(ixO^S) - E_new(hx2^S))
 
-    ADI_Error = maxval(abs((RHS-LHS)/(E_old/dt))) !> Try mean value or smtn
-    !ADI_Error = sum(abs((RHS-LHS)/(E_old/dt)))/((ixOmax1-ixOmin1)*(ixOmax2-ixOmin2))
+    !ADI_Error = maxval(abs((RHS-LHS)/(E_old/dt))) !> Try mean value or smtn
+    ADI_Error = sum(abs((RHS-LHS)/(E_old/dt)))/((ixOmax1-ixOmin1)*(ixOmax2-ixOmin2))
   end subroutine Error_check_ADI
 
 

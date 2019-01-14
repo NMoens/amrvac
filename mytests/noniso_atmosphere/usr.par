@@ -9,7 +9,7 @@
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
-  nwauxio = 11
+  nwauxio = 10
 /
 
  &savelist
@@ -43,8 +43,8 @@
   nghostcells  =  2
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 5*'cont'
-  typeboundary_max2 = 5*'cont'
+  typeboundary_min2 = 5*'special'
+  typeboundary_max2 = 5*'special'
   !typeghostfill= 'copy'
   internalboundary = T
 /
@@ -89,8 +89,4 @@
   fld_diff_testcase = .false.
   fld_opacity_law = 'const'
   fld_complete_diffusion_limit = .false.
-  fld_bound_min1 = 'periodic'
-  fld_bound_max1 = 'periodic'
-  fld_bound_min2 = 'cont'
-  fld_bound_max2 = 'cont'
- /
+/

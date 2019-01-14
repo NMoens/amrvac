@@ -49,6 +49,12 @@ subroutine usr_init()
   ! A routine for initial conditions is always required
   usr_init_one_grid => initial_conditions
 
+  ! Routine for setting special boundary conditions
+  usr_special_bc => boundary_conditions
+
+  ! Routine for setting radiation boundary conditions
+  usr_radiation_bc => radiation_boundary
+
   ! Graviatational field
   usr_gravity => set_gravitation_field
 
@@ -161,8 +167,76 @@ end subroutine initial_conditions
 
 !==========================================================================================
 
-! Extra routines can be placed here
-! ...
+subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
+  use mod_global_parameters
+  integer, intent(in)             :: ixG^L, ixB^L, iB
+  double precision, intent(in)    :: qt, x(ixG^S,1:ndim)
+  double precision, intent(inout) :: w(ixG^S,1:nw)
+  double precision                :: w_rad(ixG^S)
+
+  integer j
+
+  select case (iB)
+  case(3)
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmax2+1,rho_)
+      w(ixGmin1:ixGmax1,j,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1))
+      w(ixGmin1:ixGmax1,j,mom(2)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(2))
+      w(ixGmin1:ixGmax1,j,e_) = w(ixGmin1:ixGmax1,ixBmax2+1,e_)
+    enddo
+
+    call radiation_boundary(qt,ixG^L,iB,w,w_rad,x)
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,r_e) = w_rad(ixGmin1:ixGmax1,j)
+    enddo
+
+  case(4)
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmax2+1,rho_)
+      w(ixGmin1:ixGmax1,j,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1))
+      w(ixGmin1:ixGmax1,j,mom(2)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(2))
+      w(ixGmin1:ixGmax1,j,e_) = w(ixGmin1:ixGmax1,ixBmax2+1,e_)
+    enddo
+
+    call radiation_boundary(qt,ixG^L,iB,w,w_rad,x)
+
+    do j = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,j,r_e) = w_rad(ixGmin1:ixGmax1,j)
+    enddo
+
+  case default
+    call mpistop('boundary not known')
+  end select
+end subroutine boundary_conditions
+
+!==========================================================================================
+
+subroutine radiation_boundary(qt,ixI^L,iB,w,w_rad,x)
+  use mod_global_parameters
+  integer, intent(in)             :: ixI^L, iB
+  double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
+  double precision, intent(in)    :: w(ixI^S,1:nw)
+  double precision, intent(out)   :: w_rad(ixI^S)
+
+  integer i
+
+  select case (iB)
+  case(3)
+    do i=ixImin1,ixImax1
+      w_rad(i,2) = 2.d0*w(i,3,r_e)-w(i,4,r_e)
+      w_rad(i,1) = 2.d0*w(i,2,r_e)-w(i,3,r_e)
+    enddo
+
+  case(4)
+    do i=ixImin1,ixImax1
+      w_rad(i,ixImax2-1) = 2.d0*w(i,ixImax2-2,r_e)-w(i,ixImax2-3,r_e)
+      w_rad(i,ixImax2) = 2.d0*w(i,ixImax2-1,r_e)-w(i,ixImax2-2,r_e)
+    enddo
+
+  case default
+    call mpistop('boundary not known')
+  end select
+end subroutine radiation_boundary
 
 !==========================================================================================
 
@@ -195,18 +269,17 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   double precision, intent(in)       :: x(ixI^S,1:ndim)
   double precision                   :: w(ixI^S,nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
-  double precision                   :: rad_flux(ixO^S,1:ndim), rad_pressure(ixO^S), fld_lambda(ixO^S), fld_R(ixO^S), fld_kappa(ixO^S)
+  double precision                   :: rad_flux(ixO^S,1:ndim), rad_pressure(ixO^S), fld_lambda(ixO^S), fld_R(ixO^S)
   double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S), D(ixI^S,1:ndim)
   integer                            :: idim
 
   call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
   call fld_get_radpress(w, x, ixI^L, ixO^L, rad_pressure)
   call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
-  call fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
   call fld_get_diffcoef(w, x, ixI^L, ixO^L, D)
 
   do idim = 1,ndim
-    g_rad(ixO^S,idim) = fld_kappa(ixO^S)*rad_flux(ixO^S,idim)/const_c
+    g_rad(ixO^S,idim) = w(ixO^S,i_op)*rad_flux(ixO^S,idim)/const_c
   enddo
   big_gamma(ixO^S) = g_rad(ixO^S,2)/(6.67e-8*mstar/rstar**2*(unit_time**2/unit_length))
 
@@ -220,7 +293,6 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   w(ixO^S,nw+8)=big_gamma(ixO^S)
   w(ixO^S,nw+9)=D(ixO^S,1)
   w(ixO^S,nw+10)=D(ixO^S,2)
-  w(ixO^S,nw+11)= fld_kappa(ixO^S)
 end subroutine specialvar_output
 
 subroutine specialvarnames_output(varnames)
@@ -228,7 +300,7 @@ subroutine specialvarnames_output(varnames)
   use mod_global_parameters
   character(len=*) :: varnames
 
-  varnames = 'F1 F2 P_rad lamnda fld_R ar1 ar2 Gamma D1 D2 kappa'
+  varnames = 'F1 F2 P_rad lamnda fld_R ar1 ar2 Gamma D1 D2'
 
 end subroutine specialvarnames_output
 

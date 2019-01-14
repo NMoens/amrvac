@@ -40,12 +40,6 @@ module mod_fld
     !> Diffusion limit lambda = 0.33
     logical :: fld_complete_diffusion_limit = .false.
 
-    !> Boundary conditions for radiative Energy in ADI.
-    character(len=8) :: fld_bound_min1 = 'periodic'
-    character(len=8) :: fld_bound_max1 = 'periodic'
-    character(len=8) :: fld_bound_min2 = 'periodic'
-    character(len=8) :: fld_bound_max2 = 'periodic'
-
     !> Set Diffusion coefficient to unity
     logical :: fld_diff_testcase = .false.
 
@@ -74,8 +68,7 @@ module mod_fld
     integer                      :: n
 
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
-    fld_bisect_tol, fld_diff_testcase, fld_bound_min1, fld_bound_max1, &
-    fld_bound_min2, fld_bound_max2, fld_adi_tol, fld_max_fracdt,&
+    fld_bisect_tol, fld_diff_testcase, fld_adi_tol, fld_max_fracdt,&
     fld_opacity_law, fld_complete_diffusion_limit
 
     do n = 1, size(files)
@@ -340,11 +333,6 @@ module mod_fld
       rad_flux(ixO^S, idir) = -fld_speedofligt_0*fld_lambda(ixO^S)/(w(ixO^S,i_op)*w(ixO^S,iw_rho)) *grad_r_e(ixO^S,idir)
     end do
 
-    ! !> Cheaty
-    ! L_star = 2724846166.4085770d0
-    ! R_star = 252.29283539564574d0
-    !
-    ! rad_flux(:, ixOmin2, 2) = L_star/(4.d0*dpi*R_star**2.d0)
   end subroutine fld_get_radflux
 
 
@@ -848,13 +836,54 @@ module mod_fld
 
   subroutine ADI_boundary_conditions(ixI^L,ixO^L,E_m,w,x)
     use mod_global_parameters
+    use mod_usr_methods, only: usr_radiation_bc
 
     integer, intent(in) :: ixI^L,ixO^L
     double precision, intent(in) :: w(ixI^S,1:nw),x(ixI^S,1:ndim)
     double precision, intent(inout) :: E_m(ixI^S)
+    integer :: iB
     integer g, h
 
-    select case (fld_bound_min2)
+    !> Boundary conditions for bound 1 (left)
+    select case (typeboundary(iw_r_e,1))
+    case('periodic')
+      E_m(ixImin1:ixImin1+1,:) = E_m(ixImax1-3:ixImax1-2,:)
+    case('cont')
+      if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
+      E_m(ixOmin1-1,:) = 2.d0*E_m(ixOmin1,:) - E_m(ixOmin1+1,:)
+      E_m(ixImin1,:) = 2.d0*E_m(ixOmin1-1,:) - E_m(ixOmin1,:)
+    case('fixed')
+      E_m(ixImin1:ixOmin1-1,:) = w(ixImin1:ixOmin1-1,:,iw_r_e)
+    case('special')
+      if (.not. associated(usr_radiation_bc)) then
+        call mpistop("special ADI boundary not defined")
+      endif
+      call usr_radiation_bc(global_time,ixI^L,1,w,E_m,x)
+    case default
+      call mpistop("ADI boundary not defined")
+    end select
+
+    !> Boundary conditions for bound 2 (right)
+    select case (typeboundary(iw_r_e,2))
+    case('periodic')
+      E_m(ixImax1-1:ixImax1,:) = E_m(ixImin1+2:ixImin1+3,:)
+    case('cont')
+      if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
+      E_m(ixOmax1+1,:) = 2.d0*E_m(ixOmax1,:) - E_m(ixOmax1-1,:)
+      E_m(ixImax1,:) = 2.d0*E_m(ixOmax1+1,:) - E_m(ixOmax1,:)
+    case('fixed')
+      E_m(ixImax1:ixOmax1+1,:) = w(ixImax1:ixOmax1+1,:,iw_r_e)
+    case('special')
+      if (.not. associated(usr_radiation_bc)) then
+        call mpistop("special ADI boundary not defined")
+      endif
+      call usr_radiation_bc(global_time,ixI^L,2,w,E_m,x)
+    case default
+      call mpistop("ADI boundary not defined")
+    end select
+
+    !> Boundary conditions for bound 3 (bottom)
+    select case (typeboundary(iw_r_e,3))
     case('periodic')
       E_m(:,ixImin2:ixImin2+1) = E_m(:,ixImax2-3:ixImax2-2)
     case('cont')
@@ -863,56 +892,30 @@ module mod_fld
       E_m(:,ixImin2) = 2.d0*E_m(:,ixOmin2-1) - E_m(:,ixOmin2)
     case('fixed')
       E_m(:,ixImin2:ixOmin2-1) = w(:,ixImin2:ixOmin2-1,iw_r_e)
+    case('special')
+      if (.not. associated(usr_radiation_bc)) then
+        call mpistop("special ADI boundary not defined")
+      endif
+      call usr_radiation_bc(global_time,ixI^L,3,w,E_m,x)
     case default
       call mpistop("ADI boundary not defined")
     end select
 
-    select case (fld_bound_max2)
+    !> Boundary conditions for bound 4 (top)
+    select case (typeboundary(iw_r_e,4))
     case('periodic')
       E_m(:,ixImax2-1:ixImax2) = E_m(:,ixImin2+2:ixImin2+3)
     case('cont')
       if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-      ! E_m(:,ixOmax2+1) = 2.d0*E_m(:,ixOmax2) - E_m(:,ixOmax2-1)
-      ! E_m(:,ixImax2) = 2.d0*E_m(:,ixOmax2+1) - E_m(:,ixOmax2)
-
-      E_m(:,ixOmax2+1) = max(abs(w(:, ixOmax2 - 1, iw_rho)/w(:, ixOmax2, iw_rho)&
-      *(w(:, ixOmax2, iw_r_e) - w(:, ixOmax2-2, iw_r_e)) + w(:, ixOmax2-1, iw_r_e)),zero)
-      E_m(:,ixOmax2+2) = max(abs(w(:, ixOmax2, iw_rho)/w(:, ixOmax2+1, iw_rho)&
-      *(w(:, ixOmax2+1, iw_r_e) - w(:, ixOmax2-1, iw_r_e)) + w(:, ixOmax2, iw_r_e)),zero)
-
-      ! E_m(:,ixOmax2+1) = max(abs(x(:,ixOmax2+1,2)- x(:,ixOmax2,2))**two/two*(2*w(:,ixOmax2,iw_r_e) - w(:,ixOmax2-1,iw_r_e)),zero)
-      ! E_m(:,ixImax2) = max(abs(x(:,ixOmax2+1,2)- x(:,ixOmax2,2))**two/two*(2*w(:,ixImax2-1,iw_r_e) - w(:,ixImax2-2,iw_r_e)),zero)
-
+      E_m(:,ixOmax2+1) = 2.d0*E_m(:,ixOmax2) - E_m(:,ixOmax2-1)
+      E_m(:,ixImax2) = 2.d0*E_m(:,ixOmax2+1) - E_m(:,ixOmax2)
     case('fixed')
       E_m(:,ixImax2:ixOmax2+1) = w(:,ixImax2:ixOmax2+1,iw_r_e)
-    case default
-      call mpistop("ADI boundary not defined")
-    end select
-
-    select case (fld_bound_min1)
-    case('periodic')
-      E_m(ixImin1:ixImin1+1,:) = E_m(ixImax1-3:ixImax1-2,:)
-      !E_m(ixImin1:ixImin1+1,:) = w(ixImax1-3:ixImax1-2,:,iw_r_e)
-    case('cont')
-      if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-      E_m(ixOmin1-1,:) = 2.d0*E_m(ixOmin1,:) - E_m(ixOmin1+1,:)
-      E_m(ixImin1,:) = 2.d0*E_m(ixOmin1-1,:) - E_m(ixOmin1,:)
-    case('fixed')
-      E_m(ixImin1:ixOmin1-1,:) = w(ixImin1:ixOmin1-1,:,iw_r_e)
-    case default
-      call mpistop("ADI boundary not defined")
-    end select
-
-    select case (fld_bound_max1)
-    case('periodic')
-      E_m(ixImax1-1:ixImax1,:) = E_m(ixImin1+2:ixImin1+3,:)
-      !E_m(ixImax1-1:ixImax1,:) = w(ixImin1+2:ixImin1+3,:,iw_r_e)
-    case('cont')
-      if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-      E_m(ixOmax1+1,:) = 2.d0*E_m(ixOmax1,:) - E_m(ixOmax1-1,:)
-      E_m(ixImax1,:) = 2.d0*E_m(ixOmax1+1,:) - E_m(ixOmax1,:)
-    case('fixed')
-      E_m(ixImax1:ixOmax1+1,:) = w(ixImax1:ixOmax1+1,:,iw_r_e)
+    case('special')
+      if (.not. associated(usr_radiation_bc)) then
+        call mpistop("special ADI boundary not defined")
+      endif
+      call usr_radiation_bc(global_time,ixI^L,4,w,E_m,x)
     case default
       call mpistop("ADI boundary not defined")
     end select
@@ -929,80 +932,80 @@ module mod_fld
   end subroutine ADI_boundary_conditions
 
 
-  subroutine Diff_boundary_conditions(ixI^L,ixO^L,D)
-    use mod_global_parameters
-
-    integer, intent(in) :: ixI^L,ixO^L
-    double precision, intent(inout) :: D(ixI^S)
-    double precision :: Dmn1(ixI^S),Dmx1(ixI^S),Dmn2(ixI^S),Dmx2(ixI^S)
-
-    select case (fld_bound_min1)
-    case('periodic')
-      D(ixImin1:ixOmin1-1,:) = D(ixOmax1-1:ixOmax1,:)
-    case('cont')
-      if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-      D(ixOmin1-1,:) = 2.d0*D(ixOmin1,:) - D(ixOmin1+1,:)
-      D(ixImin1,:) = 2.d0*D(ixOmin1-1,:) - D(ixOmin1,:)
-    case('fixed')
-      if (it==0) then
-        Dmn1 = D
-      endif
-      D(ixImin1:ixOmin1-1,:) = Dmn1(ixImin1:ixOmin1-1,:)
-    case default
-      call mpistop("ADI boundary not defined")
-    end select
-
-    select case (fld_bound_max1)
-    case('periodic')
-      D(ixImax1:ixOmax1+1,:) = D(ixOmin1+1:ixOmin1,:)
-    case('cont')
-      if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-      D(ixOmax1+1,:) = 2.d0*D(ixOmax1,:) - D(ixOmax1-1,:)
-      D(ixImax1,:) = 2.d0*D(ixOmax1+1,:) - D(ixOmax1,:)
-    case('fixed')
-      if (it==0) then
-        Dmx1 = D
-      endif
-      D(ixImax1:ixOmax1+1,:) = Dmx1(ixImax1:ixOmax1+1,:)
-    case default
-      call mpistop("ADI boundary not defined")
-    end select
-
-    select case (fld_bound_min2)
-    case('periodic')
-      D(:,ixImin2:ixOmin2-1) = D(:,ixOmax2-1:ixOmax2)
-    case('cont')
-      if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-      D(:,ixOmin2-1) = 2.d0*D(:,ixOmin2) - D(:,ixOmin2+1)
-      D(:,ixImin2) = 2.d0*D(:,ixOmin2-1) - D(:,ixOmin2)
-    case('fixed')
-      if (it==0) then
-        Dmn2 = D
-      endif
-      D(:,ixImin2:ixOmin2-1) = Dmn2(:,ixImin2:ixOmin2-1)
-      ! D(:,ixImin2+1) = Dmn2(:,ixOmin2)
-      ! D(:,ixImin2) = Dmn2(:,ixOmin2)
-    case default
-      call mpistop("ADI boundary not defined")
-    end select
-
-    select case (fld_bound_max2)
-    case('periodic')
-      D(:,ixImax2:ixOmax2+1) = D(:,ixOmin2+1:ixOmin2)
-    case('cont')
-      if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-      D(:,ixOmax2+1) = 2.d0*D(:,ixOmax2) - D(:,ixOmax2-1)
-      D(:,ixImax2) = 2.d0*D(:,ixOmax2+1) - D(:,ixOmax2)
-    case('fixed')
-      if (it==0) then
-        Dmx2 = D
-      endif
-      D(:,ixImax2:ixOmax2+1) = Dmx2(:,ixImax2:ixOmax2+1)
-    case default
-      call mpistop("ADI boundary not defined")
-    end select
-  end subroutine Diff_boundary_conditions
-
+  ! subroutine Diff_boundary_conditions(ixI^L,ixO^L,D)
+  !   use mod_global_parameters
+  !
+  !   integer, intent(in) :: ixI^L,ixO^L
+  !   double precision, intent(inout) :: D(ixI^S)
+  !   double precision :: Dmn1(ixI^S),Dmx1(ixI^S),Dmn2(ixI^S),Dmx2(ixI^S)
+  !
+  !   ! select case (fld_bound_min1)
+  !   ! case('periodic')
+  !   !   D(ixImin1:ixOmin1-1,:) = D(ixOmax1-1:ixOmax1,:)
+  !   ! case('cont')
+  !   !   if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
+  !   !   D(ixOmin1-1,:) = 2.d0*D(ixOmin1,:) - D(ixOmin1+1,:)
+  !   !   D(ixImin1,:) = 2.d0*D(ixOmin1-1,:) - D(ixOmin1,:)
+  !   ! case('fixed')
+  !   !   if (it==0) then
+  !   !     Dmn1 = D
+  !   !   endif
+  !   !   D(ixImin1:ixOmin1-1,:) = Dmn1(ixImin1:ixOmin1-1,:)
+  !   ! case default
+  !   !   call mpistop("ADI boundary not defined")
+  !   ! end select
+  !   !
+  !   ! select case (fld_bound_max1)
+  !   ! case('periodic')
+  !   !   D(ixImax1:ixOmax1+1,:) = D(ixOmin1+1:ixOmin1,:)
+  !   ! case('cont')
+  !   !   if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
+  !   !   D(ixOmax1+1,:) = 2.d0*D(ixOmax1,:) - D(ixOmax1-1,:)
+  !   !   D(ixImax1,:) = 2.d0*D(ixOmax1+1,:) - D(ixOmax1,:)
+  !   ! case('fixed')
+  !   !   if (it==0) then
+  !   !     Dmx1 = D
+  !   !   endif
+  !   !   D(ixImax1:ixOmax1+1,:) = Dmx1(ixImax1:ixOmax1+1,:)
+  !   ! case default
+  !   !   call mpistop("ADI boundary not defined")
+  !   ! end select
+  !   !
+  !   ! select case (fld_bound_min2)
+  !   ! case('periodic')
+  !   !   D(:,ixImin2:ixOmin2-1) = D(:,ixOmax2-1:ixOmax2)
+  !   ! case('cont')
+  !   !   if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
+  !   !   D(:,ixOmin2-1) = 2.d0*D(:,ixOmin2) - D(:,ixOmin2+1)
+  !   !   D(:,ixImin2) = 2.d0*D(:,ixOmin2-1) - D(:,ixOmin2)
+  !   ! case('fixed')
+  !   !   if (it==0) then
+  !   !     Dmn2 = D
+  !   !   endif
+  !   !   D(:,ixImin2:ixOmin2-1) = Dmn2(:,ixImin2:ixOmin2-1)
+  !   !   ! D(:,ixImin2+1) = Dmn2(:,ixOmin2)
+  !   !   ! D(:,ixImin2) = Dmn2(:,ixOmin2)
+  !   ! case default
+  !   !   call mpistop("ADI boundary not defined")
+  !   ! end select
+  !   !
+  !   ! select case (fld_bound_max2)
+  !   ! case('periodic')
+  !   !   D(:,ixImax2:ixOmax2+1) = D(:,ixOmin2+1:ixOmin2)
+  !   ! case('cont')
+  !   !   if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
+  !   !   D(:,ixOmax2+1) = 2.d0*D(:,ixOmax2) - D(:,ixOmax2-1)
+  !   !   D(:,ixImax2) = 2.d0*D(:,ixOmax2+1) - D(:,ixOmax2)
+  !   ! case('fixed')
+  !   !   if (it==0) then
+  !   !     Dmx2 = D
+  !   !   endif
+  !   !   D(:,ixImax2:ixOmax2+1) = Dmx2(:,ixImax2:ixOmax2+1)
+  !   ! case default
+  !   !   call mpistop("ADI boundary not defined")
+  !   ! end select
+  ! end subroutine Diff_boundary_conditions
+  !
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!! Bisection

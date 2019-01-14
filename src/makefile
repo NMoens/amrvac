@@ -208,6 +208,7 @@ mod_rhd.o: mod_rhd_hllc.mod
 mod_rhd.o: mod_rhd_phys.mod
 mod_rhd.o: mod_rhd_ppm.mod
 mod_rhd.o: mod_rhd_roe.mod
+mod_fld.o: mod_opacity.mod
 mod_rhd_phys.o: mod_dust.mod
 mod_rhd_phys.o: mod_gravity.mod
 mod_rhd_phys.o: mod_fld.mod

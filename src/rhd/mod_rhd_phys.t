@@ -79,6 +79,7 @@ module mod_rhd_phys
   public :: rhd_get_ptot
   public :: rhd_to_conserved
   public :: rhd_to_primitive
+  public :: rhd_get_tgas
 
 contains
 
@@ -228,6 +229,7 @@ contains
     phys_check_params        => rhd_check_params
     phys_check_w             => rhd_check_w
     phys_get_pthermal        => rhd_get_pthermal
+    phys_get_tgas            => rhd_get_tgas
     phys_write_info          => rhd_write_info
     phys_handle_small_values => rhd_handle_small_values
     phys_angmomfix           => rhd_angmomfix
@@ -334,6 +336,9 @@ contains
       unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*kB)
       unit_time=unit_length/unit_velocity
     end if
+
+      unit_radflux = unit_velocity*unit_pressure
+      unit_opacity = unit_velocity/(unit_time*unit_pressure)
 
   end subroutine rhd_physical_units
 
@@ -639,6 +644,23 @@ contains
 
   end subroutine rhd_get_ptot
 
+
+  subroutine rhd_get_tgas(w, x, ixI^L, ixO^L, tgas)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+    double precision             :: pth(ixI^S)
+    double precision, intent(out):: tgas(ixI^S)
+
+    call rhd_get_pthermal(w, x, ixI^L, ixO^L, pth)
+
+    tgas(ixO^S) = pth(ixO^S)/w(ixO^S,rho_)*const_mp*0.6/const_kB &
+    *unit_pressure/(unit_density*unit_temperature)
+
+  end subroutine rhd_get_tgas
+
   ! Calculate flux f_idim[iw]
   subroutine rhd_get_flux_cons(w, x, ixI^L, ixO^L, idim, f)
     use mod_global_parameters
@@ -919,6 +941,9 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
     logical, intent(in) :: qsourcesplit
     logical, intent(inout) :: active
+
+    !> Update opacities
+    call fld_get_opacity(w, x, ixI^L, ixO^L)
 
     select case(rhd_radiation_formalism)
     case('fld')

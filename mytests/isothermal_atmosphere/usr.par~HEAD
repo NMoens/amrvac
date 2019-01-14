@@ -5,7 +5,7 @@
 /
 
 &filelist
-  base_filename='./output/bump_high_res'
+  base_filename='./output/opal_test'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
@@ -15,10 +15,13 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   itsave(1,1)     = 2
-   itsave(1,2)     = 2
+<<<<<<< HEAD:mytests/noniso_atmosphere/bump.par:mytests/noniso_atmosphere/bump.par
+   ditsave_dat     = 1
+   ditsave_log     = 1
+=======
    !ditsave_dat     = 1
    !ditsave_log     = 1
+>>>>>>> Opacity:mytests/isothermal_atmosphere/usr.par:mytests/isothermal_atmosphere/usr.par
    dtsave_dat     = 4.d-1
    dtsave_log     = 4.d-1
 /
@@ -26,7 +29,11 @@
  &stoplist
    time_max = 1.d1
    dtmin = 1.0d-20
-   !it_max = 11
+<<<<<<< HEAD:mytests/noniso_atmosphere/bump.par:mytests/noniso_atmosphere/bump.par
+   it_max = 11
+=======
+   it_max = 3
+>>>>>>> Opacity:mytests/isothermal_atmosphere/usr.par:mytests/isothermal_atmosphere/usr.par
 /
 
  &methodlist
@@ -57,10 +64,10 @@
    domain_nx2         = 100
    block_nx1          = 50
    block_nx2          = 100
-   xprobmin1       = -1.d0
-   xprobmax1       = 1.d0
+   xprobmin1       = -0.5d0
+   xprobmax1       = 0.5d0
    xprobmin2       = 0.d0
-   xprobmax2       = 4.d0
+   xprobmax2       = 2.d0
    iprob=1
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
@@ -89,7 +96,7 @@
   fld_adi_tol = 2.d-2
   fld_max_fracdt = 100.d0
   fld_diff_testcase = .false.
-  fld_opacity_law = 'bump'
+  fld_opacity_law = 'const'
   fld_complete_diffusion_limit = .false.
   fld_bound_min1 = 'periodic'
   fld_bound_max1 = 'periodic'

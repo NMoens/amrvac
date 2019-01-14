@@ -47,6 +47,7 @@ module mod_physics
   procedure(sub_get_aux), pointer         :: phys_get_aux                => null()
   procedure(sub_check_w), pointer         :: phys_check_w                => null()
   procedure(sub_get_pthermal), pointer    :: phys_get_pthermal           => null()
+  procedure(sub_get_tgas), pointer        :: phys_get_tgas               => null()
   procedure(sub_boundary_adjust), pointer :: phys_boundary_adjust        => null()
   procedure(sub_write_info), pointer      :: phys_write_info             => null()
   procedure(sub_angmomfix), pointer       :: phys_angmomfix              => null()
@@ -160,6 +161,14 @@ module mod_physics
        double precision, intent(out):: pth(ixI^S)
      end subroutine sub_get_pthermal
 
+     subroutine sub_get_tgas(w,x,ixI^L,ixO^L,tgas)
+       use mod_global_parameters
+       integer, intent(in)          :: ixI^L, ixO^L
+       double precision, intent(in) :: w(ixI^S,nw)
+       double precision, intent(in) :: x(ixI^S,1:ndim)
+       double precision, intent(out):: tgas(ixI^S)
+     end subroutine sub_get_tgas
+
      subroutine sub_write_info(file_handle)
        integer, intent(in) :: file_handle
      end subroutine sub_write_info
@@ -238,6 +247,9 @@ contains
     if (.not. associated(phys_get_pthermal)) &
          phys_get_pthermal => dummy_get_pthermal
 
+   if (.not. associated(phys_get_tgas)) &
+        phys_get_tgas => dummy_get_tgas
+
     if (.not. associated(phys_boundary_adjust)) &
          phys_boundary_adjust => dummy_boundary_adjust
 
@@ -313,6 +325,17 @@ contains
     call mpistop("No get_pthermal method specified")
   end subroutine dummy_get_pthermal
 
+  subroutine dummy_get_tgas(w, x, ixI^L, ixO^L, pth)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+    double precision, intent(out):: pth(ixI^S)
+
+    call mpistop("No get_tgas method specified")
+  end subroutine dummy_get_tgas
+
   subroutine dummy_boundary_adjust
   end subroutine dummy_boundary_adjust
 
@@ -344,5 +367,5 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     character(len=*), intent(in)    :: subname
   end subroutine dummy_small_values
-  
+
 end module mod_physics

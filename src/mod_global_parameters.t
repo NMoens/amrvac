@@ -51,7 +51,7 @@ module mod_global_parameters
   integer, dimension(:), allocatable :: recvrequest, sendrequest
   integer, dimension(:,:), allocatable :: recvstatus, sendstatus
 
-  ! geometry and domain setups 
+  ! geometry and domain setups
 
   !> the mesh range (within a block with ghost cells)
   integer :: ixM^LL
@@ -275,7 +275,7 @@ module mod_global_parameters
 
   !> Which format to use when converting
   !>
-  !> Options are: tecplot, tecplotCC, vtu, vtuCC, vtuB, vtuBCC, 
+  !> Options are: tecplot, tecplotCC, vtu, vtuCC, vtuB, vtuBCC,
   !> tecplotmpi, tecplotCCmpi, vtumpi, vtuCCmpi, vtuBmpi, vtuBCCmpi, pvtumpi, pvtuCCmpi,
   !> pvtuBmpi, pvtuBCCmpi, tecline, teclinempi, onegrid
   character(len=std_len) :: convert_type
@@ -324,6 +324,12 @@ module mod_global_parameters
   !> Physical scaling factor for number density
   double precision :: unit_numberdensity=1.d0
 
+  !> Physical scaling factor for Opacity
+  double precision :: unit_opacity=1.d0
+
+  !> Physical scaling factor for radiation flux
+  double precision :: unit_radflux=1.d0
+
   !> error handling
   double precision :: small_temperature,small_pressure,small_density
 
@@ -357,7 +363,7 @@ module mod_global_parameters
   !> Enable to strictly conserve the angular momentum
   !> (works both in cylindrical and spherical coordinates)
   logical :: angmomfix=.false.
-  
+
   !> Use particles module or not
   logical :: use_particles=.false.
 
@@ -408,7 +414,7 @@ module mod_global_parameters
   integer :: levmax
   integer :: levmax_sub
 
-  ! Miscellaneous 
+  ! Miscellaneous
 
   !> problem switch allowing different setups in same usr_mod.t
   integer           :: iprob
@@ -419,7 +425,7 @@ module mod_global_parameters
   !> Levi-Civita tensor
   integer :: lvc(3,3,3)
 
-  ! Time integration aspects 
+  ! Time integration aspects
 
   double precision :: dt
   double precision, allocatable :: dt_grid(:)

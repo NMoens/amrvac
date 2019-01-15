@@ -654,9 +654,13 @@ contains
     double precision             :: pth(ixI^S)
     double precision, intent(out):: tgas(ixI^S)
 
+    double precision :: mu
+
     call rhd_get_pthermal(w, x, ixI^L, ixO^L, pth)
 
-    tgas(ixO^S) = pth(ixO^S)/w(ixO^S,rho_)*const_mp*0.6/const_kB &
+    mu = (1.d0+4.d0*He_abundance)/two
+
+    tgas(ixO^S) = pth(ixO^S)/w(ixO^S,rho_)*const_mp*mu/const_kB &
     *unit_pressure/(unit_density*unit_temperature)
 
   end subroutine rhd_get_tgas
@@ -689,7 +693,7 @@ contains
       f(ixO^S, e_) = v(ixO^S) * (w(ixO^S, e_) + pth(ixO^S))
     end if
 
-    f(ixO^S, iw_r_e) = v(ixO^S) * w(ixO^S, r_e)
+    f(ixO^S, r_e) = v(ixO^S) * w(ixO^S, r_e)
 
     do itr = 1, rhd_n_tracer
        f(ixO^S, tracer(itr)) = v(ixO^S) * w(ixO^S, tracer(itr))
@@ -738,7 +742,7 @@ contains
       f(ixO^S, e_) = w(ixO^S,mom(idim)) * (wC(ixO^S, e_) + w(ixO^S,p_))
     end if
 
-    f(ixO^S, iw_r_e) = w(ixO^S,mom(idim)) * wC(ixO^S, r_e)
+    f(ixO^S, r_e) = w(ixO^S,mom(idim)) * w(ixO^S, r_e)
 
     do itr = 1, rhd_n_tracer
        f(ixO^S, tracer(itr)) = w(ixO^S,mom(idim)) * w(ixO^S, tracer(itr))
@@ -891,6 +895,8 @@ contains
     double precision :: gravity_field(ixI^S, 1:ndim)
     integer :: idust, idim
 
+    print*, it, "before rhd_add_source", w(5:8,10,rho_)
+
     call rhd_add_radiation_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
 
     if(rhd_dust) then
@@ -926,6 +932,8 @@ contains
          end if
       end if
     end if
+
+    print*, it, "after rhd_add_source", w(5:8,10,rho_)
 
   end subroutine rhd_add_source
 

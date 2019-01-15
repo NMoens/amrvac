@@ -49,7 +49,6 @@ module mod_fld
     public :: get_fld_energy_interact
     public :: get_fld_diffusion
     public :: fld_init
-    !> these are used in specialvar_output
     public :: fld_get_radflux
     public :: fld_get_radpress
     public :: fld_get_fluxlimiter
@@ -111,10 +110,7 @@ module mod_fld
 
     !> Read in opacity table if necesary
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
-
   end subroutine fld_init
-
-
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
   subroutine get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
@@ -206,7 +202,7 @@ module mod_fld
     end if
   end subroutine get_fld_diffusion
 
-
+  !> Sets the opacity in the w-array
   subroutine fld_get_opacity(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
@@ -221,6 +217,8 @@ module mod_fld
     double precision :: rho0,Temp0,n,sigma_b
 
     integer :: i,j
+
+    print*, it, "before fld_get_opacity", w(5:8,10,iw_rho)
 
     select case (fld_opacity_law)
       case('const')
@@ -267,8 +265,8 @@ module mod_fld
 
       w(ixO^S, i_op) = fld_kappa(ixO^S)
 
+      print*, it, "after fld_get_opacity", w(5:8,10,iw_rho)
   end subroutine fld_get_opacity
-
 
   !> Calculate fld flux limiter
   subroutine fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
@@ -300,7 +298,6 @@ module mod_fld
       fld_lambda(ixO^S) = (2+fld_R(ixO^S))/(6+3*fld_R(ixO^S)+fld_R(ixO^S)**2)
     endif
   end subroutine fld_get_fluxlimiter
-
 
   !> Calculate Radiation Flux
   !> Returns Radiation flux and radiation pressure
@@ -340,9 +337,7 @@ module mod_fld
       call gradE(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,x,grad_r_e(ixO^S,idir))
       rad_flux(ixO^S, idir) = -fld_speedofligt_0*fld_lambda(ixO^S)/(w(ixO^S,i_op)*w(ixO^S,iw_rho)) *grad_r_e(ixO^S,idir)
     end do
-
   end subroutine fld_get_radflux
-
 
   !> Calculate Radiation Pressure
   !> Returns Radiation Pressure
@@ -504,7 +499,6 @@ module mod_fld
     w(ixO^S,iw_r_e) = E_new(ixO^S)
   end subroutine Evolve_E_rad
 
-
   subroutine half_timestep_ADI(w, x, E_new, E_old, ixI^L, ixO^L, converged)
     use mod_global_parameters
 
@@ -563,7 +557,6 @@ module mod_fld
     dt = saved_dt
   end subroutine half_timestep_ADI
 
-
   subroutine Error_check_ADI(w, x, E_new, E_old, ixI^L, ixO^L, ADI_Error)
     use mod_global_parameters
 
@@ -598,7 +591,6 @@ module mod_fld
     !ADI_Error = maxval(abs((RHS-LHS)/(E_old/dt))) !> Try mean value or smtn
     ADI_Error = sum(abs((RHS-LHS)/(E_old/dt)))/((ixOmax1-ixOmin1)*(ixOmax2-ixOmin2))
   end subroutine Error_check_ADI
-
 
   subroutine Evolve_ADI(w, x, E_new, E_old, w_max, frac_grid, ixI^L, ixO^L)
     use mod_global_parameters
@@ -653,7 +645,6 @@ module mod_fld
     E_new = E_m
   end subroutine Evolve_ADI
 
-
   subroutine fld_get_diffcoef(w, x, ixI^L, ixO^L, D)
     use mod_global_parameters
 
@@ -666,12 +657,12 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      ! D = unit_length/unit_velocity
-      D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
-              !     *dcos(global_time*2*dpi)**2 &
-              !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
-              !     *dsin(global_time*2*dpi)**2
-      D(ixI^S,2) = D(ixI^S,1)
+      D = unit_length/unit_velocity
+      ! D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
+      !         !     *dcos(global_time*2*dpi)**2 &
+      !         !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
+      !         !     *dsin(global_time*2*dpi)**2
+      ! D(ixI^S,2) = D(ixI^S,1)
     else
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
@@ -723,7 +714,6 @@ module mod_fld
 
     endif
   end subroutine fld_get_diffcoef
-
 
   subroutine make_matrix(x,w,dw,E_m,E_n,sweepdir,ixImax,ixI^L,ixO^L,diag1,sub1,sup1,bvec1,diag2,sub2,sup2,bvec2)
     use mod_global_parameters
@@ -809,7 +799,6 @@ module mod_fld
     endif
   end subroutine make_matrix
 
-
   subroutine solve_tridiag(ixOmin,ixOmax,ixImin,ixImax,diag,sub,sup,bvec,Evec)
     use mod_global_parameters
     implicit none
@@ -840,7 +829,6 @@ module mod_fld
       Evec(i) = dp(i)-cp(i)*Evec(i+1)
     end do
   end subroutine solve_tridiag
-
 
   subroutine ADI_boundary_conditions(ixI^L,ixO^L,E_m,w,x)
     use mod_global_parameters
@@ -939,82 +927,6 @@ module mod_fld
     ! end do
   end subroutine ADI_boundary_conditions
 
-
-  ! subroutine Diff_boundary_conditions(ixI^L,ixO^L,D)
-  !   use mod_global_parameters
-  !
-  !   integer, intent(in) :: ixI^L,ixO^L
-  !   double precision, intent(inout) :: D(ixI^S)
-  !   double precision :: Dmn1(ixI^S),Dmx1(ixI^S),Dmn2(ixI^S),Dmx2(ixI^S)
-  !
-  !   ! select case (fld_bound_min1)
-  !   ! case('periodic')
-  !   !   D(ixImin1:ixOmin1-1,:) = D(ixOmax1-1:ixOmax1,:)
-  !   ! case('cont')
-  !   !   if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-  !   !   D(ixOmin1-1,:) = 2.d0*D(ixOmin1,:) - D(ixOmin1+1,:)
-  !   !   D(ixImin1,:) = 2.d0*D(ixOmin1-1,:) - D(ixOmin1,:)
-  !   ! case('fixed')
-  !   !   if (it==0) then
-  !   !     Dmn1 = D
-  !   !   endif
-  !   !   D(ixImin1:ixOmin1-1,:) = Dmn1(ixImin1:ixOmin1-1,:)
-  !   ! case default
-  !   !   call mpistop("ADI boundary not defined")
-  !   ! end select
-  !   !
-  !   ! select case (fld_bound_max1)
-  !   ! case('periodic')
-  !   !   D(ixImax1:ixOmax1+1,:) = D(ixOmin1+1:ixOmin1,:)
-  !   ! case('cont')
-  !   !   if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-  !   !   D(ixOmax1+1,:) = 2.d0*D(ixOmax1,:) - D(ixOmax1-1,:)
-  !   !   D(ixImax1,:) = 2.d0*D(ixOmax1+1,:) - D(ixOmax1,:)
-  !   ! case('fixed')
-  !   !   if (it==0) then
-  !   !     Dmx1 = D
-  !   !   endif
-  !   !   D(ixImax1:ixOmax1+1,:) = Dmx1(ixImax1:ixOmax1+1,:)
-  !   ! case default
-  !   !   call mpistop("ADI boundary not defined")
-  !   ! end select
-  !   !
-  !   ! select case (fld_bound_min2)
-  !   ! case('periodic')
-  !   !   D(:,ixImin2:ixOmin2-1) = D(:,ixOmax2-1:ixOmax2)
-  !   ! case('cont')
-  !   !   if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-  !   !   D(:,ixOmin2-1) = 2.d0*D(:,ixOmin2) - D(:,ixOmin2+1)
-  !   !   D(:,ixImin2) = 2.d0*D(:,ixOmin2-1) - D(:,ixOmin2)
-  !   ! case('fixed')
-  !   !   if (it==0) then
-  !   !     Dmn2 = D
-  !   !   endif
-  !   !   D(:,ixImin2:ixOmin2-1) = Dmn2(:,ixImin2:ixOmin2-1)
-  !   !   ! D(:,ixImin2+1) = Dmn2(:,ixOmin2)
-  !   !   ! D(:,ixImin2) = Dmn2(:,ixOmin2)
-  !   ! case default
-  !   !   call mpistop("ADI boundary not defined")
-  !   ! end select
-  !   !
-  !   ! select case (fld_bound_max2)
-  !   ! case('periodic')
-  !   !   D(:,ixImax2:ixOmax2+1) = D(:,ixOmin2+1:ixOmin2)
-  !   ! case('cont')
-  !   !   if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
-  !   !   D(:,ixOmax2+1) = 2.d0*D(:,ixOmax2) - D(:,ixOmax2-1)
-  !   !   D(:,ixImax2) = 2.d0*D(:,ixOmax2+1) - D(:,ixOmax2)
-  !   ! case('fixed')
-  !   !   if (it==0) then
-  !   !     Dmx2 = D
-  !   !   endif
-  !   !   D(:,ixImax2:ixOmax2+1) = Dmx2(:,ixImax2:ixOmax2+1)
-  !   ! case default
-  !   !   call mpistop("ADI boundary not defined")
-  !   ! end select
-  ! end subroutine Diff_boundary_conditions
-  !
-
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!! Bisection
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1089,7 +1001,6 @@ module mod_fld
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
   end subroutine Energy_interaction
 
-
   subroutine Bisection_method(e_gas, E_rad, c0, c1)
     use mod_global_parameters
 
@@ -1127,7 +1038,6 @@ module mod_fld
 
     e_gas = (bisect_a + bisect_b)/two
   end subroutine Bisection_method
-
 
   function Polynomial_Bisection(e_gas, c0, c1) result(pol_result)
     use mod_global_parameters

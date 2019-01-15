@@ -24,7 +24,7 @@
  &stoplist
    time_max = 1.d1
    dtmin = 1.0d-20
-   it_max = 10
+   it_max = 1
 /
 
  &methodlist
@@ -35,14 +35,12 @@
    small_values_method = 'replace'
    small_pressure = 1.d-6
    small_density = 1.d-6
-   !tvdlfeps = 0.d0
-   !typesourcesplit = 'sf'
 /
 
 &boundlist
   nghostcells  =  2
-  typeboundary_min1 = 5*'periodic'
-  typeboundary_max1 = 5*'periodic'
+  typeboundary_min1 = 5*'cont'
+  typeboundary_max1 = 5*'cont'
   typeboundary_min2 = 5*'special'
   typeboundary_max2 = 5*'special'
   !typeghostfill= 'copy'
@@ -72,9 +70,9 @@
  &rhd_list
   rhd_gravity = .true.
   rhd_energy = .true.
-  rhd_gamma = 1.0000000000001d0 !1.6666667d0 !5.d0/3.d0
+  rhd_gamma = 1.01d0 !1.6666667d0 !5.d0/3.d0
   rhd_radiation_formalism = 'fld'
-  rhd_radiation_force = .true.
+  rhd_radiation_force = .false.
   rhd_energy_interact = .false.
   rhd_radiation_diffusion = .false.
  /

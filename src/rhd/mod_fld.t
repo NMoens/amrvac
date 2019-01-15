@@ -218,8 +218,6 @@ module mod_fld
 
     integer :: i,j
 
-    print*, it, "before fld_get_opacity", w(5:8,10,iw_rho)
-
     select case (fld_opacity_law)
       case('const')
         fld_kappa = fld_kappa0
@@ -264,8 +262,6 @@ module mod_fld
       end select
 
       w(ixO^S, i_op) = fld_kappa(ixO^S)
-
-      print*, it, "after fld_get_opacity", w(5:8,10,iw_rho)
   end subroutine fld_get_opacity
 
   !> Calculate fld flux limiter
@@ -658,11 +654,12 @@ module mod_fld
 
     if (fld_diff_testcase) then
       D = unit_length/unit_velocity
-      ! D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
-      !         !     *dcos(global_time*2*dpi)**2 &
-      !         !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
-      !         !     *dsin(global_time*2*dpi)**2
+      ! D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity &
+      !              *dcos(global_time*2*dpi)**2 !&
+      ! !         + half*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity !&
+      ! !            *dsin(global_time*2*dpi)**2
       ! D(ixI^S,2) = D(ixI^S,1)
+
     else
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)

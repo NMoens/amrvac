@@ -29,7 +29,7 @@
 
  &methodlist
    time_integrator = 'onestep'
-   flux_scheme     = 20*'tvdlf' !'tvdlf'/'hll'
+   flux_scheme     = 20*'hll' !'tvdlf'/'hll'
    limiter         = 20*'minmod' !'minmod'/'koren'
    check_small_values = .true.
    small_values_method = 'replace'

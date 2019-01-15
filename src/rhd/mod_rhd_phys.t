@@ -895,8 +895,6 @@ contains
     double precision :: gravity_field(ixI^S, 1:ndim)
     integer :: idust, idim
 
-    print*, it, "before rhd_add_source", w(5:8,10,rho_)
-
     call rhd_add_radiation_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
 
     if(rhd_dust) then
@@ -932,8 +930,6 @@ contains
          end if
       end if
     end if
-
-    print*, it, "after rhd_add_source", w(5:8,10,rho_)
 
   end subroutine rhd_add_source
 

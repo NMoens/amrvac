@@ -151,8 +151,6 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   double precision :: opacity(ix^S), Gamma_dep(ix^S)
   integer :: i
 
-  print*, it, "before initial_conditions", w(5:8,10,rho_)
-
   amplitude = 1.d-5 !3.d-2
 
   pressure(:,ixGmin2) = p_bound
@@ -194,8 +192,6 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
 
   print*, rho_bound*unit_density, p_bound*unit_pressure
   print*, "factor", 3.d0*Gamma/(one-Gamma)
-
-  print*, it, "after initial_conditions", w(5:8,10,rho_)
 
 end subroutine initial_conditions
 
@@ -299,8 +295,6 @@ subroutine special_bound(qt,ixG^L,ixB^L,iB,w,x)
 
   integer j
 
-  print*, it, "before special_bound", w(5:8,10,rho_)
-
   select case (iB)
   case(3)
     do j = ixBmin2,ixBmax2
@@ -333,8 +327,6 @@ subroutine special_bound(qt,ixG^L,ixB^L,iB,w,x)
     call mpistop('boundary not known')
   end select
 
-  print*, it, "after special_bound", w(5:8,10,rho_)
-
 end subroutine special_bound
 
 !==========================================================================================
@@ -347,8 +339,6 @@ subroutine radiation_bound(qt,ixI^L,iB,w,w_rad,x)
   double precision, intent(out)   :: w_rad(ixI^S)
 
   integer i
-
-  print*, it, "before radiation_bound", w(5:8,10,rho_)
 
   select case (iB)
   case(3)
@@ -366,8 +356,6 @@ subroutine radiation_bound(qt,ixI^L,iB,w,w_rad,x)
   case default
     call mpistop('boundary not known')
   end select
-
-  print*, it, "after radiation_bound", w(5:8,10,rho_)
 
 end subroutine radiation_bound
 
@@ -392,12 +380,8 @@ end subroutine radiation_bound
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision :: pressure(ixI^S)
 
-    print*, it, "before constant_e", w(5:8,10,rho_)
-
     pressure(ixI^S) = w(ixI^S,rho_)*c_sound0**2
     w(ixI^S, e_) = pressure(ixI^S)/(rhd_gamma - one) + half*(w(ixI^S,mom(1))**two + w(ixI^S,mom(2))**two)/w(ixI^S,rho_)
-
-    print*, it, "after constant_e", w(5:8,10,rho_)
 
   end subroutine constant_e
 
@@ -436,8 +420,6 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S), D(ixI^S,1:ndim)
   integer                            :: idim
 
-  print*, it, "before specialvar_output", w(5:8,10,rho_)
-
   call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
   call fld_get_radpress(w, x, ixI^L, ixO^L, rad_pressure)
   call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
@@ -458,8 +440,6 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   w(ixO^S,nw+8)=big_gamma(ixO^S)
   w(ixO^S,nw+9)=D(ixO^S,1)
   w(ixO^S,nw+10)=D(ixO^S,2)
-
- print*, it, "after specialvar_output", w(5:8,10,rho_)
 
 end subroutine specialvar_output
 

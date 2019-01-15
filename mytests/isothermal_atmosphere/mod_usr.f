@@ -155,8 +155,6 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
       Gamma_dep(ixmin1:ixmax1,ixmin2:ixmax2)
   integer :: i
 
-  print*, it, "before initial_conditions", w(5:8,10,rho_)
-
   amplitude = 1.d-5 !3.d-2
 
   pressure(:,ixGmin2) = p_bound
@@ -203,8 +201,6 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
 
   print*, rho_bound*unit_density, p_bound*unit_pressure
   print*, "factor", 3.d0*Gamma/(one-Gamma)
-
-  print*, it, "after initial_conditions", w(5:8,10,rho_)
 
 end subroutine initial_conditions
 
@@ -321,8 +317,6 @@ subroutine special_bound(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,ixBmin2,&
 
   integer j
 
-  print*, it, "before special_bound", w(5:8,10,rho_)
-
   select case (iB)
   case(3)
     do j = ixBmin2,ixBmax2
@@ -355,8 +349,6 @@ subroutine special_bound(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,ixBmin2,&
     call mpistop('boundary not known')
   end select
 
-  print*, it, "after special_bound", w(5:8,10,rho_)
-
 end subroutine special_bound
 
 !==========================================================================================
@@ -370,8 +362,6 @@ subroutine radiation_bound(qt,ixImin1,ixImin2,ixImax1,ixImax2,iB,w,w_rad,x)
   double precision, intent(out)   :: w_rad(ixImin1:ixImax1,ixImin2:ixImax2)
 
   integer i
-
-  print*, it, "before radiation_bound", w(5:8,10,rho_)
 
   select case (iB)
   case(3)
@@ -389,8 +379,6 @@ subroutine radiation_bound(qt,ixImin1,ixImin2,ixImax1,ixImax2,iB,w,w_rad,x)
   case default
     call mpistop('boundary not known')
   end select
-
-  print*, it, "after radiation_bound", w(5:8,10,rho_)
 
 end subroutine radiation_bound
 
@@ -418,16 +406,12 @@ end subroutine radiation_bound
        1:ndim)
     double precision :: pressure(ixImin1:ixImax1,ixImin2:ixImax2)
 
-    print*, it, "before constant_e", w(5:8,10,rho_)
-
     pressure(ixImin1:ixImax1,ixImin2:ixImax2) = w(ixImin1:ixImax1,&
        ixImin2:ixImax2,rho_)*c_sound0**2
     w(ixImin1:ixImax1,ixImin2:ixImax2, e_) = pressure(ixImin1:ixImax1,&
        ixImin2:ixImax2)/(rhd_gamma - one) + half*(w(ixImin1:ixImax1,&
        ixImin2:ixImax2,mom(1))**two + w(ixImin1:ixImax1,ixImin2:ixImax2,&
        mom(2))**two)/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
-
-    print*, it, "after constant_e", w(5:8,10,rho_)
 
   end subroutine constant_e
 
@@ -479,8 +463,6 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixImin2:ixImax2,1:ndim)
   integer                            :: idim
 
-  print*, it, "before specialvar_output", w(5:8,10,rho_)
-
   call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2, rad_flux)
   call fld_get_radpress(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
@@ -517,8 +499,6 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
   w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+9)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)
   w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+10)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
      2)
-
- print*, it, "after specialvar_output", w(5:8,10,rho_)
 
 end subroutine specialvar_output
 

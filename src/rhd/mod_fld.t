@@ -423,7 +423,7 @@ module mod_fld
   end subroutine gradE
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!! ADI
+  !!!!!!!!!!!!!!!!!!! Diffusion
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine Evolve_E_rad(w, x, ixI^L, ixO^L)
@@ -925,12 +925,12 @@ module mod_fld
   end subroutine ADI_boundary_conditions
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!! Bisection
+  !!!!!!!!!!!!!!!!!!! Gas-Rad Energy interaction
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine Energy_interaction(w, x, ixI^L, ixO^L)
     use mod_global_parameters
-    use mod_geometry
+    use mod_geometry, only: divvector
     use mod_physics, only: phys_get_pthermal
 
     integer, intent(in)             :: ixI^L, ixO^L
@@ -975,6 +975,15 @@ module mod_fld
     do i = ixOmin1,ixOmax1
     do j =  ixOmin2,ixOmax2
         call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+
+        if ((j .eq. ixOmax2) .and. (i .eq. 5)) then
+          print*, it, c0(i,j), c1(i,j)
+          print*, a1(i,j), a2(i,j), a3(i,j)
+          print*, div_v(i,j)*rad_pressure(i,j)/E_rad(i,j)*dt
+          print*, div_v(i,j),rad_pressure(i,j),E_rad(i,j),dt
+          print*, vel(i,j,1), vel(i,j,2)
+        endif
+
     enddo
     enddo
 

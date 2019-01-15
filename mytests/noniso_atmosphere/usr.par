@@ -24,7 +24,7 @@
  &stoplist
    time_max = 1.d1
    dtmin = 1.0d-20
-   it_max = 10
+   it_max = 3
 /
 
  &methodlist
@@ -76,7 +76,7 @@
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .true.
   rhd_energy_interact = .true.
-  rhd_radiation_diffusion = .true.
+  rhd_radiation_diffusion = .false.
  /
 
  &fld_list

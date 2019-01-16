@@ -49,8 +49,11 @@ module mod_rhd_phys
   !> The adiabatic constant
   double precision, public                :: rhd_adiab = 1.0d0
 
-  !> The small_est allowed energy
+  !> The smallest allowed energy
   double precision, protected             :: small_e
+
+  !> The smallest allowed radiation energy
+  double precision, protected             :: small_r_e = 0.d0
 
   !> Helium abundance over Hydrogen
   double precision, public, protected     :: He_abundance = 0.1d0
@@ -310,6 +313,8 @@ contains
        small_e = small_pressure/(rhd_gamma - 1.0d0)
     end if
 
+    small_r_e = small_e
+
     if (rhd_dust) call dust_check_params()
 
   end subroutine rhd_check_params
@@ -364,6 +369,8 @@ contains
           where(tmp(ixO^S) < small_pressure) flag(ixO^S) = e_
        endif
     end if
+
+    where(w(ixO^S, r_e) < small_r_e) flag(ixO^S) = r_e
 
   end subroutine rhd_check_w
 
@@ -1066,7 +1073,7 @@ contains
         end if
 
         if (small_values_fix_iw(r_e)) then
-          where(flag(ixO^S) /= 0) w(ixO^S,r_e) = small_e
+          where(flag(ixO^S) /= 0) w(ixO^S,r_e) = small_r_e
         end if
       case ("average")
         call small_values_average(ixI^L, ixO^L, w, x, flag)

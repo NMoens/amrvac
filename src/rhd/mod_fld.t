@@ -291,7 +291,7 @@ module mod_fld
 
       !> Calculate the flux limiter, lambda
       !> Levermore and Pomraning: lambda = (2 + R)/(6 + 3R + R^2)
-      fld_lambda(ixO^S) = (2+fld_R(ixO^S))/(6+3*fld_R(ixO^S)+fld_R(ixO^S)**2)
+      fld_lambda(ixO^S) = (2.d0+fld_R(ixO^S))/(6.d0+3*fld_R(ixO^S)+fld_R(ixO^S)**2.d0)
     endif
   end subroutine fld_get_fluxlimiter
 
@@ -584,8 +584,8 @@ module mod_fld
     + D(jx2^S,2)*(E_new(jx2^S) - E_new(ixO^S)) &
     - D(ixO^S,2)*(E_new(ixO^S) - E_new(hx2^S))
 
-    !ADI_Error = maxval(abs((RHS-LHS)/(E_old/dt))) !> Try mean value or smtn
-    ADI_Error = sum(abs((RHS-LHS)/(E_old/dt)))/((ixOmax1-ixOmin1)*(ixOmax2-ixOmin2))
+    ADI_Error = maxval(abs((RHS-LHS)/(E_old/dt))) !> Try mean value or smtn
+    !ADI_Error = sum(abs((RHS-LHS)/(E_old/dt)))/((ixOmax1-ixOmin1)*(ixOmax2-ixOmin2))
   end subroutine Error_check_ADI
 
   subroutine Evolve_ADI(w, x, E_new, E_old, w_max, frac_grid, ixI^L, ixO^L)
@@ -860,6 +860,7 @@ module mod_fld
     select case (typeboundary(iw_r_e,2))
     case('periodic')
       E_m(ixImax1-1:ixImax1,:) = E_m(ixImin1+2:ixImin1+3,:)
+      print*, 'PERRRRIOOOODICC'
     case('cont')
       if (nghostcells .ne. 2) call mpistop("continious ADI boundary conditions not defined for more than 2 ghostcells")
       E_m(ixOmax1+1,:) = 2.d0*E_m(ixOmax1,:) - E_m(ixOmax1-1,:)
@@ -975,15 +976,6 @@ module mod_fld
     do i = ixOmin1,ixOmax1
     do j =  ixOmin2,ixOmax2
         call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
-
-        if ((j .eq. ixOmax2) .and. (i .eq. 5)) then
-          print*, it, c0(i,j), c1(i,j)
-          print*, a1(i,j), a2(i,j), a3(i,j)
-          print*, div_v(i,j)*rad_pressure(i,j)/E_rad(i,j)*dt
-          print*, div_v(i,j),rad_pressure(i,j),E_rad(i,j),dt
-          print*, vel(i,j,1), vel(i,j,2)
-        endif
-
     enddo
     enddo
 

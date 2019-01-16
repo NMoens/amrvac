@@ -24,7 +24,7 @@
  &stoplist
    time_max = 1.d1
    dtmin = 1.0d-20
-   it_max = 3
+   it_max = 10
 /
 
  &methodlist
@@ -41,8 +41,8 @@
 
 &boundlist
   nghostcells  =  2
-  typeboundary_min1 = 5*'periodic'
-  typeboundary_max1 = 5*'periodic'
+  typeboundary_min1 = 5*'cont'
+  typeboundary_max1 = 5*'cont'
   typeboundary_min2 = 5*'special'
   typeboundary_max2 = 5*'special'
   !typeghostfill= 'copy'
@@ -76,7 +76,7 @@
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .true.
   rhd_energy_interact = .true.
-  rhd_radiation_diffusion = .false.
+  rhd_radiation_diffusion = .true.
  /
 
  &fld_list

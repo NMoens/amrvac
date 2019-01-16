@@ -154,6 +154,8 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmin2,ixmax1,ixmax2
   double precision, intent(in)    :: x(ixGmin1:ixGmax1,ixGmin2:ixGmax2, ndim)
   double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, nw)
+
+  double precision :: pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2), amplitude
   integer :: i
 
   do i = ixGmin2,ixGmax2
@@ -163,12 +165,14 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
     w(ixGmin1: ixGmax1, i, r_e) = er_is(i)
   enddo
 
+  !> perturb rho
+  amplitude = 0.05d0
+  call RANDOM_NUMBER(pert)
+  w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+      rho_)*(one + amplitude*pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2))
+
   call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
-
-  do i = ixGmin2, ixGmax2
-    print*, w(10, i, rho_),  w(10, i, e_),  w(10, i, r_e)
-  enddo
 
 end subroutine initial_conditions
 
@@ -234,14 +238,18 @@ subroutine radiation_boundary(qt,ixImin1,ixImin2,ixImax1,ixImax2,iB,w,w_rad,x)
   select case (iB)
   case(3)
     do i=ixImin1,ixImax1
-      w_rad(i,2) = 2.d0*w(i,3,r_e)-w(i,4,r_e)
-      w_rad(i,1) = 2.d0*w(i,2,r_e)-w(i,3,r_e)
+      ! w_rad(i,2) = 2.d0*w(i,3,r_e)-w(i,4,r_e)
+      ! w_rad(i,1) = 2.d0*w(i,2,r_e)-w(i,3,r_e)
+      ! print*, w_rad(i,1), w_rad(i,2)
+      w_rad(i,2) = er_is(2)
+      w_rad(i,1) = er_is(1)
     enddo
 
   case(4)
     do i=ixImin1,ixImax1
-      w_rad(i,ixImax2-1) = 2.d0*w(i,ixImax2-2,r_e)-w(i,ixImax2-3,r_e)
-      w_rad(i,ixImax2) = 2.d0*w(i,ixImax2-1,r_e)-w(i,ixImax2-2,r_e)
+      w_rad(i,ixImax2-1) = max(2.d0*w(i,ixImax2-2,r_e)-w(i,ixImax2-3,r_e),&
+          zero)
+      w_rad(i,ixImax2) = max(2.d0*w(i,ixImax2-1,r_e)-w(i,ixImax2-2,r_e), zero)
     enddo
 
   case default
@@ -340,7 +348,7 @@ subroutine specialvarnames_output(varnames)
   use mod_global_parameters
   character(len=*) :: varnames
 
-  varnames = 'F1 F2 P_rad lamnda fld_R ar1 ar2 Gamma D1 D2'
+  varnames = 'F1 F2 P_rad lambda fld_R ar1 ar2 Gamma D1 D2'
 
 end subroutine specialvarnames_output
 

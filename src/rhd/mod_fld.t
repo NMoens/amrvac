@@ -102,7 +102,7 @@ module mod_fld
     if (fld_diff_scheme == 'mg') then
       use_multigrid = .true.
       i_diff_mg = var_set_extravar("D", "D")
-      print*, nwextra
+      mg%n_extra_vars = 1
       mg%operator_type = mg_vhelmholtz
       mg%bc(:, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(:, mg_iphi)%bc_value = 2.d0
@@ -122,7 +122,6 @@ module mod_fld
     !> Dimensionless Boltzman constante sigma
     fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
   end subroutine fld_init
-
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
   subroutine get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
@@ -226,7 +225,6 @@ module mod_fld
       call mpistop('Numerical diffusionscheme unknown, try adi or mg')
     end select
     end if
-
   end subroutine get_fld_diffusion
 
 
@@ -272,7 +270,6 @@ module mod_fld
       case default
         call mpistop("Doesn't know opacity law")
       end select
-
   end subroutine fld_get_opacity
 
 
@@ -358,7 +355,6 @@ module mod_fld
     ! rad_flux(:, ixOmin2, 2) = L_star/(4.d0*dpi*R_star**2.d0)
   end subroutine fld_get_radflux
 
-
   !> Calculate Radiation Pressure
   !> Returns Radiation Pressure
   subroutine fld_get_radpress(w, x, ixI^L, ixO^L, rad_pressure)
@@ -400,7 +396,6 @@ module mod_fld
 
     rad_pressure(ixO^S) = f(ixO^S) * w(ixO^S, iw_r_e)
   end subroutine fld_get_radpress
-
 
   subroutine grad(q,ixI^L,ixO^L,idir,x,gradq)
     ! Compute the true gradient of a scalar q within ixL in direction idir ie :
@@ -730,12 +725,12 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      ! D = unit_length/unit_velocity
-      D(ixI^S,1) = 2.d0*x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
-               !    *dcos(global_time*2*dpi)**2 &
-               ! + 10.d0*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
-               !    *dsin(global_time*2*dpi)**2
-      D(ixI^S,2) = D(ixI^S,1)
+      D = unit_length/unit_velocity
+      ! D(ixI^S,1) = 2.d0*x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
+      !          !    *dcos(global_time*2*dpi)**2 &
+      !          ! + 10.d0*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
+      !          !    *dsin(global_time*2*dpi)**2
+      ! D(ixI^S,2) = D(ixI^S,1)
     else
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)

@@ -982,7 +982,6 @@ module mod_fld
     !> calculate tensor div_v
     do i = 1,ndim
       do j = 1,ndim
-        call mpistop('Find out how to call div_V as tensor')
         vel(ixI^S) = w(ixI^S,iw_mom(j))
         call grad(vel,ixI^L,ixO^L,i,x,grad_v)
         div_v(ixO^S,i,j) = grad_v(ixO^S)

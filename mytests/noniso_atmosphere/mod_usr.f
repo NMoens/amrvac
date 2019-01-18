@@ -8,7 +8,7 @@ use mod_global_parameters
 
 implicit none
 
-  integer, parameter :: nyc = 114
+  integer, parameter :: nyc = 33
 
   integer :: i_is(1:nyc)
   double precision :: y_is(1:nyc)
@@ -57,6 +57,9 @@ subroutine usr_init()
 
   ! Graviatational field
   usr_gravity => set_gravitation_field
+
+  ! Attempt to use an innerbound to fix trouble with boundaries
+  usr_internal_bc => fixleftright
 
   ! Output routines
   usr_aux_output    => specialvar_output
@@ -168,8 +171,9 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   !> perturb rho
   amplitude = 0.05d0
   call RANDOM_NUMBER(pert)
-  w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
-      rho_)*(one + amplitude*pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2))
+  do i = ixGmin2, ixGmin2+20
+    w(:,i, rho_) = w(:,i, rho_)*(one + amplitude*pert(:,i))
+  enddo
 
   call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
@@ -303,6 +307,26 @@ subroutine set_gravitation_field(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
      2) = -6.67e-8*mstar/rstar**2*(unit_time**2/unit_length)
 end subroutine set_gravitation_field
 
+!===============================================================================
+
+subroutine fixleftright(level,qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+   ixOmin2,ixOmax1,ixOmax2,w,x)
+
+  use mod_global_parameters
+  integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+     ixOmin2,ixOmax1,ixOmax2,level
+  double precision, intent(in)    :: qt
+  double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+  double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
+
+  integer :: i
+
+  do i = ixOmin2, ixOmax2
+    w(ixOmin1:ixOmin1+5,i,iw_r_e) =  er_is(i)
+    w(ixOmax1-5:ixOmax1,i,iw_r_e) =  er_is(i)
+  enddo
+
+end subroutine fixleftright
 
 !==========================================================================================
 

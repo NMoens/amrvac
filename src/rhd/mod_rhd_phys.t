@@ -624,7 +624,7 @@ contains
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
-    double precision, intent(out):: prad(ixO^S)
+    double precision, intent(out):: prad(ixO^S, 1:ndim, 1:ndim)
 
     select case (rhd_radiation_formalism)
     case('fld')
@@ -641,13 +641,21 @@ contains
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision             :: pth(ixI^S)
-    double precision             :: prad(ixO^S)
+    double precision             :: prad_tensor(ixO^S, 1:ndim, 1:ndim)
+    double precision             :: prad_max(ixO^S)
     double precision, intent(out):: ptot(ixI^S)
+    integer :: i,j
 
     call rhd_get_pthermal(w, x, ixI^L, ixO^L, pth)
-    call rhd_get_pradiation(w, x, ixI^L, ixO^L, prad)
+    call rhd_get_pradiation(w, x, ixI^L, ixO^L, prad_tensor)
 
-    ptot(ixO^S) = pth(ixO^S) + prad(ixO^S)
+    do i = ixOmin1,ixOmax1
+      do j = ixOmin2,ixOmax2
+        prad_max(i,j) = maxval(prad_tensor(i,j,:,:))
+      enddo
+    enddo
+
+    ptot(ixO^S) = pth(ixO^S) + prad_max(ixO^S)
 
   end subroutine rhd_get_ptot
 

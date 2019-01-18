@@ -337,16 +337,16 @@ module mod_fld
 
   !> Calculate Radiation Pressure
   !> Returns Radiation Pressure
-  subroutine fld_get_radpress(w, x, ixI^L, ixO^L, rad_pressure)
+  subroutine fld_get_eddington(w, x, ixI^L, ixO^L, eddington_tensor)
     use mod_global_parameters
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
-    double precision, intent(out):: rad_pressure(ixO^S)
+    double precision, intent(out):: eddington_tensor(ixO^S,1:ndim,1:ndim)
     double precision :: fld_lambda(ixO^S), fld_R(ixO^S), normgrad2(ixO^S), f(ixO^S)
     double precision :: grad_r_e(ixO^S, 1:ndim)
-    integer :: idir
+    integer :: idir,jdir
 
     !> Calculate R everywhere
     !> |grad E|/(rho kappa E)
@@ -372,9 +372,36 @@ module mod_fld
     f(ixO^S) = fld_lambda(ixO^S) + fld_lambda(ixO^S)**two * fld_R(ixO^S)**two
     f(ixO^S) = one/two*(one-f(ixO^S)) + one/two*(3.d0*f(ixO^S) - one)
 
-    rad_pressure(ixO^S) = f(ixO^S) * w(ixO^S, iw_r_e)
-  end subroutine fld_get_radpress
+    do idir = 1,ndir
+      do jdir = 1,ndir
+        eddington_tensor(ixO^S,idir,jdir) = one/two*((one-f(ixO^S)) &
+        + (3.d0*f(ixO^S) - 1)* grad_r_e(ixO^S,idir)*grad_r_e(ixO^S,jdir)/normgrad2(ixO^S))
+      enddo
+    enddo
+  end subroutine fld_get_eddington
 
+  !> Calculate Radiation Pressure
+  !> Returns Radiation Pressure
+  subroutine fld_get_radpress(w, x, ixI^L, ixO^L, rad_pressure)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+    double precision             :: eddington_tensor(ixO^S,1:ndim,1:ndim)
+    double precision, intent(out):: rad_pressure(ixO^S,1:ndim,1:ndim)
+
+    integer i,j
+
+    !> Get the eddington_tensor
+    call fld_get_eddington(w, x, ixI^L, ixO^L, eddington_tensor)
+
+    do i=1,ndim
+      do j=1,ndim
+        rad_pressure(ixO^S,i,j) = eddington_tensor(ixO^S,i,j)* w(ixO^S,iw_r_e)
+      enddo
+    enddo
+  end subroutine fld_get_radpress
 
   subroutine grad(q,ixI^L,ixO^L,idir,x,gradq)
     ! Compute the true gradient of a scalar q within ixL in direction idir ie :
@@ -602,8 +629,10 @@ module mod_fld
     double precision :: dw, w0, w1
     integer :: m, j, i
 
-    w0 = (x(ixOmin1+1,ixOmin2,1)-x(ixOmin1,ixOmin2,1))*(x(ixOmin1,ixOmin2+1,2)-x(ixOmin1,ixOmin2,2))/frac_grid
-    w1 = (x(ixOmax1,ixOmin2,1)-x(ixOmin1,ixOmin2,1))*(x(ixOmin1,ixOmax2,2)-x(ixOmin1,ixOmin2,2))/frac_grid !4.d0
+    w0 = (x(ixOmin1+1,ixOmin2,1)-x(ixOmin1,ixOmin2,1))&
+    *(x(ixOmin1,ixOmin2+1,2)-x(ixOmin1,ixOmin2,2))/frac_grid
+    w1 = (x(ixOmax1,ixOmin2,1)-x(ixOmin1,ixOmin2,1))&
+    *(x(ixOmin1,ixOmax2,2)-x(ixOmin1,ixOmin2,2))/frac_grid !4.d0
 
     E_m = E_old
 
@@ -913,15 +942,15 @@ module mod_fld
       call mpistop("ADI boundary not defined")
     end select
 
-    !Corners
-    ! do g = 0,nghostcells-1
-    !   do h = 0, nghostcells-1
-    !     E_m(ixImin1+g,ixImax2-h) = w(ixImin1+nghostcells,ixImax2-nghostcells,iw_r_e)
-    !     E_m(ixImax1-g,ixImax2-h) = w(ixImax1-nghostcells,ixImax2-nghostcells,iw_r_e)
-    !     E_m(ixImin1+g,ixImin2+h) = w(ixImin1+nghostcells,ixImin2+nghostcells,iw_r_e)
-    !     E_m(ixImax1-g,ixImin2+h) = w(ixImax1-nghostcells,ixImin2+nghostcells,iw_r_e)
-    !   end do
-    ! end do
+    !> Corners
+    do g = 0,nghostcells-1
+      do h = 0, nghostcells-1
+        E_m(ixOmin1-g,ixOmin2-h) = w(ixOmin1,ixOmin2,iw_r_e)
+        E_m(ixOmax1+g,ixOmin2-h) = w(ixOmax1,ixOmin2,iw_r_e)
+        E_m(ixOmin1-g,ixOmax2+h) = w(ixOmin1,ixOmax2,iw_r_e)
+        E_m(ixOmax1+g,ixOmax2+h) = w(ixOmax1,ixOmax2,iw_r_e)
+      end do
+    end do
   end subroutine ADI_boundary_conditions
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -936,16 +965,37 @@ module mod_fld
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
-    double precision :: rad_pressure(ixO^S)
-    double precision :: temperature(ixI^S), div_v(ixI^S), vel(ixI^S,1:ndim)
+    double precision :: edd_tnsr(ixO^S,1:ndim,1:ndim)
+    double precision :: div_v(ixI^S,1:ndir,1:ndir)
+    double precision :: divvP(ixO^S)
+    double precision :: temperature(ixI^S), vel(ixI^S)
     double precision :: a1(ixO^S), a2(ixO^S), a3(ixO^S)
     double precision :: c0(ixO^S), c1(ixO^S)
     double precision :: e_gas(ixO^S), E_rad(ixO^S)
+    double precision :: grad_v(ixO^S)
 
     integer :: i,j,idir
 
-    !> Calculate the radiative flux using the FLD Approximation
-    call fld_get_radpress(w,x,ixI^L,ixO^L,rad_pressure)
+    !> get the eddington_tensor
+    call fld_get_eddington(w,x,ixI^L,ixO^L,edd_tnsr)
+
+    !> calculate tensor div_v
+    do i = 1,ndim
+      do j = 1,ndim
+        call mpistop('Find out how to call div_V as tensor')
+        vel(ixI^S) = w(ixI^S,iw_mom(j))
+        call grad(vel,ixI^L,ixO^L,i,x,grad_v)
+        div_v(ixO^S,i,j) = grad_v(ixO^S)
+      enddo
+    enddo
+
+    !>eq 34 Turner and stone (Only 2D)
+    divvP(ixO^S) = div_v(ixO^S,1,1)*edd_tnsr(ixO^S,1,1) &
+                 + div_v(ixO^S,2,2)*edd_tnsr(ixO^S,2,2) &
+                 + div_v(ixO^S,1,2)*edd_tnsr(ixO^S,1,2) &
+                 + div_v(ixO^S,2,1)*edd_tnsr(ixO^S,2,1)
+
+    divvP(ixO^S) = divvP(ixO^S)*w(ixO^S,iw_r_e)
 
     !> Get pressure
     call phys_get_pthermal(w,x,ixI^L,ixO^L,temperature)
@@ -953,20 +1003,13 @@ module mod_fld
     !> calc Temperature as p/rho
     temperature(ixO^S)=temperature(ixO^S)/w(ixO^S,iw_rho)
 
-    !> calc photon tiring term
-    do idir=1,ndim
-      vel(ixI^S,idir)= w(ixI^S,iw_mom(idir))/w(ixI^S,iw_rho)
-    enddo
-
-    call divvector(vel,ixI^L,ixO^L,div_v)
-
     e_gas(ixO^S) = w(ixO^S,iw_e)
     E_rad(ixO^S) = w(ixO^S,iw_r_e)
 
     !> Calculate coefficients for polynomial
     a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
     a2(ixO^S) = fld_speedofligt_0*w(ixO^S,i_op)*w(ixO^S,iw_rho)*dt
-    a3(ixO^S) = div_v(ixO^S)*rad_pressure(ixO^S)/E_rad(ixO^S)*dt
+    a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
 
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))

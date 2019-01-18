@@ -8,7 +8,7 @@ use mod_global_parameters
 
 implicit none
 
-  integer, parameter :: nyc = 104
+  integer, parameter :: nyc = 114
 
   integer :: i_is(1:nyc)
   double precision :: y_is(1:nyc)
@@ -179,9 +179,27 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
   double precision, intent(inout) :: w(ixG^S,1:nw)
   double precision                :: w_rad(ixG^S)
 
-  integer j
+  integer i,j
 
   select case (iB)
+  case(1)
+    call radiation_boundary(qt,ixG^L,iB,w,w_rad,x)
+    do i=ixGmin1,ixGmin1+nghostcells-1
+      w(i,:,rho_) = rho_is(i)
+      w(i,:,mom(:)) = zero
+      w(i,:,e_) = pg_is(i)/(rhd_gamma-1.0)
+      w(i,:,r_e) = w_rad(i,:)
+    enddo
+
+  case(2)
+    call radiation_boundary(qt,ixG^L,iB,w,w_rad,x)
+    do i=ixGmax1-nghostcells+1,ixGmax1
+      w(i,:,rho_) = rho_is(i)
+      w(i,:,mom(:)) = zero
+      w(i,:,e_) = pg_is(i)/(rhd_gamma-1.0)
+      w(i,:,r_e) = w_rad(i,:)
+    enddo
+
   case(3)
     do j = ixBmin2,ixBmax2
       w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmax2+1,rho_)
@@ -223,22 +241,32 @@ subroutine radiation_boundary(qt,ixI^L,iB,w,w_rad,x)
   double precision, intent(in)    :: w(ixI^S,1:nw)
   double precision, intent(out)   :: w_rad(ixI^S)
 
-  integer i
+  integer i,j
 
   select case (iB)
+  case(1)
+    do i=ixImin1,ixImin1+nghostcells-1
+      w_rad(i,:) = er_is(i)
+    enddo
+
+  case(2)
+    do i=ixImax1-nghostcells+1,ixImax1
+      w_rad(i,:) = er_is(i)
+    enddo
+
   case(3)
     do i=ixImin1,ixImax1
       ! w_rad(i,2) = 2.d0*w(i,3,r_e)-w(i,4,r_e)
       ! w_rad(i,1) = 2.d0*w(i,2,r_e)-w(i,3,r_e)
       ! print*, w_rad(i,1), w_rad(i,2)
-      w_rad(i,2) = er_is(2)
-      w_rad(i,1) = er_is(1)
+      w_rad(i,ixImin2:ixImin2+nghostcells-1) = er_is(ixImin2:ixImin2+nghostcells-1)
     enddo
 
   case(4)
     do i=ixImin1,ixImax1
-      w_rad(i,ixImax2-1) = max(2.d0*w(i,ixImax2-2,r_e)-w(i,ixImax2-3,r_e), zero)
-      w_rad(i,ixImax2) = max(2.d0*w(i,ixImax2-1,r_e)-w(i,ixImax2-2,r_e), zero)
+      do j = ixImax2-nghostcells+1,ixImax2
+        w_rad(i,j) = max(2.d0*w(i,j-1,r_e)-w(i,j-2,r_e), zero)
+      enddo
     enddo
 
   case default
@@ -277,12 +305,11 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   double precision, intent(in)       :: x(ixI^S,1:ndim)
   double precision                   :: w(ixI^S,nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
-  double precision                   :: rad_flux(ixO^S,1:ndim), rad_pressure(ixO^S), fld_lambda(ixO^S), fld_R(ixO^S)
+  double precision                   :: rad_flux(ixO^S,1:ndim), fld_lambda(ixO^S), fld_R(ixO^S)
   double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S), D(ixI^S,1:ndim)
   integer                            :: idim
 
   call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
-  call fld_get_radpress(w, x, ixI^L, ixO^L, rad_pressure)
   call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
   call fld_get_diffcoef(w, x, ixI^L, ixO^L, D)
 
@@ -293,14 +320,13 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
 
   w(ixO^S,nw+1)=rad_flux(ixO^S,1)*(unit_pressure*unit_velocity)
   w(ixO^S,nw+2)=rad_flux(ixO^S,2)*(unit_pressure*unit_velocity)
-  w(ixO^S,nw+3)=rad_pressure(ixO^S)*unit_pressure
-  w(ixO^S,nw+4)=fld_lambda(ixO^S)
-  w(ixO^S,nw+5)=fld_R(ixO^S)
-  w(ixO^S,nw+6)=g_rad(ixO^S,1)*unit_length/(unit_time**2)
-  w(ixO^S,nw+7)=g_rad(ixO^S,2)*unit_length/(unit_time**2)
-  w(ixO^S,nw+8)=big_gamma(ixO^S)
-  w(ixO^S,nw+9)=D(ixO^S,1)
-  w(ixO^S,nw+10)=D(ixO^S,2)
+  w(ixO^S,nw+3)=fld_lambda(ixO^S)
+  w(ixO^S,nw+4)=fld_R(ixO^S)
+  w(ixO^S,nw+5)=g_rad(ixO^S,1)*unit_length/(unit_time**2)
+  w(ixO^S,nw+6)=g_rad(ixO^S,2)*unit_length/(unit_time**2)
+  w(ixO^S,nw+7)=big_gamma(ixO^S)
+  w(ixO^S,nw+8)=D(ixO^S,1)
+  w(ixO^S,nw+9)=D(ixO^S,2)
 end subroutine specialvar_output
 
 subroutine specialvarnames_output(varnames)

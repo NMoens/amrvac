@@ -11,7 +11,7 @@ vpath %.t $(AMRVAC_DIR)/src/multigrid
 
 # Dependencies
 amrvac: mod_multigrid_coupling.o
-mod_fld.o: mod_multigrid_coupling.mod
+mod_usr.o: mod_multigrid_coupling.mod
 mod_multigrid_coupling.mod: $(MG_DIR)/libomg.a
 
 # Clean multigrid relates files

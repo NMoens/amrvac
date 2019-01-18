@@ -8,7 +8,7 @@ use mod_global_parameters
 
 implicit none
 
-  integer, parameter :: nyc = 104
+  integer, parameter :: nyc = 114
 
   integer :: i_is(1:nyc)
   double precision :: y_is(1:nyc)
@@ -188,9 +188,27 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
   double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:nw)
   double precision                :: w_rad(ixGmin1:ixGmax1,ixGmin2:ixGmax2)
 
-  integer j
+  integer i,j
 
   select case (iB)
+  case(1)
+    call radiation_boundary(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,iB,w,w_rad,x)
+    do i=ixGmin1,ixGmin1+nghostcells-1
+      w(i,:,rho_) = rho_is(i)
+      w(i,:,mom(:)) = zero
+      w(i,:,e_) = pg_is(i)/(rhd_gamma-1.0)
+      w(i,:,r_e) = w_rad(i,:)
+    enddo
+
+  case(2)
+    call radiation_boundary(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,iB,w,w_rad,x)
+    do i=ixGmax1-nghostcells+1,ixGmax1
+      w(i,:,rho_) = rho_is(i)
+      w(i,:,mom(:)) = zero
+      w(i,:,e_) = pg_is(i)/(rhd_gamma-1.0)
+      w(i,:,r_e) = w_rad(i,:)
+    enddo
+
   case(3)
     do j = ixBmin2,ixBmax2
       w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmax2+1,rho_)
@@ -233,23 +251,33 @@ subroutine radiation_boundary(qt,ixImin1,ixImin2,ixImax1,ixImax2,iB,w,w_rad,x)
   double precision, intent(in)    :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
   double precision, intent(out)   :: w_rad(ixImin1:ixImax1,ixImin2:ixImax2)
 
-  integer i
+  integer i,j
 
   select case (iB)
+  case(1)
+    do i=ixImin1,ixImin1+nghostcells-1
+      w_rad(i,:) = er_is(i)
+    enddo
+
+  case(2)
+    do i=ixImax1-nghostcells+1,ixImax1
+      w_rad(i,:) = er_is(i)
+    enddo
+
   case(3)
     do i=ixImin1,ixImax1
       ! w_rad(i,2) = 2.d0*w(i,3,r_e)-w(i,4,r_e)
       ! w_rad(i,1) = 2.d0*w(i,2,r_e)-w(i,3,r_e)
       ! print*, w_rad(i,1), w_rad(i,2)
-      w_rad(i,2) = er_is(2)
-      w_rad(i,1) = er_is(1)
+      w_rad(i,ixImin2:ixImin2+nghostcells-1) = &
+         er_is(ixImin2:ixImin2+nghostcells-1)
     enddo
 
   case(4)
     do i=ixImin1,ixImax1
-      w_rad(i,ixImax2-1) = max(2.d0*w(i,ixImax2-2,r_e)-w(i,ixImax2-3,r_e),&
-          zero)
-      w_rad(i,ixImax2) = max(2.d0*w(i,ixImax2-1,r_e)-w(i,ixImax2-2,r_e), zero)
+      do j = ixImax2-nghostcells+1,ixImax2
+        w_rad(i,j) = max(2.d0*w(i,j-1,r_e)-w(i,j-2,r_e), zero)
+      enddo
     enddo
 
   case default
@@ -297,9 +325,8 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
   double precision                   :: rad_flux(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2,1:ndim), rad_pressure(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
-      fld_lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2), fld_R(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2)
+     ixOmin2:ixOmax2,1:ndim), fld_lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+      fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
   double precision                   :: g_rad(ixImin1:ixImax1,ixImin2:ixImax2,&
      1:ndim), big_gamma(ixImin1:ixImax1,ixImin2:ixImax2), D(ixImin1:ixImax1,&
      ixImin2:ixImax2,1:ndim)
@@ -307,8 +334,6 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
 
   call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2, rad_flux)
-  call fld_get_radpress(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
-     ixOmax1,ixOmax2, rad_pressure)
   call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
      ixOmin2,ixOmax1,ixOmax2, fld_lambda, fld_R)
   call fld_get_diffcoef(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
@@ -326,21 +351,18 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixOmin2:ixOmax2,1)*(unit_pressure*unit_velocity)
   w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2)=rad_flux(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2,2)*(unit_pressure*unit_velocity)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3)=rad_pressure(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2)*unit_pressure
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4)=fld_lambda(ixOmin1:ixOmax1,&
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3)=fld_lambda(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5)=fld_R(ixOmin1:ixOmax1,&
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4)=fld_R(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+6)=g_rad(ixOmin1:ixOmax1,&
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5)=g_rad(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2,1)*unit_length/(unit_time**2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+7)=g_rad(ixOmin1:ixOmax1,&
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+6)=g_rad(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2,2)*unit_length/(unit_time**2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+8)=big_gamma(ixOmin1:ixOmax1,&
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+7)=big_gamma(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+9)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+10)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-     2)
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+8)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+9)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2)
 end subroutine specialvar_output
 
 subroutine specialvarnames_output(varnames)

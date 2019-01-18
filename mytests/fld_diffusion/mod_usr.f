@@ -65,7 +65,7 @@ contains
        ixmin2,ixmax1,ixmax2, w, x)
       use mod_global_parameters
       use mod_constants
-      use mod_hd_phys, only: hd_get_pthermal
+      use mod_fld
 
       integer, intent(in)             :: ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
           ixmin1,ixmin2,ixmax1,ixmax2
@@ -80,6 +80,10 @@ contains
       w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, e_) = one
       w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,r_e) =  spotpattern(x,ixGmin1,ixGmin2,&
          ixGmax1,ixGmax2,0.d0)
+
+      call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+         ixmin2,ixmax1,ixmax2)
+
     end subroutine initial_conditions
 
     function spotpattern(x,ixGmin1,ixGmin2,ixGmax1,ixGmax2,t1) result(e0)

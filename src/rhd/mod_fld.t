@@ -98,6 +98,7 @@ module mod_fld
     !call params_read
 
     if (fld_diff_scheme == 'mg') then
+      mg_after_new_tree => set_epsilon
       use_multigrid = .true.
       i_diff_mg = var_set_extravar("D", "D")
       mg%n_extra_vars = 1
@@ -219,10 +220,15 @@ module mod_fld
     case('adi')
       call Evolve_E_rad(w, x, ixI^L, ixO^L)
     case('mg')
+      print*, w(5,5,iw_r_e)
       call fld_get_diffcoef_central(w, x, ixI^L, ixO^L, D_center)
+      print*, w(5,5,iw_r_e)
       w(ixO^S, i_diff_mg) = D_center(ixO^S)
+      print*, w(5,5,iw_r_e)
       call set_mg_diffcoef()
+      print*, w(5,5,iw_r_e)
       call Diffuse_E_rad_mg(qdt, active)
+      print*, w(5,5,iw_r_e)
     case default
       call mpistop('Numerical diffusionscheme unknown, try adi or mg')
     end select
@@ -506,8 +512,8 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      ! D_center = unit_length/unit_velocity
-      D_center(ixI^S) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
+      D_center = one*unit_length/unit_velocity
+      ! D_center(ixI^S) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
               !     *dcos(global_time*2*dpi)**2 &
               !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
               !     *dsin(global_time*2*dpi)**2
@@ -515,8 +521,8 @@ module mod_fld
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
 
-      !> set Opacity
-      call fld_get_opacity(w, x, ixI^L, ixO^L)
+      ! !> set Opacity
+      ! call fld_get_opacity(w, x, ixI^L, ixO^L)
 
       !> calculate diffusion coefficient
       D_center(ixO^S) = fld_speedofligt_0*fld_lambda(ixO^S)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
@@ -526,6 +532,10 @@ module mod_fld
   subroutine set_mg_diffcoef()
     call mg_copy_to_tree(i_diff_mg, mg_iveps)
   end subroutine set_mg_diffcoef
+
+  subroutine set_epsilon()
+    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
+  end subroutine set_epsilon
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!! ADI
@@ -760,7 +770,7 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      D = unit_length/unit_velocity
+      D(ixI^S,1:ndim) = one*unit_length/unit_velocity
       ! D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity &
       !              *dcos(global_time*2*dpi)**2 !&
       ! !         + half*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity !&

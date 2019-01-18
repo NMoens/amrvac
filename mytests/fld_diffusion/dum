@@ -1,0 +1,46 @@
+make -C /lhome/nicolasm/amrvac/lib/2d_default -f /lhome/nicolasm/amrvac/arch/lib.make
+make[1]: Entering directory '/lhome/nicolasm/amrvac/lib/2d_default'
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_connectivity.t > mod_connectivity.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_connectivity.f -o mod_connectivity.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_physicaldata.t > mod_physicaldata.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_physicaldata.f -o mod_physicaldata.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_constants.t > mod_constants.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_constants.f -o mod_constants.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_basic_types.t > mod_basic_types.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_basic_types.f -o mod_basic_types.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_variables.t > mod_variables.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_variables.f -o mod_variables.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_global_parameters.t > mod_global_parameters.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_global_parameters.f -o mod_global_parameters.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_usr_methods.t > mod_usr_methods.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_usr_methods.f -o mod_usr_methods.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_forest.t > mod_forest.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_forest.f -o mod_forest.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/physics/mod_physics_hllc.t > mod_physics_hllc.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_physics_hllc.f -o mod_physics_hllc.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/physics/mod_physics_ppm.t > mod_physics_ppm.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_physics_ppm.f -o mod_physics_ppm.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/physics/mod_physics_roe.t > mod_physics_roe.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_physics_roe.f -o mod_physics_roe.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/physics/mod_physics.t > mod_physics.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_physics.f -o mod_physics.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_mp5.t > mod_mp5.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_mp5.f -o mod_mp5.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_ppm.t > mod_ppm.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_ppm.f -o mod_ppm.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_limiter.t > mod_limiter.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_limiter.f -o mod_limiter.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_geometry.t > mod_geometry.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_geometry.f -o mod_geometry.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/physics/mod_gravity.t > mod_gravity.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_gravity.f -o mod_gravity.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_fix_conserve.t > mod_fix_conserve.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_fix_conserve.f -o mod_fix_conserve.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/./mod_ghostcells_update.t > mod_ghostcells_update.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_ghostcells_update.f -o mod_ghostcells_update.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/amrvacio/mod_calculate_xw.t > mod_calculate_xw.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_calculate_xw.f -o mod_calculate_xw.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/amrvacio/mod_slice.t > mod_slice.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_slice.f -o mod_slice.o 
+/lhome/nicolasm/amrvac/src/vacpp.pl -cpp -DNDIM=2 -d=2 /lhome/nicolasm/amrvac/src/amrvacio/mod_collapse.t > mod_collapse.f
+mpif90 -ffree-form -O2 -g -fimplicit-none -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -c mod_collapse.f -o mod_collapse.o 

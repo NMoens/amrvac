@@ -33,7 +33,7 @@
 /
 
 &boundlist
-  nghostcells  =  4
+  nghostcells  =  5
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 5*'periodic'
@@ -75,10 +75,10 @@
  fld_split = .false.
  fld_maxdw = 2000
  fld_bisect_tol = 1.d-5
- fld_adi_tol = 1.d-2
+ fld_adi_tol = 1.d-5
  fld_max_fracdt = 100.d0
  fld_diff_testcase = .true.
  fld_opacity_law = 'const'
- fld_complete_diffusion_limit = .false.
- fld_diff_scheme = 'adi'
+ fld_complete_diffusion_limit = .true.
+ fld_diff_scheme = 'mg'
  /

@@ -64,7 +64,7 @@ contains
     subroutine initial_conditions(ixG^L, ix^L, w, x)
       use mod_global_parameters
       use mod_constants
-      use mod_hd_phys, only: hd_get_pthermal
+      use mod_fld
 
       integer, intent(in)             :: ixG^L, ix^L
       double precision, intent(in)    :: x(ixG^S, ndim)
@@ -75,6 +75,9 @@ contains
       w(ixG^S, mom(:)) = zero
       w(ixG^S, e_) = one
       w(ixG^S,r_e) =  spotpattern(x,ixG^L,0.d0)
+
+      call fld_get_opacity(w, x, ixG^L, ix^L)
+
     end subroutine initial_conditions
 
     function spotpattern(x,ixG^L,t1) result(e0)

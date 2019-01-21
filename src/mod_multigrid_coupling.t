@@ -9,6 +9,15 @@ module mod_multigrid_coupling
   !> Data structure containing the multigrid tree.
   type(mg_t) :: mg
 
+  !> If defined, this routine is called after a new multigrid tree is
+  !> constructed.
+  procedure(after_new_tree), pointer :: mg_after_new_tree => null()
+
+  interface
+     subroutine after_new_tree()
+     end subroutine after_new_tree
+  end interface
+
 contains
 
   !> Setup multigrid for usage
@@ -252,6 +261,10 @@ contains
 
     ! Allocate storage for boxes owned by this process
     call mg_allocate_storage(mg)
+
+    if (associated(mg_after_new_tree)) then
+       call mg_after_new_tree()
+    end if
 
   end subroutine mg_tree_from_amrvac
 

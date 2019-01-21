@@ -98,7 +98,7 @@ module mod_fld
     !call params_read
 
     if (fld_diff_scheme == 'mg') then
-      mg_after_new_tree => set_epsilon
+      mg_after_new_tree => set_mg_diffcoef
       use_multigrid = .true.
       i_diff_mg = var_set_extravar("D", "D")
       mg%n_extra_vars = 1
@@ -534,7 +534,7 @@ module mod_fld
   end subroutine set_mg_diffcoef
 
   subroutine set_epsilon()
-    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
+    call mg_copy_to_tree(i_diff_mg, mg_iveps)
   end subroutine set_epsilon
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -77,6 +77,7 @@ contains
       w(ixG^S,r_e) =  spotpattern(x,ixG^L,0.d0)
 
       call fld_get_opacity(w, x, ixG^L, ix^L)
+      call fld_get_diffcoef_central(w, x, ixG^L, ix^L)
 
     end subroutine initial_conditions
 
@@ -180,7 +181,6 @@ contains
     character(len=*) :: varnames
 
     varnames = 'theoretical residual'
-    ! varnames = 'F1 F2 RP lam fld_R'
 
   end subroutine specialvarnames_output
 

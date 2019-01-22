@@ -21,7 +21,7 @@
  &stoplist
    time_max = 2.d0
    !dtmin = 1.0d-20
-   !it_max = 2
+   it_max = 3
 /
 
  &methodlist
@@ -71,8 +71,8 @@
  /
 
  &fld_list
- fld_kappa0 = 0.34d0
  fld_split = .false.
+ fld_kappa0 = 0.34d0
  fld_maxdw = 2000
  fld_bisect_tol = 1.d-5
  fld_adi_tol = 1.d-5

@@ -88,23 +88,25 @@ module mod_fld
     use mod_global_parameters
     use mod_variables
     use mod_opacity, only: init_opal
+    use mod_multigrid_coupling, only: mg_copy_boundary_conditions
 
     double precision, intent(in) :: He_abundance
-
-    print*, He_abundance
 
     !> read par files
     call fld_params_read(par_files)
     !call params_read
 
-    if (fld_diff_scheme == 'mg') then
+    if (fld_diff_scheme .eq. 'mg') then
       mg_after_new_tree => set_mg_diffcoef
       use_multigrid = .true.
       i_diff_mg = var_set_extravar("D", "D")
       mg%n_extra_vars = 1
       mg%operator_type = mg_vhelmholtz
-      mg%bc(:, mg_iphi)%bc_type = mg_bc_dirichlet
+      mg%bc(:, mg_iphi)%bc_type = mg_bc_continuous
       mg%bc(:, mg_iphi)%bc_value = 2.d0
+      ! mg%bc(:, mg_iphi)%bc_type = mg_bc_dirichlet
+      ! mg%bc(:, mg_iphi)%bc_value = 2.d0
+      !call mg_copy_boundary_conditions(mg,iw_r_e)
     endif
 
     !> Check if fld_numdt is not 1
@@ -212,27 +214,32 @@ module mod_fld
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
 
+    print*, 'beginning of get_fld_diffusion'
+
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
-    !> Begin by evolving the radiation energy field
-    select case (fld_diff_scheme)
-    case('adi')
-      call Evolve_E_rad(w, x, ixI^L, ixO^L)
-    case('mg')
-      print*, w(5,5,iw_r_e)
-      call fld_get_diffcoef_central(w, x, ixI^L, ixO^L, D_center)
-      print*, w(5,5,iw_r_e)
-      w(ixO^S, i_diff_mg) = D_center(ixO^S)
-      print*, w(5,5,iw_r_e)
-      call set_mg_diffcoef()
-      print*, w(5,5,iw_r_e)
-      call Diffuse_E_rad_mg(qdt, active)
-      print*, w(5,5,iw_r_e)
-    case default
-      call mpistop('Numerical diffusionscheme unknown, try adi or mg')
-    end select
-    end if
+      !> Begin by evolving the radiation energy field
+      select case (fld_diff_scheme)
+      case('adi')
+        call Evolve_E_rad(w, x, ixI^L, ixO^L)
+      case('mg')
+        print*, 'before getting fld_diffcoef'
+        print*,it, w(5,5,iw_r_e)
+        call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
+        print*,it, w(5,5,iw_r_e)
+        call set_mg_diffcoef()
+        print*,it,  w(5,5,iw_r_e)
+        call Diffuse_E_rad_mg(qdt, active)
+        print*, 'finished Diffuse_E_rad_mg'
+        print*,it, w(5,5,iw_r_e)
+      case default
+        call mpistop('Numerical diffusionscheme unknown, try adi or mg')
+      end select
+      end if
+
+      print*, 'end of get_fld_diffusion'
+
   end subroutine get_fld_diffusion
 
   !> Sets the opacity in the w-array
@@ -495,24 +502,27 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res
 
+    print*, 'copy iw_r_e to mg_iphi'
     call mg_copy_to_tree(iw_r_e, mg_iphi)
+    print*, 'solve diffusion with vcoeff'
     call diffusion_solve_vcoeff(mg, qdt, 1, 1.d-4)
+    print*, 'copy mg_iphi from iw_r_e'
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
+
   end subroutine Diffuse_E_rad_mg
 
-  subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L, D_center)
+  subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
     use mod_global_parameters
 
     integer, intent(in)          :: ixI^L, ixO^L
-    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
-    double precision, intent(out):: D_center(ixI^S)
     double precision :: fld_lambda(ixO^S), fld_R(ixO^S)
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      D_center = one*unit_length/unit_velocity
+      w(ixI^S,i_diff_mg) = one*unit_length/unit_velocity
       ! D_center(ixI^S) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity !&
               !     *dcos(global_time*2*dpi)**2 &
               !  + 100*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity &
@@ -521,21 +531,18 @@ module mod_fld
       !> calculate lambda
       call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
 
-      ! !> set Opacity
-      ! call fld_get_opacity(w, x, ixI^L, ixO^L)
-
       !> calculate diffusion coefficient
-      D_center(ixO^S) = fld_speedofligt_0*fld_lambda(ixO^S)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
+      w(ixO^S,i_diff_mg) = fld_speedofligt_0*fld_lambda(ixO^S)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
+
+      call mpistop('expand D to ghostcells')
     endif
+
   end subroutine fld_get_diffcoef_central
 
   subroutine set_mg_diffcoef()
     call mg_copy_to_tree(i_diff_mg, mg_iveps)
   end subroutine set_mg_diffcoef
 
-  subroutine set_epsilon()
-    call mg_copy_to_tree(i_diff_mg, mg_iveps)
-  end subroutine set_epsilon
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!! ADI

@@ -112,6 +112,10 @@ contains
 {^IFTWOD
        mg%boxes(id)%cc(1:nc, 1:nc, iw_to) = &
             ps(igrid)%w(ixMlo1:ixMhi1, ixMlo2:ixMhi2, iw_from)
+
+            print*, 'in mg_coupl', ps(igrid)%w(5, 5, iw_from)
+
+
 }
 {^IFTHREED
        mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, iw_to) = &

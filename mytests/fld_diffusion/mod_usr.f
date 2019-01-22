@@ -83,6 +83,8 @@ contains
 
       call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
          ixmin2,ixmax1,ixmax2)
+      call fld_get_diffcoef_central(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
+          ixmin1,ixmin2,ixmax1,ixmax2)
 
     end subroutine initial_conditions
 
@@ -203,7 +205,6 @@ contains
     character(len=*) :: varnames
 
     varnames = 'theoretical residual'
-    ! varnames = 'F1 F2 RP lam fld_R'
 
   end subroutine specialvarnames_output
 

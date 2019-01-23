@@ -1,6 +1,6 @@
  &filelist
-        base_filename='test'
-    	convert_type='vtuBCCmpi'
+        base_filename='output/test'
+    	  convert_type='vtuBCCmpi'
         autoconvert=T
  /
 
@@ -52,4 +52,3 @@
  &rho_list
         rho_v = 0.0,0.0
  /
- 

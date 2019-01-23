@@ -169,7 +169,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   enddo
 
   !> perturb rho
-  amplitude = 0.05d0
+  amplitude = 0.0d0
   call RANDOM_NUMBER(pert)
   do i = ixGmin2, ixGmin2+20
     w(:,i, rho_) = w(:,i, rho_)*(one + amplitude*pert(:,i))

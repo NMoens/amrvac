@@ -21,12 +21,13 @@ contains
     usr_init_one_grid => initial_conditions
 
     use_multigrid = .true.
-    phys_global_source => diffuse_density
+    usr_source => diffuse_density
     usr_process_grid => set_error
     mg_after_new_tree => set_epsilon
 
+    mg%n_extra_vars = 1
     mg%operator_type = mg_vhelmholtz
-    mg%bc(:, mg_iphi)%bc_type = bc_neumann
+    mg%bc(:, mg_iphi)%bc_type = mg_bc_neumann
     mg%bc(:, mg_iphi)%bc_value = 0.0d0
 
     call set_coordinate_system("Cartesian_2D")
@@ -58,18 +59,19 @@ contains
          exp(-sum((2 * pi * solution_modes)**2) * diffusion_coeff * t)
   end function solution
 
-  subroutine diffuse_density(qdt, qt, active)
+  subroutine diffuse_density(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
+    use mod_global_parameters
     use m_diffusion
-    double precision, intent(in) :: qdt
-    double precision, intent(in) :: qt
-    logical, intent(inout)       :: active
+    integer, intent(in)             :: ixI^L, ixO^L, iw^LIM
+    double precision, intent(in)    :: qdt, qtC, qt
+    double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
+    double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision             :: max_res
 
-    call mg_copy_to_tree(rho_, mg_iphi, .false., .false.)
+    call mg_copy_to_tree(rho_, mg_iphi)
     call diffusion_solve_vcoeff(mg, qdt, 1, 1d-4)
     call mg_copy_from_tree(mg_iphi, rho_)
 
-    active = .true.
   end subroutine diffuse_density
 
   subroutine set_error(igrid,level,ixI^L,ixO^L,qt,w,x)
@@ -82,8 +84,7 @@ contains
   end subroutine set_error
 
   subroutine set_epsilon()
-    call mg_copy_to_tree(i_eps, mg_iveps, .true., .true.)
+    call mg_copy_to_tree(i_eps, mg_iveps)
   end subroutine set_epsilon
 
 end module mod_usr
-

@@ -140,6 +140,11 @@ subroutine initglobaldata_usr
   pg_is = pg_is/unit_pressure
   er_is = er_is/unit_pressure
 
+  print*, 'unit_density', unit_density
+  print*, unit_pressure
+  print*, unit_temperature
+
+
 end subroutine initglobaldata_usr
 
 !==========================================================================================
@@ -165,7 +170,7 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   enddo
 
   !> perturb rho
-  amplitude = 0.05d0
+  amplitude = 0.0d0
   call RANDOM_NUMBER(pert)
   do i = ixGmin2, ixGmin2+20
     w(:,i, rho_) = w(:,i, rho_)*(one + amplitude*pert(:,i))
@@ -357,7 +362,7 @@ subroutine specialvarnames_output(varnames)
   use mod_global_parameters
   character(len=*) :: varnames
 
-  varnames = 'F1 F2 P_rad lambda fld_R ar1 ar2 Gamma D1 D2'
+  varnames = 'F1 F2 lambda R ar1 ar2 Gamma D1 D2'
 
 end subroutine specialvarnames_output
 

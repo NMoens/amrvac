@@ -416,12 +416,11 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   double precision, intent(in)       :: x(ixI^S,1:ndim)
   double precision                   :: w(ixI^S,nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
-  double precision                   :: rad_flux(ixO^S,1:ndim), rad_pressure(ixO^S), fld_lambda(ixO^S), fld_R(ixO^S)
+  double precision                   :: rad_flux(ixO^S,1:ndim), fld_lambda(ixO^S), fld_R(ixO^S)
   double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S), D(ixI^S,1:ndim)
   integer                            :: idim
 
   call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
-  call fld_get_radpress(w, x, ixI^L, ixO^L, rad_pressure)
   call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
   call fld_get_diffcoef(w, x, ixI^L, ixO^L, D)
 
@@ -432,14 +431,13 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
 
   w(ixO^S,nw+1)=rad_flux(ixO^S,1)*(unit_pressure*unit_velocity)
   w(ixO^S,nw+2)=rad_flux(ixO^S,2)*(unit_pressure*unit_velocity)
-  w(ixO^S,nw+3)=rad_pressure(ixO^S)*unit_pressure
-  w(ixO^S,nw+4)=fld_lambda(ixO^S)
-  w(ixO^S,nw+5)=fld_R(ixO^S)
-  w(ixO^S,nw+6)=g_rad(ixO^S,1)*unit_length/(unit_time**2)
-  w(ixO^S,nw+7)=g_rad(ixO^S,2)*unit_length/(unit_time**2)
-  w(ixO^S,nw+8)=big_gamma(ixO^S)
-  w(ixO^S,nw+9)=D(ixO^S,1)
-  w(ixO^S,nw+10)=D(ixO^S,2)
+  w(ixO^S,nw+3)=fld_lambda(ixO^S)
+  w(ixO^S,nw+4)=fld_R(ixO^S)
+  w(ixO^S,nw+5)=g_rad(ixO^S,1)*unit_length/(unit_time**2)
+  w(ixO^S,nw+6)=g_rad(ixO^S,2)*unit_length/(unit_time**2)
+  w(ixO^S,nw+7)=big_gamma(ixO^S)
+  w(ixO^S,nw+8)=D(ixO^S,1)
+  w(ixO^S,nw+9)=D(ixO^S,2)
 
 end subroutine specialvar_output
 
@@ -448,7 +446,7 @@ subroutine specialvarnames_output(varnames)
   use mod_global_parameters
   character(len=*) :: varnames
 
-  varnames = 'F1 F2 P_rad lamnda fld_R ar1 ar2 Gamma D1 D2'
+  varnames = 'F1 F2 lamnda fld_R ar1 ar2 Gamma D1 D2'
 
 end subroutine specialvarnames_output
 

@@ -46,7 +46,7 @@
   typeboundary_min2 = 5*'special'
   typeboundary_max2 = 5*'special'
   !typeghostfill= 'copy'
-  internalboundary = F
+  internalboundary = T
 /
 
  &meshlist

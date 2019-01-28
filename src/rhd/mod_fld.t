@@ -87,6 +87,7 @@ module mod_fld
   subroutine fld_init(He_abundance)
     use mod_global_parameters
     use mod_variables
+    use mod_physics, only: phys_global_source
     use mod_opacity, only: init_opal
     use mod_multigrid_coupling, only: mg_copy_boundary_conditions
 
@@ -97,16 +98,21 @@ module mod_fld
     !call params_read
 
     if (fld_diff_scheme .eq. 'mg') then
-      mg_after_new_tree => set_mg_diffcoef
+
       use_multigrid = .true.
-      i_diff_mg = var_set_extravar("D", "D")
+
+      phys_global_source => Diffuse_E_rad_mg
+      mg_after_new_tree => set_mg_diffcoef
+
       mg%n_extra_vars = 1
       mg%operator_type = mg_vhelmholtz
-      mg%bc(:, mg_iphi)%bc_type = mg_bc_continuous
-      mg%bc(:, mg_iphi)%bc_value = 2.d0
-      ! mg%bc(:, mg_iphi)%bc_type = mg_bc_dirichlet
-      ! mg%bc(:, mg_iphi)%bc_value = 2.d0
-      ! call mg_copy_boundary_conditions(mg,iw_r_e)
+      mg%bc(:, mg_iphi)%bc_type = mg_bc_neumann
+      mg%bc(:, mg_iphi)%bc_value = 0.d0
+
+
+      !call mg_copy_boundary_conditions(mg,iw_r_e)
+
+      i_diff_mg = var_set_extravar("D", "D")
     endif
 
     !> Check if fld_numdt is not 1
@@ -214,8 +220,6 @@ module mod_fld
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
 
-    print*, 'beginning of get_fld_diffusion', w(5,5:10,iw_r_e)
-
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
@@ -224,22 +228,18 @@ module mod_fld
       case('adi')
         call Evolve_E_rad(w, x, ixI^L, ixO^L)
       case('mg')
-        print*, 'before getting fld_diffcoef'
-        print*,it, w(5,5,iw_r_e)
-        call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
-        print*,it, w(5,5,iw_r_e)
-        call set_mg_diffcoef()
-        print*,it,  w(5,5,iw_r_e)
-        call Diffuse_E_rad_mg(qdt, active)
-        print*, 'finished Diffuse_E_rad_mg'
-        print*,it, w(5,5,iw_r_e)
+        !> Do nothing OR CHECK WHAT IS ALREADY DONE BY POINTING
+        ! call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
+        ! call set_mg_diffcoef()
+        ! call Diffuse_E_rad_mg(qdt, qt, active)
+        print*, it, active, w(5,5,i_diff_mg)
       case default
         call mpistop('Numerical diffusionscheme unknown, try adi or mg')
       end select
       end if
 
-      print*, 'end of get_fld_diffusion', w(5,5:10,iw_r_e)
-
+      !> Set Diffcoef for next timestep?
+      call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
   end subroutine get_fld_diffusion
 
   !> Sets the opacity in the w-array
@@ -493,22 +493,20 @@ module mod_fld
   !!!!!!!!!!!!!!!!!!! Multigrid diffusion
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine Diffuse_E_rad_mg(qdt, active)
+  subroutine Diffuse_E_rad_mg(qdt, qt, active)
     use mod_global_parameters
     use mod_multigrid_coupling
     use m_diffusion
 
-    double precision, intent(in) :: qdt
+    double precision, intent(in) :: qdt, qt
     logical, intent(inout)       :: active
     double precision             :: max_res
 
-    print*, 'copy iw_r_e to mg_iphi'
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    print*, 'solve diffusion with vcoeff'
     call diffusion_solve_vcoeff(mg, qdt, 1, 1.d-4)
-    print*, 'copy mg_iphi from iw_r_e'
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
+
   end subroutine Diffuse_E_rad_mg
 
   subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L)

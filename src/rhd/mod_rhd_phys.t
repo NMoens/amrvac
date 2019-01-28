@@ -963,6 +963,7 @@ contains
 
     !> Update opacities
     call fld_get_opacity(w, x, ixI^L, ixO^L)
+    if (fld_diff_scheme .eq. 'mg') call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
 
     select case(rhd_radiation_formalism)
     case('fld')
@@ -973,10 +974,8 @@ contains
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
            rhd_energy,qsourcesplit,active)
       !> diffusion
-      print*, 'begin radiation source', w(5,5:10,r_e)
       if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
            rhd_energy,qsourcesplit,active)
-      print*, 'end radiation source', w(5,5:10,r_e)
     case default
       call mpistop('Radiation formalism unknown')
     end select

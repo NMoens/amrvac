@@ -93,7 +93,12 @@ contains
     character(len=std_len)    :: bnd_name(mg_num_neighbors)
     integer                   :: n
 
+    print*, 'mg_copy_boundary_conditions is called'
+
     do n = 1, mg_num_neighbors
+
+      print*, n, typeboundary(iw, n)
+      
        select case (typeboundary(iw, n))
        case ('symm')
           mg%bc(n, mg_iphi)%bc_type = mg_bc_neumann
@@ -111,6 +116,9 @@ contains
           error stop "You have to set a user-defined boundary method"
        end select
     end do
+
+    print*, 'after do-loop'
+
   end subroutine mg_copy_boundary_conditions
 
   !> If the grid has changed, rebuild the full multigrid tree

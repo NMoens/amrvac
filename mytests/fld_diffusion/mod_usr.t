@@ -147,31 +147,12 @@ contains
     double precision                   :: normconv(0:nw+nwauxio)
     double precision                   :: theoretical(ixI^S)
     double precision                   :: residual(ixI^S)
-    ! double precision                   :: rad_flux(ixI^S,1:ndim), rad_pressure(ixI^S), fld_lambda(ixI^S), fld_R(ixI^S)
-
-    ! call fld_get_radpress(w, x, ixI^L, ixO^L, rad_pressure)
-    ! call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
-    ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
 
     theoretical(ixI^S) = spotpattern(x,ixI^L,global_time)
     residual(ixI^S) = abs(theoretical(ixI^S) - w(ixI^S,r_e))/theoretical(ixI^S)
 
     w(ixO^S,nw+1) = theoretical(ixO^S)
     w(ixO^S,nw+2) = residual(ixO^S)
-
-    ! w(ixO^S,nw+1)=rad_flux(ixO^S,1)
-    ! w(ixO^S,nw+2)=rad_flux(ixO^S,2)
-    ! w(ixO^S,nw+3)=rad_pressure(ixO^S)
-    ! w(ixO^S,nw+4)=fld_lambda(ixO^S)
-    ! w(ixO^S,nw+5)=fld_R(ixO^S)
-
-
-    !!> Write error to file
-    !if (it == 0) open(1,file='3x3error_out1d-10')
-    !write(1,222) it, sum(residual(ixO^S))/((ixOmax1-ixOmin1)*(ixOmax2-ixOmin2))
-    !if (it == it_max) close(1)
-    !222 format(i8,3e15.5E3)
-    !print*, it, sum(residual(ixO^S))
 
   end subroutine specialvar_output
 

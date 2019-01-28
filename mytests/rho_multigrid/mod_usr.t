@@ -21,7 +21,7 @@ contains
     usr_init_one_grid => initial_conditions
 
     use_multigrid = .true.
-    usr_source => diffuse_density
+    phys_global_source => diffuse_density
     usr_process_grid => set_error
     mg_after_new_tree => set_epsilon
 
@@ -59,18 +59,25 @@ contains
          exp(-sum((2 * pi * solution_modes)**2) * diffusion_coeff * t)
   end function solution
 
-  subroutine diffuse_density(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
+  subroutine diffuse_density(qdt, qt, active)
     use mod_global_parameters
     use m_diffusion
-    integer, intent(in)             :: ixI^L, ixO^L, iw^LIM
-    double precision, intent(in)    :: qdt, qtC, qt
-    double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
-    double precision, intent(inout) :: w(ixI^S,1:nw)
+    use mod_multigrid_coupling
+
+    double precision, intent(in) :: qdt    !< Current time step
+    double precision, intent(in) :: qt     !< Current time
+    logical, intent(inout)       :: active !< Output if the source is active
     double precision             :: max_res
 
-    call mg_copy_to_tree(rho_, mg_iphi)
+    print*, it, 'before diffuse density'
+
+    call mg_copy_to_tree(rho_, mg_iphi, .false., .false.)
     call diffusion_solve_vcoeff(mg, qdt, 1, 1d-4)
     call mg_copy_from_tree(mg_iphi, rho_)
+
+    active = .true.
+
+    print*, it, 'after diffuse density'
 
   end subroutine diffuse_density
 
@@ -84,7 +91,10 @@ contains
   end subroutine set_error
 
   subroutine set_epsilon()
-    call mg_copy_to_tree(i_eps, mg_iveps)
+    use mod_global_parameters
+    use mod_multigrid_coupling
+
+    call mg_copy_to_tree(i_eps, mg_iveps, .true., .true.)
   end subroutine set_epsilon
 
 end module mod_usr

@@ -106,7 +106,7 @@ module mod_fld
       mg%bc(:, mg_iphi)%bc_value = 2.d0
       ! mg%bc(:, mg_iphi)%bc_type = mg_bc_dirichlet
       ! mg%bc(:, mg_iphi)%bc_value = 2.d0
-      !call mg_copy_boundary_conditions(mg,iw_r_e)
+      ! call mg_copy_boundary_conditions(mg,iw_r_e)
     endif
 
     !> Check if fld_numdt is not 1
@@ -214,7 +214,7 @@ module mod_fld
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
 
-    print*, 'beginning of get_fld_diffusion'
+    print*, 'beginning of get_fld_diffusion', w(5,5:10,iw_r_e)
 
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
@@ -238,7 +238,7 @@ module mod_fld
       end select
       end if
 
-      print*, 'end of get_fld_diffusion'
+      print*, 'end of get_fld_diffusion', w(5,5:10,iw_r_e)
 
   end subroutine get_fld_diffusion
 
@@ -503,13 +503,12 @@ module mod_fld
     double precision             :: max_res
 
     print*, 'copy iw_r_e to mg_iphi'
-    call mg_copy_to_tree(iw_r_e, mg_iphi)
+    call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
     print*, 'solve diffusion with vcoeff'
     call diffusion_solve_vcoeff(mg, qdt, 1, 1.d-4)
     print*, 'copy mg_iphi from iw_r_e'
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
-
   end subroutine Diffuse_E_rad_mg
 
   subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
@@ -536,11 +535,10 @@ module mod_fld
 
       call mpistop('expand D to ghostcells')
     endif
-
   end subroutine fld_get_diffcoef_central
 
   subroutine set_mg_diffcoef()
-    call mg_copy_to_tree(i_diff_mg, mg_iveps)
+    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
   end subroutine set_mg_diffcoef
 
 
@@ -777,12 +775,11 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      D(ixI^S,1:ndim) = one*unit_length/unit_velocity
-      ! D(ixI^S,1) = x(ixI^S,2)/maxval(x(ixI^S,2))*unit_length/unit_velocity &
-      !              *dcos(global_time*2*dpi)**2 !&
-      ! !         + half*x(ixI^S,1)/maxval(x(ixI^S,1))*unit_length/unit_velocity !&
-      ! !            *dsin(global_time*2*dpi)**2
-      ! D(ixI^S,2) = D(ixI^S,1)
+      !dE/dt + D dE/dx2
+      ! [D] = x2/t = [v*l]
+
+      D(ixI^S,1:ndim) = one/(unit_length*unit_velocity)
+
 
     else
       !> calculate lambda
@@ -969,6 +966,13 @@ module mod_fld
       do g=1,nghostcells
         E_m(ixOmin1-g,:) = 2.d0*E_m(ixOmin1-g+1,:) - E_m(ixOmin1-g+2,:)
       enddo
+    case('noinflow')
+      do g=1,nghostcells
+        E_m(ixOmin1-g,:) = 2.d0*E_m(ixOmin1-g+1,:) - E_m(ixOmin1-g+2,:)
+        do h=ixImin2,ixImax2
+          E_m(g,h) = min(E_m(g,h),E_m(g+1,h))
+        enddo
+      enddo
     case('fixed')
       E_m(ixImin1:ixImin1+nghostcells-1,:) = w(ixImin1:ixImin1+nghostcells-1,:,iw_r_e)
     case('special')
@@ -1025,6 +1029,13 @@ module mod_fld
     case('cont')
       do g = 1,nghostcells
         E_m(:,ixOmax2+g) = 2.d0*E_m(:,ixOmax2+g-1) - E_m(:,ixOmax2+g-2)
+      enddo
+    case('noinflow')
+      do g = 1,nghostcells
+        E_m(:,ixOmax2+g) = 2.d0*E_m(:,ixOmax2+g-1) - E_m(:,ixOmax2+g-2)
+        do h=ixImin1,ixImax1
+          E_m(h,g) = min(E_m(h,g),E_m(h,g-1))
+        enddo
       enddo
     case('fixed')
       E_m(:,ixImax2-nghostcells+1:ixImax2) = w(:,ixImax2-nghostcells+1:ixImax2,iw_r_e)

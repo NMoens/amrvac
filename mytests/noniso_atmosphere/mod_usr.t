@@ -232,7 +232,6 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
     enddo
 
     call radiation_boundary(qt,ixG^L,iB,w,w_rad,x)
-
     do j = ixBmin2,ixBmax2
       w(ixGmin1:ixGmax1,j,r_e) = w_rad(ixGmin1:ixGmax1,j)
     enddo
@@ -255,14 +254,15 @@ subroutine radiation_boundary(qt,ixI^L,iB,w,w_rad,x)
 
   select case (iB)
   case(1)
-    do i=ixImin1,ixImin1+nghostcells-1
-      w_rad(i,:) = er_is(i)
+    do i=ixImin2,ixImin2+nghostcells-1
+      w_rad(ixImin1:ixImin1+nghostcells-1,i) = w(ixImax2-nghostcells,i,r_e)
     enddo
 
   case(2)
-    do i=ixImax1-nghostcells+1,ixImax1
-      w_rad(i,:) = er_is(i)
+    do i=ixImin2,ixImin2+nghostcells-1
+      w_rad(ixImax1-nghostcells+1:ixImax1,i) = w(ixImax1+nghostcells,i,r_e)
     enddo
+
 
   case(3)
     do i=ixImin1,ixImax1
@@ -311,8 +311,8 @@ subroutine fixleftright(level,qt,ixI^L,ixO^L,w,x)
   integer :: i
 
   do i = ixOmin2, ixOmax2
-    w(ixOmin1:ixOmin1+5,i,iw_r_e) =  er_is(i)
-    w(ixOmax1-5:ixOmax1,i,iw_r_e) =  er_is(i)
+    w(ixOmin1:ixOmin1+2,i,iw_r_e) =  er_is(i)
+    w(ixOmax1-2:ixOmax1,i,iw_r_e) =  er_is(i)
   enddo
 
 end subroutine fixleftright

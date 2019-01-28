@@ -142,6 +142,11 @@ subroutine initglobaldata_usr
   pg_is = pg_is/unit_pressure
   er_is = er_is/unit_pressure
 
+  print*, 'unit_density', unit_density
+  print*, unit_pressure
+  print*, unit_temperature
+
+
 end subroutine initglobaldata_usr
 
 !==========================================================================================
@@ -259,14 +264,15 @@ subroutine radiation_boundary(qt,ixImin1,ixImin2,ixImax1,ixImax2,iB,w,w_rad,x)
 
   select case (iB)
   case(1)
-    do i=ixImin1,ixImin1+nghostcells-1
-      w_rad(i,:) = er_is(i)
+    do i=ixImin2,ixImin2+nghostcells-1
+      w_rad(ixImin1:ixImin1+nghostcells-1,i) = w(ixImax2-nghostcells,i,r_e)
     enddo
 
   case(2)
-    do i=ixImax1-nghostcells+1,ixImax1
-      w_rad(i,:) = er_is(i)
+    do i=ixImin2,ixImin2+nghostcells-1
+      w_rad(ixImax1-nghostcells+1:ixImax1,i) = w(ixImax1+nghostcells,i,r_e)
     enddo
+
 
   case(3)
     do i=ixImin1,ixImax1
@@ -322,8 +328,8 @@ subroutine fixleftright(level,qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
   integer :: i
 
   do i = ixOmin2, ixOmax2
-    w(ixOmin1:ixOmin1+5,i,iw_r_e) =  er_is(i)
-    w(ixOmax1-5:ixOmax1,i,iw_r_e) =  er_is(i)
+    w(ixOmin1:ixOmin1+2,i,iw_r_e) =  er_is(i)
+    w(ixOmax1-2:ixOmax1,i,iw_r_e) =  er_is(i)
   enddo
 
 end subroutine fixleftright
@@ -394,7 +400,7 @@ subroutine specialvarnames_output(varnames)
   use mod_global_parameters
   character(len=*) :: varnames
 
-  varnames = 'F1 F2 P_rad lambda fld_R ar1 ar2 Gamma D1 D2'
+  varnames = 'F1 F2 lambda R ar1 ar2 Gamma D1 D2'
 
 end subroutine specialvarnames_output
 

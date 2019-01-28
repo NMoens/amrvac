@@ -973,10 +973,10 @@ contains
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
            rhd_energy,qsourcesplit,active)
       !> diffusion
-      print*, 'begin radiation source', w(5,5,r_e)
+      print*, 'begin radiation source', w(5,5:10,r_e)
       if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
            rhd_energy,qsourcesplit,active)
-      print*, 'end radiation source', w(5,5,r_e)
+      print*, 'end radiation source', w(5,5:10,r_e)
     case default
       call mpistop('Radiation formalism unknown')
     end select

@@ -44,6 +44,9 @@ module mod_physics
   procedure(sub_get_dt), pointer          :: phys_get_dt                 => null()
   procedure(sub_add_source_geom), pointer :: phys_add_source_geom        => null()
   procedure(sub_add_source), pointer      :: phys_add_source             => null()
+
+  procedure(sub_global_source), pointer   :: phys_global_source       => null()
+
   procedure(sub_get_aux), pointer         :: phys_get_aux                => null()
   procedure(sub_check_w), pointer         :: phys_check_w                => null()
   procedure(sub_get_pthermal), pointer    :: phys_get_pthermal           => null()
@@ -135,6 +138,13 @@ module mod_physics
        double precision, intent(in)    :: w(ixI^S, 1:nw)
        double precision, intent(inout) :: dtnew
      end subroutine sub_get_dt
+
+     !> Add global source terms on complete domain (potentially implicit)
+     subroutine sub_global_source(qdt, qt, active)
+       double precision, intent(in) :: qdt    !< Current time step
+       double precision, intent(in) :: qt     !< Current time
+       logical, intent(inout)       :: active !< Output if the source is active
+     end subroutine sub_global_source
 
      subroutine sub_get_aux(clipping,w,x,ixI^L,ixO^L,subname)
        use mod_global_parameters

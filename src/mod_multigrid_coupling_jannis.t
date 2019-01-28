@@ -2,7 +2,7 @@
 !> preprocessor, but its use is kept to a minimum.
 {^IFONED
 !> In 1D, only provide a dummy module.
-module mod_multigrid_coupling
+module mod_multigrid_coupling_jannis
   implicit none
   public
 
@@ -350,5 +350,5 @@ contains
 
   end subroutine mg_tree_from_amrvac
 
-end module mod_multigrid_coupling
+end module mod_multigrid_coupling_jannis
 }

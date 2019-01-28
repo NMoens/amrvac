@@ -5,11 +5,12 @@
 /
 
 &filelist
-  base_filename='./output/const'
+  base_filename='./output/noniso'
+  !restart_from_file = './output/noniso0130.vtu'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
-  nwauxio = 9
+  nwauxio = 10
 /
 
  &savelist
@@ -17,19 +18,19 @@
    itsave(1,2)     = 0
    ditsave_dat     = 1
    ditsave_log     = 1
-   !dtsave_dat     = 1.d-5
-   !dtsave_log     = 1.d-5
+   !dtsave_dat     = 1.d-2
+   !dtsave_log     = 1.d-2
 /
 
  &stoplist
-   time_max = 1.d-3
+   time_max = 5.d0
    dtmin = 1.0d-20
-   it_max = 10
+   it_max = 5
 /
 
  &methodlist
    time_integrator = 'onestep'
-   flux_scheme     = 20*'hll' !'tvdlf'/'hll'
+   flux_scheme     = 20*'tvdlf' !'tvdlf'/'hll'
    limiter         = 20*'minmod' !'minmod'/'koren'
    check_small_values = .true.
    small_values_method = 'replace'
@@ -40,25 +41,24 @@
 /
 
 &boundlist
-  nghostcells  = 4
-  typeboundary_min1 = 5*'special'
-  typeboundary_max1 = 5*'special'
-  typeboundary_min2 = 5*'special'
-  typeboundary_max2 = 5*'special'
-  !typeghostfill= 'copy'
+  nghostcells  =  2
+  typeboundary_min1 = 5*'periodic'
+  typeboundary_max1 = 5*'periodic'
+  typeboundary_min2 = 'special','special','special','special','special'
+  typeboundary_max2 = 'noinflow','noinflow','noinflow','noinflow','special'
   internalboundary = F
 /
 
  &meshlist
    refine_max_level   = 1
-   domain_nx1         = 24
-   domain_nx2         = 24
-   block_nx1          = 24
-   block_nx2          = 24
-   xprobmin1       = -0.01d0
-   xprobmax1       = 0.01d0
-   xprobmin2       = 1.d0
-   xprobmax2       = 1.02d0
+   domain_nx1         = 40
+   domain_nx2         = 40
+   block_nx1          = 40
+   block_nx2          = 40
+   xprobmin1       = -0.1d0
+   xprobmax1       = 0.1d0
+   xprobmin2       = 0.d0
+   xprobmax2       = 2.d0
    iprob=1
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
@@ -66,7 +66,7 @@
 
  &paramlist
   courantpar       = 0.2d0
-  !dtpar           = 1d-8
+  !dtpar = 1d-5
  /
 
  &rhd_list
@@ -91,3 +91,11 @@
   fld_complete_diffusion_limit = .false.
   fld_diff_scheme = 'adi'
 /
+
+ &star_list
+  M_star = 80.d0
+  L_star = 10.d6
+  R_star = 60.d0
+  T_star = 9.d3
+  tau_bound = 100.d0
+ /

@@ -555,7 +555,6 @@ module mod_fld
          error stop "You have to set a user-defined boundary method"
       end select
     enddo
-
   end subroutine set_mg_bounds
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

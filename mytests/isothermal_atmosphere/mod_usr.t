@@ -174,6 +174,11 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
 
   call fld_get_opacity(w, x, ixG^L, ix^L)
 
+  if (fld_diff_scheme .eq. 'mg') then
+    call fld_get_diffcoef_central(w, x, ixG^L, ix^L)
+    call set_mg_bounds()
+  endif
+
   print*, "R_star", R_star0, L_star0
   print*, "R_star", R_star, L_star
   print*, "Flux", Flux0

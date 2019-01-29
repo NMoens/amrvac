@@ -32,7 +32,7 @@
    limiter         = 20*'koren'
    !tvdlfeps = 0.d0
    !typesourcesplit = 'sf'
-   small_values_method= 'replace'
+   small_values_method = 'ignore'
    check_small_values= F
 /
 
@@ -46,11 +46,11 @@
 /
 
  &meshlist
-   refine_max_level   = 1
-   domain_nx1         = 120
-   domain_nx2         = 120
-   block_nx2          = 120
-   block_nx1          = 120
+   refine_max_level   = 3
+   domain_nx1         = 128
+   domain_nx2         = 128
+   block_nx2          = 32
+   block_nx1          = 32
    xprobmin1       =  0.d0
    xprobmax1       =  2.d0
    xprobmin2       =  -1.d0

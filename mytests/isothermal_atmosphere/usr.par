@@ -87,4 +87,5 @@
   fld_diff_testcase = .false.
   fld_opacity_law = 'const'
   fld_complete_diffusion_limit = .false.
+  fld_diff_scheme = 'adi'
  /

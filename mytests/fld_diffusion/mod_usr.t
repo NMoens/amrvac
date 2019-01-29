@@ -77,7 +77,11 @@ contains
       w(ixG^S,r_e) =  spotpattern(x,ixG^L,0.d0)
 
       call fld_get_opacity(w, x, ixG^L, ix^L)
-      call fld_get_diffcoef_central(w, x, ixG^L, ix^L)
+
+      if (fld_diff_scheme .eq. 'mg') then
+        call fld_get_diffcoef_central(w, x, ixG^L, ix^L)
+        call set_mg_bounds()
+      endif
 
     end subroutine initial_conditions
 

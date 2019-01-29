@@ -106,11 +106,6 @@ module mod_fld
 
       mg%n_extra_vars = 1
       mg%operator_type = mg_vhelmholtz
-      mg%bc(:, mg_iphi)%bc_type = mg_bc_neumann
-      mg%bc(:, mg_iphi)%bc_value = 0.d0
-
-
-      !call mg_copy_boundary_conditions(mg,iw_r_e)
 
       i_diff_mg = var_set_extravar("D", "D")
     endif
@@ -506,7 +501,6 @@ module mod_fld
     call diffusion_solve_vcoeff(mg, qdt, 1, 1.d-4)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
-
   end subroutine Diffuse_E_rad_mg
 
   subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
@@ -539,6 +533,30 @@ module mod_fld
     call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
   end subroutine set_mg_diffcoef
 
+  subroutine set_mg_bounds()
+    use mod_global_parameters
+    integer :: iB
+
+    do iB = 1,4
+      select case (typeboundary(iw_r_e, iB))
+      case ('symm')
+         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+         mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+      case ('asymm')
+         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+         mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+      case ('cont')
+         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+         mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
+      case ('periodic')
+         ! Nothing to do here
+      case default
+         print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
+         error stop "You have to set a user-defined boundary method"
+      end select
+    enddo
+
+  end subroutine set_mg_bounds
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!! ADI
@@ -955,6 +973,9 @@ module mod_fld
     double precision, intent(inout) :: E_m(ixI^S)
     integer :: iB
     integer g, h
+
+
+    call mpistop('Check if typeboundary(:,4) is defined')
 
     !> Boundary conditions for bound 1 (left)
     select case (typeboundary(iw_r_e,1))

@@ -183,6 +183,12 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
 
+  if (fld_diff_scheme .eq. 'mg') then
+    call fld_get_diffcoef_central(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
+        ixmin1,ixmin2,ixmax1,ixmax2)
+    call set_mg_bounds()
+  endif
+
   print*, "R_star", R_star0, L_star0
   print*, "R_star", R_star, L_star
   print*, "Flux", Flux0

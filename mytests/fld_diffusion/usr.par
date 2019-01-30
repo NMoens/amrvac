@@ -33,11 +33,11 @@
    !tvdlfeps = 0.d0
    !typesourcesplit = 'sf'
    small_values_method = 'ignore'
-   check_small_values= F
+   check_small_values = T
 /
 
 &boundlist
-  nghostcells  =  4
+  nghostcells  =  2
   typeboundary_min1 = 5*'cont'
   typeboundary_max1 = 5*'cont'
   typeboundary_min2 = 5*'cont'

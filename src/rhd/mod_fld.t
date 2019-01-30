@@ -204,6 +204,7 @@ module mod_fld
     use mod_constants
     use mod_global_parameters
     use mod_usr_methods
+    use mod_physics
 
     use mod_physics, only: phys_get_pthermal  !needed to get temp
 
@@ -227,7 +228,7 @@ module mod_fld
         ! call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
         ! call set_mg_diffcoef()
         ! call Diffuse_E_rad_mg(qdt, qt, active)
-        print*, it, active, w(5,5,i_diff_mg)
+        call phys_global_source(dt, global_time, active)
       case default
         call mpistop('Numerical diffusionscheme unknown, try adi or mg')
       end select
@@ -525,7 +526,18 @@ module mod_fld
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*fld_lambda(ixO^S)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
 
-      call mpistop('expand D to ghostcells')
+      !call mpistop('expand D to ghostcells')
+
+      do i = ixImin1,ixImax1
+        w(i,ixImin2:ixImin2+nghostcells-1,i_diff_mg) = w(i,ixImin2+nghostcells,i_diff_mg)
+        w(i,ixImax2-nghostcells+1:ixImin2,i_diff_mg) = w(i,ixImax2-nghostcells,i_diff_mg)
+      enddo
+
+      do i = ixImin2,ixImax2
+        w(ixImin1:ixImin1+nghostcells-1,i,i_diff_mg) = w(ixImin1+nghostcells,i,i_diff_mg)
+        w(ixImax1-nghostcells+1:ixImin1,i,i_diff_mg) = w(ixImax1-nghostcells,i,i_diff_mg)
+      enddo
+
     endif
   end subroutine fld_get_diffcoef_central
 
@@ -549,7 +561,26 @@ module mod_fld
          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
       case ('periodic')
-         ! Nothing to do here
+        !> Do nothing
+      case ('special')
+        call mpistop('Hold your bloody horses, not implemented yet.')
+        select case (iB)
+        case (1)
+           mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+           mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
+        case (2)
+           mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+           mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
+        case (3)
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+        case (4)
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+        case default
+          print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
+          error stop "You have to set a user-defined boundary method"
+        end select
       case default
          print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
          error stop "You have to set a user-defined boundary method"

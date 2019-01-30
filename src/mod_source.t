@@ -43,9 +43,9 @@ contains
     end do
     !$OMP END PARALLEL DO
 
-    if (.not. prior .and. associated(phys_global_source)) then
-       call phys_global_source(dt, qt, src_active)
-    end if
+    ! if (.not. prior .and. associated(phys_global_source)) then
+    !    call phys_global_source(dt, qt, src_active)
+    ! end if
 
     if (src_active) then
        call getbc(qt,0.d0,ps,0,nwflux+nwaux, phys_req_diagonal)

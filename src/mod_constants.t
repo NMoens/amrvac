@@ -53,7 +53,7 @@ module mod_constants
   !> NICOLAS MOENS
   double precision, PARAMETER :: const_sigma = 5.67051d-5      !erg cm^-2 K^-4 s^-1; Stefan-Boltzman constant
   double precision, PARAMETER :: const_G     = 6.67259d-8      !cm^3 g^-1 s^-2     ; Cavendish gravitational constant
-
+  double precision, PARAMETER :: const_rad_a    = 7.5646e-15   !erg cm^-3 K-4
 
 
   ! Conversion factors:

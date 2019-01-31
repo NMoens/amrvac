@@ -12,7 +12,7 @@ contains
   !> This routine should set user methods, and activate the physics module
   subroutine usr_init()
 
-    ! Choose coordinate system as 2D Cartesian with three components for vectors
+    ! Choose coordinate system 
     call set_coordinate_system("Cartesian_2D")
 
     ! A routine for initial conditions is always required
@@ -33,6 +33,7 @@ contains
      ixOmin2,ixOmax1,ixOmax2, w, x)
     use mod_global_parameters
     use mod_physics, only: phys_get_tgas
+    use mod_fld
 
     integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
         ixOmin1,ixOmin2,ixOmax1,ixOmax2
@@ -59,10 +60,16 @@ contains
     rbs=0.2d0
     where((x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)-xc1)**2+(x(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,2)-xc2)**2<rbs**2)
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_)=100.d0
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_)=2.d0
     endwhere
 
+    ! w(ixO^S,r_e) = w(ixO^S,r_e)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)
+
     call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2)
+    call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
 
     if (fld_diff_scheme .eq. 'mg') then

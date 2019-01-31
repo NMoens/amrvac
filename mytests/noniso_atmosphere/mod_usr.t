@@ -333,28 +333,21 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   double precision, intent(in)       :: x(ixI^S,1:ndim)
   double precision                   :: w(ixI^S,nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
-  double precision                   :: rad_flux(ixO^S,1:ndim), fld_lambda(ixO^S), fld_R(ixO^S)
   double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S), D(ixI^S,1:ndim)
   integer                            :: idim
 
-  call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
-  call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, fld_lambda, fld_R)
   call fld_get_diffcoef(w, x, ixI^L, ixO^L, D)
 
   do idim = 1,ndim
-    g_rad(ixO^S,idim) = w(ixO^S,i_op)*rad_flux(ixO^S,idim)/const_c
+    g_rad(ixO^S,idim) = w(ixO^S,i_op)*w(ixO^S,i_flux(idim))/const_c
   enddo
   big_gamma(ixO^S) = g_rad(ixO^S,2)/(6.67e-8*mstar/rstar**2*(unit_time**2/unit_length))
 
-  w(ixO^S,nw+1)=rad_flux(ixO^S,1)*(unit_pressure*unit_velocity)
-  w(ixO^S,nw+2)=rad_flux(ixO^S,2)*(unit_pressure*unit_velocity)
-  w(ixO^S,nw+3)=fld_lambda(ixO^S)
-  w(ixO^S,nw+4)=fld_R(ixO^S)
-  w(ixO^S,nw+5)=g_rad(ixO^S,1)*unit_length/(unit_time**2)
-  w(ixO^S,nw+6)=g_rad(ixO^S,2)*unit_length/(unit_time**2)
-  w(ixO^S,nw+7)=big_gamma(ixO^S)
-  w(ixO^S,nw+8)=D(ixO^S,1)
-  w(ixO^S,nw+9)=D(ixO^S,2)
+  w(ixO^S,nw+1)=g_rad(ixO^S,1)*unit_length/(unit_time**2)
+  w(ixO^S,nw+2)=g_rad(ixO^S,2)*unit_length/(unit_time**2)
+  w(ixO^S,nw+3)=big_gamma(ixO^S)
+  w(ixO^S,nw+4)=D(ixO^S,1)
+  w(ixO^S,nw+5)=D(ixO^S,2)
 end subroutine specialvar_output
 
 subroutine specialvarnames_output(varnames)

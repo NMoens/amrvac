@@ -961,8 +961,10 @@ contains
     logical, intent(in) :: qsourcesplit
     logical, intent(inout) :: active
 
-    !> Update opacities
+    !> Update opacities, flux limiter and radiation fluxes
     call fld_get_opacity(w, x, ixI^L, ixO^L)
+    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
+    call fld_get_radflux(w, x, ixI^L, ixO^L)
     if (fld_diff_scheme .eq. 'mg') call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
 
     select case(rhd_radiation_formalism)

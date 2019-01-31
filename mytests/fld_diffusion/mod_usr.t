@@ -77,6 +77,9 @@ contains
       w(ixG^S,r_e) =  spotpattern(x,ixG^L,0.d0)
 
       call fld_get_opacity(w, x, ixG^L, ix^L)
+      call fld_get_opacity(w, x, ixI^L, ixO^L)
+      call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
+      call fld_get_radflux(w, x, ixI^L, ixO^L)
 
       if (fld_diff_scheme .eq. 'mg') then
         call fld_get_diffcoef_central(w, x, ixG^L, ix^L)

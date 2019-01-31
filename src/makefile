@@ -215,13 +215,14 @@ mod_rhd.o: mod_rhd_hllc.mod
 mod_rhd.o: mod_rhd_phys.mod
 mod_rhd.o: mod_rhd_ppm.mod
 mod_rhd.o: mod_rhd_roe.mod
-mod_fld.o: mod_opacity.mod
 mod_rhd_phys.o: mod_dust.mod
 mod_rhd_phys.o: mod_gravity.mod
 mod_rhd_phys.o: mod_fld.mod
 mod_fld.o: mod_multigrid_coupling.mod
 mod_fld.o: mod_physics.mod
 mod_fld.o: m_diffusion.mod
+mod_fld.o: mod_opacity.mod
+mod_fld.o: mod_geometry.mod
 mod_rhd_phys.o: mod_particles.mod
 mod_rhd_phys.o: mod_physics.mod
 mod_rhd_phys.o: mod_radiative_cooling.mod

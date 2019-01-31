@@ -12,7 +12,7 @@ contains
   !> This routine should set user methods, and activate the physics module
   subroutine usr_init()
 
-    ! Choose coordinate system 
+    ! Choose coordinate system
     call set_coordinate_system("Cartesian_2D")
 
     ! A routine for initial conditions is always required
@@ -54,7 +54,7 @@ contains
     xc2=(xprobmin2+xprobmax2)*0.5d0
     rbs=0.2d0
     where((x(ixO^S,1)-xc1)**2+(x(ixO^S,2)-xc2)**2<rbs**2)
-      w(ixO^S,e_)=2.d0
+      w(ixO^S,e_)=10.d0
     endwhere
 
     ! w(ixO^S,r_e) = w(ixO^S,r_e)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)

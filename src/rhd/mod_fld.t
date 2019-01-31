@@ -313,13 +313,14 @@ module mod_fld
   !> Calculate fld flux limiter
   subroutine fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
     use mod_global_parameters
+    use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision :: fld_R(ixO^S), fld_lambda(ixO^S)
     double precision ::  normgrad2(ixO^S)
-    double precision :: grad_r_e(ixO^S)
+    double precision :: grad_r_e(ixI^S)
     integer :: idir
 
     if (fld_complete_diffusion_limit) then
@@ -332,7 +333,7 @@ module mod_fld
       !> |grad E|/(rho kappa E)
       normgrad2(ixO^S) = zero
       do idir = 1,ndir
-        call grad(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,x,grad_r_e)
+        call gradient(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
@@ -345,13 +346,13 @@ module mod_fld
       w(ixO^S,i_lambda) = fld_lambda(ixO^S)
       w(ixO^S,i_fld_R) = fld_R(ixO^S)
     endif
-
   end subroutine fld_get_fluxlimiter
 
   !> Calculate Radiation Flux
   !> Returns Radiation flux and radiation pressure
   subroutine fld_get_radflux(w, x, ixI^L, ixO^L)
     use mod_global_parameters
+    use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
@@ -359,14 +360,17 @@ module mod_fld
     double precision :: rad_flux(ixO^S, 1:ndim)
     double precision :: L_star, R_star
     double precision :: normgrad2(ixO^S), f(ixO^S)
-    double precision :: grad_r_e(ixO^S, 1:ndim)
+    double precision :: grad_r_e(ixI^S)
+    double precision :: rad_e(ixI^S)
     integer :: idir
+
+    rad_e(ixI^S) = w(ixI^S, iw_r_e)
 
     !> Calculate the Flux using the fld closure relation
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndir
-      call gradE(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,x,grad_r_e(ixO^S,idir))
-      rad_flux(ixO^S, idir) = -fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho)) *grad_r_e(ixO^S,idir)
+      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+      rad_flux(ixO^S, idir) = -fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
 
     w(ixO^S,i_flux(:)) = rad_flux(ixO^S,:)
@@ -376,13 +380,14 @@ module mod_fld
   !> Returns Radiation Pressure
   subroutine fld_get_eddington(w, x, ixI^L, ixO^L, eddington_tensor)
     use mod_global_parameters
+    use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out):: eddington_tensor(ixO^S,1:ndim,1:ndim)
     double precision :: normgrad2(ixO^S), f(ixO^S)
-    double precision :: grad_r_e(ixO^S, 1:ndim)
+    double precision :: grad_r_e(ixI^S, 1:ndim)
     integer :: idir,jdir
 
     !> Calculate R everywhere
@@ -390,7 +395,7 @@ module mod_fld
     normgrad2(ixO^S) = zero
 
     do idir = 1,ndir
-      call grad(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,x,grad_r_e(ixO^S,idir))
+      call gradient(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
@@ -428,54 +433,53 @@ module mod_fld
         rad_pressure(ixO^S,i,j) = eddington_tensor(ixO^S,i,j)* w(ixO^S,iw_r_e)
       enddo
     enddo
-
   end subroutine fld_get_radpress
 
-  subroutine grad(q,ixI^L,ixO^L,idir,x,gradq)
-    ! Compute the true gradient of a scalar q within ixL in direction idir ie :
-    !  - in cylindrical : d_/dr , (1/r)*d_/dth , d_/dz
-    !  - in spherical   : d_/dr , (1/r)*d_/dth , (1/rsinth)*d_/dphi
-    use mod_global_parameters
-
-    integer, intent(in) :: ixI^L, ixO^L, idir
-    double precision, intent(in) :: q(ixI^S), x(ixI^S,1:ndim)
-    double precision, intent(out) ::  gradq(ixO^S)
-
-    integer :: jx^L, hx^L
-    !-----------------------------------------------------------------------------
-    jx^L=ixO^L+kr(idir,^D);
-    hx^L=ixO^L-kr(idir,^D);
-
-    gradq(ixO^S)=(q(jx^S)-q(hx^S))/(x(jx^S,idir)-x(hx^S,idir))
-
-    select case (typeaxial)
-    case('slab') ! nothing to do
-    case('cylindrical')
-      if (idir==phi_) gradq(ixO^S)=gradq(ixO^S)/ x(ixO^S,r_)
-    case('spherical')
-      if (idir==2   ) gradq(ixO^S)=gradq(ixO^S)/ x(ixO^S,r_)
-      if (idir==phi_) gradq(ixO^S)=gradq(ixO^S)/(x(ixO^S,r_)*dsin(x(ixO^S,2)))
-    case default
-      call mpistop('Unknown geometry')
-    end select
-  end subroutine grad
-
-  subroutine gradE(q,ixI^L,ixO^L,idir,x,gradq)
-    ! Compute the true gradient of a scalar q within ixL in direction idir ie :
-    !  - in cylindrical : d_/dr , (1/r)*d_/dth , d_/dz
-    !  - in spherical   : d_/dr , (1/r)*d_/dth , (1/rsinth)*d_/dphi
-    use mod_global_parameters
-
-    integer, intent(in) :: ixI^L, ixO^L, idir
-    double precision, intent(in) :: q(ixI^S), x(ixI^S,1:ndim)
-    double precision, intent(out) ::  gradq(ixO^S)
-
-    integer :: jx^L
-    !-----------------------------------------------------------------------------
-    jx^L=ixO^L+kr(idir,^D);
-
-    gradq(ixO^S)=(q(jx^S)-q(ixO^S))/(x(jx^S,idir)-x(ixO^S,idir))
-  end subroutine gradE
+  ! subroutine grad(q,ixI^L,ixO^L,idir,x,gradq)
+  !   ! Compute the true gradient of a scalar q within ixL in direction idir ie :
+  !   !  - in cylindrical : d_/dr , (1/r)*d_/dth , d_/dz
+  !   !  - in spherical   : d_/dr , (1/r)*d_/dth , (1/rsinth)*d_/dphi
+  !   use mod_global_parameters
+  !
+  !   integer, intent(in) :: ixI^L, ixO^L, idir
+  !   double precision, intent(in) :: q(ixI^S), x(ixI^S,1:ndim)
+  !   double precision, intent(out) ::  gradq(ixO^S)
+  !
+  !   integer :: jx^L, hx^L
+  !   !-----------------------------------------------------------------------------
+  !   jx^L=ixO^L+kr(idir,^D);
+  !   hx^L=ixO^L-kr(idir,^D);
+  !
+  !   gradq(ixO^S)=(q(jx^S)-q(hx^S))/(x(jx^S,idir)-x(hx^S,idir))
+  !
+  !   select case (typeaxial)
+  !   case('slab') ! nothing to do
+  !   case('cylindrical')
+  !     if (idir==phi_) gradq(ixO^S)=gradq(ixO^S)/ x(ixO^S,r_)
+  !   case('spherical')
+  !     if (idir==2   ) gradq(ixO^S)=gradq(ixO^S)/ x(ixO^S,r_)
+  !     if (idir==phi_) gradq(ixO^S)=gradq(ixO^S)/(x(ixO^S,r_)*dsin(x(ixO^S,2)))
+  !   case default
+  !     call mpistop('Unknown geometry')
+  !   end select
+  ! end subroutine grad
+  !
+  ! subroutine gradE(q,ixI^L,ixO^L,idir,x,gradq)
+  !   ! Compute the true gradient of a scalar q within ixL in direction idir ie :
+  !   !  - in cylindrical : d_/dr , (1/r)*d_/dth , d_/dz
+  !   !  - in spherical   : d_/dr , (1/r)*d_/dth , (1/rsinth)*d_/dphi
+  !   use mod_global_parameters
+  !
+  !   integer, intent(in) :: ixI^L, ixO^L, idir
+  !   double precision, intent(in) :: q(ixI^S), x(ixI^S,1:ndim)
+  !   double precision, intent(out) ::  gradq(ixO^S)
+  !
+  !   integer :: jx^L
+  !   !-----------------------------------------------------------------------------
+  !   jx^L=ixO^L+kr(idir,^D);
+  !
+  !   gradq(ixO^S)=(q(jx^S)-q(ixO^S))/(x(jx^S,idir)-x(ixO^S,idir))
+  ! end subroutine gradE
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!! Multigrid diffusion
@@ -505,19 +509,19 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      w(ixI^S,i_diff_mg) = (one+global_time)*unit_length/unit_velocity
+      w(ixI^S,i_diff_mg) = one*unit_length/unit_velocity
     else
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
 
-      do i = ixImin1,ixImax1
-        w(i,ixImin2:ixImin2+nghostcells-1,i_diff_mg) = w(i,ixImin2+nghostcells,i_diff_mg)
-        w(i,ixImax2-nghostcells+1:ixImin2,i_diff_mg) = w(i,ixImax2-nghostcells,i_diff_mg)
-      enddo
-      do i = ixImin2,ixImax2
-        w(ixImin1:ixImin1+nghostcells-1,i,i_diff_mg) = w(ixImin1+nghostcells,i,i_diff_mg)
-        w(ixImax1-nghostcells+1:ixImin1,i,i_diff_mg) = w(ixImax1-nghostcells,i,i_diff_mg)
-      enddo
+      ! do i = ixImin1,ixImax1
+      !   w(i,ixImin2:ixImin2+nghostcells-1,i_diff_mg) = w(i,ixImin2+nghostcells,i_diff_mg)
+      !   w(i,ixImax2-nghostcells+1:ixImin2,i_diff_mg) = w(i,ixImax2-nghostcells,i_diff_mg)
+      ! enddo
+      ! do i = ixImin2,ixImax2
+      !   w(ixImin1:ixImin1+nghostcells-1,i,i_diff_mg) = w(ixImin1+nghostcells,i,i_diff_mg)
+      !   w(ixImax1-nghostcells+1:ixImin1,i,i_diff_mg) = w(ixImax1-nghostcells,i,i_diff_mg)
+      ! enddo
     endif
   end subroutine fld_get_diffcoef_central
 
@@ -1090,7 +1094,7 @@ module mod_fld
 
   subroutine Energy_interaction(w, x, ixI^L, ixO^L)
     use mod_global_parameters
-    use mod_geometry, only: divvector
+    use mod_geometry
     use mod_physics, only: phys_get_pthermal
 
     integer, intent(in)             :: ixI^L, ixO^L
@@ -1103,7 +1107,7 @@ module mod_fld
     double precision :: a1(ixO^S), a2(ixO^S), a3(ixO^S)
     double precision :: c0(ixO^S), c1(ixO^S)
     double precision :: e_gas(ixO^S), E_rad(ixO^S)
-    double precision :: grad_v(ixO^S)
+    double precision :: grad_v(ixI^S)
 
     integer :: i,j,idir
 
@@ -1114,7 +1118,7 @@ module mod_fld
     do i = 1,ndim
       do j = 1,ndim
         vel(ixI^S) = w(ixI^S,iw_mom(j))
-        call grad(vel,ixI^L,ixO^L,i,x,grad_v)
+        call gradient(vel,ixI^L,ixO^L,i,grad_v)
         div_v(ixO^S,i,j) = grad_v(ixO^S)
       enddo
     enddo

@@ -982,14 +982,14 @@ contains
 
     select case(rhd_radiation_formalism)
     case('fld')
+      !> diffusion
+      if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
+           rhd_energy,qsourcesplit,active)
       !> radiation force
       if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
            rhd_energy,qsourcesplit,active)
       !> photon tiring, heating and cooling
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
-           rhd_energy,qsourcesplit,active)
-      !> diffusion
-      if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
            rhd_energy,qsourcesplit,active)
     case default
       call mpistop('Radiation formalism unknown')

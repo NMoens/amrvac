@@ -606,7 +606,7 @@ module mod_fld
          print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
          error stop "You have to set a user-defined boundary method"
       end select
-      print*, mg%bc(iB, mg_iphi)%bc_type
+      ! print*, mg%bc(iB, mg_iphi)%bc_type
     enddo
   end subroutine set_mg_bounds
 
@@ -1023,7 +1023,7 @@ module mod_fld
     integer g, h
 
 
-    call mpistop('Check if typeboundary(:,4) is defined')
+    !call mpistop('Check if typeboundary(:,4) is defined')
 
     !> Boundary conditions for bound 1 (left)
     select case (typeboundary(iw_r_e,1))
@@ -1138,7 +1138,6 @@ module mod_fld
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
-    double precision :: edd_tnsr(ixO^S,1:ndim,1:ndim)
     double precision :: div_v(ixI^S,1:ndir,1:ndir)
     double precision :: divvP(ixO^S)
     double precision :: temperature(ixI^S), vel(ixI^S)
@@ -1183,14 +1182,14 @@ module mod_fld
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
-    do i = ixOmin1, ixOmax1
-      do j = ixOmin2, ixOmax2
-        print*, i,j, a1(i,j), a2(i,j), a3(i,j), c0(i,j), c1(i,j)
-        print*, i,j, divvP(i,j), E_rad(i,j)
-        print*, edd_tnsr(i,j,1,1), edd_tnsr(i,j,2,1), edd_tnsr(i,j,1,2), edd_tnsr(i,j,2,2)
-        print*, '---------------------------------------------------------------'
-      enddo
-    enddo
+    ! do i = ixOmin1, ixOmax1
+    !   do j = ixOmin2, ixOmax2
+    !     print*, i,j, a1(i,j), a2(i,j), a3(i,j), c0(i,j), c1(i,j)
+    !     print*, i,j, divvP(i,j), E_rad(i,j)
+    !     print*, w(ixO^S,i_edd(1,1)), w(ixO^S,i_edd(1,2)),w(ixO^S,i_edd(2,1)), w(ixO^S,i_edd(2,2))
+    !     print*, '---------------------------------------------------------------'
+    !   enddo
+    ! enddo
 
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1

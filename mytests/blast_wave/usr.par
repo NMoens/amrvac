@@ -66,8 +66,8 @@
 &fld_list
       fld_split = .false.
       fld_kappa0 = 1.d24
-      fld_diff_testcase = .false.
+      fld_diff_testcase = .true.
       fld_opacity_law = 'const'
       fld_diff_scheme = 'mg'
-      fld_diff_testcase = .false.
+      fld_diff_testcase = .true.
 /

@@ -43,6 +43,7 @@ contains
 
     double precision :: rbs,xc1,xc2
     double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: local_rad_e
 
     w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = one
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = zero
@@ -51,16 +52,17 @@ contains
     call phys_get_tgas(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
        ixOmax1,ixOmax2,Temp)
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = &
-       const_rad_a/unit_pressure*unit_temperature**4.d0 *Temp(ixImin1:ixImax1,&
-       ixImin2:ixImax2)**4.d0
+    !> Have to do this in 2 steps to define boundary e_rad
+    local_rad_e = const_rad_a/unit_pressure*unit_temperature**4.d0 *Temp(5,&
+       5)**4.d0
+    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = local_rad_e
 
     xc1=(xprobmin1+xprobmax1)*0.5d0
     xc2=(xprobmin2+xprobmax2)*0.5d0
     rbs=0.2d0
-    where((x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)-xc1)**2+(x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,2)-xc2)**2<rbs**2)
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_)=10.d0
+    where((x(ixImin1:ixImax1,ixImin2:ixImax2,1)-xc1)**2+(x(ixImin1:ixImax1,&
+       ixImin2:ixImax2,2)-xc2)**2<rbs**2)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_)=10.d0
     endwhere
 
     ! w(ixO^S,r_e) = w(ixO^S,r_e)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)

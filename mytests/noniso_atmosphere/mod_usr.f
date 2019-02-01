@@ -353,45 +353,30 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
   double precision                   :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
      nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
-  double precision                   :: rad_flux(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2,1:ndim), fld_lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
-      fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
   double precision                   :: g_rad(ixImin1:ixImax1,ixImin2:ixImax2,&
      1:ndim), big_gamma(ixImin1:ixImax1,ixImin2:ixImax2), D(ixImin1:ixImax1,&
      ixImin2:ixImax2,1:ndim)
   integer                            :: idim
 
-  call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
-     ixOmax1,ixOmax2, rad_flux)
-  call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-     ixOmin2,ixOmax1,ixOmax2, fld_lambda, fld_R)
   call fld_get_diffcoef(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2, D)
 
   do idim = 1,ndim
     g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2,idim) = w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,i_op)*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       idim)/const_c
+       ixOmin2:ixOmax2,i_op)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       i_flux(idim))/const_c
   enddo
   big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = g_rad(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2,2)/(6.67e-8*mstar/rstar**2*(unit_time**2/unit_length))
 
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1)=rad_flux(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2,1)*(unit_pressure*unit_velocity)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2)=rad_flux(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2,2)*(unit_pressure*unit_velocity)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3)=fld_lambda(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4)=fld_R(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5)=g_rad(ixOmin1:ixOmax1,&
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1)=g_rad(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2,1)*unit_length/(unit_time**2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+6)=g_rad(ixOmin1:ixOmax1,&
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2)=g_rad(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2,2)*unit_length/(unit_time**2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+7)=big_gamma(ixOmin1:ixOmax1,&
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3)=big_gamma(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+8)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+9)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2)
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2)
 end subroutine specialvar_output
 
 subroutine specialvarnames_output(varnames)

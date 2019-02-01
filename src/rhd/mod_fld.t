@@ -369,7 +369,7 @@ module mod_fld
     !> Calculate the Flux using the fld closure relation
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndir
-      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+      call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
       rad_flux(ixO^S, idir) = -fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
 
@@ -386,9 +386,10 @@ module mod_fld
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out):: eddington_tensor(ixO^S,1:ndim,1:ndim)
+    double precision :: tnsr2(ixO^S,1:ndim,1:ndim)
     double precision :: normgrad2(ixO^S), f(ixO^S)
     double precision :: grad_r_e(ixI^S, 1:ndim)
-    integer :: idir,jdir
+    integer :: i,j, idir,jdir
 
     !> Calculate R everywhere
     !> |grad E|/(rho kappa E)
@@ -405,9 +406,22 @@ module mod_fld
     f(ixO^S) = one/two*(one-f(ixO^S)) + one/two*(3.d0*f(ixO^S) - one)
 
     do idir = 1,ndir
+      eddington_tensor(ixO^S,idir,idir) = half*(one-f(ixO^S))
       do jdir = 1,ndir
-        eddington_tensor(ixO^S,idir,jdir) = one/two*((one-f(ixO^S)) &
-        + (3.d0*f(ixO^S) - 1)* grad_r_e(ixO^S,idir)*grad_r_e(ixO^S,jdir)/normgrad2(ixO^S))
+        tnsr2(ixO^S,idir,jdir) =  half*(3.d0*f(ixO^S) - 1)&
+        *grad_r_e(ixO^S,idir)*grad_r_e(ixO^S,jdir)/normgrad2(ixO^S)
+      enddo
+    enddo
+
+    do idir = 1,ndir
+      do jdir = 1,ndir
+        do i = ixOmin1,ixOmax1
+          do j = ixOmin2, ixOmax2
+            if (tnsr2(i,j,idir,jdir) .eq. tnsr2(i,j,idir,jdir)) then
+              eddington_tensor(i,j,idir,jdir) = eddington_tensor(i,j,idir,jdir) + tnsr2(i,j,idir,jdir)
+            endif
+          enddo
+        enddo
       enddo
     enddo
   end subroutine fld_get_eddington
@@ -514,14 +528,14 @@ module mod_fld
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
 
-      ! do i = ixImin1,ixImax1
-      !   w(i,ixImin2:ixImin2+nghostcells-1,i_diff_mg) = w(i,ixImin2+nghostcells,i_diff_mg)
-      !   w(i,ixImax2-nghostcells+1:ixImin2,i_diff_mg) = w(i,ixImax2-nghostcells,i_diff_mg)
-      ! enddo
-      ! do i = ixImin2,ixImax2
-      !   w(ixImin1:ixImin1+nghostcells-1,i,i_diff_mg) = w(ixImin1+nghostcells,i,i_diff_mg)
-      !   w(ixImax1-nghostcells+1:ixImin1,i,i_diff_mg) = w(ixImax1-nghostcells,i,i_diff_mg)
-      ! enddo
+      do i = ixImin1,ixImax1
+        w(i,ixImin2:ixImin2+nghostcells-1,i_diff_mg) = w(i,ixImin2+nghostcells,i_diff_mg)
+        w(i,ixImax2-nghostcells+1:ixImin2,i_diff_mg) = w(i,ixImax2-nghostcells,i_diff_mg)
+      enddo
+      do i = ixImin2,ixImax2
+        w(ixImin1:ixImin1+nghostcells-1,i,i_diff_mg) = w(ixImin1+nghostcells,i,i_diff_mg)
+        w(ixImax1-nghostcells+1:ixImin1,i,i_diff_mg) = w(ixImax1-nghostcells,i,i_diff_mg)
+      enddo
     endif
   end subroutine fld_get_diffcoef_central
 
@@ -1151,8 +1165,7 @@ module mod_fld
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1
     do j =  ixOmin2,ixOmax2
-        print*, i,j, a1(i,j), a2(i,j), a3(i,j)
-        call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+          call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
     enddo
     enddo
 

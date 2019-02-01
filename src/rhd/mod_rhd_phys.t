@@ -73,6 +73,9 @@ module mod_rhd_phys
   !> Treat radiation energy diffusion
   logical, public, protected :: rhd_radiation_diffusion = .true.
 
+  !> Treat radiation advection
+  logical, public, protected :: rhd_advect_radiation =.true.
+
 
   ! Public methods
   public :: rhd_phys_init
@@ -611,7 +614,7 @@ contains
        pth(ixO^S) = (rhd_gamma - 1.0d0) * (w(ixO^S, e_) - &
             rhd_kin_en(w, ixI^L, ixO^L))
     else
-       pth(ixO^S) = rhd_adiab * w(ixO^S, rho_)**rhd_gamma
+       pth(ixI^S) = rhd_adiab * w(ixI^S, rho_)**rhd_gamma
     end if
 
   end subroutine rhd_get_pthermal
@@ -675,7 +678,7 @@ contains
 
     mu = (1.d0+4.d0*He_abundance)/two
 
-    tgas(ixO^S) = pth(ixO^S)/w(ixO^S,rho_)*const_mp*mu/const_kB &
+    tgas(ixI^S) = pth(ixI^S)/w(ixI^S,rho_)*const_mp*mu/const_kB &
     *unit_pressure/(unit_density*unit_temperature)
 
   end subroutine rhd_get_tgas
@@ -708,7 +711,11 @@ contains
       f(ixO^S, e_) = v(ixO^S) * (w(ixO^S, e_) + pth(ixO^S))
     end if
 
-    f(ixO^S, r_e) = v(ixO^S) * w(ixO^S, r_e)
+    if (rhd_advect_radiation) then
+      f(ixO^S, r_e) = v(ixO^S) * w(ixO^S, r_e)
+    else
+      f(ixO^S, r_e) = zero
+    endif
 
     do itr = 1, rhd_n_tracer
        f(ixO^S, tracer(itr)) = v(ixO^S) * w(ixO^S, tracer(itr))
@@ -757,7 +764,11 @@ contains
       f(ixO^S, e_) = w(ixO^S,mom(idim)) * (wC(ixO^S, e_) + w(ixO^S,p_))
     end if
 
-    f(ixO^S, r_e) = w(ixO^S,mom(idim)) * w(ixO^S, r_e)
+    if (rhd_advect_radiation) then
+      f(ixO^S, r_e) = w(ixO^S,mom(idim)) * wC(ixO^S, r_e)
+    else
+      f(ixO^S, r_e) = zero
+    endif
 
     do itr = 1, rhd_n_tracer
        f(ixO^S, tracer(itr)) = w(ixO^S,mom(idim)) * w(ixO^S, tracer(itr))

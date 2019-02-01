@@ -202,7 +202,8 @@ module mod_fld
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
-            + qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
+            + qdt * radiation_force(ixO^S,idir)
+            !+ qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
             !> NOT SURE ON HOW TO AVERAGE OVER LEFTHANDSIDE AND RIGHTHANDSIDE FLUX EDGE
       enddo
     end if
@@ -318,7 +319,6 @@ module mod_fld
             Temp0 = Temp(i,j)*unit_temperature
 
             call set_opal_opacity(rho0,Temp0,n)
-            !print*,i,j, rho0, Temp0, n
 
             fld_kappa(i,j) = n/unit_opacity
           enddo
@@ -389,7 +389,7 @@ module mod_fld
     !> Calculate the Flux using the fld closure relation
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndir
-      call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
       rad_flux(ixO^S, idir) = -fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
 
@@ -546,7 +546,7 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      w(ixI^S,i_diff_mg) = one*unit_length/unit_velocity
+      w(ixI^S,i_diff_mg) = one!*unit_length/unit_velocity
     else
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
@@ -606,7 +606,6 @@ module mod_fld
          print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
          error stop "You have to set a user-defined boundary method"
       end select
-      ! print*, mg%bc(iB, mg_iphi)%bc_type
     enddo
   end subroutine set_mg_bounds
 
@@ -1182,19 +1181,9 @@ module mod_fld
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
-    ! do i = ixOmin1, ixOmax1
-    !   do j = ixOmin2, ixOmax2
-    !     print*, i,j, a1(i,j), a2(i,j), a3(i,j), c0(i,j), c1(i,j)
-    !     print*, i,j, divvP(i,j), E_rad(i,j)
-    !     print*, w(ixO^S,i_edd(1,1)), w(ixO^S,i_edd(1,2)),w(ixO^S,i_edd(2,1)), w(ixO^S,i_edd(2,2))
-    !     print*, '---------------------------------------------------------------'
-    !   enddo
-    ! enddo
-
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1
     do j =  ixOmin2,ixOmax2
-          print*,it, i,j
           call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
     enddo
     enddo

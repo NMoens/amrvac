@@ -74,7 +74,7 @@ module mod_rhd_phys
   logical, public, protected :: rhd_radiation_diffusion = .true.
 
   !> Treat radiation advection
-  logical, public, protected :: rhd_advect_radiation =.true.
+  logical, public, protected :: rhd_radiation_advection = .true.
 
 
   ! Public methods
@@ -98,7 +98,7 @@ contains
     namelist /rhd_list/ rhd_energy, rhd_n_tracer, rhd_gamma, rhd_adiab, &
     rhd_dust, rhd_thermal_conduction, rhd_radiative_cooling, rhd_viscosity, &
     rhd_gravity, He_abundance, SI_unit, rhd_particles, rhd_radiation_formalism,&
-    rhd_radiation_force, rhd_energy_interact, rhd_radiation_diffusion
+    rhd_radiation_force, rhd_energy_interact, rhd_radiation_diffusion, rhd_radiation_advection
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -711,7 +711,7 @@ contains
       f(ixO^S, e_) = v(ixO^S) * (w(ixO^S, e_) + pth(ixO^S))
     end if
 
-    if (rhd_advect_radiation) then
+    if (rhd_radiation_advection) then
       f(ixO^S, r_e) = v(ixO^S) * w(ixO^S, r_e)
     else
       f(ixO^S, r_e) = zero
@@ -764,7 +764,7 @@ contains
       f(ixO^S, e_) = w(ixO^S,mom(idim)) * (wC(ixO^S, e_) + w(ixO^S,p_))
     end if
 
-    if (rhd_advect_radiation) then
+    if (rhd_radiation_advection) then
       f(ixO^S, r_e) = w(ixO^S,mom(idim)) * wC(ixO^S, r_e)
     else
       f(ixO^S, r_e) = zero
@@ -976,6 +976,8 @@ contains
     call fld_get_opacity(w, x, ixI^L, ixO^L)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
     call fld_get_radflux(w, x, ixI^L, ixO^L)
+    call fld_get_eddington(w, x, ixI^L, ixO^L)
+
     if (fld_diff_scheme .eq. 'mg') call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
 
     select case(rhd_radiation_formalism)

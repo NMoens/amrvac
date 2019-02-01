@@ -25,7 +25,7 @@ module mod_fld
 
     !> Tolerance for bisection method for Energy sourceterms
     !> This is a percentage of the minimum of gas- and radiation energy
-    double precision, public :: fld_bisect_tol = 1.d-3
+    double precision, public :: fld_bisect_tol = 1.d-5
 
     !> Tolerance for adi method for radiative Energy diffusion
     double precision, public :: fld_adi_tol = 1.d-2
@@ -43,6 +43,9 @@ module mod_fld
 
     !> Index for Flux
     integer, allocatable, public :: i_flux(:)
+
+    !> Indexes for Eddington Tensor
+    integer, allocatable, public :: i_edd(:,:)
 
     !> Use constant Opacity?
     character(len=8) :: fld_opacity_law = 'const'
@@ -101,7 +104,10 @@ module mod_fld
     use mod_multigrid_coupling, only: mg_copy_boundary_conditions
 
     double precision, intent(in) :: He_abundance
-    integer :: idir
+    integer :: idir,jdir
+
+    character(len=3) :: cmp_f
+    character(len=5) :: cmp_e
 
     !> read par files
     call fld_params_read(par_files)
@@ -109,13 +115,25 @@ module mod_fld
     !> Set radiative flux as variable
     allocate(i_flux(ndir))
     do idir = 1,ndir
-      i_flux(idir) = var_set_fluxvar("F", "F", idir,.false.)
+      write(cmp_f,'(I1)') idir
+      cmp_f = 'F' // cmp_f
+      i_flux(idir) = var_set_extravar(cmp_f,cmp_f)
     enddo
 
     !> Introduce opacity, lambda and R as global variables
     i_op = var_set_extravar("Kappa", "Kappa")
     i_lambda = var_set_extravar("lambda", "lambda")
     i_fld_R = var_set_extravar("fld_R", "fld_R")
+
+    allocate(i_edd(ndir,ndir))
+    do idir = 1, ndir
+      do jdir = 1, ndir
+        write(cmp_f,'(I1)') idir
+        write(cmp_e,'(I1)') jdir
+        cmp_e = 'Edd' // cmp_f // cmp_e
+        i_edd(idir,jdir) = var_set_extravar(cmp_e, cmp_e)
+      enddo
+    enddo
 
     if (fld_diff_scheme .eq. 'mg') then
 
@@ -378,14 +396,14 @@ module mod_fld
 
   !> Calculate Radiation Pressure
   !> Returns Radiation Pressure
-  subroutine fld_get_eddington(w, x, ixI^L, ixO^L, eddington_tensor)
+  subroutine fld_get_eddington(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L
-    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
-    double precision, intent(out):: eddington_tensor(ixO^S,1:ndim,1:ndim)
+    double precision :: eddington_tensor(ixO^S,1:ndim,1:ndim)
     double precision :: tnsr2(ixO^S,1:ndim,1:ndim)
     double precision :: normgrad2(ixO^S), f(ixO^S)
     double precision :: grad_r_e(ixI^S, 1:ndim)
@@ -424,6 +442,13 @@ module mod_fld
         enddo
       enddo
     enddo
+
+    do idir = 1,ndir
+      do jdir = 1,ndir
+        w(ixO^S,i_edd(idir,jdir)) = eddington_tensor(ixO^S,idir,jdir)
+      enddo
+    enddo
+
   end subroutine fld_get_eddington
 
   !> Calculate Radiation Pressure
@@ -439,12 +464,9 @@ module mod_fld
 
     integer i,j
 
-    !> Get the eddington_tensor
-    call fld_get_eddington(w, x, ixI^L, ixO^L, eddington_tensor)
-
     do i=1,ndim
       do j=1,ndim
-        rad_pressure(ixO^S,i,j) = eddington_tensor(ixO^S,i,j)* w(ixO^S,iw_r_e)
+        rad_pressure(ixO^S,i,j) = w(ixO^S,i_edd(i,j))* w(ixO^S,iw_r_e)
       enddo
     enddo
   end subroutine fld_get_radpress
@@ -561,7 +583,7 @@ module mod_fld
       case ('periodic')
         !> Do nothing
       case ('special')
-        call mpistop('Hold your bloody horses, not implemented yet.')
+        !call mpistop('Hold your bloody horses, not implemented yet.')
         select case (iB)
         case (1)
            mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
@@ -583,6 +605,7 @@ module mod_fld
          print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
          error stop "You have to set a user-defined boundary method"
       end select
+      print*, mg%bc(iB, mg_iphi)%bc_type
     enddo
   end subroutine set_mg_bounds
 
@@ -1125,9 +1148,6 @@ module mod_fld
 
     integer :: i,j,idir
 
-    !> get the eddington_tensor
-    call fld_get_eddington(w,x,ixI^L,ixO^L,edd_tnsr)
-
     !> calculate tensor div_v
     do i = 1,ndim
       do j = 1,ndim
@@ -1138,10 +1158,10 @@ module mod_fld
     enddo
 
     !>eq 34 Turner and stone (Only 2D)
-    divvP(ixO^S) = div_v(ixO^S,1,1)*edd_tnsr(ixO^S,1,1) &
-                 + div_v(ixO^S,2,2)*edd_tnsr(ixO^S,2,2) &
-                 + div_v(ixO^S,1,2)*edd_tnsr(ixO^S,1,2) &
-                 + div_v(ixO^S,2,1)*edd_tnsr(ixO^S,2,1)
+    divvP(ixO^S) = div_v(ixO^S,1,1)*w(ixO^S,i_edd(1,1))  &
+                 + div_v(ixO^S,2,2)*w(ixO^S,i_edd(2,2))  &
+                 + div_v(ixO^S,1,2)*w(ixO^S,i_edd(1,2))  &
+                 + div_v(ixO^S,2,1)*w(ixO^S,i_edd(2,1))
 
     divvP(ixO^S) = divvP(ixO^S)*w(ixO^S,iw_r_e)
 
@@ -1162,9 +1182,21 @@ module mod_fld
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
+    do i = ixOmin1, ixOmax1
+      do j = ixOmin2, ixOmax2
+        print*, i,j, a1(i,j), a2(i,j), a3(i,j), c0(i,j), c1(i,j)
+        print*, i,j, divvP(i,j), E_rad(i,j)
+        print*, edd_tnsr(i,j,1,1), edd_tnsr(i,j,2,1), edd_tnsr(i,j,1,2), edd_tnsr(i,j,2,2)
+        print*, '---------------------------------------------------------------'
+      enddo
+    enddo
+    print*, '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&'
+    if (it .eq. 2) stop
+
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1
     do j =  ixOmin2,ixOmax2
+          print*,it, i,j
           call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
     enddo
     enddo
@@ -1221,10 +1253,11 @@ module mod_fld
         bisect_a = e_gas
         bisect_b = e_gas
         print*, "IGNORING ENERGY GAS-RAD EXCHANGE ", c0, c1
+        goto 2435
       endif
     enddo
 
-    e_gas = (bisect_a + bisect_b)/two
+      2435 e_gas = (bisect_a + bisect_b)/two
   end subroutine Bisection_method
 
   function Polynomial_Bisection(e_gas, c0, c1) result(pol_result)

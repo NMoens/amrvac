@@ -106,7 +106,9 @@ module mod_fld
     double precision, intent(in) :: He_abundance
     integer :: idir,jdir
 
-    character(len=3) :: cmp_f
+    character(len=1) :: ind_1
+    character(len=1) :: ind_2
+    character(len=2) :: cmp_f
     character(len=5) :: cmp_e
 
     !> read par files
@@ -115,8 +117,8 @@ module mod_fld
     !> Set radiative flux as variable
     allocate(i_flux(ndir))
     do idir = 1,ndir
-      write(cmp_f,'(I1)') idir
-      cmp_f = 'F' // cmp_f
+      write(ind_1,'(I1)') idir
+      cmp_f = 'F' // ind_1
       i_flux(idir) = var_set_extravar(cmp_f,cmp_f)
     enddo
 
@@ -128,9 +130,9 @@ module mod_fld
     allocate(i_edd(ndir,ndir))
     do idir = 1, ndir
       do jdir = 1, ndir
-        write(cmp_f,'(I1)') idir
-        write(cmp_e,'(I1)') jdir
-        cmp_e = 'Edd' // cmp_f // cmp_e
+        write(ind_1,'(I1)') idir
+        write(ind_2,'(I1)') jdir
+        cmp_e = 'Edd' // ind_1 // ind_2
         i_edd(idir,jdir) = var_set_extravar(cmp_e, cmp_e)
       enddo
     enddo
@@ -448,7 +450,6 @@ module mod_fld
         w(ixO^S,i_edd(idir,jdir)) = eddington_tensor(ixO^S,idir,jdir)
       enddo
     enddo
-
   end subroutine fld_get_eddington
 
   !> Calculate Radiation Pressure
@@ -1190,8 +1191,6 @@ module mod_fld
         print*, '---------------------------------------------------------------'
       enddo
     enddo
-    print*, '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&'
-    if (it .eq. 2) stop
 
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1

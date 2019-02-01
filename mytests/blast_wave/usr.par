@@ -60,7 +60,7 @@
        rhd_radiation_advection = .false.
        rhd_radiation_force = .false.
        rhd_energy_interact = .true.
-       rhd_radiation_diffusion = .false.
+       rhd_radiation_diffusion = .true.
 /
 
 &fld_list

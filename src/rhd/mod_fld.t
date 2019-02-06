@@ -78,6 +78,7 @@ module mod_fld
     public :: fld_get_radpress
     public :: fld_get_fluxlimiter
     public :: fld_get_opacity
+    public :: get_rad_extravars
 
   contains
 
@@ -180,6 +181,25 @@ module mod_fld
     !> Read in opacity table if necesary
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
   end subroutine fld_init
+
+  subroutine get_rad_extravars(w, x, ixI^L, ixO^L)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(inout) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+
+    call fld_get_opacity(w, x, ixI^L, ixO^L)
+    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
+    call fld_get_radflux(w, x, ixI^L, ixO^L)
+    call fld_get_eddington(w, x, ixI^L, ixO^L)
+
+    if (fld_diff_scheme .eq. 'mg') then
+      call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
+      call set_mg_bounds()
+    endif
+  end subroutine get_rad_extravars
+
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
   subroutine get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
@@ -449,21 +469,6 @@ module mod_fld
       enddo
     enddo
 
-
-    ! do idir = 1,ndir
-    !   do jdir = 1,ndir
-    !     do i = ixOmin1,ixOmax1
-    !       do j = ixOmin2, ixOmax2
-    !         if (tnsr2(i,j,idir,jdir) .eq. tnsr2(i,j,idir,jdir)) then
-    !           eddington_tensor(i,j,idir,jdir) = eddington_tensor(i,j,idir,jdir) + tnsr2(i,j,idir,jdir)
-    !         endif
-    !       enddo
-    !     enddo
-    !   enddo
-    ! enddo
-
-    w(ixO^S,i_test) = eddington_tensor(ixO^S,2,1)
-
     do idir = 1,ndir
       do jdir = 1,ndir
         where ((tnsr2(ixO^S,idir,jdir) .eq. tnsr2(ixO^S,idir,jdir)) &
@@ -502,52 +507,6 @@ module mod_fld
     enddo
   end subroutine fld_get_radpress
 
-  ! subroutine grad(q,ixI^L,ixO^L,idir,x,gradq)
-  !   ! Compute the true gradient of a scalar q within ixL in direction idir ie :
-  !   !  - in cylindrical : d_/dr , (1/r)*d_/dth , d_/dz
-  !   !  - in spherical   : d_/dr , (1/r)*d_/dth , (1/rsinth)*d_/dphi
-  !   use mod_global_parameters
-  !
-  !   integer, intent(in) :: ixI^L, ixO^L, idir
-  !   double precision, intent(in) :: q(ixI^S), x(ixI^S,1:ndim)
-  !   double precision, intent(out) ::  gradq(ixO^S)
-  !
-  !   integer :: jx^L, hx^L
-  !   !-----------------------------------------------------------------------------
-  !   jx^L=ixO^L+kr(idir,^D);
-  !   hx^L=ixO^L-kr(idir,^D);
-  !
-  !   gradq(ixO^S)=(q(jx^S)-q(hx^S))/(x(jx^S,idir)-x(hx^S,idir))
-  !
-  !   select case (typeaxial)
-  !   case('slab') ! nothing to do
-  !   case('cylindrical')
-  !     if (idir==phi_) gradq(ixO^S)=gradq(ixO^S)/ x(ixO^S,r_)
-  !   case('spherical')
-  !     if (idir==2   ) gradq(ixO^S)=gradq(ixO^S)/ x(ixO^S,r_)
-  !     if (idir==phi_) gradq(ixO^S)=gradq(ixO^S)/(x(ixO^S,r_)*dsin(x(ixO^S,2)))
-  !   case default
-  !     call mpistop('Unknown geometry')
-  !   end select
-  ! end subroutine grad
-  !
-  ! subroutine gradE(q,ixI^L,ixO^L,idir,x,gradq)
-  !   ! Compute the true gradient of a scalar q within ixL in direction idir ie :
-  !   !  - in cylindrical : d_/dr , (1/r)*d_/dth , d_/dz
-  !   !  - in spherical   : d_/dr , (1/r)*d_/dth , (1/rsinth)*d_/dphi
-  !   use mod_global_parameters
-  !
-  !   integer, intent(in) :: ixI^L, ixO^L, idir
-  !   double precision, intent(in) :: q(ixI^S), x(ixI^S,1:ndim)
-  !   double precision, intent(out) ::  gradq(ixO^S)
-  !
-  !   integer :: jx^L
-  !   !-----------------------------------------------------------------------------
-  !   jx^L=ixO^L+kr(idir,^D);
-  !
-  !   gradq(ixO^S)=(q(jx^S)-q(ixO^S))/(x(jx^S,idir)-x(ixO^S,idir))
-  ! end subroutine gradE
-
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!! Multigrid diffusion
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -576,7 +535,10 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      w(ixI^S,i_diff_mg) = one!*unit_length/unit_velocity
+      !w(ixI^S,i_diff_mg) = one!*unit_length/unit_velocity
+
+      w(ixO^S,i_diff_mg) = fld_speedofligt_0/w(ixO^S,i_op)
+
     else
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
@@ -1162,7 +1124,7 @@ module mod_fld
   subroutine Energy_interaction(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
-    use mod_physics, only: phys_get_pthermal
+    use mod_physics, only: phys_get_tgas
 
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
@@ -1194,11 +1156,8 @@ module mod_fld
 
     divvP(ixO^S) = divvP(ixO^S)*w(ixO^S,iw_r_e)
 
-    !> Get pressure
-    call phys_get_pthermal(w,x,ixI^L,ixO^L,temperature)
-
-    !> calc Temperature as p/rho
-    temperature(ixO^S)=temperature(ixO^S)/w(ixO^S,iw_rho)
+    !> Get temperature
+    call phys_get_tgas(w,x,ixI^L,ixO^L,temperature)
 
     e_gas(ixO^S) = w(ixO^S,iw_e)
     E_rad(ixO^S) = w(ixO^S,iw_r_e)
@@ -1211,6 +1170,8 @@ module mod_fld
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
+    w(ixO^S,i_test) = a1(ixO^S)
+
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1
     do j =  ixOmin2,ixOmax2
@@ -1222,11 +1183,8 @@ module mod_fld
     w(ixO^S,iw_e) = e_gas(ixO^S)
 
     !> Calculate new radiation energy
-    !> Get new pressure
-    call phys_get_pthermal(w,x,ixI^L,ixO^L,temperature)
-
-    !> calc new Temperature as p/rho
-    temperature(ixO^S)=(temperature(ixO^S)/w(ixO^S,iw_rho))
+    !> Get temperature
+    call phys_get_tgas(w,x,ixI^L,ixO^L,temperature)
 
     !> Update a1
     a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt

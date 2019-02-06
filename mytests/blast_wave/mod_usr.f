@@ -21,7 +21,7 @@ contains
     ! Choose independent normalization units if using dimensionless variables.
     unit_length        = 1.d0 ! cm
     unit_temperature   = 1.d0 ! K
-    unit_numberdensity = 1.d0 ! cm-3,cm-3
+    unit_numberdensity = 1.d0!/((1.d0+4.d0*He_abundance)*mp_cgs) ! cm-3,cm-3
 
     ! Active the physics module
     call rhd_activate()
@@ -64,25 +64,14 @@ contains
     where((x(ixImin1:ixImax1,ixImin2:ixImax2,1)-xc1)**2+(x(ixImin1:ixImax1,&
        ixImin2:ixImax2,2)-xc2)**2<rbs**2)
       w(ixImin1:ixImax1,ixImin2:ixImax2,e_)=10.d0
-      !w(ixI^S,r_e) = w(ixI^S,r_e)*10.d0
     endwhere
 
-    ! w(ixO^S,r_e) = w(ixO^S,r_e)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = one + w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,e_)*10.d0*dexp(-(x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       1)**2 + x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2)**2)/rbs**2)
 
-    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+    call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
-    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2)
-    call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2)
-    call fld_get_eddington(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2)
-
-    if (fld_diff_scheme .eq. 'mg') then
-      call fld_get_diffcoef_central(w, x, ixImin1,ixImin2,ixImax1,ixImax2,&
-          ixOmin1,ixOmin2,ixOmax1,ixOmax2)
-      call set_mg_bounds()
-    endif
 
   end subroutine initial_conditions
 

@@ -180,19 +180,9 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
     w(:,i, rho_) = w(:,i, rho_)*(one + amplitude*pert(:,i))
   enddo
 
-  call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
+  call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
-  call fld_get_fluxlimiter(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
-     ixmin2,ixmax1,ixmax2)
-  call fld_get_radflux(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
-     ixmax1,ixmax2)
-
-  if (fld_diff_scheme .eq. 'mg') then
-    call fld_get_diffcoef_central(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
-        ixmin1,ixmin2,ixmax1,ixmax2)
-    call set_mg_bounds()
-  endif
-
+  
 end subroutine initial_conditions
 
 !==========================================================================================

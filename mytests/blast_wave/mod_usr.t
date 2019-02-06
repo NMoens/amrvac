@@ -59,10 +59,10 @@ contains
     rbs=0.2d0
     where((x(ixI^S,1)-xc1)**2+(x(ixI^S,2)-xc2)**2<rbs**2)
       w(ixI^S,e_)=10.d0
-      w(ixI^S,r_e) = w(ixI^S,r_e)*10.d0
+      !w(ixI^S,r_e) = w(ixI^S,r_e)*10.d0
     endwhere
 
-    ! w(ixO^S,r_e) = w(ixO^S,r_e)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)
+    ! w(ixO^S,e_) = w(ixO^S,e_)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)
 
     call fld_get_opacity(w, x, ixI^L, ixO^L)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)

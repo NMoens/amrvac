@@ -64,8 +64,7 @@ contains
     where((x(ixImin1:ixImax1,ixImin2:ixImax2,1)-xc1)**2+(x(ixImin1:ixImax1,&
        ixImin2:ixImax2,2)-xc2)**2<rbs**2)
       w(ixImin1:ixImax1,ixImin2:ixImax2,e_)=10.d0
-      w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = w(ixImin1:ixImax1,&
-         ixImin2:ixImax2,r_e)*10.d0
+      !w(ixI^S,r_e) = w(ixI^S,r_e)*10.d0
     endwhere
 
     ! w(ixO^S,r_e) = w(ixO^S,r_e)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)

@@ -41,6 +41,12 @@ module mod_fld
     !> Index for ratio of scaleheights R
     integer, public :: i_fld_R
 
+    !> Index for testvariable
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!! DELETE WHEN DONE
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    integer, public :: i_test
+
     !> Index for Flux
     integer, allocatable, public :: i_flux(:)
 
@@ -126,6 +132,12 @@ module mod_fld
     i_op = var_set_extravar("Kappa", "Kappa")
     i_lambda = var_set_extravar("lambda", "lambda")
     i_fld_R = var_set_extravar("fld_R", "fld_R")
+
+    !> Introduce test variable globally
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!! DELETE WHEN DONE
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    i_test = var_set_extravar('test','test')
 
     allocate(i_edd(ndir,ndir))
     do idir = 1, ndir
@@ -427,23 +439,41 @@ module mod_fld
 
     do idir = 1,ndir
       eddington_tensor(ixO^S,idir,idir) = half*(one-f(ixO^S))
+    enddo
+
+    do idir = 1,ndir
       do jdir = 1,ndir
+        if (idir .ne. jdir) eddington_tensor(ixO^S,idir,jdir) = zero
         tnsr2(ixO^S,idir,jdir) =  half*(3.d0*f(ixO^S) - 1)&
         *grad_r_e(ixO^S,idir)*grad_r_e(ixO^S,jdir)/normgrad2(ixO^S)
       enddo
     enddo
 
+
+    ! do idir = 1,ndir
+    !   do jdir = 1,ndir
+    !     do i = ixOmin1,ixOmax1
+    !       do j = ixOmin2, ixOmax2
+    !         if (tnsr2(i,j,idir,jdir) .eq. tnsr2(i,j,idir,jdir)) then
+    !           eddington_tensor(i,j,idir,jdir) = eddington_tensor(i,j,idir,jdir) + tnsr2(i,j,idir,jdir)
+    !         endif
+    !       enddo
+    !     enddo
+    !   enddo
+    ! enddo
+
+    w(ixO^S,i_test) = eddington_tensor(ixO^S,2,1)
+
     do idir = 1,ndir
       do jdir = 1,ndir
-        do i = ixOmin1,ixOmax1
-          do j = ixOmin2, ixOmax2
-            if (tnsr2(i,j,idir,jdir) .eq. tnsr2(i,j,idir,jdir)) then
-              eddington_tensor(i,j,idir,jdir) = eddington_tensor(i,j,idir,jdir) + tnsr2(i,j,idir,jdir)
-            endif
-          enddo
-        enddo
+        where ((tnsr2(ixO^S,idir,jdir) .eq. tnsr2(ixO^S,idir,jdir)) &
+          .and. (normgrad2(ixO^S) .gt. smalldouble))
+          eddington_tensor(ixO^S,idir,jdir) = eddington_tensor(ixO^S,idir,jdir) + tnsr2(ixO^S,idir,jdir)
+        endwhere
       enddo
     enddo
+
+
 
     do idir = 1,ndir
       do jdir = 1,ndir

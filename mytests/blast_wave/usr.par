@@ -8,13 +8,14 @@
 &savelist
        itsave(1,1)     = 0
        itsave(1,2)     = 0
-       dtsave_log      = 1.d-3
-       dtsave_dat      = 1.d-3
+       dtsave_log      = 1.d-7
+       dtsave_dat      = 1.d-4
        !ditsave_dat    = 1
 /
 
 &stoplist
-       time_max            = 5.d-2
+       time_max        = 5.d-3
+       dtmin = 1.0d-10
        !it_max = 10
 /
 
@@ -26,7 +27,7 @@
 /
 
 &boundlist
-       nghostcells = 6
+       nghostcells = 2
        typeboundary_min1=5*'cont'
        typeboundary_max1=5*'cont'
        typeboundary_min2=5*'cont'
@@ -35,7 +36,7 @@
 
 &meshlist
        refine_criterion=3
-       refine_max_level=1
+       refine_max_level=3
        w_refine_weight(1)=0.5d0
        w_refine_weight(4)=0.5d0
        block_nx1=32
@@ -60,7 +61,7 @@
        rhd_radiation_formalism = 'fld'
        rhd_radiation_advection = .true.
        rhd_radiation_force = .true.
-       rhd_energy_interact = .false.
+       rhd_energy_interact = .true.
        rhd_radiation_diffusion = .true.
 /
 

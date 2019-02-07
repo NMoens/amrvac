@@ -79,6 +79,7 @@ module mod_fld
     public :: fld_get_fluxlimiter
     public :: fld_get_opacity
     public :: get_rad_extravars
+    public :: set_mg_bounds
 
   contains
 

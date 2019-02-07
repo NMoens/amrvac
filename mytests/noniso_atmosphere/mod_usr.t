@@ -8,7 +8,7 @@ use mod_global_parameters
 
 implicit none
 
-  integer, parameter :: nyc = 33
+  integer, parameter :: nyc = 72
 
   integer :: i_is(1:nyc)
   double precision :: y_is(1:nyc)
@@ -177,7 +177,7 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   enddo
 
   call get_rad_extravars(w, x, ixG^L, ix^L)
-  
+
 end subroutine initial_conditions
 
 !==========================================================================================
@@ -333,10 +333,8 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   double precision, intent(in)       :: x(ixI^S,1:ndim)
   double precision                   :: w(ixI^S,nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
-  double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S), D(ixI^S,1:ndim)
+  double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S)
   integer                            :: idim
-
-  call fld_get_diffcoef(w, x, ixI^L, ixO^L, D)
 
   do idim = 1,ndim
     g_rad(ixO^S,idim) = w(ixO^S,i_op)*w(ixO^S,i_flux(idim))/const_c
@@ -346,8 +344,6 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   w(ixO^S,nw+1)=g_rad(ixO^S,1)*unit_length/(unit_time**2)
   w(ixO^S,nw+2)=g_rad(ixO^S,2)*unit_length/(unit_time**2)
   w(ixO^S,nw+3)=big_gamma(ixO^S)
-  w(ixO^S,nw+4)=D(ixO^S,1)
-  w(ixO^S,nw+5)=D(ixO^S,2)
 end subroutine specialvar_output
 
 subroutine specialvarnames_output(varnames)
@@ -355,7 +351,7 @@ subroutine specialvarnames_output(varnames)
   use mod_global_parameters
   character(len=*) :: varnames
 
-  varnames = 'F1 F2 lambda R ar1 ar2 Gamma D1 D2'
+  varnames = 'ar1 ar2 Gamma'
 
 end subroutine specialvarnames_output
 

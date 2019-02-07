@@ -9,7 +9,7 @@
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
-  nwauxio = 5
+  nwauxio          = 3
 /
 
  &savelist
@@ -35,26 +35,23 @@
    small_values_method = 'replace'
    small_pressure = 1.d-6
    small_density = 1.d-6
-   !tvdlfeps = 0.d0
-   !typesourcesplit = 'sf'
 /
 
 &boundlist
   nghostcells  = 4
-  typeboundary_min1 = 4*'special','cont'
-  typeboundary_max1 = 4*'special','cont'
-  typeboundary_min2 = 4*'special','cont'
-  typeboundary_max2 = 4*'special','cont'
-  !typeghostfill= 'copy'
+  typeboundary_min1 = 5*'periodic'
+  typeboundary_max1 = 5*'periodic'
+  typeboundary_min2 = 5*'cont'
+  typeboundary_max2 = 5*'cont'
   internalboundary = F
 /
 
  &meshlist
-   refine_max_level   = 1
-   domain_nx1         = 24
-   domain_nx2         = 24
-   block_nx1          = 24
-   block_nx2          = 24
+   refine_max_level   = 3
+   domain_nx1         = 64
+   domain_nx2         = 64
+   block_nx1          = 64
+   block_nx2          = 64
    xprobmin1       = -0.01d0
    xprobmax1       = 0.01d0
    xprobmin2       = 1.d0
@@ -75,19 +72,13 @@
   rhd_gamma = 1.6666667d0 !5.d0/3.d0
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .true.
-  rhd_energy_interact = .false.
+  rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
  /
 
  &fld_list
   fld_kappa0 = 0.34d0
   fld_split = .false.
-  fld_maxdw = 200
-  fld_bisect_tol = 1.d-2
-  fld_adi_tol = 5.d-2
-  fld_max_fracdt = 100.d0
-  fld_diff_testcase = .true.
   fld_opacity_law = 'const'
-  fld_complete_diffusion_limit = .false.
   fld_diff_scheme = 'mg'
 /

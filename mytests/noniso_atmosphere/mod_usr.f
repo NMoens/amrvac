@@ -8,7 +8,7 @@ use mod_global_parameters
 
 implicit none
 
-  integer, parameter :: nyc = 33
+  integer, parameter :: nyc = 72
 
   integer :: i_is(1:nyc)
   double precision :: y_is(1:nyc)
@@ -182,7 +182,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
-  
+
 end subroutine initial_conditions
 
 !==========================================================================================
@@ -354,12 +354,8 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
   double precision                   :: g_rad(ixImin1:ixImax1,ixImin2:ixImax2,&
-     1:ndim), big_gamma(ixImin1:ixImax1,ixImin2:ixImax2), D(ixImin1:ixImax1,&
-     ixImin2:ixImax2,1:ndim)
+     1:ndim), big_gamma(ixImin1:ixImax1,ixImin2:ixImax2)
   integer                            :: idim
-
-  call fld_get_diffcoef(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
-     ixOmax1,ixOmax2, D)
 
   do idim = 1,ndim
     g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2,idim) = w(ixOmin1:ixOmax1,&
@@ -375,8 +371,6 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixOmin2:ixOmax2,2)*unit_length/(unit_time**2)
   w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3)=big_gamma(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5)=D(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2)
 end subroutine specialvar_output
 
 subroutine specialvarnames_output(varnames)
@@ -384,7 +378,7 @@ subroutine specialvarnames_output(varnames)
   use mod_global_parameters
   character(len=*) :: varnames
 
-  varnames = 'F1 F2 lambda R ar1 ar2 Gamma D1 D2'
+  varnames = 'ar1 ar2 Gamma'
 
 end subroutine specialvarnames_output
 

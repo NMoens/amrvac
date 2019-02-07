@@ -63,12 +63,10 @@ contains
     rbs=0.2d0
     where((x(ixImin1:ixImax1,ixImin2:ixImax2,1)-xc1)**2+(x(ixImin1:ixImax1,&
        ixImin2:ixImax2,2)-xc2)**2<rbs**2)
-      w(ixImin1:ixImax1,ixImin2:ixImax2,e_)=10.d0
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_)=100.d0
     endwhere
 
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = one + w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,e_)*10.d0*dexp(-(x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       1)**2 + x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2)**2)/rbs**2)
+    !w(ixO^S,e_) = one + w(ixO^S,e_)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)
 
     call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)

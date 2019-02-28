@@ -1197,6 +1197,9 @@ module mod_fld
 
     !> Update rad-energy in w
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
+
+    print*, w(4,4,iw_e)
+
   end subroutine Energy_interaction
 
   subroutine Bisection_method(e_gas, E_rad, c0, c1)
@@ -1215,15 +1218,31 @@ module mod_fld
        .ge. fld_bisect_tol*min(e_gas,E_rad))
       bisect_c = (bisect_a + bisect_b)/two
 
+      ! print*, bisect_a, bisect_b, bisect_c
+      ! print*, Polynomial_Bisection(bisect_a, c0, c1), Polynomial_Bisection(bisect_b, c0, c1), Polynomial_Bisection(bisect_c, c0, c1)
+
+
       if (Polynomial_Bisection(bisect_a, c0, c1)*&
-      Polynomial_Bisection(bisect_b, c0, c1) .le. zero) then
+      Polynomial_Bisection(bisect_b, c0, c1) .lt. zero) then
 
         if (Polynomial_Bisection(bisect_a, c0, c1)*&
-        Polynomial_Bisection(bisect_c, c0, c1) .le. zero) then
+        Polynomial_Bisection(bisect_c, c0, c1) .lt. zero) then
           bisect_b = bisect_c
         elseif (Polynomial_Bisection(bisect_b, c0, c1)*&
-        Polynomial_Bisection(bisect_c, c0, c1) .le. zero) then
+        Polynomial_Bisection(bisect_c, c0, c1) .lt. zero) then
           bisect_a = bisect_c
+        elseif (Polynomial_Bisection(bisect_a, c0, c1) .eq. zero) then
+          bisect_b = bisect_a
+          bisect_c = bisect_a
+          goto 2435
+        elseif (Polynomial_Bisection(bisect_b, c0, c1) .eq. zero) then
+          bisect_a = bisect_b
+          bisect_c = bisect_b
+          goto 2435
+        elseif (Polynomial_Bisection(bisect_c, c0, c1) .eq. zero) then
+          bisect_a = bisect_c
+          bisect_b = bisect_c
+          goto 2435
         else
           call mpistop("Problem with fld bisection method")
         endif

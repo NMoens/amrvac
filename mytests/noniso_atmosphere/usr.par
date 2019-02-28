@@ -72,7 +72,7 @@
   rhd_gamma = 1.6666667d0 !5.d0/3.d0
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .true.
-  rhd_energy_interact = .false.
+  rhd_energy_interact = .true.
   rhd_radiation_diffusion = .false.
  /
 

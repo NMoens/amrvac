@@ -17,6 +17,7 @@ implicit none
   double precision :: pg_is(1:nyc)
   double precision :: er_is(1:nyc)
   double precision :: tau_is(1:nyc)
+  double precision :: tr_is(1:nyc)
 
   double precision :: gamma0
   double precision :: mstar
@@ -142,10 +143,11 @@ subroutine initglobaldata_usr
   pg_is = pg_is/unit_pressure
   er_is = er_is/unit_pressure
 
-  print*, 'unit_density', unit_density
-  print*, unit_pressure
-  print*, unit_temperature
+  tr_is  = (er_is/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
 
+  print*, 'unit_density', unit_density
+  print*, 'unit_pressure', unit_pressure
+  print*, 'unit_temperature', unit_temperature
 
 end subroutine initglobaldata_usr
 
@@ -165,6 +167,13 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
 
   double precision :: pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2), amplitude
   integer :: i
+
+  ! double precision :: test_T(1:nyc)
+  ! test_T = (mp_cgs*fld_mu/const_kB)*pg_is/rho_is*(unit_pressure/unit_density)/unit_temperature
+  ! do i = 1,ny_vac
+  !   print*, tg_is(i), tr_is(i), test_T(i), (tg_is(i) - tr_is(i))/tg_is(i), (tg_is(i) - test_T(i))/tg_is(i)
+  ! enddo
+  ! stop
 
   do i = ixGmin2,ixGmax2
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(i)
@@ -360,7 +369,7 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
   do idim = 1,ndim
     g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2,idim) = w(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,i_op)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       i_flux(idim))/const_c
+       i_flux(idim))/fld_speedofligt_0
   enddo
   big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = g_rad(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2,2)/(6.67e-8*mstar/rstar**2*(unit_time**2/unit_length))

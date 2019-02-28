@@ -168,7 +168,9 @@ module mod_fld
     if (fld_maxdw .lt. 2) call mpistop("fld_maxdw should be an integer larger than 1")
 
     !> Need mean molecular weight
-    fld_mu = (1.d0+4.d0*He_abundance)/two
+    ! fld_mu = (1.d0+4.d0*He_abundance)/two
+    fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
+
 
     !> Dimensionless speed of light
     fld_speedofligt_0 = const_c/unit_velocity

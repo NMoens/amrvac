@@ -4,7 +4,6 @@
        saveprim=.true.
        autoconvert=.true.
        convert_type='vtuBCCmpi'
-       nwauxio=1
 /
 
 &savelist
@@ -35,13 +34,13 @@
        nghostcells=3
        typeboundary_min1 = 5*'special'
        typeboundary_max1 = 5*'noinflow'
-       typeboundary_min2 = 5*'symm'
-       typeboundary_max2 = 5*'symm'
+       typeboundary_min2 = 5*'cont'
+       typeboundary_max2 = 5*'cont'
 /
 
 &meshlist
        refine_criterion=3
-       refine_max_level=3
+       refine_max_level=0
        domain_nx1 = 64
        domain_nx2 = 64
        block_nx1 = 8
@@ -59,12 +58,9 @@
        !dtpar = 6.d-4
 /
 
-&mhd_list
-       mhd_energy = .false.
-       mhd_eta = 0.d0
-       mhd_gamma = 1.d0
-       mhd_adiab = 1.d0
-       !typedivbfix = 'glm1'
+&hd_list
+       hd_energy = .false.
+       hd_gamma = 1.000001d0
 /
 
 &star_list
@@ -72,7 +68,6 @@
        L_star = 8.0d5
        R_star = 20.0
        T_star = 40000.0d0
-       B_star = 5.d3
        rho_bound = 3.25d-11
        alpha = 0.67d0
        qbar = 2000.d0

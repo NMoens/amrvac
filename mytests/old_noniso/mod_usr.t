@@ -414,7 +414,7 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   do idim = 1,ndim
     g_rad(ixO^S,idim) = w(ixO^S,i_op)*rad_flux(ixO^S,idim)/c_light0
   enddo
-  big_gamma(ixO^S) = g_rad(ixO^S,2)/(const_G*M_star/R_star**2*(unit_time**2/unit_length))
+  big_gamma(ixO^S) = g_rad(ixO^S,2)/(const_G*M_star/(R_star**2)/unit_velocity*unit_time)
 
   w(ixO^S,nw+1)=rad_flux(ixO^S,1)*(unit_pressure*unit_velocity)
   w(ixO^S,nw+2)=rad_flux(ixO^S,2)*(unit_pressure*unit_velocity)

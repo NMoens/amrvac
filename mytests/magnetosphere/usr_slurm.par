@@ -19,7 +19,7 @@
  &stoplist
         dtmin = 1.d-20
         !it_max = 3
-        time_max = 1.d0
+        time_max = 3.d0
  /
 
  &methodlist
@@ -60,10 +60,10 @@
         !dtpar = 6.d-4
  /
 
- &mhdlist
+ &mhd_list
         mhd_energy = .false.
         mhd_eta = 0.d0
-        mhd_gamma = 1.d0 !1.66666666667d0
+        mhd_gamma = 1.d0
         mhd_adiab = 1.d0
         !typedivbfix = 'linde'
  /
@@ -73,7 +73,7 @@
         L_star = 8.0d5
         R_star = 20.0
         T_star = 40000.0d0
-        B_star = 10.d3
+        B_star = 5.d3
         rho_bound = 3.25d-11
         alpha = 0.67d0
         qbar = 2000.d0

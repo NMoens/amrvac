@@ -2,14 +2,11 @@
 module mod_usr
 
   ! Include a physics module
-  use mod_MHD
+  use mod_HD
 
   implicit none
 
   ! Custom variables can be defined here
-  integer :: int_r2v, int_r2, int_v2, int_r, int_v, int_dt
-
-
   double precision :: M_sun = 1.989d33
   double precision :: L_sun = 3.827d33
   double precision :: R_sun = 6.96d10
@@ -20,7 +17,6 @@ module mod_usr
   double precision :: L_star
   double precision :: T_star
   double precision :: R_star
-  double precision :: B_star
 
   double precision :: rho_bound
   double precision :: c_sound
@@ -37,8 +33,6 @@ module mod_usr
   double precision :: M_dot
   double precision :: eta_confine
   double precision :: v_inf
-
-  double precision :: mag_mu
 
   double precision :: new_timestep
 
@@ -67,9 +61,6 @@ contains
     ! get grid refined near equatorial
     usr_refine_grid => specialrefine_grid
 
-    ! get time-integrated values
-    usr_process_grid => time_average_values
-
     ! Extra Output
     usr_aux_output => specialvar_output
     usr_add_aux_names => specialvarnames_output
@@ -84,14 +75,7 @@ contains
     unit_numberdensity = 1.d0 ! cm^-3
 
     ! Active the physics module
-    call MHD_activate()
-
-    int_r2v = var_set_extravar("int_r2v", "int_r2v")
-    int_r2 = var_set_extravar("int_r2", "int_r2")
-    int_v2 = var_set_extravar("int_v2", "int_v2")
-    int_r = var_set_extravar("int_r", "int_r")
-    int_v = var_set_extravar("int_v", "int_v")
-    int_dt = var_set_extravar("int_dt", "int_dt")
+    call HD_activate()
 
   end subroutine usr_init
   !==========================================================================================
@@ -102,7 +86,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /star_list/ M_star, L_star, R_star, T_star, B_star, rho_bound, alpha, qbar, kappa_e, beta
+    namelist /star_list/ M_star, L_star, R_star, T_star, rho_bound, alpha, qbar, kappa_e, beta
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -116,22 +100,17 @@ contains
     R_star = R_star*R_sun
     T_star = T_star
 
-    if (mype == 1) then
+    print*, "In CGS: #####################################################"
 
-      print*, "In CGS: #####################################################"
-
-      print*, 'M_star',M_star
-      print*, 'L_star',L_star
-      print*, 'R_star',R_star
-      print*, 'T_star',T_star
-      print*, 'B_star',B_star
-      print*, 'rho_bound',rho_bound
-      print*, 'alpha',alpha
-      print*, 'qbar',qbar
-      print*, 'kappa_e',kappa_e
-      print*, 'beta',beta
-
-    endif
+    print*, 'M_star',M_star
+    print*, 'L_star',L_star
+    print*, 'R_star',R_star
+    print*, 'T_star',T_star
+    print*, 'rho_bound',rho_bound
+    print*, 'alpha',alpha
+    print*, 'qbar',qbar
+    print*, 'kappa_e',kappa_e
+    print*, 'beta',beta
 
   end subroutine usr_params_read
   !==========================================================================================
@@ -147,7 +126,6 @@ contains
     M_dot = L_star/const_c**2.d0 * alpha/(1-alpha) &
     *(qbar*Gamma_e/(1.-Gamma_e))**((1.-alpha)/alpha)
     v_inf = (one-Gamma_e)**0.5d0*escape_speed*(alpha/(1-alpha))**0.5d0
-    eta_confine = (B_star**2 * R_star**2)/(M_dot*v_inf)
 
     !###############################################
 
@@ -159,7 +137,6 @@ contains
     unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*const_kB*unit_temperature
     unit_velocity=dsqrt(unit_pressure/unit_density)
     unit_time=unit_length/unit_velocity
-    unit_magneticfield=sqrt(4.d0*dpi*unit_pressure)
 
 
     !###############################################
@@ -175,45 +152,40 @@ contains
     kappa_e = kappa_e/(one/(unit_density*unit_length))
     B_star = B_star/unit_magneticfield
     v_inf = (one-Gamma_e)**0.5d0*escape_speed*(alpha/(1-alpha))**0.5d0
-    eta_confine = (B_star**2 * R_star**2)/(M_dot*v_inf)
+    eta_confine = (B_star**2 / R_star**2)/(M_dot*v_inf)
 
     c_light = const_c/unit_velocity
     G_dp = G_dp/((unit_density*unit_time**2))
 
     new_timestep = dt
 
-    if (mype == 1) then
+    print*, "UNITS: #####################################################"
 
-      print*, "UNITS: #####################################################"
+    print*, 'unit_time', unit_time
+    print*, 'unit_length', unit_length
+    print*, 'unit_density', unit_density
+    print*, 'unit_pressure', unit_pressure
+    print*, 'unit_velocity', unit_velocity
+    print*, 'unit_temperature', unit_temperature
+    print*, 'unit_magneticfield', unit_magneticfield
+    print*, 'unit_numberdensity', unit_numberdensity
 
-      print*, 'unit_time', unit_time
-      print*, 'unit_length', unit_length
-      print*, 'unit_density', unit_density
-      print*, 'unit_pressure', unit_pressure
-      print*, 'unit_velocity', unit_velocity
-      print*, 'unit_temperature', unit_temperature
-      print*, 'unit_magneticfield', unit_magneticfield
-      print*, 'unit_numberdensity', unit_numberdensity
+    print*, "Dimension-LESS: #####################################################"
 
-      print*, "Dimension-LESS: #####################################################"
-
-      print*, 'M_star',M_star
-      print*, 'L_star',L_star
-      print*, 'R_star',R_star
-      print*, 'T_star',T_star
-      print*, 'B_star',B_star
-      print*, 'rho_bound',rho_bound
-      print*, 'alpha',alpha
-      print*, 'qbar',qbar
-      print*, 'kappa_e',kappa_e
-      print*, 'Gamma_e',Gamma_e
-      print*, 'beta',beta
-      print*, 'c_sound',c_sound
-      print*, 'escape_speed',escape_speed
-      print*, 'v_inf',v_inf
-      print*, 'eta_confine', eta_confine
-
-    endif
+    print*, 'M_star',M_star
+    print*, 'L_star',L_star
+    print*, 'R_star',R_star
+    print*, 'T_star',T_star
+    print*, 'B_star',B_star
+    print*, 'rho_bound',rho_bound
+    print*, 'alpha',alpha
+    print*, 'qbar',qbar
+    print*, 'kappa_e',kappa_e
+    print*, 'Gamma_e',Gamma_e
+    print*, 'beta',beta
+    print*, 'c_sound',c_sound
+    print*, 'escape_speed',escape_speed
+    print*, 'v_inf',v_inf
 
   end subroutine initglobaldata_usr
 
@@ -240,29 +212,11 @@ contains
 
         !set momentum
         w(i,:, mom(1)) = w(i,:,rho_)*velocity_field(i)
-        w(i,:, mom(2)) = zero
       else
         w(i,:, rho_) = rho_bound
         w(i,:, mom(:)) = zero
       endif
     end do
-
-    !Set initial magnetic field
-    w(ixI^S,mag(1)) = B_star*dcos(x(ixI^S,2))*(R_star/x(ixI^S,1))**3.0
-    w(ixI^S,mag(2)) = B_star*half*dsin(x(ixI^S,2))*(R_star/x(ixI^S,1))**3.0
-
-    if(mhd_glm) w(ixI^S,psi_)=0.d0
-
-    ! !> Random perturbation on rho
-    ! amplitude = 3.d-2
-    ! !> perturb rho
-    ! call RANDOM_NUMBER(pert)
-    ! w(ixI^S, rho_) = w(ixI^S, rho_)*(one + amplitude*(pert(ixI^S)-half))
-
-    !> Perturbation on Momentum
-    xi(ixI^S) = half*(one-atan(abs(x(ixI^S,2)-half*dpi/(dpi/16.d0))-one)*0.25d0)
-    xi(ixI^S) = sin((x(ixI^S,1)-R_star)/R_star*two*dpi)*xi(ixI^S)
-    w(ixI^S, mom(2)) = w(ixI^S, mom(2)) + 0.001d0*xi(ixI^S)
 
   end subroutine initial_conditions
   !==========================================================================================
@@ -292,50 +246,12 @@ contains
         ! *(w(i+2,:,mom(2)) - w(i+1,:,mom(2)))/(x(i+2,:,1)-x(i+1,:,1))
       enddo
 
-      w(ixB^S,mom(2)) = zero
-      w(ixB^S,mag(1)) = B_star*dcos(x(ixB^S,2))*(R_star/x(ixB^S,1))**3.0
-
-      !> Cont grad
-      do i=ixBmax1,ixBmin1,-1
-        w(i,:,mag(2)) = w(i+1,:,mag(2))-(x(i+1,:,1)-x(i,:,1))&
-        *(w(i+2,:,mag(2)) - w(i+1,:,mag(2)))/(x(i+2,:,1)-x(i+1,:,1))
-      enddo
-
-      if(mhd_glm) w(ixB^S,psi_)=0.d0
-
       do i = ixGmin2,ixGmax2
         do j = ixBmin1,ixBmax1
           w(j,i,mom(1)) = min(w(j,i,mom(1)),one)
-          w(j,i,mom(2)) = min(w(j,i,mom(2)),one)
           w(j,i,mom(1)) = max(w(j,i,mom(1)),-one)
-          w(j,i,mom(2)) = max(w(j,i,mom(2)),-one)
-
         enddo
       enddo
-
-    ! case(2)
-    !   w(ixB^S,mom(2)) = zero
-    !
-    !
-    ! case(3)
-    !   do i=ixBmax2,ixBmin2, -1
-    !     w(:,i,rho_) = w(:,i+1,rho_)
-    !     w(:,i,mom(1)) = w(:,i+1,mom(1))
-    !     w(:,i,mom(2)) = -w(:,i+1,mom(0))
-    !     w(:,i,mag(1)) = half*B_star*dsin(x(:,i,2))
-    !     w(:,i,mag(2)) = zero
-    !   enddo
-    !   if(mhd_glm) w(ixB^S,psi_)=0.d0
-    !
-    ! case(4)
-    !   do i=ixBmin2,ixBmax2
-    !     w(:,i,rho_) = w(:,i-1,rho_)
-    !     w(:,i,mom(1)) = w(:,i-1,mom(1))
-    !     w(:,i,mom(2)) = -w(:,i-1,mom(0))
-    !     w(:,i,mag(1)) = half*B_star*dsin(x(:,i,2))
-    !     w(:,i,mag(2)) = zero
-    !   enddo
-    !   if(mhd_glm) w(ixB^S,psi_)=0.d0
 
     case default
       call mpistop("BC not specified")
@@ -376,12 +292,7 @@ contains
     ! backward difference
     grad_bwd(ixO^S) = (vel(ixO^S)-vel(hx^S))/(x(ixO^S,1)-x(hx^S,1))
     ! central difference
-   ! grad_centCT(ixO^S) = half*abs(grad_fwd(ixO^S)+grad_bwd(ixO^S))
-    do i = ixImin1, ixImax1
-    do j = ixImin2, ixImax2
-        grad_centCT(i,j) = half*max(grad_fwd(i,j)+grad_bwd(i,j),zero)
-    enddo
-    enddo
+    grad_centCT(ixO^S) = half*max(grad_fwd(ixO^S)+grad_bwd(ixO^S),zero) !> FIX SYNTAX HERE
     !--------------------------------------------------------------------------------------
 
     beta_fd(ixO^S) = (1 - (vel(ixO^S)/x(ixO^S,1))/grad_centCT(ixO^S))*(R_star/x(ixO^S,1))**2
@@ -436,94 +347,6 @@ contains
     ! if (it .ge. 36838+1) dtnew = new_timestep
 
   end subroutine special_dt
-  !==========================================================================================
 
-  subroutine specialrefine_grid(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
-  ! Enforce additional refinement or coarsening
-  ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
-  ! you must set consistent values for integers refine/coarsen:
-  ! refine = -1 enforce to not refine
-  ! refine =  0 doesn't enforce anything
-  ! refine =  1 enforce refinement
-  ! coarsen = -1 enforce to not coarsen
-  ! coarsen =  0 doesn't enforce anything
-  ! coarsen =  1 enforce coarsen
-  use mod_global_parameters
-
-  integer, intent(in) :: igrid, level, ixG^L, ix^L
-  double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
-  integer, intent(inout) :: refine, coarsen
-
-  double precision :: ll, l, h, hh
-
-  ll = (0.5d0-1.d0/16.d0)*dpi
-  l = (0.5d0-1.d0/8.d0)*dpi
-  h = (0.5d0+1.d0/8.d0)*dpi
-  hh = (0.5d0+1.d0/16.d0)*dpi
-
-  ! test with different levels of refinement enforced
-  if (any(x(ix^S,2) < h) .and. any(x(ix^S,2) > l)) refine=1
-  if (any(x(ix^S,2) < hh) .and. any(x(ix^S,2) > ll)) refine=1
-
-end subroutine specialrefine_grid
-!==========================================================================================
-
-subroutine time_average_values(igrid,level,ixI^L,ixO^L,qt,w,x)
-  use mod_global_parameters
-  integer, intent(in)             :: igrid,level,ixI^L,ixO^L
-  double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
-  double precision, intent(inout) :: w(ixI^S,1:nw)
-
-  !!!ARE V AND MOM IN RADIAL COORDS???
-
-  if (global_time .gt. 0.5d0) then
-    w(ixI^S,int_r2v) = w(ixI^S,int_r2v) &
-    + w(ixI^S,mom(1))*w(ixI^S,rho_)*dt
-    w(ixI^S,int_r2) = w(ixI^S,int_r2) &
-    + w(ixI^S,rho_)**two*dt
-    w(ixI^S,int_v2) =  w(ixI^S,int_v2) &
-    + w(ixI^S,mom(1))**two/w(ixI^S,rho_)**two*dt
-    w(ixI^S,int_r) = w(ixI^S,int_r) &
-    + w(ixI^S,rho_)*dt
-    w(ixI^S,int_v) =  w(ixI^S,int_v) &
-    + w(ixI^S,mom(1))/w(ixI^S,rho_)*dt
-
-    w(ixI^S,int_dt) =  w(ixI^S,int_dt) + dt
-  else
-    w(ixI^S,int_r2v) = zero
-    w(ixI^S,int_r2) = zero
-    w(ixI^S,int_v2) = zero
-    w(ixI^S,int_r) = zero
-    w(ixI^S,int_v) = zero
-    w(ixI^S,int_dt) = zero
-  endif
-end subroutine time_average_values
-!==========================================================================================
-
-subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
-  use mod_global_parameters
-  use mod_physics
-  integer, intent(in)                :: ixI^L,ixO^L
-  double precision, intent(in)       :: x(ixI^S,1:ndim)
-  double precision                   :: w(ixI^S,nw+nwauxio)
-  double precision                   :: normconv(0:nw+nwauxio)
-
-  double precision :: B_vec(ixI^S,1:ndim)
-  double precision :: Div_B(ixI^S)
-
-  B_vec(ixI^S,:) = w(ixI^S,mag(:))
-  call divvector(B_vec,ixI^L,ixO^L,Div_B)
-
-  w(ixO^S,nw+1) = Div_B(ixO^S)
-
-end subroutine specialvar_output
-!==========================================================================================
-
-subroutine specialvarnames_output(varnames)
-  use mod_global_parameters
-  character(len=*) :: varnames
-
-  varnames = 'Div_B'
-end subroutine specialvarnames_output
-
+!===========================================================================================
 end module mod_usr

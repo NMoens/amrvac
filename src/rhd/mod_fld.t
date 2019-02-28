@@ -1197,9 +1197,6 @@ module mod_fld
 
     !> Update rad-energy in w
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
-
-    print*, w(4,4,iw_e)
-
   end subroutine Energy_interaction
 
   subroutine Bisection_method(e_gas, E_rad, c0, c1)
@@ -1214,8 +1211,9 @@ module mod_fld
     bisect_a = zero
     bisect_b = max(abs(c0/c1),abs(c0)**(1.d0/4.d0))
 
-    do while (abs(Polynomial_Bisection(bisect_b, c0, c1)-Polynomial_Bisection(bisect_a, c0, c1))&
-       .ge. fld_bisect_tol*min(e_gas,E_rad))
+    ! do while (abs(Polynomial_Bisection(bisect_b, c0, c1)-Polynomial_Bisection(bisect_a, c0, c1))&
+    !    .ge. fld_bisect_tol*min(e_gas,E_rad))
+    do while (abs(bisect_b-bisect_a) .ge. fld_bisect_tol*min(e_gas,E_rad))
       bisect_c = (bisect_a + bisect_b)/two
 
       ! print*, bisect_a, bisect_b, bisect_c
@@ -1249,7 +1247,7 @@ module mod_fld
       else
         bisect_a = e_gas
         bisect_b = e_gas
-        print*, "IGNORING ENERGY GAS-RAD EXCHANGE ", c0, c1
+        print*, "IGNORING GAS-RAD ENERGY EXCHANGE ", c0, c1
         goto 2435
       endif
     enddo

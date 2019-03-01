@@ -186,13 +186,6 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   double precision :: pert(ixG^S), amplitude
   integer :: i
 
-  ! double precision :: test_T(1:nyc)
-  ! test_T = (mp_cgs*fld_mu/const_kB)*pg_is/rho_is*(unit_pressure/unit_density)/unit_temperature
-  ! do i = 1,ny_vac
-  !   print*, tg_is(i), tr_is(i), test_T(i), (tg_is(i) - tr_is(i))/tg_is(i), (tg_is(i) - test_T(i))/tg_is(i)
-  ! enddo
-  ! stop
-
   do i = ixGmin2,ixGmax2
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(i)
     w(ixGmin1: ixGmax1, i, mom(1)) = vel_is(i)*rho_is(i)
@@ -204,10 +197,10 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   print*, w(10, :, mom(1))
 
   !> perturb rho
-  amplitude = 0.0d0
+  amplitude = 0.5d-2
   call RANDOM_NUMBER(pert)
   do i = ixGmin2, ixGmin2+20
-    w(:,i, rho_) = w(:,i, rho_)*(one + amplitude*pert(:,i))
+    w(:,i, r_e) = w(:,i, r_e)*(one + amplitude*pert(:,i))
   enddo
 
   call get_rad_extravars(w, x, ixG^L, ix^L)

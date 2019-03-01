@@ -8,13 +8,13 @@
 &savelist
        itsave(1,1)     = 0
        itsave(1,2)     = 0
-       !dtsave_log      = 1.d-3
-       !dtsave_dat      = 1.d-3
-       ditsave_dat    = 1
+       dtsave_log      = 5.d-3
+       dtsave_dat      = 5.d-3
+       !ditsave_dat    = 1
 /
 
 &stoplist
-       time_max        = 5.d-3
+       time_max        = 5.d-1
        dtmin = 1.0d-10
        it_max = 25
 /
@@ -41,8 +41,8 @@
        w_refine_weight(4)=0.5d0
        block_nx1=32
        block_nx2=32
-       domain_nx1=128
-       domain_nx2=128
+       domain_nx1=256
+       domain_nx2=256
        iprob=1
        xprobmin1=-2.d0
        xprobmax1=2.d0

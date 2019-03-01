@@ -297,7 +297,9 @@ module mod_fld
         !> Do nothing OR CHECK WHAT IS ALREADY DONE BY POINTING
         call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
         call set_mg_diffcoef()
-        ! call Diffuse_E_rad_mg(qdt, qt, active)
+        call set_mg_bounds()
+        ! print*, w(20,1:8,iw_r_e)
+        ! print*, w(20,1:8,i_diff_mg)
         call phys_global_source(dt, global_time, active)
       case default
         call mpistop('Numerical diffusionscheme unknown, try adi or mg')
@@ -524,7 +526,7 @@ module mod_fld
     double precision             :: max_res
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 1, 1.d-4)
+    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
   end subroutine Diffuse_E_rad_mg

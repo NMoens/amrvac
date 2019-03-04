@@ -107,40 +107,23 @@ subroutine initglobaldata_usr
 
   OPEN(3,FILE='initial_conditions/init_params_amrvac')
     READ(3,*) dum1, M_star
-    print*, 'M_star', M_star
     READ(3,*) dum1, L_star
-    print*, 'L_star', L_star
     READ(3,*) dum1, Gamma_e
-    print*, 'Gamma_e', Gamma_e
     READ(3,*) dum1, R_core
-    print*, 'R_core', R_core
     READ(3,*) dum1, R_up
-    print*, 'R_up', R_up/R_core, 'R_core'
     READ(3,*)
-    print*, 'dummies'
     READ(3,*) dum1, log_g
-    print*, 'log_g', log_g
     READ(3,*) dum1, T_gas_core
-    print*, 'T_gas_core', T_gas_core
     READ(3,*) dum1, rho_core
-    print*, 'rho_core', rho_core
     READ(3,*) dum1, Hp
-    print*, 'Hp', Hp
     READ(3,*)
     READ(3,*) dum1, tau_core
-    print*, 'tau_core', tau_core
   CLOSE(3)
 
   M_star = M_star*M_sun
   R_up = R_up*R_sun
   Hp = Hp*R_core
 
-  ! OPEN(4,FILE='initial_conditions/init_params')
-  !   READ(4,*)
-  !   READ(4,*)
-  !   READ(4,*)
-  !   READ(4,*) dum1, mdot, vinf
-  ! CLOSE(4)
   mdot = 1.d-6
 
   mdot = mdot*year/M_sun
@@ -171,13 +154,12 @@ subroutine initglobaldata_usr
   vel_is = mdot/(4*dpi*R_core**2*rho_is*unit_density)/unit_velocity
   tr_is  = (er_is/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
 
+  if (mype .eq. one) then
   print*, 'unit_length', unit_length
   print*, 'unit_density', unit_density
   print*, 'unit_pressure', unit_pressure
   print*, 'unit_temperature', unit_temperature
-
-  print*, minval(y_is), xprobmin2
-  print*, maxval(y_is), xprobmax2
+  endif
 
   if (minval(y_is) .gt. xprobmin2) call mpistop(&
      "Simulation space not covered")
@@ -206,10 +188,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
 
   do i = ixGmin2,ixGmax2
     y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i,2))
-
-    print*, 'minloc', minloc(abs(y_res), 1)
     j = minloc(abs(y_res), 1)
-    print*,abs(y_res)
 
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(j)
     w(ixGmin1: ixGmax1, i, mom(1)) = vel_is(j)*rho_is(j)
@@ -221,9 +200,16 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   !> perturb rho
   amplitude = 0.5d-2
   call RANDOM_NUMBER(pert)
-  do i = ixGmin2, ixGmin2+20
-    w(:,i, rho_) = w(:,i, rho_)*(one + amplitude*pert(:,i))
-  enddo
+
+  where((x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+     2) .lt. 10d-3) .and. (x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,2) .gt. 5d-3))
+  where((x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+     1) .lt. -5d-3) .and. (x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1) .gt. 5d-3))
+    w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = w(ixGmin1:ixGmax1,&
+       ixGmin2:ixGmax2, rho_)*(one + amplitude*pert(ixGmin1:ixGmax1,&
+       ixGmin2:ixGmax2))
+  endwhere
+  endwhere
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)

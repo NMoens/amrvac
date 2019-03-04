@@ -166,6 +166,8 @@ subroutine initglobaldata_usr
   pg_is = pg_is/unit_pressure
   er_is = er_is/unit_pressure
 
+  y_is = y_is - y_is(1)
+
   vel_is = mdot/(4*dpi*R_core**2*rho_is*unit_density)/unit_velocity
   tr_is  = (er_is/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
 
@@ -203,12 +205,11 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   integer :: i,j
 
   do i = ixGmin2,ixGmax2
-    y_res(1:nyc) = y_is(1:nyc)-(R_core+x(1+nghostcells,i,2))
-    !j = minloc(abs(y_res))
+    y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i,2))
+
+    print*, 'minloc', minloc(abs(y_res), 1)
+    j = minloc(abs(y_res), 1)
     print*,abs(y_res)
-    print*,y_is(1:nyc)
-    print*, x(1+nghostcells,i,2)
-    stop
 
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(j)
     w(ixGmin1: ixGmax1, i, mom(1)) = vel_is(j)*rho_is(j)
@@ -221,7 +222,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   amplitude = 0.5d-2
   call RANDOM_NUMBER(pert)
   do i = ixGmin2, ixGmin2+20
-    w(:,i, rho_) = w(:,i, r_e)*(one + amplitude*pert(:,i))
+    w(:,i, rho_) = w(:,i, rho_)*(one + amplitude*pert(:,i))
   enddo
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&

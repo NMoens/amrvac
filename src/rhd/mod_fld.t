@@ -526,7 +526,7 @@ module mod_fld
     double precision             :: max_res
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
+    call diffusion_solve_vcoeff(mg, qdt, 1, 2.d-3)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
   end subroutine Diffuse_E_rad_mg
@@ -1176,6 +1176,25 @@ module mod_fld
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
     w(ixO^S,i_test) = a1(ixO^S)
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! Dimensionless notation for do loop with LASY:
+
+    ! {do ix^D=1,100 \ }
+    ! a(ix^D)= ix^D*
+    ! {enddo\ }
+
+    ! which translates to:
+
+    ! do ix1=1,100
+    ! do ix2=1,100
+    !     a(ix1,ix2)= ix1*ix2
+    ! enddo
+    ! enddo
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !Do similar stuff for the eddington_tensor
 
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1

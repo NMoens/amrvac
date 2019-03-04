@@ -50,12 +50,12 @@
    refine_max_level   = 3
    domain_nx1         = 64
    domain_nx2         = 64
-   block_nx1          = 64
-   block_nx2          = 64
+   block_nx1          = 16
+   block_nx2          = 16
    xprobmin1       = -0.01d0
    xprobmax1       = 0.01d0
-   xprobmin2       = 1.d0
-   xprobmax2       = 1.00015d0
+   xprobmin2       = 0.d0
+   xprobmax2       = 1.d0
    iprob=1
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
@@ -72,7 +72,7 @@
   rhd_gamma = 1.6666667d0 !5.d0/3.d0
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .true.
-  rhd_energy_interact = .true.
+  rhd_energy_interact = .false.
   rhd_radiation_diffusion = .true.
  /
 

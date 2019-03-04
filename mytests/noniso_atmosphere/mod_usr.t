@@ -35,7 +35,7 @@ implicit none
 
   double precision :: M_star, L_star, Gamma_e, R_core, R_up
   double precision :: log_g, T_gas_core, rho_core, tau_core
-  double precision :: mdot, vinf
+  double precision :: mdot, vinf, Hp
 
 contains
 
@@ -123,15 +123,16 @@ subroutine initglobaldata_usr
     print*, 'T_gas_core', T_gas_core
     READ(3,*) dum1, rho_core
     print*, 'rho_core', rho_core
+    READ(3,*) dum1, Hp
+    print*, 'Hp', Hp
     READ(3,*)
-    READ(3,*)
-    READ(3,*)
-    print*, 'dummies'
     READ(3,*) dum1, tau_core
     print*, 'tau_core', tau_core
   CLOSE(3)
 
   M_star = M_star*M_sun
+  R_up = R_up*R_sun
+  Hp = Hp*R_core
 
   ! OPEN(4,FILE='initial_conditions/init_params')
   !   READ(4,*)
@@ -147,7 +148,7 @@ subroutine initglobaldata_usr
   !> Define units
   unit_numberdensity = rho_core/((1.d0+4.d0*He_abundance)*mp_cgs)
   unit_temperature = T_gas_core
-  unit_length = R_core
+  unit_length = Hp
 
   !> Remaining units
   unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
@@ -157,6 +158,7 @@ subroutine initglobaldata_usr
 
 
   !> Make input dimensionless:
+  y_is = y_is/unit_length
   rho_is = rho_is/unit_density
   tg_is = tg_is/unit_temperature
   pg_is = pg_is/unit_pressure
@@ -165,9 +167,16 @@ subroutine initglobaldata_usr
   vel_is = mdot/(4*dpi*R_core**2*rho_is*unit_density)/unit_velocity
   tr_is  = (er_is/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
 
+  print*, 'unit_length', unit_length
   print*, 'unit_density', unit_density
   print*, 'unit_pressure', unit_pressure
   print*, 'unit_temperature', unit_temperature
+
+  print*, minval(y_is), xprobmin2
+  print*, maxval(y_is), xprobmax2
+
+  if (minval(y_is) .gt. xprobmin2) call mpistop("Simulation space not covered")
+  if (maxval(y_is) .lt. xprobmax2) call mpistop("Simulation space not covered")
 
 end subroutine initglobaldata_usr
 
@@ -183,24 +192,29 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   double precision, intent(in)    :: x(ixG^S, ndim)
   double precision, intent(inout) :: w(ixG^S, nw)
 
-  double precision :: pert(ixG^S), amplitude
-  integer :: i
+  double precision :: pert(ixG^S), amplitude, y_res(1:nyc)
+  integer :: i,j
 
   do i = ixGmin2,ixGmax2
-    w(ixGmin1: ixGmax1, i, rho_) = rho_is(i)
-    w(ixGmin1: ixGmax1, i, mom(1)) = vel_is(i)*rho_is(i)
-    w(ixGmin1: ixGmax1, i, mom(2)) = zero
-    w(ixGmin1: ixGmax1, i, e_) = pg_is(i)/(rhd_gamma-1.0)
-    w(ixGmin1: ixGmax1, i, r_e) = er_is(i)
-  enddo
+    y_res(1:nyc) = y_is(1:nyc)-(R_core+x(1+nghostcells,i,2))
+    !j = minloc(abs(y_res))
+    print*,abs(y_res)
+    print*,y_is(1:nyc)
+    print*, x(1+nghostcells,i,2)
+    stop
 
-  print*, w(10, :, mom(1))
+    w(ixGmin1: ixGmax1, i, rho_) = rho_is(j)
+    w(ixGmin1: ixGmax1, i, mom(1)) = vel_is(j)*rho_is(j)
+    w(ixGmin1: ixGmax1, i, mom(2)) = zero
+    w(ixGmin1: ixGmax1, i, e_) = pg_is(j)/(rhd_gamma-1.0)
+    w(ixGmin1: ixGmax1, i, r_e) = er_is(j)
+  enddo
 
   !> perturb rho
   amplitude = 0.5d-2
   call RANDOM_NUMBER(pert)
   do i = ixGmin2, ixGmin2+20
-    w(:,i, r_e) = w(:,i, r_e)*(one + amplitude*pert(:,i))
+    w(:,i, rho_) = w(:,i, r_e)*(one + amplitude*pert(:,i))
   enddo
 
   call get_rad_extravars(w, x, ixG^L, ix^L)

@@ -68,7 +68,7 @@ contains
     real(dp), intent(in)      :: dt
     integer, intent(in)       :: order
     real(dp), intent(in)      :: max_res
-    integer, parameter        :: max_its = 10
+    integer, parameter        :: max_its = 1d6
     integer                   :: n
     real(dp)                  :: res
 
@@ -95,6 +95,7 @@ contains
     do n = 1, max_its
        if (res <= max_res) exit
        call mg_fas_vcycle(mg, max_res=res)
+       print*, n, res
     end do
 
     if (n == max_its + 1) then

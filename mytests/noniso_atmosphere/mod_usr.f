@@ -59,14 +59,8 @@ subroutine usr_init()
   ! Routine for setting special boundary conditions
   usr_special_bc => boundary_conditions
 
-  ! Routine for setting radiation boundary conditions
-  usr_radiation_bc => radiation_boundary
-
   ! Graviatational field
   usr_gravity => set_gravitation_field
-
-  ! Attempt to use an innerbound to fix trouble with boundaries
-  ! usr_internal_bc => fixleftright
 
   ! Output routines
   usr_aux_output    => specialvar_output
@@ -87,7 +81,6 @@ subroutine initglobaldata_usr
   integer :: i
 
   !> Reading in parameters
-
   OPEN(1,FILE='initial_conditions/init_indat')
    READ(1,*) gamma0,mstar,rstar,yhe,ny_vac,dy_vac,tau_max,kap_law
   CLOSE(1)
@@ -124,11 +117,6 @@ subroutine initglobaldata_usr
   R_up = R_up*R_sun
   Hp = Hp*R_core
 
-  mdot = 1.d-6
-
-  mdot = mdot*year/M_sun
-  vinf = vinf*1.d5
-
   !> Define units
   unit_numberdensity = rho_core/((1.d0+4.d0*He_abundance)*mp_cgs)
   unit_temperature = T_gas_core
@@ -141,7 +129,6 @@ subroutine initglobaldata_usr
   unit_velocity=dsqrt(unit_pressure/unit_density)
   unit_time=unit_length/unit_velocity
 
-
   !> Make input dimensionless:
   y_is = y_is/unit_length
   rho_is = rho_is/unit_density
@@ -150,21 +137,22 @@ subroutine initglobaldata_usr
   er_is = er_is/unit_pressure
 
   y_is = y_is - y_is(1)
-
-  vel_is = mdot/(4*dpi*R_core**2*rho_is*unit_density)/unit_velocity
   tr_is  = (er_is/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
 
-  if (mype .eq. one) then
-  print*, 'unit_length', unit_length
-  print*, 'unit_density', unit_density
-  print*, 'unit_pressure', unit_pressure
-  print*, 'unit_temperature', unit_temperature
-  endif
+  if (mype .eq. 0) then
+    print*, 'unit_length', unit_length
+    print*, 'unit_density', unit_density
+    print*, 'unit_pressure', unit_pressure
+    print*, 'unit_temperature', unit_temperature
 
-  if (minval(y_is) .gt. xprobmin2) call mpistop(&
-     "Simulation space not covered")
-  if (maxval(y_is) .lt. xprobmax2) call mpistop(&
-     "Simulation space not covered")
+    print*, minval(y_is), xprobmin2
+    print*, maxval(y_is), xprobmax2
+
+    if (minval(y_is) .gt. xprobmin2) call &
+       mpistop("Simulation space not covered")
+    if (maxval(y_is) .lt. xprobmax2) call &
+       mpistop("Simulation space not covered")
+  endif
 
 end subroutine initglobaldata_usr
 
@@ -191,7 +179,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
     j = minloc(abs(y_res), 1)
 
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(j)
-    w(ixGmin1: ixGmax1, i, mom(1)) = vel_is(j)*rho_is(j)
+    w(ixGmin1: ixGmax1, i, mom(1)) = zero
     w(ixGmin1: ixGmax1, i, mom(2)) = zero
     w(ixGmin1: ixGmax1, i, e_) = pg_is(j)/(rhd_gamma-1.0)
     w(ixGmin1: ixGmax1, i, r_e) = er_is(j)
@@ -228,102 +216,23 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
   double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:nw)
   double precision                :: w_rad(ixGmin1:ixGmax1,ixGmin2:ixGmax2)
 
-  integer i,j
+  double precision :: y_res(1:nyc)
+  integer :: i,j
 
   select case (iB)
-  case(1)
-    call radiation_boundary(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,iB,w,w_rad,x)
-    do i=ixGmin1,ixGmin1+nghostcells-1
-      w(i,:,rho_) = rho_is(i)
-      w(i,:,mom(:)) = zero
-      w(i,:,e_) = pg_is(i)/(rhd_gamma-1.0)
-      w(i,:,r_e) = w_rad(i,:)
-    enddo
-
-  case(2)
-    call radiation_boundary(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,iB,w,w_rad,x)
-    do i=ixGmax1-nghostcells+1,ixGmax1
-      w(i,:,rho_) = rho_is(i)
-      w(i,:,mom(:)) = zero
-      w(i,:,e_) = pg_is(i)/(rhd_gamma-1.0)
-      w(i,:,r_e) = w_rad(i,:)
-    enddo
 
   case(3)
-    do j = ixBmin2,ixBmax2
-      w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmax2+1,rho_)
-      w(ixGmin1:ixGmax1,j,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1))
-      w(ixGmin1:ixGmax1,j,mom(2)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(2))
-      w(ixGmin1:ixGmax1,j,e_) = w(ixGmin1:ixGmax1,ixBmax2+1,e_)
-    enddo
-
-    call radiation_boundary(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,iB,w,w_rad,x)
-    do j = ixBmin2,ixBmax2
-      w(ixGmin1:ixGmax1,j,r_e) = w_rad(ixGmin1:ixGmax1,j)
-    enddo
-
-  case(4)
-    do j = ixBmin2,ixBmax2
-      w(ixGmin1:ixGmax1,j,rho_) = w(ixGmin1:ixGmax1,ixBmin2-1,rho_)
-      w(ixGmin1:ixGmax1,j,mom(1)) = w(ixGmin1:ixGmax1,ixBmin2-1,mom(1))
-      w(ixGmin1:ixGmax1,j,mom(2)) = w(ixGmin1:ixGmax1,ixBmin2-1,mom(2))
-      w(ixGmin1:ixGmax1,j,e_) = w(ixGmin1:ixGmax1,ixBmin2-1,e_)
-    enddo
-
-    call radiation_boundary(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,iB,w,w_rad,x)
-    do j = ixBmin2,ixBmax2
-      w(ixGmin1:ixGmax1,j,r_e) = w_rad(ixGmin1:ixGmax1,j)
+    do i = ixBmin2,ixBmax2
+      y_res(1:nyc) = y_is(1:nyc)-(x(ixBmin1,i,2))
+      j = minloc(abs(y_res), 1)
+      w(ixGmin1:ixGmax1,j,rho_) = rho_is(j)
+      w(ixGmin1:ixGmax1,j,r_e) = er_is(j)
     enddo
 
   case default
     call mpistop('boundary not known')
   end select
 end subroutine boundary_conditions
-
-!==========================================================================================
-
-subroutine radiation_boundary(qt,ixImin1,ixImin2,ixImax1,ixImax2,iB,w,w_rad,x)
-  use mod_global_parameters
-  integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2, iB
-  double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
-     1:ndim)
-  double precision, intent(in)    :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
-  double precision, intent(out)   :: w_rad(ixImin1:ixImax1,ixImin2:ixImax2)
-
-  integer i,j
-
-  select case (iB)
-  case(1)
-    do i=ixImin2,ixImin2+nghostcells-1
-      w_rad(ixImin1:ixImin1+nghostcells-1,i) = w(ixImax2-nghostcells,i,r_e)
-    enddo
-
-  case(2)
-    do i=ixImin2,ixImin2+nghostcells-1
-      w_rad(ixImax1-nghostcells+1:ixImax1,i) = w(ixImax1+nghostcells,i,r_e)
-    enddo
-
-
-  case(3)
-    do i=ixImin1,ixImax1
-      ! w_rad(i,2) = 2.d0*w(i,3,r_e)-w(i,4,r_e)
-      ! w_rad(i,1) = 2.d0*w(i,2,r_e)-w(i,3,r_e)
-      ! print*, w_rad(i,1), w_rad(i,2)
-      w_rad(i,ixImin2:ixImin2+nghostcells-1) = &
-         er_is(ixImin2:ixImin2+nghostcells-1)
-    enddo
-
-  case(4)
-    do i=ixImin1,ixImax1
-      do j = ixImax2-nghostcells+1,ixImax2
-        w_rad(i,j) = max(2.d0*w(i,j-1,r_e)-w(i,j-2,r_e), zero)
-      enddo
-    enddo
-
-  case default
-    call mpistop('boundary not known')
-  end select
-end subroutine radiation_boundary
 
 !==========================================================================================
 
@@ -342,27 +251,6 @@ subroutine set_gravitation_field(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
   gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,&
      2) = -const_G*mstar/rstar**2*(unit_time**2/unit_length)
 end subroutine set_gravitation_field
-
-!===============================================================================
-
-subroutine fixleftright(level,qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
-   ixOmin2,ixOmax1,ixOmax2,w,x)
-
-  use mod_global_parameters
-  integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
-     ixOmin2,ixOmax1,ixOmax2,level
-  double precision, intent(in)    :: qt
-  double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
-  double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
-
-  integer :: i
-
-  do i = ixOmin2, ixOmax2
-    w(ixOmin1:ixOmin1+2,i,iw_r_e) =  er_is(i)
-    w(ixOmax1-2:ixOmax1,i,iw_r_e) =  er_is(i)
-  enddo
-
-end subroutine fixleftright
 
 !==========================================================================================
 
@@ -410,7 +298,6 @@ subroutine specialvarnames_output(varnames)
   character(len=*) :: varnames
 
   varnames = 'ar1 ar2 Gamma'
-
 end subroutine specialvarnames_output
 
 !==========================================================================================

@@ -113,7 +113,7 @@ subroutine set_boundary
   pr0 = er0/3.
   !
   hp = a20/geff
-  frac = 0.03
+  frac = 0.3 !0.03
   dy = hp * frac
   !For now, ny just maximum number of integration points
   ny = 10000

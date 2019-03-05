@@ -175,7 +175,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   integer :: i,j
 
   do i = ixGmin2,ixGmax2
-    y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i,2))
+    y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i+2,2))
     j = minloc(abs(y_res), 1)
 
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(j)
@@ -188,16 +188,14 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   !> perturb rho
   amplitude = 0.5d-2
   call RANDOM_NUMBER(pert)
+  w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+      rho_)*(one + amplitude*pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2))
 
-  where((x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
-     2) .lt. 10d-3) .and. (x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,2) .gt. 5d-3))
-  where((x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
-     1) .lt. -5d-3) .and. (x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1) .gt. 5d-3))
-    w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = w(ixGmin1:ixGmax1,&
-       ixGmin2:ixGmax2, rho_)*(one + amplitude*pert(ixGmin1:ixGmax1,&
-       ixGmin2:ixGmax2))
-  endwhere
-  endwhere
+  ! where((x(ixG^S,2) .lt. 10d-3) .and. (x(ixG^S,2) .gt. 5d-3))
+  ! where((x(ixG^S,1) .lt. -5d-3) .and. (x(ixG^S,1) .gt. 5d-3))
+  !   w(ixG^S, rho_) = w(ixG^S, rho_)*(one + amplitude*pert(ixG^S))
+  ! endwhere
+  ! endwhere
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
@@ -223,10 +221,12 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
 
   case(3)
     do i = ixBmin2,ixBmax2
-      y_res(1:nyc) = y_is(1:nyc)-(x(ixBmin1,i,2))
+      y_res(1:nyc) = y_is(1:nyc)-(x(ixBmin1+nghostcells,i+2,2))
       j = minloc(abs(y_res), 1)
-      w(ixGmin1:ixGmax1,j,rho_) = rho_is(j)
-      w(ixGmin1:ixGmax1,j,r_e) = er_is(j)
+      w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
+      w(ixGmin1:ixGmax1,i,r_e) = er_is(j)
+      w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0)
+
     enddo
 
   case default

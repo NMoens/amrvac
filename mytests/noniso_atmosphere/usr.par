@@ -15,8 +15,8 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat     = 5
-   ditsave_log     = 5
+   ditsave_dat     = 30
+   ditsave_log     = 30
    !dtsave_dat     = 1.d-2
    !dtsave_log     = 1.d-4
 /
@@ -24,7 +24,7 @@
  &stoplist
    time_max = 1.d-1
    dtmin = 1.0d-20
-   it_max = 50
+   it_max = 300
 /
 
  &methodlist
@@ -38,10 +38,10 @@
 /
 
 &boundlist
-  nghostcells  = 2
+  nghostcells  = 4
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 'special',3*'cont','special'
+  typeboundary_min2 = 'special',2*'cont',2*'special'
   typeboundary_max2 = 4*'noinflow','cont'
   internalboundary = F
 /
@@ -50,8 +50,8 @@
    refine_max_level   = 4
    domain_nx1         = 64
    domain_nx2         = 64
-   block_nx1          = 32
-   block_nx2          = 32
+   block_nx1          = 64
+   block_nx2          = 64
    xprobmin1       = -0.01d0
    xprobmax1       = 0.01d0
    xprobmin2       = 0.d0
@@ -81,4 +81,4 @@
   fld_split = .false.
   fld_opacity_law = 'const'
   fld_diff_scheme = 'mg'
-/
+  /

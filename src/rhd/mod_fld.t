@@ -375,33 +375,33 @@ module mod_fld
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
-    double precision :: fld_R(ixO^S), fld_lambda(ixO^S)
-    double precision ::  normgrad2(ixO^S)
-    double precision :: grad_r_e(ixI^S)
+    double precision :: fld_R(ixI^S), fld_lambda(ixI^S)
+    double precision ::  normgrad2(ixI^S)
+    double precision :: grad_r_e(ixI^S), rad_e(ixI^S)
     integer :: idir
 
     if (fld_complete_diffusion_limit) then
-      fld_lambda = one/3.d0
-
-      w(ixO^S,i_lambda) = fld_lambda
-      w(ixO^S,i_fld_R) = zero
+      w(ixI^S,i_lambda) = one/3.d0
+      w(ixI^S,i_fld_R) = zero
     else
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = zero
+      normgrad2(ixI^S) = zero
+      rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndir
-        call gradient(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,grad_r_e)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+        !> gradient or gradientS ?!?!?!?!?!?
+        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
       end do
 
-      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+      fld_R(ixI^S) = dsqrt(normgrad2(ixI^S))/(w(ixI^S,i_op)*w(ixI^S,iw_rho)*w(ixI^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       !> Levermore and Pomraning: lambda = (2 + R)/(6 + 3R + R^2)
-      fld_lambda(ixO^S) = (2.d0+fld_R(ixO^S))/(6.d0+3*fld_R(ixO^S)+fld_R(ixO^S)**2.d0)
+      fld_lambda(ixI^S) = (2.d0+fld_R(ixI^S))/(6.d0+3*fld_R(ixI^S)+fld_R(ixI^S)**2.d0)
 
-      w(ixO^S,i_lambda) = fld_lambda(ixO^S)
-      w(ixO^S,i_fld_R) = fld_R(ixO^S)
+      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
+      w(ixI^S,i_fld_R) = fld_R(ixI^S)
     endif
   end subroutine fld_get_fluxlimiter
 
@@ -414,9 +414,8 @@ module mod_fld
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
-    double precision :: rad_flux(ixO^S, 1:ndim)
+    double precision :: rad_flux(ixI^S, 1:ndim)
     double precision :: L_star, R_star
-    double precision :: normgrad2(ixO^S), f(ixO^S)
     double precision :: grad_r_e(ixI^S)
     double precision :: rad_e(ixI^S)
     integer :: idir
@@ -426,11 +425,23 @@ module mod_fld
     !> Calculate the Flux using the fld closure relation
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndir
+      !> gradient or gradientS ?!?!?!?!?!?
       call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-      rad_flux(ixO^S, idir) = -fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
+      rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
 
-    w(ixO^S,i_flux(:)) = rad_flux(ixO^S,:)
+    ! print*, rad_e(10, 1:nghostcells+4)
+    ! print*, x(10, 1:nghostcells+4,2)
+    ! print*, grad_r_e(10, 1:nghostcells+4)
+    ! print*, '----------', it
+
+    w(ixI^S,i_test) = grad_r_e(ixI^S)
+
+    !>CHEATY BIT:
+    rad_flux(ixImin1:ixImax1,ixOmin2,2) = rad_flux(ixImin1:ixImax1,ixOmin2+1,2)
+    rad_flux(ixImin1:ixImax1,ixOmax2,2) = rad_flux(ixImin1:ixImax1,ixOmax2-1,2)
+
+    w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
   end subroutine fld_get_radflux
 
   !> Calculate Radiation Pressure
@@ -453,9 +464,12 @@ module mod_fld
     normgrad2(ixO^S) = zero
 
     do idir = 1,ndir
+      !> gradient or gradientS ?!?!?!?!?!?
       call gradient(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
+
+    print*, grad_r_e(5:10,nghostcells:nghostcells+5,2)
 
     !> Calculate radiation pressure
     !> P = (lambda + lambda^2 R^2)*E
@@ -482,8 +496,6 @@ module mod_fld
         endwhere
       enddo
     enddo
-
-
 
     do idir = 1,ndir
       do jdir = 1,ndir
@@ -591,7 +603,7 @@ module mod_fld
            mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
         case (3)
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+          mg%bc(iB, mg_iphi)%bc_value = -4.0d0
         case (4)
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
           mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
@@ -1148,6 +1160,7 @@ module mod_fld
     do i = 1,ndim
       do j = 1,ndim
         vel(ixI^S) = w(ixI^S,iw_mom(j))
+        !> gradient or gradientS ?!?!?!?!?!?
         call gradient(vel,ixI^L,ixO^L,i,grad_v)
         div_v(ixO^S,i,j) = grad_v(ixO^S)
       enddo
@@ -1174,9 +1187,6 @@ module mod_fld
 
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
-
-    w(ixO^S,i_test) = a1(ixO^S)
-
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !! Dimensionless notation for do loop with LASY:

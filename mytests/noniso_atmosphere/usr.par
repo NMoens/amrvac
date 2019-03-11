@@ -15,8 +15,8 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat     = 30
-   ditsave_log     = 30
+   ditsave_dat     = 1
+   ditsave_log     = 1
    !dtsave_dat     = 1.d-2
    !dtsave_log     = 1.d-4
 /
@@ -24,7 +24,7 @@
  &stoplist
    time_max = 1.d-1
    dtmin = 1.0d-20
-   it_max = 300
+   it_max = 5
 /
 
  &methodlist
@@ -41,21 +41,21 @@
   nghostcells  = 4
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 'special',2*'cont',2*'special'
+  typeboundary_min2 = 'special',2*'special','special','special'
   typeboundary_max2 = 4*'noinflow','cont'
   internalboundary = F
 /
 
  &meshlist
-   refine_max_level   = 4
+   refine_max_level   = 1
    domain_nx1         = 64
    domain_nx2         = 64
    block_nx1          = 64
    block_nx2          = 64
-   xprobmin1       = -0.01d0
-   xprobmax1       = 0.01d0
+   xprobmin1       = -1.d0
+   xprobmax1       = 1.d0
    xprobmin2       = 0.d0
-   xprobmax2       = 0.02d0
+   xprobmax2       = 4.d0
    iprob=1
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
@@ -74,6 +74,7 @@
   rhd_radiation_force = .true.
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
+  rhd_radiation_advection = .true.
  /
 
  &fld_list

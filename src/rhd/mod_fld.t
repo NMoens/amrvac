@@ -203,7 +203,6 @@ module mod_fld
     endif
   end subroutine get_rad_extravars
 
-
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
   subroutine get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
        energy,qsourcesplit,active)
@@ -237,8 +236,8 @@ module mod_fld
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
-            + qdt * radiation_force(ixO^S,idir)
-            !+ qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
+            + qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
+            !+ qdt * radiation_force(ixO^S,idir)
             !> NOT SURE ON HOW TO AVERAGE OVER LEFTHANDSIDE AND RIGHTHANDSIDE FLUX EDGE
       enddo
     end if
@@ -426,7 +425,7 @@ module mod_fld
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndir
       !> gradient or gradientS ?!?!?!?!?!?
-      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+      call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
       rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
 
@@ -469,7 +468,9 @@ module mod_fld
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
-    print*, grad_r_e(5:10,nghostcells:nghostcells+5,2)
+    print*, w(10,nghostcells-2:nghostcells+3,iw_r_e)
+    print*, grad_r_e(10,nghostcells-2:nghostcells+3,2)
+    print*, '------------------------------------------------------------------'
 
     !> Calculate radiation pressure
     !> P = (lambda + lambda^2 R^2)*E
@@ -589,7 +590,6 @@ module mod_fld
          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
       case ('cont')
          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-         mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
       case ('periodic')
         !> Do nothing
       case ('special')
@@ -597,13 +597,11 @@ module mod_fld
         select case (iB)
         case (1)
            mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-           mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
         case (2)
            mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-           mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
         case (3)
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          mg%bc(iB, mg_iphi)%bc_value = -4.0d0
+          mg%bc(iB, mg_iphi)%bc_value = -2.d0
         case (4)
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
           mg%bc(iB, mg_iphi)%bc_value = 0.0_dp

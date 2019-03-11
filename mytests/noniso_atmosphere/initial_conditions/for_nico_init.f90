@@ -113,10 +113,10 @@ subroutine set_boundary
   pr0 = er0/3.
   !
   hp = a20/geff
-  frac = 0.3 !0.03
+  frac = 0.03
   dy = hp * frac
   !For now, ny just maximum number of integration points
-  ny = 10000
+  ny = 100000
 
   !allocate basic variables
   allocate(pg(ny),tg(ny),er(ny),rho(ny),fr(ny),pr(ny),&
@@ -317,7 +317,8 @@ enddo
 
 open(1,file='init_struc_amrvac')
 do i=1,ny_vac
-   write(1,12) i, y_vac(i),rho_vac(i),tg_vac(i),pg_vac(i),er_vac(i),tau_vac(i)
+   j = i
+   write(1,12) i, y_vac(j),rho_vac(j),tg_vac(j),pg_vac(j),er_vac(j),tau_vac(j)
 enddo
 12 FORMAT(1i4,1e20.10,5e18.8)
 close(1)

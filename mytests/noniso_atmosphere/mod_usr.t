@@ -149,7 +149,6 @@ subroutine initglobaldata_usr
     if (minval(y_is) .gt. xprobmin2) call mpistop("Simulation space not covered")
     if (maxval(y_is) .lt. xprobmax2) call mpistop("Simulation space not covered")
   endif
-
 end subroutine initglobaldata_usr
 
 !==========================================================================================
@@ -190,7 +189,6 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   ! endwhere
 
   call get_rad_extravars(w, x, ixG^L, ix^L)
-
 end subroutine initial_conditions
 
 !==========================================================================================
@@ -211,10 +209,12 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
     do i = ixBmin2,ixBmax2
       y_res(1:nyc) = y_is(1:nyc)-(x(ixBmin1+nghostcells,i+2,2))
       j = minloc(abs(y_res), 1)
-      w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
-      w(ixGmin1:ixGmax1,i,r_e) = er_is(j)
-      w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0)
 
+      w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
+      w(ixGmin1:ixGmax1,i,mom(:)) = w(ixGmin1:ixGmax1,i+1,mom(:))
+      w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0) &
+      +half*w(ixGmin1:ixGmax1,j,mom(2))/w(ixGmin1:ixGmax1,j,rho_)
+      w(ixGmin1:ixGmax1,i,r_e) = er_is(j)
     enddo
 
   case default

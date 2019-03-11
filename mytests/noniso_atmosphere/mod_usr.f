@@ -187,17 +187,15 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   !> perturb rho
   amplitude = 0.5d-2
   call RANDOM_NUMBER(pert)
-  w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
-      rho_)*(one + amplitude*pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2))
-
-  ! where((x(ixG^S,2) .lt. 10d-3) .and. (x(ixG^S,2) .gt. 5d-3))
-  ! where((x(ixG^S,1) .lt. -5d-3) .and. (x(ixG^S,1) .gt. 5d-3))
-  !   w(ixG^S, rho_) = w(ixG^S, rho_)*(one + amplitude*pert(ixG^S))
-  ! endwhere
-  ! endwhere
+  do i = ixGmin2+10,ixGmax2
+    w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i,&
+        rho_)*(one + amplitude*pert(ixGmin1:ixGmax1, i))
+  enddo
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
+  call set_mg_bounds()
+
 end subroutine initial_conditions
 
 !==========================================================================================

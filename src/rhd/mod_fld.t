@@ -389,7 +389,7 @@ module mod_fld
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
-        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
       end do
 
@@ -437,8 +437,8 @@ module mod_fld
     w(ixI^S,i_test) = grad_r_e(ixI^S)
 
     !>CHEATY BIT:
-    rad_flux(ixImin1:ixImax1,ixOmin2,2) = rad_flux(ixImin1:ixImax1,ixOmin2+1,2)
-    rad_flux(ixImin1:ixImax1,ixOmax2,2) = rad_flux(ixImin1:ixImax1,ixOmax2-1,2)
+    ! rad_flux(ixImin1:ixImax1,ixOmin2,2) = rad_flux(ixImin1:ixImax1,ixOmin2+1,2)
+    ! rad_flux(ixImin1:ixImax1,ixOmax2,2) = rad_flux(ixImin1:ixImax1,ixOmax2-1,2)
 
     w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
   end subroutine fld_get_radflux
@@ -455,16 +455,18 @@ module mod_fld
     double precision :: eddington_tensor(ixO^S,1:ndim,1:ndim)
     double precision :: tnsr2(ixO^S,1:ndim,1:ndim)
     double precision :: normgrad2(ixO^S), f(ixO^S)
-    double precision :: grad_r_e(ixI^S, 1:ndim)
+    double precision :: grad_r_e(ixI^S, 1:ndim), rad_e(ixI^S)
     integer :: i,j, idir,jdir
 
     !> Calculate R everywhere
     !> |grad E|/(rho kappa E)
     normgrad2(ixO^S) = zero
 
+    rad_e(ixI^S) = w(ixI^S, iw_r_e)
+    grad_r_e(ixI^S,:) = zero
     do idir = 1,ndir
       !> gradient or gradientS ?!?!?!?!?!?
-      call gradient(w(ixI^S, iw_r_e),ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
+      call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
@@ -539,23 +541,30 @@ module mod_fld
     double precision             :: max_res
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 1, 2.d-3)
+
+    print*, 'calling diffusion_solve_vcoeff'
+    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
   end subroutine Diffuse_E_rad_mg
 
   subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
     use mod_global_parameters
+    use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
+
+    double precision :: max_D(ixI^S), grad_r_e(ixI^S), rad_e(ixI^S)
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
       !w(ixI^S,i_diff_mg) = one!*unit_length/unit_velocity
+      i = nghostcells+1
+      w(ixI^S,i_diff_mg) = fld_speedofligt_0*w(i,i,i_lambda)/(w(i,i,i_op)*w(i,i,iw_rho))
 
-      w(ixO^S,i_diff_mg) = fld_speedofligt_0/w(ixO^S,i_op)
+      w(ixI^S,i_diff_mg) = 28.70d0
 
     else
       !> calculate diffusion coefficient
@@ -569,6 +578,23 @@ module mod_fld
         w(ixImin1:ixImin1+nghostcells-1,i,i_diff_mg) = w(ixImin1+nghostcells,i,i_diff_mg)
         w(ixImax1-nghostcells+1:ixImin1,i,i_diff_mg) = w(ixImax1-nghostcells,i,i_diff_mg)
       enddo
+
+
+      !> Check if energy doesn't go faster than speed of light
+      !for simplicity, only in direction 2
+      rad_e(ixI^S) = w(ixI^S,iw_r_e)
+      call gradientS(rad_e,ixI^L,ixO^L,2,grad_r_e)
+      max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
+
+      do i = ixOmin1,ixOmax1
+        do j = ixOmin2,ixOmax2
+          ! print*, i, j, w(i,j,i_diff_mg), max_D(i,j)
+          if (w(i,j,i_diff_mg) .gt. max_D(i,j)) &
+          call mpistop('You have reached maximal D, the D is too big')
+          w(i,j,i_diff_mg) = min(w(i,j,i_diff_mg), max_D(i,j))
+        enddo
+      enddo
+
     endif
   end subroutine fld_get_diffcoef_central
 
@@ -600,8 +626,8 @@ module mod_fld
         case (2)
            mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
         case (3)
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          mg%bc(iB, mg_iphi)%bc_value = -2.d0
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+          mg%bc(iB, mg_iphi)%bc_value = 3.0174800255830467
         case (4)
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
           mg%bc(iB, mg_iphi)%bc_value = 0.0_dp

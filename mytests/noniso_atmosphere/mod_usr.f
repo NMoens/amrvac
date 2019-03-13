@@ -185,7 +185,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   enddo
 
   !> perturb rho
-  amplitude = 0.5d-2
+  amplitude = 0.5d-1
   call RANDOM_NUMBER(pert)
   do i = ixGmin2+10,ixGmax2
     w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i,&
@@ -221,10 +221,17 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
       j = minloc(abs(y_res), 1)
 
       w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
-      w(ixGmin1:ixGmax1,i,mom(:)) = w(ixGmin1:ixGmax1,i+1,mom(:))
+      w(ixGmin1:ixGmax1,i,mom(:)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(:))
       w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0) &
          +half*w(ixGmin1:ixGmax1,j,mom(2))/w(ixGmin1:ixGmax1,j,rho_)
       w(ixGmin1:ixGmax1,i,r_e) = er_is(j)
+    enddo
+
+  case(4)
+    do i = ixBmin2,ixBmax2
+      w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,rho_)/w(ixGmin1:ixGmax1,&
+         i-2,rho_) *(w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,&
+         r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
     enddo
 
   case default

@@ -57,7 +57,7 @@ module mod_fld
     character(len=8) :: fld_opacity_law = 'const'
 
     !> Diffusion limit lambda = 0.33
-    logical :: fld_complete_diffusion_limit = .false.
+    character(len=16) :: fld_fluxlimiter = 'Pomraning'
 
     !> diffusion coefficient for multigrid method
     integer :: i_diff_mg
@@ -95,7 +95,7 @@ module mod_fld
 
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
     fld_bisect_tol, fld_diff_testcase, fld_adi_tol, fld_max_fracdt,&
-    fld_opacity_law, fld_complete_diffusion_limit, fld_diff_scheme
+    fld_opacity_law, fld_fluxlimiter, fld_diff_scheme
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -297,8 +297,6 @@ module mod_fld
         call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
         call set_mg_diffcoef()
         call set_mg_bounds()
-        ! print*, w(20,1:8,iw_r_e)
-        ! print*, w(20,1:8,i_diff_mg)
         call phys_global_source(dt, global_time, active)
       case default
         call mpistop('Numerical diffusionscheme unknown, try adi or mg')
@@ -377,12 +375,14 @@ module mod_fld
     double precision :: fld_R(ixI^S), fld_lambda(ixI^S)
     double precision ::  normgrad2(ixI^S)
     double precision :: grad_r_e(ixI^S), rad_e(ixI^S)
-    integer :: idir
+    integer :: idir, i, j
 
-    if (fld_complete_diffusion_limit) then
+    select case (fld_fluxlimiter)
+    case('Diffusion')
       w(ixI^S,i_lambda) = one/3.d0
       w(ixI^S,i_fld_R) = zero
-    else
+
+    case('Pomraning')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
       normgrad2(ixI^S) = zero
@@ -401,7 +401,38 @@ module mod_fld
 
       w(ixI^S,i_lambda) = fld_lambda(ixI^S)
       w(ixI^S,i_fld_R) = fld_R(ixI^S)
-    endif
+
+    case('Minerbo')
+      !> Calculate R everywhere
+      !> |grad E|/(rho kappa E)
+      normgrad2(ixI^S) = zero
+      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      do idir = 1,ndir
+        !> gradient or gradientS ?!?!?!?!?!?
+        call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
+      end do
+
+      fld_R(ixI^S) = dsqrt(normgrad2(ixI^S))/(w(ixI^S,i_op)*w(ixI^S,iw_rho)*w(ixI^S,iw_r_e))
+
+      !> Calculate the flux limiter, lambda
+      !> Minerbo:
+      do i = ixImin1, ixImax1
+        do j = ixImin2, ixImax2
+          if (fld_R(i,j) .lt. 3.d0/2.d0) then
+            fld_lambda(i,j) = 2.d0/(3.d0 + dsqrt(9.d0 + 12.d0*fld_R(i,j)**2.d0))
+          else
+            fld_lambda(i,j) = 1.d0/(1.d0 + fld_R(i,j) + dsqrt(1.d0 + 2.d0*fld_R(i,j)))
+          endif
+        enddo
+      enddo
+
+      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
+      w(ixI^S,i_fld_R) = fld_R(ixI^S)
+
+    case default
+      call mpistop('Fluxlimiter unknown')
+    end select
   end subroutine fld_get_fluxlimiter
 
   !> Calculate Radiation Flux
@@ -428,11 +459,6 @@ module mod_fld
       call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
       rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
-
-    ! print*, rad_e(10, 1:nghostcells+4)
-    ! print*, x(10, 1:nghostcells+4,2)
-    ! print*, grad_r_e(10, 1:nghostcells+4)
-    ! print*, '----------', it
 
     w(ixI^S,i_test) = grad_r_e(ixI^S)
 
@@ -470,9 +496,9 @@ module mod_fld
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
-    print*, w(10,nghostcells-2:nghostcells+3,iw_r_e)
-    print*, grad_r_e(10,nghostcells-2:nghostcells+3,2)
-    print*, '------------------------------------------------------------------'
+    ! print*, w(10,nghostcells-2:nghostcells+3,iw_r_e)
+    ! print*, grad_r_e(10,nghostcells-2:nghostcells+3,2)
+    ! print*, '------------------------------------------------------------------'
 
     !> Calculate radiation pressure
     !> P = (lambda + lambda^2 R^2)*E
@@ -541,8 +567,6 @@ module mod_fld
     double precision             :: max_res
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-
-    print*, 'calling diffusion_solve_vcoeff'
     call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
@@ -589,8 +613,8 @@ module mod_fld
       do i = ixOmin1,ixOmax1
         do j = ixOmin2,ixOmax2
           ! print*, i, j, w(i,j,i_diff_mg), max_D(i,j)
-          if (w(i,j,i_diff_mg) .gt. max_D(i,j)) &
-          call mpistop('You have reached maximal D, the D is too big')
+          ! if (w(i,j,i_diff_mg) .gt. max_D(i,j)) &
+          ! call mpistop('You have reached maximal D, the D is too big')
           w(i,j,i_diff_mg) = min(w(i,j,i_diff_mg), max_D(i,j))
         enddo
       enddo
@@ -1262,18 +1286,28 @@ module mod_fld
     double precision, intent(inout) :: e_gas
 
     double precision :: bisect_a, bisect_b, bisect_c
+    integer :: n, max_its
+
+    n = 0
+    max_its = 1d7
 
     bisect_a = zero
-    bisect_b = max(abs(c0/c1),abs(c0)**(1.d0/4.d0))
+    bisect_b = 1.2d0*max(abs(c0/c1),abs(c0)**(1.d0/4.d0))
 
     ! do while (abs(Polynomial_Bisection(bisect_b, c0, c1)-Polynomial_Bisection(bisect_a, c0, c1))&
     !    .ge. fld_bisect_tol*min(e_gas,E_rad))
     do while (abs(bisect_b-bisect_a) .ge. fld_bisect_tol*min(e_gas,E_rad))
       bisect_c = (bisect_a + bisect_b)/two
 
-      ! print*, bisect_a, bisect_b, bisect_c
-      ! print*, Polynomial_Bisection(bisect_a, c0, c1), Polynomial_Bisection(bisect_b, c0, c1), Polynomial_Bisection(bisect_c, c0, c1)
-
+      n = n +1
+      if (n .gt. max_its) then
+        !print*, 'Bisection tolerance not reached'
+        !print*, 'relative error ~', abs(bisect_b-bisect_a)/min(e_gas,E_rad)
+        ! bisect_a = bisect_c
+        ! bisect_b = bisect_c
+        goto 2435
+        call mpistop('No convergece in bisection scheme')
+      endif
 
       if (Polynomial_Bisection(bisect_a, c0, c1)*&
       Polynomial_Bisection(bisect_b, c0, c1) .lt. zero) then

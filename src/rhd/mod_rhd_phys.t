@@ -983,12 +983,15 @@ contains
     select case(rhd_radiation_formalism)
     case('fld')
       !> diffusion
+      ! print*, 'Doing diffusion stuff'
       if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
       !> photon tiring, heating and cooling
+      ! print*, 'Doing bisection stuff'
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
       !> radiation force
+      ! print*, 'Doing radforce stuff'
       if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
     case default

@@ -210,9 +210,9 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
       j = minloc(abs(y_res), 1)
 
       w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
-      w(ixGmin1:ixGmax1,i,mom(:)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(:))
-      w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0) &
-      +half*w(ixGmin1:ixGmax1,j,mom(2))/w(ixGmin1:ixGmax1,j,rho_)
+      ! w(ixGmin1:ixGmax1,i,mom(:)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(:))
+      ! w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0) &
+      ! +half*w(ixGmin1:ixGmax1,j,mom(2))/w(ixGmin1:ixGmax1,j,rho_)
       w(ixGmin1:ixGmax1,i,r_e) = er_is(j)
     enddo
 

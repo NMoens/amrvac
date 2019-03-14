@@ -1333,11 +1333,27 @@ module mod_fld
         else
           call mpistop("Problem with fld bisection method")
         endif
+      elseif (Polynomial_Bisection(bisect_a, c0, c1) &
+        - Polynomial_Bisection(bisect_b, c0, c1) .lt. fld_bisect_tol*Polynomial_Bisection(bisect_a, c0, c1)) then
+        goto 2435
       else
         bisect_a = e_gas
         bisect_b = e_gas
         print*, "IGNORING GAS-RAD ENERGY EXCHANGE ", c0, c1
+
+        print*, Polynomial_Bisection(bisect_a, c0, c1), Polynomial_Bisection(bisect_b, c0, c1)
+
+        if (Polynomial_Bisection(bisect_a, c0, c1) .le. smalldouble) then
+          bisect_b = bisect_a
+        elseif (Polynomial_Bisection(bisect_a, c0, c1) .le. smalldouble) then
+          bisect_a = bisect_b
+        endif
+
         goto 2435
+
+
+
+
       endif
     enddo
 

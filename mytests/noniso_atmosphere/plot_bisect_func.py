@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-c0 = 0.1
-c1 = 1.0
+c0 = -112909.69294058459
+c1 = 4.4770603528486008
 
 def poly(x):
     return x**4.0 + x*c1 - c0

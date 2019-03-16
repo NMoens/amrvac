@@ -221,9 +221,7 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
       j = minloc(abs(y_res), 1)
 
       w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
-      ! w(ixGmin1:ixGmax1,i,mom(:)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(:))
-      ! w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0) &
-      ! +half*w(ixGmin1:ixGmax1,j,mom(2))/w(ixGmin1:ixGmax1,j,rho_)
+      w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0)
       w(ixGmin1:ixGmax1,i,r_e) = er_is(j)
     enddo
 
@@ -269,6 +267,7 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
   ! corresponding normalization values (default value 1)
   use mod_global_parameters
   use mod_physics
+  use mod_fld
 
   integer, intent(in)                :: ixImin1,ixImin2,ixImax1,ixImax2,&
      ixOmin1,ixOmin2,ixOmax1,ixOmax2
@@ -279,6 +278,8 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
   double precision                   :: normconv(0:nw+nwauxio)
   double precision                   :: g_rad(ixImin1:ixImax1,ixImin2:ixImax2,&
      1:ndim), big_gamma(ixImin1:ixImax1,ixImin2:ixImax2)
+  double precision                   :: Tgas(ixImin1:ixImax1,ixImin2:ixImax2),&
+     Trad(ixImin1:ixImax1,ixImin2:ixImax2)
   integer                            :: idim
 
   do idim = 1,ndim
@@ -289,10 +290,15 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
   big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = g_rad(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2,2)/(6.67e-8*mstar/rstar**2*(unit_time**2/unit_length))
 
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1)=g_rad(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2,1)*unit_length/(unit_time**2)
-  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2)=g_rad(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2,2)*unit_length/(unit_time**2)
+  call rhd_get_tgas(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2, Tgas)
+  call rhd_get_trad(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2, Trad)
+
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1)=Tgas(ixOmin1:ixOmax1,&
+     ixOmin2:ixOmax2)*unit_temperature
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2)=Trad(ixOmin1:ixOmax1,&
+     ixOmin2:ixOmax2)*unit_temperature
   w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3)=big_gamma(ixOmin1:ixOmax1,&
      ixOmin2:ixOmax2)
 end subroutine specialvar_output
@@ -302,7 +308,7 @@ subroutine specialvarnames_output(varnames)
   use mod_global_parameters
   character(len=*) :: varnames
 
-  varnames = 'ar1 ar2 Gamma'
+  varnames = 'Tgas Trad Gamma'
 end subroutine specialvarnames_output
 
 !==========================================================================================

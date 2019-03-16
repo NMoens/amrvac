@@ -210,9 +210,7 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
       j = minloc(abs(y_res), 1)
 
       w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
-      ! w(ixGmin1:ixGmax1,i,mom(:)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(:))
-      ! w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0) &
-      ! +half*w(ixGmin1:ixGmax1,j,mom(2))/w(ixGmin1:ixGmax1,j,rho_)
+      w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0)
       w(ixGmin1:ixGmax1,i,r_e) = er_is(j)
     enddo
 
@@ -252,12 +250,14 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   ! corresponding normalization values (default value 1)
   use mod_global_parameters
   use mod_physics
+  use mod_fld
 
   integer, intent(in)                :: ixI^L,ixO^L
   double precision, intent(in)       :: x(ixI^S,1:ndim)
   double precision                   :: w(ixI^S,nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
   double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S)
+  double precision                   :: Tgas(ixI^S),Trad(ixI^S)
   integer                            :: idim
 
   do idim = 1,ndim
@@ -265,8 +265,11 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   enddo
   big_gamma(ixO^S) = g_rad(ixO^S,2)/(6.67e-8*mstar/rstar**2*(unit_time**2/unit_length))
 
-  w(ixO^S,nw+1)=g_rad(ixO^S,1)*unit_length/(unit_time**2)
-  w(ixO^S,nw+2)=g_rad(ixO^S,2)*unit_length/(unit_time**2)
+  call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
+  call rhd_get_trad(w, x, ixI^L, ixO^L, Trad)
+
+  w(ixO^S,nw+1)=Tgas(ixO^S)*unit_temperature
+  w(ixO^S,nw+2)=Trad(ixO^S)*unit_temperature
   w(ixO^S,nw+3)=big_gamma(ixO^S)
 end subroutine specialvar_output
 
@@ -275,7 +278,7 @@ subroutine specialvarnames_output(varnames)
   use mod_global_parameters
   character(len=*) :: varnames
 
-  varnames = 'ar1 ar2 Gamma'
+  varnames = 'Tgas Trad Gamma'
 end subroutine specialvarnames_output
 
 !==========================================================================================

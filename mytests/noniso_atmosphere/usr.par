@@ -8,7 +8,7 @@
   base_filename='./output/const'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
-  saveprim         = F
+  saveprim         = T
   nwauxio          = 3
 /
 
@@ -17,12 +17,12 @@
    itsave(1,2)     = 0
    !ditsave_dat     = 1
    !ditsave_log     = 1
-   dtsave_dat     = 1.d-1
-   dtsave_log     = 1.d-2
+   dtsave_dat     = 5.d-1
+   dtsave_log     = 5.d-2
 /
 
  &stoplist
-   time_max = 1.d1
+   time_max = 5.d1
    dtmin = 1.0d-20
    !it_max = 20
 /
@@ -41,7 +41,7 @@
   nghostcells  = 4
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 'special','cont','cont','cont','special'
+  typeboundary_min2 = 'special','cont','cont','special','special'
   typeboundary_max2 = 4*'noinflow','special'
   internalboundary = F
 /
@@ -82,5 +82,6 @@
   fld_split = .false.
   fld_opacity_law = 'const'
   fld_diff_scheme = 'mg'
+  fld_interaction_method = 'Newton'
   fld_fluxlimiter = 'Pomraning'
   /

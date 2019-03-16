@@ -62,8 +62,11 @@ module mod_fld
     !> diffusion coefficient for multigrid method
     integer :: i_diff_mg
 
-    !> Whicht method to solve diffusion part
+    !> Which method to solve diffusion part
     character(len=8) :: fld_diff_scheme = 'adi'
+
+    !> Which method to find the root for the energy interaction polynomial
+    character(len=8) :: fld_interaction_method = 'Bisect'
 
     !> Set Diffusion coefficient to unity
     logical :: fld_diff_testcase = .false.
@@ -95,7 +98,7 @@ module mod_fld
 
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
     fld_bisect_tol, fld_diff_testcase, fld_adi_tol, fld_max_fracdt,&
-    fld_opacity_law, fld_fluxlimiter, fld_diff_scheme
+    fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -653,7 +656,7 @@ module mod_fld
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
           mg%bc(iB, mg_iphi)%bc_value = 3.0174800255830467
         case (4)
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
           mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
         case default
           print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
@@ -1257,7 +1260,14 @@ module mod_fld
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1
     do j =  ixOmin2,ixOmax2
-          call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+      select case(fld_interaction_method)
+      case('Bisect')
+        call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+      case('Newton')
+        call Newton_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+      case default
+        call mpistop('root-method not known')
+      end select
     enddo
     enddo
 
@@ -1360,14 +1370,47 @@ module mod_fld
       2435 e_gas = (bisect_a + bisect_b)/two
   end subroutine Bisection_method
 
-  function Polynomial_Bisection(e_gas, c0, c1) result(pol_result)
+  subroutine Newton_method(e_gas, E_rad, c0, c1)
+    use mod_global_parameters
+
+    double precision, intent(in)    :: c0, c1
+    double precision, intent(in)    :: E_rad
+    double precision, intent(inout) :: e_gas
+
+    double precision :: xval, yval, der
+
+    xval = e_gas
+    der = one
+
+    !> Compare error with dx = dx/dy dy
+    do while (abs(yval*der) .gt. fld_bisect_tol)
+      yval = Polynomial_Bisection(e_gas, c0, c1)
+      der = dPolynomial_Bisection(e_gas, c0, c1)
+      xval = xval - der*yval
+    enddo
+
+    e_gas = xval
+
+  end subroutine Newton_method
+
+  function Polynomial_Bisection(e_gas, c0, c1) result(val)
     use mod_global_parameters
 
     double precision, intent(in) :: e_gas
     double precision, intent(in) :: c0, c1
-    double precision :: pol_result
+    double precision :: val
 
-    pol_result = e_gas**4.d0 + c1*e_gas - c0
+    val = e_gas**4.d0 + c1*e_gas - c0
   end function Polynomial_Bisection
+
+  function dPolynomial_Bisection(e_gas, c0, c1) result(der)
+    use mod_global_parameters
+
+    double precision, intent(in) :: e_gas
+    double precision, intent(in) :: c0, c1
+    double precision :: der
+
+    der = 4.d0*e_gas**3.d0 + c1
+  end function dPolynomial_Bisection
 
 end module mod_fld

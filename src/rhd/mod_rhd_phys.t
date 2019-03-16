@@ -86,6 +86,7 @@ module mod_rhd_phys
   public :: rhd_to_conserved
   public :: rhd_to_primitive
   public :: rhd_get_tgas
+  public :: rhd_get_trad
 
 contains
 
@@ -236,6 +237,7 @@ contains
     phys_check_w             => rhd_check_w
     phys_get_pthermal        => rhd_get_pthermal
     phys_get_tgas            => rhd_get_tgas
+    phys_get_trad            => rhd_get_trad
     phys_write_info          => rhd_write_info
     phys_handle_small_values => rhd_handle_small_values
     phys_angmomfix           => rhd_angmomfix
@@ -682,6 +684,20 @@ contains
     *unit_pressure/(unit_density*unit_temperature)
 
   end subroutine rhd_get_tgas
+
+  subroutine rhd_get_trad(w, x, ixI^L, ixO^L, trad)
+    use mod_global_parameters
+    use mod_constants
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+    double precision, intent(out):: trad(ixI^S)
+
+    trad(ixI^S) = (w(ixI^S,r_e)&
+    /(const_rad_a*unit_temperature**4.d0/unit_pressure))**(1.d0/4.d0)
+
+  end subroutine rhd_get_trad
 
   ! Calculate flux f_idim[iw]
   subroutine rhd_get_flux_cons(w, x, ixI^L, ixO^L, idim, f)

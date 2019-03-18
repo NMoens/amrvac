@@ -1393,7 +1393,6 @@ module mod_fld
     enddo
 
     e_gas = xval
-
   end subroutine Newton_method
 
   subroutine Halley_method(e_gas, E_rad, c0, c1)
@@ -1420,7 +1419,6 @@ module mod_fld
     enddo
 
     e_gas = xval
-
   end subroutine Halley_method
 
   function Polynomial_Bisection(e_gas, c0, c1) result(val)

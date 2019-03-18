@@ -1,2 +1,2 @@
-0.5,50.,20.,0.1,72,0.03,100.0,'constant'
+0.5,50.,20.,0.1,136,0.015,100.0,'constant'
 !(gamma0,mass,rstar,Yhe,ny_amrvac,dy_amrvac,tau_max,kap_lawi)

@@ -8,7 +8,7 @@ use mod_global_parameters
 
 implicit none
 
-  integer, parameter :: nyc = 72
+  integer, parameter :: nyc = 136
   double precision, parameter :: M_sun = 1.99d33
   double precision, parameter :: R_sun = 6.96d10
   double precision, parameter :: year = 365.25*24*60*60

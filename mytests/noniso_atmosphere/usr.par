@@ -83,5 +83,5 @@
   fld_opacity_law = 'const'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Newton'
-  fld_fluxlimiter = 'Pomraning'
+  fld_fluxlimiter = 'Diffusion'
   /

@@ -69,6 +69,7 @@
   rhd_gamma = 1.666667d0
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .false.
+  rhd_radiation_advection = .false.
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .false.
  /
@@ -77,4 +78,5 @@
   fld_kappa0 = 0.34d0
   fld_split = .false.
   fld_opacity_law = 'const'
+  fld_interaction_method = 'Halley'
  /

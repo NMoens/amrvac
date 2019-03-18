@@ -1265,6 +1265,8 @@ module mod_fld
         call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
       case('Newton')
         call Newton_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+      case('Halley')
+        call Halley_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
       case default
         call mpistop('root-method not known')
       end select
@@ -1379,19 +1381,47 @@ module mod_fld
 
     double precision :: xval, yval, der
 
+    yval = bigdouble
     xval = e_gas
     der = one
 
     !> Compare error with dx = dx/dy dy
-    do while (abs(yval*der) .gt. fld_bisect_tol)
-      yval = Polynomial_Bisection(e_gas, c0, c1)
-      der = dPolynomial_Bisection(e_gas, c0, c1)
-      xval = xval - der*yval
+    do while (abs(yval/der) .gt. fld_bisect_tol)
+      yval = Polynomial_Bisection(xval, c0, c1)
+      der = dPolynomial_Bisection(xval, c0, c1)
+      xval = xval - yval/der
     enddo
 
     e_gas = xval
 
   end subroutine Newton_method
+
+  subroutine Halley_method(e_gas, E_rad, c0, c1)
+    use mod_global_parameters
+
+    double precision, intent(in)    :: c0, c1
+    double precision, intent(in)    :: E_rad
+    double precision, intent(inout) :: e_gas
+
+    double precision :: xval, yval, der, dder
+
+    yval = bigdouble
+    xval = e_gas
+    der = one
+    dder = one
+
+    !> Compare error with dx = dx/dy dy
+    do while (abs(yval/der) .gt. fld_bisect_tol)
+      yval = Polynomial_Bisection(xval, c0, c1)
+      der = dPolynomial_Bisection(xval, c0, c1)
+      dder = ddPolynomial_Bisection(xval, c0, c1)
+      xval = xval - two*yval*der&
+      /(two*der**2 - yval*dder)
+    enddo
+
+    e_gas = xval
+
+  end subroutine Halley_method
 
   function Polynomial_Bisection(e_gas, c0, c1) result(val)
     use mod_global_parameters
@@ -1412,5 +1442,15 @@ module mod_fld
 
     der = 4.d0*e_gas**3.d0 + c1
   end function dPolynomial_Bisection
+
+  function ddPolynomial_Bisection(e_gas, c0, c1) result(dder)
+    use mod_global_parameters
+
+    double precision, intent(in) :: e_gas
+    double precision, intent(in) :: c0, c1
+    double precision :: dder
+
+    dder = 4.d0*3.d0*e_gas**2.d0
+  end function ddPolynomial_Bisection
 
 end module mod_fld

@@ -138,7 +138,7 @@ end subroutine initglobaldata_usr
 
     ! print*, w(3,3,e_)
 
-    if (it .eq. 0) open(1,file='energy_2')
+    if (it .eq. 0) open(1,file='energy_3')
     write(1,*) global_time*unit_time, e_eq*unit_pressure, w(3,3,&
        r_e)*unit_pressure, w(3,3,e_)*unit_pressure
     if (global_time .ge. time_max - dt) close(1)

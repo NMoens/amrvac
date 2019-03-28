@@ -8,6 +8,8 @@ use mod_global_parameters
 
 implicit none
 
+  integer :: int_rho, int_r_e, int_p, int_m1, int_m2, int_t
+
   integer, parameter :: nyc = 136
   double precision, parameter :: M_sun = 1.99d33
   double precision, parameter :: R_sun = 6.96d10
@@ -62,12 +64,22 @@ subroutine usr_init()
   ! Graviatational field
   usr_gravity => set_gravitation_field
 
+  ! Get time integrated values
+  usr_modify_output => time_average_values
+
   ! Output routines
   usr_aux_output    => specialvar_output
   usr_add_aux_names => specialvarnames_output
 
   ! Active the physics module
   call rhd_activate()
+
+  int_rho = var_set_extravar('int_rho','int_rho')
+  int_r_e = var_set_extravar('int_r_e','int_r_e')
+  int_p = var_set_extravar('int_p','int_p')
+  int_m1 = var_set_extravar('int_m1','int_m1')
+  int_m2 = var_set_extravar('int_m2','int_m2')
+  int_t = var_set_extravar('int_t','int_t')
 
 end subroutine usr_init
 
@@ -167,7 +179,7 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   integer :: i,j
 
   do i = ixGmin2,ixGmax2
-    y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i+2,2))
+    y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i,2))
     j = minloc(abs(y_res), 1)
 
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(j)
@@ -206,7 +218,7 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
 
   case(3)
     do i = ixBmin2,ixBmax2
-      y_res(1:nyc) = y_is(1:nyc)-(x(ixBmin1+nghostcells,i+2,2))
+      y_res(1:nyc) = y_is(1:nyc)-(x(ixBmin1+nghostcells,i,2))
       j = minloc(abs(y_res), 1)
 
       w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
@@ -240,6 +252,39 @@ subroutine set_gravitation_field(ixI^L,ixO^L,wCT,x,gravity_field)
 end subroutine set_gravitation_field
 
 !==========================================================================================
+
+!> If defined, this routine is called before writing output, and it can
+!> set/modify the variables in the w array.
+subroutine time_average_values(ixI^L,ixO^L,qt,w,x)
+  use mod_global_parameters
+  use mod_physics, only: phys_get_pthermal
+
+  integer, intent(in)             :: ixI^L,ixO^L
+  double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
+  double precision, intent(inout) :: w(ixI^S,1:nw)
+
+  double precision :: pth(ixI^S)
+
+  call phys_get_pthermal(w,x,ixI^L,ixO^L,pth)
+
+  if (global_time .eq. zero) w(ixI^S,int_rho) = zero
+  if (global_time .eq. zero) w(ixI^S,int_r_e) = zero
+  if (global_time .eq. zero) w(ixI^S,int_p) = zero
+  if (global_time .eq. zero) w(ixI^S,int_m1) = zero
+  if (global_time .eq. zero) w(ixI^S,int_m2) = zero
+  if (global_time .eq. zero) w(ixI^S,int_t) = zero
+
+  w(ixI^S,int_rho) = w(ixI^S,int_rho) + w(ixI^S,rho_)*dt
+  w(ixI^S,int_r_e) = w(ixI^S,int_r_e) + w(ixI^S,r_e)*dt
+  w(ixI^S,int_p) = w(ixI^S,int_p) + pth(ixI^S)*dt
+  w(ixI^S,int_m1) = w(ixI^S,int_m1) + w(ixI^S,mom(1))*dt
+  w(ixI^S,int_m2) = w(ixI^S,int_m2) + w(ixI^S,mom(2))*dt
+  w(ixI^S,int_t) = w(ixI^S,int_t) + dt
+
+end subroutine time_average_values
+
+
+
 
 subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   ! this subroutine can be used in convert, to add auxiliary variables to the

@@ -8,6 +8,8 @@ use mod_global_parameters
 
 implicit none
 
+  integer :: int_rho, int_r_e, int_p, int_m1, int_m2, int_t
+
   integer, parameter :: nyc = 136
   double precision, parameter :: M_sun = 1.99d33
   double precision, parameter :: R_sun = 6.96d10
@@ -62,12 +64,22 @@ subroutine usr_init()
   ! Graviatational field
   usr_gravity => set_gravitation_field
 
+  ! Get time integrated values
+  usr_modify_output => time_average_values
+
   ! Output routines
   usr_aux_output    => specialvar_output
   usr_add_aux_names => specialvarnames_output
 
   ! Active the physics module
   call rhd_activate()
+
+  int_rho = var_set_extravar('int_rho','int_rho')
+  int_r_e = var_set_extravar('int_r_e','int_r_e')
+  int_p = var_set_extravar('int_p','int_p')
+  int_m1 = var_set_extravar('int_m1','int_m1')
+  int_m2 = var_set_extravar('int_m2','int_m2')
+  int_t = var_set_extravar('int_t','int_t')
 
 end subroutine usr_init
 
@@ -256,6 +268,49 @@ subroutine set_gravitation_field(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
 end subroutine set_gravitation_field
 
 !==========================================================================================
+
+!> If defined, this routine is called before writing output, and it can
+!> set/modify the variables in the w array.
+subroutine time_average_values(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+   ixOmax1,ixOmax2,qt,w,x)
+  use mod_global_parameters
+  use mod_physics, only: phys_get_pthermal
+
+  integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+     ixOmin2,ixOmax1,ixOmax2
+  double precision, intent(in)    :: qt,x(ixImin1:ixImax1,ixImin2:ixImax2,&
+     1:ndim)
+  double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+
+  double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2)
+
+  call phys_get_pthermal(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,pth)
+
+  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_rho) = zero
+  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_r_e) = zero
+  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_p) = zero
+  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_m1) = zero
+  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_m2) = zero
+  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_t) = zero
+
+  w(ixImin1:ixImax1,ixImin2:ixImax2,int_rho) = w(ixImin1:ixImax1,&
+     ixImin2:ixImax2,int_rho) + w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)*dt
+  w(ixImin1:ixImax1,ixImin2:ixImax2,int_r_e) = w(ixImin1:ixImax1,&
+     ixImin2:ixImax2,int_r_e) + w(ixImin1:ixImax1,ixImin2:ixImax2,r_e)*dt
+  w(ixImin1:ixImax1,ixImin2:ixImax2,int_p) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
+     int_p) + pth(ixImin1:ixImax1,ixImin2:ixImax2)*dt
+  w(ixImin1:ixImax1,ixImin2:ixImax2,int_m1) = w(ixImin1:ixImax1,&
+     ixImin2:ixImax2,int_m1) + w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1))*dt
+  w(ixImin1:ixImax1,ixImin2:ixImax2,int_m2) = w(ixImin1:ixImax1,&
+     ixImin2:ixImax2,int_m2) + w(ixImin1:ixImax1,ixImin2:ixImax2,mom(2))*dt
+  w(ixImin1:ixImax1,ixImin2:ixImax2,int_t) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
+     int_t) + dt
+
+end subroutine time_average_values
+
+
+
 
 subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
    ixOmax1,ixOmax2,w,x,normconv)

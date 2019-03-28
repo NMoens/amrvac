@@ -570,7 +570,7 @@ module mod_fld
     double precision             :: max_res
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
+    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
   end subroutine Diffuse_E_rad_mg
@@ -1379,17 +1379,19 @@ module mod_fld
     double precision, intent(in)    :: E_rad
     double precision, intent(inout) :: e_gas
 
-    double precision :: xval, yval, der
+    double precision :: xval, yval, der, deltax
 
     yval = bigdouble
     xval = e_gas
     der = one
+    deltax = one
 
     !> Compare error with dx = dx/dy dy
-    do while (abs(yval/der) .gt. fld_bisect_tol)
+    do while (abs(deltax) .gt. fld_bisect_tol)
       yval = Polynomial_Bisection(xval, c0, c1)
       der = dPolynomial_Bisection(xval, c0, c1)
-      xval = xval - yval/der
+      deltax = -yval/der
+      xval = xval + deltax
     enddo
 
     e_gas = xval
@@ -1402,20 +1404,21 @@ module mod_fld
     double precision, intent(in)    :: E_rad
     double precision, intent(inout) :: e_gas
 
-    double precision :: xval, yval, der, dder
+    double precision :: xval, yval, der, dder, deltax
 
     yval = bigdouble
     xval = e_gas
     der = one
     dder = one
+    deltax = one
 
     !> Compare error with dx = dx/dy dy
-    do while (abs(yval/der) .gt. fld_bisect_tol)
+    do while (abs(deltax) .gt. fld_bisect_tol)
       yval = Polynomial_Bisection(xval, c0, c1)
       der = dPolynomial_Bisection(xval, c0, c1)
       dder = ddPolynomial_Bisection(xval, c0, c1)
-      xval = xval - two*yval*der&
-      /(two*der**2 - yval*dder)
+      deltax = -two*yval*der/(two*der**2 - yval*dder)
+      xval = xval + deltax
     enddo
 
     e_gas = xval

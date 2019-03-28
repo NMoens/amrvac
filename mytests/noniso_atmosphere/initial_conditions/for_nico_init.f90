@@ -394,14 +394,16 @@ subroutine derivs_hydro_diff_mc(x,y,dydx)
 
   !gas pressure gradient
   !(accouting for spherical gravity, take away if wanted)
-  dydx(1) = g*(1.-gam) * (rstar/y(4))**2
+  ! dydx(1) = g*(1.-gam) * (rstar/y(4))**2
+  dydx(1) = g*(1.-gam) !
 
   !temperature gradient (now spherical fastwind-like)
   !Here we could include variation of Eddington factor
   !3, for e.g. Lucy's grey model, FLD, etc.
   if (Y(2).gt.tlim*teff) then
-     dydx(2) = 3.*kap_dum*teff**4./(16.*y(2)**3.) &
-          * (rstar/y(4))**2
+     ! dydx(2) = 3.*kap_dum*teff**4./(16.*y(2)**3.) &
+     !      * (rstar/y(4))**2
+     dydx(2) = 3.*kap_dum*teff**4./(16.*y(2)**3.)
   else
      dydx(2) = 0.0
   endif

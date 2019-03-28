@@ -68,7 +68,7 @@ contains
     real(dp), intent(in)      :: dt
     integer, intent(in)       :: order
     real(dp), intent(in)      :: max_res
-    integer, parameter        :: max_its = 1d3
+    integer, parameter        :: max_its = 1d4
     integer                   :: n
     real(dp)                  :: res
 

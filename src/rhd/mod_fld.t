@@ -424,8 +424,6 @@ module mod_fld
       w(ixI^S,i_lambda) = fld_lambda(ixI^S)
       w(ixI^S,i_fld_R) = fld_R(ixI^S)
 
-
-
     case('Pomraning')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)

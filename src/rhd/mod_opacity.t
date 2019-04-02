@@ -3,11 +3,13 @@
 module mod_opacity
     implicit NONE
 
+    !> min and max indices for R,T-range in opacity table
     integer, parameter :: rmin = 2
     integer, parameter :: rmax = 20
     integer, parameter :: tmin = 7
     integer, parameter :: tmax = 76
 
+    !> The opacity tables are read once and stored globally in Kappa_vals
     double precision, public :: Kappa_vals(7:76,2:20)
     double precision, public :: Kappa_vals1(7:76,2:20)
     double precision, public :: Kappa_vals2(7:76,2:20)
@@ -24,6 +26,8 @@ module mod_opacity
 
   contains
 
+!> This routine is called when the fld radiation module is initialised.
+!> Here, the tables for different He Abndcs are read and interpolated
 subroutine init_opal(He_abundance)
 
   double precision, intent(in) :: He_abundance
@@ -50,7 +54,9 @@ subroutine init_opal(He_abundance)
   endif
 end subroutine init_opal
 
-
+!> This subroutine calculates the opacity for
+!> a given temperature-density structure.
+!> The opacities are read from a table that has the initialised metalicity
 subroutine set_opal_opacity(rho,temp,kappa)
   double precision, intent(in) :: rho, temp
   double precision, intent(out) :: kappa
@@ -83,6 +89,7 @@ subroutine set_opal_opacity(rho,temp,kappa)
 
 end subroutine set_opal_opacity
 
+!> This routine reads out values and arguments from an opacity table
 subroutine read_table(R, T, K, filename)
     !> This routine reads in the the values for log kappa, and the values for log T and log R on the x and y axis
 
@@ -114,10 +121,10 @@ subroutine read_table(R, T, K, filename)
 end subroutine read_table
 
 
-
+!> This subroutine creates a new table for a given He abundance,
+! by interpolating to known tables at every point in the R,T plane
 subroutine interpolate_two_tables(Y1, Y2, Y_in, K1, K2, K_interp)
-    !> This subroutine creates a new table for a given metalicity,
-    ! by interpolating to known tables at every point in the R,T plane
+
     double precision, intent(in) :: K1(7:76,2:20), K2(7:76,2:20)
     double precision, intent(in) :: Y1, Y2, Y_in
     double precision, intent(out) :: K_interp(7:76,2:20)
@@ -133,11 +140,9 @@ subroutine interpolate_two_tables(Y1, Y2, Y_in, K1, K2, K_interp)
 end subroutine interpolate_two_tables
 
 
-
+!>This subroutine looks in the table for the four couples (T,R)
+!surrounding a given input for T and R
 subroutine get_kappa(Kappa_vals, Log_R_list, Log_T_list, R, T, K)
-
-    !>This subroutine looks in the table for the four couples (T,R)
-    !surrounding a given input for T and R
 
     double precision, intent(in) :: Kappa_vals(7:76,2:20)
     double precision, intent(in) :: Log_R_list(2:20)
@@ -178,10 +183,8 @@ subroutine get_kappa(Kappa_vals, Log_R_list, Log_T_list, R, T, K)
 end subroutine get_kappa
 
 
-
+!> this subroutine finds the indexes in R and T arrays of the two values surrounding the input R and T
 subroutine get_low_up_index(x, x_list, imin, imax, low_i, up_i)
-
-    !> this subroutine finds the indexes in R and T arrays of the two values surrounding the input R and T
 
     integer, intent(in) :: imin, imax
     double precision, intent(in) :: x
@@ -205,10 +208,8 @@ subroutine get_low_up_index(x, x_list, imin, imax, low_i, up_i)
 
 end subroutine get_low_up_index
 
-
+!> This subroutine does a bilinear interpolation in the R,T-plane
 subroutine interpolate_KRT(low_r, up_r, low_t, up_t, Log_R_list, Log_T_list, Kappa_vals, R, T, k_interp)
-
-    !> This subroutine does a bilinear interpolation in the R,T-plane
 
     integer, intent(in) :: low_r, up_r, low_t, up_t
     double precision, intent(in) :: Kappa_vals(7:76,2:20)
@@ -256,7 +257,7 @@ subroutine interpolate_KRT(low_r, up_r, low_t, up_t, Log_R_list, Log_T_list, Kap
 end subroutine interpolate_KRT
 
 
-
+!> Interpolation in one dimension
 subroutine interpolate1D(x1, x2, x, y1, y2, y)
 
     double precision, intent(in) :: x, x1, x2
@@ -269,23 +270,24 @@ end subroutine interpolate1D
 
 end module mod_opacity
 
-!subroutine log_interpolate1D(x1, x2, x, y1, y2, y)
-!
-!    double precision, intent(in) :: x, x1, x2
-!    double precision, intent(in) :: y1, y2
-!    double precision, intent(out) :: y
-!
-!    double precision :: expx, expx1, expx2
-!    double precision :: expy1, expy2
-!
-!    expx = 10**x
-!    expx1 = 10**x1
-!    expx2 = 10**x2
-!
-!    expy1 = 10**y1
-!    expy2 = 10**y2
-!
-!    y = expy1 + (expx-expx1)*(expy2-expy1)/(expx2-expx1)
-!    y = log10(y)
-!
-!end subroutine log_interpolate1D
+!> Interpolation on logarithmic scale
+subroutine log_interpolate1D(x1, x2, x, y1, y2, y)
+
+   double precision, intent(in) :: x, x1, x2
+   double precision, intent(in) :: y1, y2
+   double precision, intent(out) :: y
+
+   double precision :: expx, expx1, expx2
+   double precision :: expy1, expy2
+
+   expx = 10**x
+   expx1 = 10**x1
+   expx2 = 10**x2
+
+   expy1 = 10**y1
+   expy2 = 10**y2
+
+   y = expy1 + (expx-expx1)*(expy2-expy1)/(expx2-expx1)
+   y = log10(y)
+
+end subroutine log_interpolate1D

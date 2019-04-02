@@ -593,7 +593,7 @@ contains
     double precision, intent(in)    :: w(ixI^S,nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(out)   :: csound2(ixI^S)
-    
+
 
     if(rhd_energy) then
       call rhd_get_ptot(w,x,ixI^L,ixO^L,csound2)

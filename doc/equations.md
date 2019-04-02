@@ -10,7 +10,7 @@ principle, the code handles anything of generic form
 
 ![](figmovdir/eq.general.gif)
 
-The code is configured to use the specified set of equations by activating it in 
+The code is configured to use the specified set of equations by activating it in
 the usr_init subroutine of user module "mod_usr.t"
 
     subroutine usr_init()
@@ -63,16 +63,16 @@ quantity which is calculated from the conservative variables.
 
 Parameters of hydrodynamics are read in the **hd_list** of parameter file.
 There is a single equation parameter, the adiabatic index **hd_gamma**
-(typical value is 5/3). 
+(typical value is 5/3).
 
 This equation module can be combined with physical sources for
-(local) optically thin radiative losses by set **hd_radiative_cooling=.true.**. 
+(local) optically thin radiative losses by set **hd_radiative_cooling=.true.**.
 see the [radiative cooling](mpiamrvac_radcool.md) page. Schematically, it
 introduces terms as
 
 ![](figmovdir/eq.radloss.gif)
 
-The HD module can also be combined with the external gravity module 
+The HD module can also be combined with the external gravity module
 (_src/physics/mod_gravity.t_) for uniform gravity by set **hd_gravity=.true.**
 
 ![](figmovdir/eq.gravity.gif)
@@ -135,10 +135,10 @@ There is a Roe-type Riemann solver implemented using arithmetic averaging, in
 _mhd/mod_mhd_roe.t_, while several routines specific to HLLC are in _mhd/mod_mhd_hllc.t_.
 
 This equation module can be combined with physical sources for
-(local) optically thin [radiative losses](mpiamrvac_radcool.md) by set **mhd_radiative_cooling=.true.**. 
+(local) optically thin [radiative losses](mpiamrvac_radcool.md) by set **mhd_radiative_cooling=.true.**.
 It can also be combined with the external gravity modules by set **mhd_gravity=.true.**.
 
-We also have implemented the magnetic field splitting strategy, where a static, 
+We also have implemented the magnetic field splitting strategy, where a static,
 background magnetic field is assumed. This modifies the equations and brings in extra
 sources and flux terms.
 
@@ -189,3 +189,24 @@ These fix strategies are seperated off in the _mod_small_values_ modules.
 They are by default inactive, and can be controlled by the parameters
 **small_values_method** and other related parameters described in
 [par/PROBLEM](par.md).
+
+## Radiation hydrodynamics: rhd {#eq_radhd}
+
+    call rhd_activate()
+
+![](figmovdir/eq.radhd.gif)
+
+This is the system of Radiation hydrodynamics equations, where the radiation
+energy equation is a frequency and solid-angle integrated version of
+the radiative transport equation. The variables are the following: **rho** is the gas density, **v** is the gas velocity, **e** is the internal and kinetic energy of the gas. **E** is the frequency integrated radiation energy density, **F** is the frequency integrated radiation flux, **P** is the radiation pressure tensor. **kappa** is the rosseland mean opacity, which is assumed here to be equal to the flux weighted and planck mean opacities. **B(T)** is the energy radiated by a black body with temperature **T**.
+
+Parameters for radiation hydrodynamics are read in rhd_list of the parameter file. **rhd_radiation_formalism** sets which formalism to use to close the system. For now, the only possibility is flux limited diffusion. **rhd_radiation_force**, **rhd_energy_interact**, **rhd_radiation_diffusion** and **rhd_radiation_advection** are used to switch on and of different sourceterms in the equations. The rest of the parameters are similar to those of hd_list (rhd_* instead of hd_*).
+
+# Flux limited diffusion: fld
+The system is closed by using a the **flux limited diffusion approximation**. Which relate the radiation flux and radiation pressure to the radiation energy density using a flux limiter **lambda**.
+
+![](figmovdir/eq.fld.gif)
+
+The fluxlimiter is function of the ratio of photon mean free path to radiation scaleheight **R**. **f** is the Eddington tensor.
+
+Parameters for the flux limited diffusion approximation are set in the fld_list of the parameter file. **fld_kappa** decides which opacity law to use. **fld_diff_scheme** sets the way of solving the diffusive term of the radiation energy equation. **fld_interaction_method** sets the algorithm for solving the radiative heating and cooling sourceterms as well as the photon tiring term. **fld_fluxlimiter** sets the description of the flux limiter.

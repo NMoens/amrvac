@@ -90,6 +90,7 @@ module mod_fld
 !!!!!!!!!!!!!!!!!!! GENERAL
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> Reading in fld-list parameters from .par file
   subroutine fld_params_read(files)
     use mod_global_parameters, only: unitpar
     use mod_constants
@@ -107,6 +108,13 @@ module mod_fld
     end do
   end subroutine fld_params_read
 
+  !> Initialising FLD-module:
+  !> Read opacities
+  !> Initialise Multigrid
+  !> adimensionalise kappa
+  !> Add extra variables to w-array, flux, kappa, eddington Tensor
+  !> Lambda and R
+  !> ...
   subroutine fld_init(He_abundance)
     use mod_global_parameters
     use mod_variables
@@ -188,6 +196,8 @@ module mod_fld
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
   end subroutine fld_init
 
+  !> Compute all extra variables in w-array:
+  !> Flux, Eddington tensor, lambda, R, kappa
   subroutine get_rad_extravars(w, x, ixI^L, ixO^L)
     use mod_global_parameters
 
@@ -207,6 +217,7 @@ module mod_fld
   end subroutine get_rad_extravars
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
+  !> This subroutine handles the radiation force
   subroutine get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
        energy,qsourcesplit,active)
     use mod_constants
@@ -247,6 +258,7 @@ module mod_fld
   end subroutine get_fld_rad_force
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
+  !> This subroutine handles the energy exchange between gas and radiation
   subroutine get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
        energy,qsourcesplit,active)
     use mod_constants
@@ -271,6 +283,9 @@ module mod_fld
   end subroutine get_fld_energy_interact
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
+  !> This subroutine handles the diffusion of the radiation energy density,
+  !> calling either a multigrid-method or an ADI-scheme (perhaps outdated? Need to check).
+  !> To be added: 1D backward euler
   subroutine get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
        energy,qsourcesplit,active)
     use mod_constants
@@ -311,6 +326,7 @@ module mod_fld
   end subroutine get_fld_diffusion
 
   !> Sets the opacity in the w-array
+  !> by calling mod_opacity
   subroutine fld_get_opacity(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
@@ -368,6 +384,9 @@ module mod_fld
   end subroutine fld_get_opacity
 
   !> Calculate fld flux limiter
+  !> This subroutine calculates flux limiter lambda using the prescription
+  !> stored in fld_fluxlimiter.
+  !> It also calculates the ratio of radiation scaleheight and mean free path
   subroutine fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
@@ -384,6 +403,28 @@ module mod_fld
     case('Diffusion')
       w(ixI^S,i_lambda) = one/3.d0
       w(ixI^S,i_fld_R) = zero
+
+    case('FreeStream')
+      !> Calculate R everywhere
+      !> |grad E|/(rho kappa E)
+      normgrad2(ixI^S) = zero
+      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      do idir = 1,ndir
+        !> gradient or gradientS ?!?!?!?!?!?
+        call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
+      end do
+
+      fld_R(ixI^S) = dsqrt(normgrad2(ixI^S))/(w(ixI^S,i_op)*w(ixI^S,iw_rho)*w(ixI^S,iw_r_e))
+
+      !> Calculate the flux limiter, lambda
+      !> Levermore and Pomraning: lambda = (2 + R)/(6 + 3R + R^2)
+      fld_lambda(ixI^S) = one/fld_R(ixI^S)
+
+      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
+      w(ixI^S,i_fld_R) = fld_R(ixI^S)
+
+
 
     case('Pomraning')
       !> Calculate R everywhere
@@ -439,7 +480,7 @@ module mod_fld
   end subroutine fld_get_fluxlimiter
 
   !> Calculate Radiation Flux
-  !> Returns Radiation flux and radiation pressure
+  !> stores radiation flux in w-array
   subroutine fld_get_radflux(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
@@ -472,8 +513,8 @@ module mod_fld
     w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
   end subroutine fld_get_radflux
 
-  !> Calculate Radiation Pressure
-  !> Returns Radiation Pressure
+  !> Calculate Eddington-tensor
+  !> Stores Eddington-tensor in w-array
   subroutine fld_get_eddington(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
@@ -537,7 +578,7 @@ module mod_fld
   end subroutine fld_get_eddington
 
   !> Calculate Radiation Pressure
-  !> Returns Radiation Pressure
+  !> Returns Radiation Pressure as tensor
   subroutine fld_get_radpress(w, x, ixI^L, ixO^L, rad_pressure)
     use mod_global_parameters
 
@@ -560,6 +601,8 @@ module mod_fld
   !!!!!!!!!!!!!!!!!!! Multigrid diffusion
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> Calling all subroutines to perform the multigrid method
+  !> Communicates rad_e and diff_coeff to multigrid library
   subroutine Diffuse_E_rad_mg(qdt, qt, active)
     use mod_global_parameters
     use mod_multigrid_coupling
@@ -575,6 +618,7 @@ module mod_fld
     active = .true.
   end subroutine Diffuse_E_rad_mg
 
+  !> Calculates cell-centered diffusion coefficient to be used in multigrid
   subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
@@ -625,10 +669,12 @@ module mod_fld
     endif
   end subroutine fld_get_diffcoef_central
 
+  !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
     call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
   end subroutine set_mg_diffcoef
 
+  !> Sets boundary conditions for multigrid, based on hydro-bounds
   subroutine set_mg_bounds()
     use mod_global_parameters
     integer :: iB
@@ -673,6 +719,9 @@ module mod_fld
   !!!!!!!!!!!!!!!!!!! ADI
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> Main loop for ADI scheme.
+  !> Here, the splitting of the hydro-timestep, nr of pseudo-steps
+  !> and error-controll are performed
   subroutine Evolve_E_rad(w, x, ixI^L, ixO^L)
     use mod_global_parameters
 
@@ -742,6 +791,7 @@ module mod_fld
     w(ixO^S,iw_r_e) = E_new(ixO^S)
   end subroutine Evolve_E_rad
 
+  !> Perform ADI on half a hydro-timestep
   subroutine half_timestep_ADI(w, x, E_new, E_old, ixI^L, ixO^L, converged)
     use mod_global_parameters
 
@@ -800,6 +850,7 @@ module mod_fld
     dt = saved_dt
   end subroutine half_timestep_ADI
 
+  !> Calculate error after one ADI-timestep
   subroutine Error_check_ADI(w, x, E_new, E_old, ixI^L, ixO^L, ADI_Error)
     use mod_global_parameters
 
@@ -835,6 +886,8 @@ module mod_fld
     !ADI_Error = sum(abs((RHS-LHS)/(E_old/dt)))/((ixOmax1-ixOmin1)*(ixOmax2-ixOmin2))
   end subroutine Error_check_ADI
 
+  !> Do all pseudo-timesteps to advance one hydro timestep.
+  !> This routine loops over the pseudo-steps, each time doing 2 matrix-inversions
   subroutine Evolve_ADI(w, x, E_new, E_old, w_max, frac_grid, ixI^L, ixO^L)
     use mod_global_parameters
 
@@ -890,6 +943,7 @@ module mod_fld
     E_new = E_m
   end subroutine Evolve_ADI
 
+  !> Calculate cell-faced diffusion coefficient out 6 neighbouring cells
   subroutine fld_get_diffcoef(w, x, ixI^L, ixO^L, D)
     use mod_global_parameters
 
@@ -956,6 +1010,7 @@ module mod_fld
     endif
   end subroutine fld_get_diffcoef
 
+  !> Construct the matrix out of rad-hydro variables
   subroutine make_matrix(x,w,dw,E_m,E_n,sweepdir,ixImax,ixI^L,ixO^L,diag1,sub1,sup1,bvec1,diag2,sub2,sup2,bvec2)
     use mod_global_parameters
 
@@ -1040,6 +1095,7 @@ module mod_fld
     endif
   end subroutine make_matrix
 
+  !> Invert a tridiagonal matrix using Thomas' method
   subroutine solve_tridiag(ixOmin,ixOmax,ixImin,ixImax,diag,sub,sup,bvec,Evec)
     use mod_global_parameters
     implicit none
@@ -1071,6 +1127,7 @@ module mod_fld
     end do
   end subroutine solve_tridiag
 
+  !> Perform boundary conditions to the tridiagonal matrix
   subroutine ADI_boundary_conditions(ixI^L,ixO^L,E_m,w,x)
     use mod_global_parameters
     use mod_usr_methods, only: usr_radiation_bc
@@ -1189,6 +1246,11 @@ module mod_fld
   !!!!!!!!!!!!!!!!!!! Gas-Rad Energy interaction
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> This subroutine calculates the radiation heating, radiation cooling
+  !> and photon tiring using an implicit scheme.
+  !> These sourceterms are applied using the root-finding of a 4th order polynomial
+  !> This routine loops over every cell in the domain
+  !> and computes the coefficients of the polynomials in every cell
   subroutine Energy_interaction(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
@@ -1290,6 +1352,7 @@ module mod_fld
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
   end subroutine Energy_interaction
 
+  !> Find the root of the 4th degree polynomial using the bisection method
   subroutine Bisection_method(e_gas, E_rad, c0, c1)
     use mod_global_parameters
 
@@ -1372,6 +1435,7 @@ module mod_fld
       2435 e_gas = (bisect_a + bisect_b)/two
   end subroutine Bisection_method
 
+  !> Find the root of the 4th degree polynomial using the Newton-Ralphson method
   subroutine Newton_method(e_gas, E_rad, c0, c1)
     use mod_global_parameters
 
@@ -1397,6 +1461,7 @@ module mod_fld
     e_gas = xval
   end subroutine Newton_method
 
+  !> Find the root of the 4th degree polynomial using the Halley method
   subroutine Halley_method(e_gas, E_rad, c0, c1)
     use mod_global_parameters
 
@@ -1424,6 +1489,7 @@ module mod_fld
     e_gas = xval
   end subroutine Halley_method
 
+  !> Evaluate polynomial at argument e_gas
   function Polynomial_Bisection(e_gas, c0, c1) result(val)
     use mod_global_parameters
 
@@ -1434,6 +1500,7 @@ module mod_fld
     val = e_gas**4.d0 + c1*e_gas - c0
   end function Polynomial_Bisection
 
+  !> Evaluate first derivative of polynomial at argument e_gas
   function dPolynomial_Bisection(e_gas, c0, c1) result(der)
     use mod_global_parameters
 
@@ -1444,6 +1511,7 @@ module mod_fld
     der = 4.d0*e_gas**3.d0 + c1
   end function dPolynomial_Bisection
 
+  !> Evaluate second derivative of polynomial at argument e_gas
   function ddPolynomial_Bisection(e_gas, c0, c1) result(dder)
     use mod_global_parameters
 

@@ -267,12 +267,12 @@ subroutine time_average_values(ixI^L,ixO^L,qt,w,x)
 
   call phys_get_pthermal(w,x,ixI^L,ixO^L,pth)
 
-  if (global_time .eq. zero) w(ixI^S,int_rho) = zero
-  if (global_time .eq. zero) w(ixI^S,int_r_e) = zero
-  if (global_time .eq. zero) w(ixI^S,int_p) = zero
-  if (global_time .eq. zero) w(ixI^S,int_m1) = zero
-  if (global_time .eq. zero) w(ixI^S,int_m2) = zero
-  if (global_time .eq. zero) w(ixI^S,int_t) = zero
+  if (global_time .eq. 1.d0) w(ixI^S,int_rho) = zero
+  if (global_time .eq. 1.d0) w(ixI^S,int_r_e) = zero
+  if (global_time .eq. 1.d0) w(ixI^S,int_p) = zero
+  if (global_time .eq. 1.d0) w(ixI^S,int_m1) = zero
+  if (global_time .eq. 1.d0) w(ixI^S,int_m2) = zero
+  if (global_time .eq. 1.d0) w(ixI^S,int_t) = zero
 
   w(ixI^S,int_rho) = w(ixI^S,int_rho) + w(ixI^S,rho_)*dt
   w(ixI^S,int_r_e) = w(ixI^S,int_r_e) + w(ixI^S,r_e)*dt

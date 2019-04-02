@@ -149,11 +149,11 @@ subroutine get_kappa(Kappa_vals, Log_R_list, Log_T_list, R, T, K)
     integer :: low_r_index, up_r_index
     integer :: low_t_index, up_t_index
 
-    if (R .ge. maxval(Log_R_list)) then
+    if (R .gt. maxval(Log_R_list)) then
         print*, 'Extrapolating in logR'
         low_r_index = 20
         up_r_index = 20
-    elseif (R .le. minval(Log_R_list)) then
+    elseif (R .lt. minval(Log_R_list)) then
         print*, 'Extrapolating in logR'
         low_r_index = 2
         up_r_index = 2
@@ -161,11 +161,11 @@ subroutine get_kappa(Kappa_vals, Log_R_list, Log_T_list, R, T, K)
         call get_low_up_index(R, Log_R_list, 2, 20, low_r_index, up_r_index)
     endif
 
-    if (T .ge. maxval(Log_T_list)) then
+    if (T .gt. maxval(Log_T_list)) then
         print*, 'Extrapolating in logT'
         low_t_index = 76
         up_t_index = 76
-    elseif ( T .le. minval(Log_T_list)) then
+    elseif ( T .lt. minval(Log_T_list)) then
         print*, 'Extrapolating in logT'
         low_t_index = 7
         up_t_index = 7

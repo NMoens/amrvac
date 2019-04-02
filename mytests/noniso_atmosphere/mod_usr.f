@@ -186,7 +186,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   integer :: i,j
 
   do i = ixGmin2,ixGmax2
-    y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i+2,2))
+    y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i,2))
     j = minloc(abs(y_res), 1)
 
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(j)
@@ -229,7 +229,7 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
 
   case(3)
     do i = ixBmin2,ixBmax2
-      y_res(1:nyc) = y_is(1:nyc)-(x(ixBmin1+nghostcells,i+2,2))
+      y_res(1:nyc) = y_is(1:nyc)-(x(ixBmin1+nghostcells,i,2))
       j = minloc(abs(y_res), 1)
 
       w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
@@ -287,12 +287,12 @@ subroutine time_average_values(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
   call phys_get_pthermal(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2,pth)
 
-  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_rho) = zero
-  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_r_e) = zero
-  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_p) = zero
-  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_m1) = zero
-  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_m2) = zero
-  if (global_time .eq. zero) w(ixImin1:ixImax1,ixImin2:ixImax2,int_t) = zero
+  if (global_time .eq. 1.d0) w(ixImin1:ixImax1,ixImin2:ixImax2,int_rho) = zero
+  if (global_time .eq. 1.d0) w(ixImin1:ixImax1,ixImin2:ixImax2,int_r_e) = zero
+  if (global_time .eq. 1.d0) w(ixImin1:ixImax1,ixImin2:ixImax2,int_p) = zero
+  if (global_time .eq. 1.d0) w(ixImin1:ixImax1,ixImin2:ixImax2,int_m1) = zero
+  if (global_time .eq. 1.d0) w(ixImin1:ixImax1,ixImin2:ixImax2,int_m2) = zero
+  if (global_time .eq. 1.d0) w(ixImin1:ixImax1,ixImin2:ixImax2,int_t) = zero
 
   w(ixImin1:ixImax1,ixImin2:ixImax2,int_rho) = w(ixImin1:ixImax1,&
      ixImin2:ixImax2,int_rho) + w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)*dt

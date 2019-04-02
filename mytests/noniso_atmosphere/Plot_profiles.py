@@ -90,7 +90,7 @@ ax1.set_ylabel('$\\rho$ [g/cm3]')
 
 ax2.plot(y_tot, rho_p_2_T(rho_tot,pg_tot), label = 'Initial conditions total')
 ax2.plot(y_vac, rho_p_2_T(rho_vac,pg_vac), label = 'Initial conditions amrvac')
-ax2.plot(y_rel, rho_p_2_T(rho_rel1,p_rel1),'o', label = 'time-averaged conditions')
+ax2.plot(y_rel, rho_p_2_T(rho_rel1,p_rel1),'o', label = 'Initial conditions')
 ax2.plot(y_rel, rho_p_2_T(rho_rel2,p_rel2),'o', label = 'time-averaged conditions')
 
 ax2.legend()
@@ -98,7 +98,7 @@ ax2.set_ylabel('$T_{gas}$ [g/cm3]')
 
 ax3.plot(y_tot, E_r_2_T(er_tot), label = 'Initial conditions total')
 ax3.plot(y_vac, E_r_2_T(er_vac), label = 'Initial conditions amrvac')
-ax3.plot(y_rel, E_r_2_T(er_rel1),'o', label = 'time-averaged conditions')
+ax3.plot(y_rel, E_r_2_T(er_rel1),'o', label = 'Initial conditions')
 ax3.plot(y_rel, E_r_2_T(er_rel2),'o', label = 'time-averaged conditions')
 
 ax3.legend()

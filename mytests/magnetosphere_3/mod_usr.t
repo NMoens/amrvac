@@ -21,6 +21,7 @@ module mod_usr
   double precision :: T_star
   double precision :: R_star
   double precision :: B_star
+  double precision :: Prot_star
 
   double precision :: rho_bound
   double precision :: c_sound
@@ -37,6 +38,7 @@ module mod_usr
   double precision :: M_dot
   double precision :: eta_confine
   double precision :: v_inf
+  double precision :: v_rot_equator
 
   double precision :: mag_mu
 
@@ -50,7 +52,7 @@ contains
     use mod_usr_methods
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("spherical_2D")
+    call set_coordinate_system("spherical_3D")
 
     ! A routine for initial conditions is always required
     usr_init_one_grid => initial_conditions
@@ -68,7 +70,6 @@ contains
     usr_refine_grid => specialrefine_grid
 
     ! get time-integrated values
-    ! usr_process_grid => time_average_values
     usr_modify_output => time_average_values
 
     ! Extra Output
@@ -103,7 +104,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /star_list/ M_star, L_star, R_star, T_star, B_star, rho_bound, alpha, qbar, kappa_e, beta
+    namelist /star_list/ M_star, L_star, R_star, T_star, B_star, Prot_star, rho_bound, alpha, qbar, kappa_e, beta
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -117,6 +118,8 @@ contains
     R_star = R_star*R_sun
     T_star = T_star
 
+    Prot_star = Prot_star*24*60*60
+
     if (mype == 1) then
 
       print*, "In CGS: #####################################################"
@@ -126,6 +129,7 @@ contains
       print*, 'R_star',R_star
       print*, 'T_star',T_star
       print*, 'B_star',B_star
+      print*, 'Prot_star',Prot_star
       print*, 'rho_bound',rho_bound
       print*, 'alpha',alpha
       print*, 'qbar',qbar
@@ -149,6 +153,7 @@ contains
     *(qbar*Gamma_e/(1.-Gamma_e))**((1.-alpha)/alpha)
     v_inf = (one-Gamma_e)**0.5d0*escape_speed*(alpha/(1-alpha))**0.5d0
     eta_confine = (B_star**2 * R_star**2)/(M_dot*v_inf)
+    v_rot_equator = 2*dpi/Prot_star*R_star
 
     !###############################################
 
@@ -178,6 +183,10 @@ contains
     v_inf = (one-Gamma_e)**0.5d0*escape_speed*(alpha/(1-alpha))**0.5d0
     eta_confine = (B_star**2 * R_star**2)/(M_dot*v_inf)
 
+    Prot_star = Prot_star/unit_time
+
+    v_rot_equator = 2*dpi/Prot_star*R_star
+
     c_light = const_c/unit_velocity
     G_dp = G_dp*(unit_density*unit_time**2)
 
@@ -203,6 +212,7 @@ contains
       print*, 'R_star',R_star
       print*, 'T_star',T_star
       print*, 'B_star',B_star
+      print*, 'Prot_star',Prot_star
       print*, 'rho_bound',rho_bound
       print*, 'alpha',alpha
       print*, 'qbar',qbar
@@ -213,6 +223,7 @@ contains
       print*, 'escape_speed',escape_speed
       print*, 'v_inf',v_inf
       print*, 'eta_confine', eta_confine
+      print*, 'v_rot_equator', v_rot_equator
 
     endif
 
@@ -228,41 +239,41 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision :: velocity_field(ixImin1:ixImax1),pth(ixI^S)
+    double precision :: rotation(ixI^S)
     double precision :: pert(ixI^S), amplitude, xi(ixI^S)
     integer :: i
 
     do i = ixImin1,ixImax1
-      if (x(i,3,1) .ge. R_star) then
+      if (x(i,3,3,1) .ge. R_star) then
         !Set initial velocity acc to beta law
-        velocity_field(i) = v_inf*(1-(R_star/x(i,3,1)))**beta
+        velocity_field(i) = v_inf*(1-(R_star/x(i,3,3,1)))**beta
 
         !Set initial density
-        w(i,:, rho_) = M_dot/(4*dpi*velocity_field(i)*x(i,:,1)**2)
+        w(i,ixImin2:ixImax2,ixImin3:ixImax3, rho_) = M_dot/(4*dpi*velocity_field(i)*x(i,ixImin2:ixImax2,ixImin3:ixImax3,1)**2)
 
         !set momentum
-        w(i,:, mom(1)) = w(i,:,rho_)*velocity_field(i)
-        w(i,:, mom(2)) = zero
+        w(i,ixImin2:ixImax2,ixImin3:ixImax3, mom(1)) = w(i,ixImin2:ixImax2,ixImin3:ixImax3,rho_)*velocity_field(i)
+        w(i,ixImin2:ixImax2,ixImin3:ixImax3, mom(2)) = zero
       else
-        w(i,:, rho_) = rho_bound
-        w(i,:, mom(:)) = zero
+        w(i,ixImin2:ixImax2,ixImin3:ixImax3, rho_) = rho_bound
+        w(i,ixImin2:ixImax2,ixImin3:ixImax3, mom(:)) = zero
       endif
     end do
+
+    !Set the third component of the momentum
+    rotation(ixI^S) = dsin(x(ixI^S,2))*2.d0*dpi/Prot_star*R_star
+    w(ixI^S,mom(3)) = rotation(ixI^S)*w(ixI^S,rho_)
 
     !Set initial magnetic field
     w(ixI^S,mag(1)) = B_star*dcos(x(ixI^S,2))*(R_star/x(ixI^S,1))**3.0
     w(ixI^S,mag(2)) = B_star*half*dsin(x(ixI^S,2))*(R_star/x(ixI^S,1))**3.0
+    w(ixI^S,mag(3)) = zero
 
     if(mhd_glm) w(ixI^S,psi_)=0.d0
 
-    ! !> Random perturbation on rho
-    ! amplitude = 3.d-2
-    ! !> perturb rho
-    ! call RANDOM_NUMBER(pert)
-    ! w(ixI^S, rho_) = w(ixI^S, rho_)*(one + amplitude*(pert(ixI^S)-half))
-
     !> Perturbation on Momentum
-    xi(ixI^S) = half*(one-atan(abs(x(ixI^S,2)-half*dpi/(dpi/16.d0))-one)*0.25d0)
-    xi(ixI^S) = sin((x(ixI^S,1)-R_star)/R_star*two*dpi)*xi(ixI^S)
+    xi(ixI^S) = half*(one-atan(abs(sin(x(ixI^S,2))-half*dpi/(dpi/16.d0))-one)*0.25d0)
+    xi(ixI^S) = sin((x(ixI^S,1)-R_star)/R_star*two*dpi)*sin(x(ixI^S,3)*4.d0)*xi(ixI^S)
     w(ixI^S, mom(2)) = w(ixI^S, mom(2)) + 0.001d0*xi(ixI^S)
 
   end subroutine initial_conditions
@@ -279,7 +290,7 @@ contains
     double precision, intent(in) :: qt, x(ixG^S,1:ndim)
     double precision, intent(inout) :: w(ixG^S,1:nw)
     double precision :: pth(ixG^S)
-    integer :: i,j
+    integer :: i,j,k
 
     select case (iB)
 
@@ -287,10 +298,10 @@ contains
       w(ixB^S,rho_) = rho_bound
 
       do i = ixBmax1,ixBmin1,-1
-        w(i,:,mom(1)) = w(i+1,:,mom(1))-(x(i+1,:,1)-x(i,:,1))&
-        *(w(i+2,:,mom(1)) - w(i+1,:,mom(1)))/(x(i+2,:,1)-x(i+1,:,1))
-        ! w(i,:,mom(2)) = w(i+1,:,mom(2))-(x(i+1,:,1)-x(i,:,1))&
-        ! *(w(i+2,:,mom(2)) - w(i+1,:,mom(2)))/(x(i+2,:,1)-x(i+1,:,1))
+        w(i,ixGmin2:ixGmax2,ixGmin3:ixGmax3,mom(1)) = w(i+1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,mom(1)) &
+        -(x(i+1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1)-x(i,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1))&
+        *(w(i+2,ixGmin2:ixGmax2,ixGmin3:ixGmax3,mom(1)) - w(i+1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,mom(1))) &
+        /(x(i+2,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1)-x(i+1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1))
       enddo
 
       w(ixB^S,mom(2)) = zero
@@ -298,45 +309,27 @@ contains
 
       !> Cont grad
       do i=ixBmax1,ixBmin1,-1
-        w(i,:,mag(2)) = w(i+1,:,mag(2))-(x(i+1,:,1)-x(i,:,1))&
-        *(w(i+2,:,mag(2)) - w(i+1,:,mag(2)))/(x(i+2,:,1)-x(i+1,:,1))
+        w(i,ixGmin2:ixGmax2,ixGmin3:ixGmax3,mag(2)) = w(i+1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,mag(2))&
+        -(x(i+1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1)-x(i,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1))&
+        *(w(i+2,ixGmin2:ixGmax2,ixGmin3:ixGmax3,mag(2)) - w(i+1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,mag(2)))&
+        /(x(i+2,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1)-x(i+1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,1))
       enddo
 
       if(mhd_glm) w(ixB^S,psi_)=0.d0
 
       do i = ixGmin2,ixGmax2
         do j = ixBmin1,ixBmax1
-          w(j,i,mom(1)) = min(w(j,i,mom(1)),one)
-          w(j,i,mom(2)) = min(w(j,i,mom(2)),one)
-          w(j,i,mom(1)) = max(w(j,i,mom(1)),-one)
-          w(j,i,mom(2)) = max(w(j,i,mom(2)),-one)
-
+          do k = ixGmin3,ixGmax3
+            w(j,i,k,mom(1)) = min(w(j,i,k,mom(1)),one)
+            w(j,i,k,mom(2)) = min(w(j,i,k,mom(2)),one)
+            w(j,i,k,mom(1)) = max(w(j,i,k,mom(1)),-one)
+            w(j,i,k,mom(2)) = max(w(j,i,k,mom(2)),-one)
+          enddo
         enddo
       enddo
 
-    ! case(2)
-    !   w(ixB^S,mom(2)) = zero
-    !
-    !
-    ! case(3)
-    !   do i=ixBmax2,ixBmin2, -1
-    !     w(:,i,rho_) = w(:,i+1,rho_)
-    !     w(:,i,mom(1)) = w(:,i+1,mom(1))
-    !     w(:,i,mom(2)) = -w(:,i+1,mom(0))
-    !     w(:,i,mag(1)) = half*B_star*dsin(x(:,i,2))
-    !     w(:,i,mag(2)) = zero
-    !   enddo
-    !   if(mhd_glm) w(ixB^S,psi_)=0.d0
-    !
-    ! case(4)
-    !   do i=ixBmin2,ixBmax2
-    !     w(:,i,rho_) = w(:,i-1,rho_)
-    !     w(:,i,mom(1)) = w(:,i-1,mom(1))
-    !     w(:,i,mom(2)) = -w(:,i-1,mom(0))
-    !     w(:,i,mag(1)) = half*B_star*dsin(x(:,i,2))
-    !     w(:,i,mag(2)) = zero
-    !   enddo
-    !   if(mhd_glm) w(ixB^S,psi_)=0.d0
+      w(ixB^S,mom(3)) = dsin(x(ixB^S,2))*2.d0*dpi/Prot_star*R_star*rho_bound
+      w(ixB^S,mag(3)) = zero
 
     case default
       call mpistop("BC not specified")
@@ -361,7 +354,7 @@ contains
     double precision :: beta_fd(ixI^S), F_fd(ixI^S)
     double precision :: dum(ixO^S)
 
-    integer :: i,j
+    integer :: i,j,k
     integer :: jx^L, hx^L
 
     !-----------------------------------------------------------------------------
@@ -380,7 +373,9 @@ contains
    ! grad_centCT(ixO^S) = half*abs(grad_fwd(ixO^S)+grad_bwd(ixO^S))
     do i = ixImin1, ixImax1
     do j = ixImin2, ixImax2
-        grad_centCT(i,j) = half*max(grad_fwd(i,j)+grad_bwd(i,j),zero)
+    do k = ixImin3, ixImax3
+        grad_centCT(i,j,k) = half*max(grad_fwd(i,j,k)+grad_bwd(i,j,k),zero)
+    enddo
     enddo
     enddo
     !--------------------------------------------------------------------------------------
@@ -388,17 +383,19 @@ contains
     beta_fd(ixO^S) = (1 - (vel(ixO^S)/x(ixO^S,1))/grad_centCT(ixO^S))*(R_star/x(ixO^S,1))**2
     do i=ixImin1,ixImax1
       do j=ixImin2,ixImax2
-        if (beta_fd(i,j) .ge. 1.) then
-          F_fd(i,j) = 1./(1+alpha)
-        else if (beta_fd(i,j).lt.-1.d10) then
-          F_fd(i,j) = abs(beta)**alpha/(1+alpha)
-        else if (abs(beta_fd(i,j)).gt.1.d-3) then
-          F_fd(i,j) = (1.-(1.-beta_fd(i,j))**(1+alpha))/(beta_fd(i,j)*(1+alpha))
+        do k=ixImin3,ixImax3
+        if (beta_fd(i,j,k) .ge. 1.) then
+          F_fd(i,j,k) = 1./(1+alpha)
+        else if (beta_fd(i,j,k).lt.-1.d10) then
+          F_fd(i,j,k) = abs(beta)**alpha/(1+alpha)
+        else if (abs(beta_fd(i,j,k)).gt.1.d-3) then
+          F_fd(i,j,k) = (1.-(1.-beta_fd(i,j,k))**(1+alpha))/(beta_fd(i,j,k)*(1+alpha))
         else
-          F_fd(i,j) = 1.-0.5*alpha*beta_fd(i,j)*(1.+0.333333*(1.-alpha)*beta_fd(i,j))
+          F_fd(i,j,k) = 1.-0.5*alpha*beta_fd(i,j,k)*(1.+0.333333*(1.-alpha)*beta_fd(i,j,k))
         end if
-        if (F_fd(i,j) .lt. smalldouble) F_fd(i,j) = one
-        if (F_fd(i,j) .gt. 5.d0) F_fd(i,j) = one
+        if (F_fd(i,j,k) .lt. smalldouble) F_fd(i,j,k) = one
+        if (F_fd(i,j,k) .gt. 5.d0) F_fd(i,j,k) = one
+        enddo
       enddo
     enddo
 
@@ -509,7 +506,7 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   double precision                   :: w(ixI^S,nw+nwauxio)
   double precision                   :: normconv(0:nw+nwauxio)
 
-  double precision :: B_vec(ixI^S,1:ndim)
+  double precision :: B_vec(ixI^S,1:ndir)
   double precision :: Div_B(ixI^S)
 
   B_vec(ixI^S,:) = w(ixI^S,mag(:))

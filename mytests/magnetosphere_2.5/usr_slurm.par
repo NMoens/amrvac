@@ -34,10 +34,10 @@
 
  &boundlist
         nghostcells=3
-        typeboundary_min1 = 5*'special'
-        typeboundary_max1 = 5*'noinflow'
-        typeboundary_min2 = 5*'symm'
-        typeboundary_max2 = 5*'symm'
+        typeboundary_min1 = 7*'special'
+        typeboundary_max1 = 7*'noinflow'
+        typeboundary_min2 = 7*'symm'
+        typeboundary_max2 = 7*'symm'
  /
 
  &meshlist
@@ -76,6 +76,7 @@
         R_star = 20.0
         T_star = 40000.0d0
         B_star = 5.d3
+        Prot_star = 50.d0
         rho_bound = 3.25d-11
         alpha = 0.67d0
         qbar = 2000.d0

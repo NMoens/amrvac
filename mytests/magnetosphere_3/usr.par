@@ -11,14 +11,14 @@
        itsave(1,1)  = 1
        itsave(1,2)  = 1
        ditsave_log  = 1000
-       !ditsave_dat   = 250
-       dtsave_dat = 1.d-3
+       !ditsave_dat   = 1
+       dtsave_dat = 5.d-2
 /
 
 &stoplist
        dtmin = 1.d-20
        !it_max = 3
-       time_max = 1.d-1
+       time_max = 1.d0
 /
 
 &methodlist
@@ -32,24 +32,30 @@
 /
 
 &boundlist
-       nghostcells=3
-       typeboundary_min1 = 5*'special'
-       typeboundary_max1 = 5*'noinflow'
-       typeboundary_min2 = 5*'symm'
-       typeboundary_max2 = 5*'symm'
+       typeboundary_min1 = 7*'special'
+       typeboundary_max1 = 7*'noinflow'
+       typeboundary_min2 = 7*'cont'
+       typeboundary_max2 = 7*'cont'
+       typeboundary_min3 = 7*'periodic'
+       typeboundary_max3 = 7*'periodic'
 /
 
 &meshlist
        refine_criterion=3
        refine_max_level=3
-       domain_nx1 = 64
-       domain_nx2 = 64
+       domain_nx1 = 16
+       domain_nx2 = 16
+       domain_nx3 = 8
        block_nx1 = 8
        block_nx2 = 8
+       block_nx3 = 4
+       max_blocks = 260000
        xprobmin1  = 1.0
        xprobmax1  = 7.d0
-       xprobmin2  = 0.d0
-       xprobmax2  = 0.5d0
+       xprobmin2  = 0.05d0
+       xprobmax2  = 0.45d0
+       xprobmin3  = 0.d0
+       xprobmax3  = 0.25d0
        stretch_dim(1) = 'uni'
        stretch_dim(2) = 'symm'
        qstretch_baselevel(2) = 1.1
@@ -57,7 +63,7 @@
 /
 
 &paramlist
-       courantpar=0.3d0
+       courantpar=0.9d0
        !dtpar = 6.d-4
 /
 
@@ -74,7 +80,8 @@
        L_star = 8.0d5
        R_star = 20.0
        T_star = 40000.0d0
-       B_star = 5.d3
+       B_star = 3.d3
+       Prot_star = 50.d0
        rho_bound = 3.25d-11
        alpha = 0.67d0
        qbar = 2000.d0

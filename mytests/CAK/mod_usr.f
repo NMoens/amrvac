@@ -70,7 +70,7 @@ contains
     ! Choose independent normalization units if using dimensionless variables.
     unit_length        = 1.d0 ! cm
     unit_temperature   = 1.d0 ! K
-    unit_numberdensity = 1.d0 ! cm^-3
+    unit_numberdensity = 1.d0 ! cm-3
 
     ! Active the physics module
     call HD_activate()
@@ -88,7 +88,8 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /star_list/ M_star, L_star, R_star, T_star, rho_bound, alpha, qbar, kappa_e, beta
+    namelist /star_list/ M_star, L_star, R_star, T_star, rho_bound, alpha,&
+        qbar, kappa_e, beta
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -126,7 +127,7 @@ contains
     Gamma_e = kappa_e*L_star/(4.d0*dpi*G_dp*M_star*const_c)
     escape_speed = (two*G_dp*M_star/R_star)**0.5
     M_dot = L_star/const_c**2.d0 * alpha/(1-alpha) &
-    *(qbar*Gamma_e/(1.-Gamma_e))**((1.-alpha)/alpha)
+       *(qbar*Gamma_e/(1.-Gamma_e))**((1.-alpha)/alpha)
     v_inf = (one-Gamma_e)**0.5d0*escape_speed*(alpha/(1-alpha))**0.5d0
 
     !###############################################
@@ -136,7 +137,8 @@ contains
     unit_temperature   = T_star
 
     unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
-    unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*const_kB*unit_temperature
+    unit_pressure=(2.d0+3.d0*He_abundance)&
+       *unit_numberdensity*const_kB*unit_temperature
     unit_velocity=dsqrt(unit_pressure/unit_density)
     unit_time=unit_length/unit_velocity
 
@@ -194,15 +196,15 @@ contains
 
 
   !> A routine for specifying initial conditions
-  subroutine initial_conditions(ixI^L, ixO^L, w, x)
+  subroutine initial_conditions(ixImin1,ixImax1, ixOmin1,ixOmax1, w, x)
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
 
-    integer, intent(in)             :: ixI^L, ixO^L
-    double precision, intent(in)    :: x(ixI^S,1:ndim)
-    double precision, intent(inout) :: w(ixI^S,1:nw)
-    double precision :: velocity_field(ixImin1:ixImax1),pth(ixI^S)
-    double precision :: pert(ixI^S), amplitude, xi(ixI^S)
+    integer, intent(in)             :: ixImin1,ixImax1, ixOmin1,ixOmax1
+    double precision, intent(in)    :: x(ixImin1:ixImax1,1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
+    double precision :: velocity_field(ixImin1:ixImax1),pth(ixImin1:ixImax1)
+    double precision :: pert(ixImin1:ixImax1), amplitude, xi(ixImin1:ixImax1)
     integer :: i
 
     do i = ixImin1,ixImax1
@@ -221,34 +223,34 @@ contains
       endif
     end do
 
-    w(ixI^S,i_g_cak) = zero
-    w(ixI^S,i_g_eff) = zero
-    w(ixI^S,i_f_fd) = zero
+    w(ixImin1:ixImax1,i_g_cak) = zero
+    w(ixImin1:ixImax1,i_g_eff) = zero
+    w(ixImin1:ixImax1,i_f_fd) = zero
 
   end subroutine initial_conditions
   !==========================================================================================
 
-  subroutine special_bound(qt,ixG^L,ixB^L,iB,w,x)
+  subroutine special_bound(qt,ixGmin1,ixGmax1,ixBmin1,ixBmax1,iB,w,x)
 
     use mod_global_parameters
     use mod_variables
     use mod_constants
     use mod_physics, only: phys_get_pthermal
 
-    integer, intent(in) :: ixG^L, ixB^L, iB
-    double precision, intent(in) :: qt, x(ixG^S,1:ndim)
-    double precision, intent(inout) :: w(ixG^S,1:nw)
-    double precision :: pth(ixG^S)
+    integer, intent(in) :: ixGmin1,ixGmax1, ixBmin1,ixBmax1, iB
+    double precision, intent(in) :: qt, x(ixGmin1:ixGmax1,1:ndim)
+    double precision, intent(inout) :: w(ixGmin1:ixGmax1,1:nw)
+    double precision :: pth(ixGmin1:ixGmax1)
     integer :: i,j
 
     select case (iB)
 
     case(1)
-      w(ixB^S,rho_) = rho_bound
+      w(ixBmin1:ixBmax1,rho_) = rho_bound
 
       do i = ixBmax1,ixBmin1,-1
-        w(i,mom(1)) = w(i+1,mom(1))-(x(i+1,1)-x(i,1))&
-        *(w(i+2,mom(1)) - w(i+1,mom(1)))/(x(i+2,1)-x(i+1,1))
+        w(i,mom(1)) = w(i+1,mom(1))-(x(i+1,1)-x(i,1))*(w(i+2,mom(1)) - w(i+1,&
+           mom(1)))/(x(i+2,1)-x(i+1,1))
       enddo
 
       do i = ixBmin1,ixBmax1
@@ -265,20 +267,26 @@ contains
 
 !==========================================================================================
 
-  subroutine CAK_source(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
+  subroutine CAK_source(qdt,ixImin1,ixImax1,ixOmin1,ixOmax1,iwmin,iwmax,qtC,&
+     wCT,qt,w,x)
     use mod_global_parameters
 
-    integer, intent(in)             :: ixI^L, ixO^L, iw^LIM
+    integer, intent(in)             :: ixImin1,ixImax1, ixOmin1,ixOmax1, iwmin,&
+       iwmax
     double precision, intent(in)    :: qdt, qtC, qt
-    double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
-    double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision, intent(in)    :: wCT(ixImin1:ixImax1,1:nw),&
+        x(ixImin1:ixImax1,1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
 
-    double precision :: grad_fwd(ixI^S),grad_bwd(ixI^S),grad_centCT(ixI^S)
-    double precision :: g_CAK(ixI^S), g_grav_sc(ixI^S), ppp(300)
-    double precision :: vel(ixI^S)
-    double precision :: fin_disc(ixI^S), mu_star(ixI^S), sigma_star(ixI^S)
-    double precision :: beta_fd(ixI^S), F_fd(ixI^S)
-    double precision :: dum(ixO^S)
+    double precision :: grad_fwd(ixImin1:ixImax1),grad_bwd(ixImin1:ixImax1),&
+       grad_centCT(ixImin1:ixImax1)
+    double precision :: g_CAK(ixImin1:ixImax1), g_grav_sc(ixImin1:ixImax1),&
+        ppp(300)
+    double precision :: vel(ixImin1:ixImax1)
+    double precision :: fin_disc(ixImin1:ixImax1), mu_star(ixImin1:ixImax1),&
+        sigma_star(ixImin1:ixImax1)
+    double precision :: beta_fd(ixImin1:ixImax1), F_fd(ixImin1:ixImax1)
+    double precision :: dum(ixOmin1:ixOmax1)
 
 
     integer :: output_step
@@ -289,25 +297,30 @@ contains
 
 
     integer :: i,j
-    integer :: jx^L, hx^L
+    integer :: jxmin1,jxmax1, hxmin1,hxmax1
 
     !-----------------------------------------------------------------------------
-    jx^L=ixO^L+kr(1,^D);
-    hx^L=ixO^L-kr(1,^D);
+    jxmin1=ixOmin1+kr(1,1);jxmax1=ixOmax1+kr(1,1);
+    hxmin1=ixOmin1-kr(1,1);hxmax1=ixOmax1-kr(1,1);
     !--------------------------------------------------------------------------------------
 
-    vel(ixI^S) = wCT(ixI^S,mom(1))/wCT(ixI^S,rho_)
+    vel(ixImin1:ixImax1) = wCT(ixImin1:ixImax1,mom(1))/wCT(ixImin1:ixImax1,&
+       rho_)
     !--------------------------------------------------------------------------------------
     ! calculate grad_v
     ! forward difference
-    grad_fwd(ixO^S) = (vel(jx^S)-vel(ixO^S))/(x(jx^S,1)-x(ixO^S,1))
+    grad_fwd(ixOmin1:ixOmax1) = (vel(jxmin1:jxmax1)-&
+       vel(ixOmin1:ixOmax1))/(x(jxmin1:jxmax1,1)-x(ixOmin1:ixOmax1,1))
     ! backward difference
-    grad_bwd(ixO^S) = (vel(ixO^S)-vel(hx^S))/(x(ixO^S,1)-x(hx^S,1))
+    grad_bwd(ixOmin1:ixOmax1) = (vel(ixOmin1:ixOmax1)-&
+       vel(hxmin1:hxmax1))/(x(ixOmin1:ixOmax1,1)-x(hxmin1:hxmax1,1))
     ! central difference
-    grad_centCT(ixO^S) = half*abs(grad_fwd(ixO^S)+grad_bwd(ixO^S))
+    grad_centCT(ixOmin1:ixOmax1) = half*abs(grad_fwd(ixOmin1:ixOmax1)+&
+       grad_bwd(ixOmin1:ixOmax1))
     !--------------------------------------------------------------------------------------
 
-    beta_fd(ixO^S) = (1 - (vel(ixO^S)/x(ixO^S,1))/grad_centCT(ixO^S))*(R_star/x(ixO^S,1))**2
+    beta_fd(ixOmin1:ixOmax1) = (1 - (vel(ixOmin1:ixOmax1)/x(ixOmin1:ixOmax1,&
+       1))/grad_centCT(ixOmin1:ixOmax1))*(R_star/x(ixOmin1:ixOmax1,1))**2
     do i=ixOmin1,ixOmax1
         if (beta_fd(i) .ge. 1.) then
           F_fd(i) = 1./(1+alpha)
@@ -316,46 +329,52 @@ contains
         else if (abs(beta_fd(i)).gt.1.d-3) then
           F_fd(i) = (1.-(1.-beta_fd(i))**(1+alpha))/(beta_fd(i)*(1+alpha))
         else
-          F_fd(i) = 1.-0.5*alpha*beta_fd(i)*(1.+0.333333*(1.-alpha)*beta_fd(i))
+          F_fd(i) = 1.-0.5*alpha*beta_fd(i)*(1.+&
+             0.333333*(1.-alpha)*beta_fd(i))
         end if
         if (F_fd(i) .lt. smalldouble) F_fd(i) = one
         if (F_fd(i) .gt. 5.d0) F_fd(i) = one
     enddo
 
-    w(ixO^S,i_f_fd) = F_fd(ixO^S)
+    w(ixOmin1:ixOmax1,i_f_fd) = F_fd(ixOmin1:ixOmax1)
 
     !--------------------------------------------------------------------------------------
 
     ! calculate g_CAK
-    g_CAK(ixI^S) = 1./(1.-alpha)*kappa_e*L_star*qbar/(4.*dpi*x(ixI^S,1)**2*c_light) &
-    *(grad_centCT(ixI^S)/(wCT(ixI^S,rho_)*c_light*qbar*kappa_e))**alpha
+    g_CAK(ixImin1:ixImax1) = 1./(1.-alpha)*kappa_e*L_star*qbar/(4.*dpi*x(&
+       ixImin1:ixImax1,1)**2*c_light) *(grad_centCT(ixImin1:ixImax1)/(wCT(&
+       ixImin1:ixImax1,rho_)*c_light*qbar*kappa_e))**alpha
 
-    w(ixI^S,i_g_cak) = g_CAK(ixI^S)
+    w(ixImin1:ixImax1,i_g_cak) = g_CAK(ixImin1:ixImax1)
 
     ! finite disk correction
-    g_CAK(ixI^S) = g_CAK(ixI^S) * F_fd(ixI^S)
+    g_CAK(ixImin1:ixImax1) = g_CAK(ixImin1:ixImax1) * F_fd(ixImin1:ixImax1)
 
     ! effective gravity
-    g_grav_sc(ixI^S) = G_dp*M_star/(x(ixI^S,1)**2)*(one-Gamma_e)
+    g_grav_sc(ixImin1:ixImax1) = G_dp*M_star/(x(ixImin1:ixImax1,&
+       1)**2)*(one-Gamma_e)
 
-    w(ixI^S,i_g_eff) = g_grav_sc(ixI^S)
+    w(ixImin1:ixImax1,i_g_eff) = g_grav_sc(ixImin1:ixImax1)
 
     !w = w + qdt*gsource
-    w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt * (g_CAK(ixO^S) - g_grav_sc(ixO^S)) * wCT(ixO^S,rho_)
+    w(ixOmin1:ixOmax1,mom(1)) = w(ixOmin1:ixOmax1,&
+       mom(1)) + qdt * (g_CAK(ixOmin1:ixOmax1) - g_grav_sc(ixOmin1:ixOmax1)) * &
+       wCT(ixOmin1:ixOmax1,rho_)
 
-    dum = (x(jx^S,1)-x(ixO^S,1))/(g_CAK(ixO^S) - g_grav_sc(ixO^S))
+    dum = (x(jxmin1:jxmax1,1)-x(ixOmin1:ixOmax1,&
+       1))/(g_CAK(ixOmin1:ixOmax1) - g_grav_sc(ixOmin1:ixOmax1))
     new_timestep = 0.3* minval( abs(dum))**half
 
   end subroutine CAK_source
   !==========================================================================================
 
-  subroutine special_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+  subroutine special_dt(w,ixImin1,ixImax1,ixOmin1,ixOmax1,dtnew,dx1,x)
 
     use mod_global_parameters
 
-    integer, intent(in)             :: ixI^L, ixO^L
-    double precision, intent(in)    :: dx^D, x(ixI^S,1:ndim)
-    double precision, intent(in)    :: w(ixI^S,1:nw)
+    integer, intent(in)             :: ixImin1,ixImax1, ixOmin1,ixOmax1
+    double precision, intent(in)    :: dx1, x(ixImin1:ixImax1,1:ndim)
+    double precision, intent(in)    :: w(ixImin1:ixImax1,1:nw)
     double precision, intent(inout) :: dtnew
 
     if (it .ge. 1) dtnew = new_timestep

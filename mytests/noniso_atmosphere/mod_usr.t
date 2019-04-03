@@ -191,7 +191,7 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   enddo
 
   !> perturb rho
-  amplitude = 0.5d-1
+  amplitude = 0.0d-1
   call RANDOM_NUMBER(pert)
   do i = ixGmin2+10,ixGmax2
     w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i, rho_)&
@@ -249,7 +249,7 @@ subroutine set_gravitation_field(ixI^L,ixO^L,wCT,x,gravity_field)
   double precision, intent(out)   :: gravity_field(ixI^S,ndim)
 
   gravity_field(ixI^S,1) = zero
-  gravity_field(ixI^S,2) = -const_G*mstar/rstar**2*(unit_time**2/unit_length)
+    gravity_field(ixI^S,2) = -const_G*mstar/rstar**2*(unit_time**2/unit_length)
 end subroutine set_gravitation_field
 
 !==========================================================================================
@@ -309,7 +309,7 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   do idim = 1,ndim
     g_rad(ixO^S,idim) = w(ixO^S,i_op)*w(ixO^S,i_flux(idim))/fld_speedofligt_0
   enddo
-  big_gamma(ixO^S) = g_rad(ixO^S,2)/(6.67e-8*mstar/rstar**2*(unit_time**2/unit_length))
+  big_gamma(ixO^S) = g_rad(ixO^S,2)/(const_G*mstar/rstar**2*(unit_time**2/unit_length))
 
   call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
   call rhd_get_trad(w, x, ixI^L, ixO^L, Trad)

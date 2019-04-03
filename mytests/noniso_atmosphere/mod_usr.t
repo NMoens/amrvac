@@ -161,6 +161,7 @@ subroutine initglobaldata_usr
     if (minval(y_is) .gt. xprobmin2) call mpistop("Simulation space not covered")
     if (maxval(y_is) .lt. xprobmax2) call mpistop("Simulation space not covered")
   endif
+
 end subroutine initglobaldata_usr
 
 !==========================================================================================

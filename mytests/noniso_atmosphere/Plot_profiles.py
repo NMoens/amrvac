@@ -5,12 +5,20 @@ import matplotlib.pyplot as plt
 
 f_tot = os.getcwd() + '/initial_conditions/init_struc_total'
 f_vac = os.getcwd() + '/initial_conditions/init_struc_amrvac'
+f_it = os.getcwd() + '/initial_conditions/iteration_prof'
 
 A_tot = np.loadtxt(f_tot)
 A_vac = np.loadtxt(f_vac)
+A_it = np.loadtxt(f_it)
+
 
 i_vac, y_vac, rho_vac, tg_vac, pg_vac, er_vac, tau_vac = np.transpose(A_vac)
 rho_tot, tr_tot, pg_tot, tau_tot, mc_tot, gammar_tot, er_tot, y_tot = np.transpose(A_tot)
+i_it, y_it, rho_it, pg_it, tr_it, er_it = np.transpose(A_it)
+tg_it = tr_it
+
+print (len(tg_it), len(y_it))
+
 
 print('#cells total structure: ', len(y_tot))
 print('#cells amrvac structure: ', len(y_vac))
@@ -84,6 +92,7 @@ ax1.plot(y_tot, rho_tot, label = 'Initial conditions total')
 ax1.plot(y_vac, rho_vac, label = 'Initial conditions amrvac')
 ax1.plot(y_rel, rho_rel1,'o', label = 'time-averaged conditions')
 ax1.plot(y_rel, rho_rel2,'o', label = 'time-averaged conditions')
+ax1.plot(y_it, rho_it,'o', label = 'iterative scheme')
 
 ax1.legend()
 ax1.set_ylabel('$\\rho$ [g/cm3]')
@@ -92,6 +101,7 @@ ax2.plot(y_tot, rho_p_2_T(rho_tot,pg_tot), label = 'Initial conditions total')
 ax2.plot(y_vac, rho_p_2_T(rho_vac,pg_vac), label = 'Initial conditions amrvac')
 ax2.plot(y_rel, rho_p_2_T(rho_rel1,p_rel1),'o', label = 'Initial conditions')
 ax2.plot(y_rel, rho_p_2_T(rho_rel2,p_rel2),'o', label = 'time-averaged conditions')
+ax2.plot(y_it, tg_it,'o', label = 'iterative scheme')
 
 ax2.legend()
 ax2.set_ylabel('$T_{gas}$ [g/cm3]')
@@ -100,6 +110,7 @@ ax3.plot(y_tot, E_r_2_T(er_tot), label = 'Initial conditions total')
 ax3.plot(y_vac, E_r_2_T(er_vac), label = 'Initial conditions amrvac')
 ax3.plot(y_rel, E_r_2_T(er_rel1),'o', label = 'Initial conditions')
 ax3.plot(y_rel, E_r_2_T(er_rel2),'o', label = 'time-averaged conditions')
+ax3.plot(y_it, tr_it,'o', label = 'iterative scheme')
 
 ax3.legend()
 ax3.set_xlabel('r [cm]')

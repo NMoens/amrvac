@@ -639,6 +639,7 @@ contains
     end select
   end subroutine rhd_get_pradiation
 
+  !> calculates the sum of the gas pressure and max Prad tensor element
   subroutine rhd_get_ptot(w, x, ixI^L, ixO^L, ptot)
     use mod_global_parameters
 
@@ -664,7 +665,7 @@ contains
 
   end subroutine rhd_get_ptot
 
-
+  !> Calculates gas temperature
   subroutine rhd_get_tgas(w, x, ixI^L, ixO^L, tgas)
     use mod_global_parameters
 
@@ -686,6 +687,7 @@ contains
 
   end subroutine rhd_get_tgas
 
+  !> Calculates radiation temperature
   subroutine rhd_get_trad(w, x, ixI^L, ixO^L, trad)
     use mod_global_parameters
     use mod_constants

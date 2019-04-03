@@ -165,6 +165,7 @@ subroutine initglobaldata_usr
     if (maxval(y_is) .lt. xprobmax2) call &
        mpistop("Simulation space not covered")
   endif
+
 end subroutine initglobaldata_usr
 
 !==========================================================================================
@@ -184,6 +185,11 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   double precision :: pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2), amplitude,&
       y_res(1:nyc)
   integer :: i,j
+
+
+  print*, (x(1,2,2) - x(1,1,2))*unit_length
+
+  stop
 
   do i = ixGmin2,ixGmax2
     y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i,2))

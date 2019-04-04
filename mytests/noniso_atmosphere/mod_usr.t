@@ -154,6 +154,8 @@ subroutine initglobaldata_usr
     print*, 'unit_density', unit_density
     print*, 'unit_pressure', unit_pressure
     print*, 'unit_temperature', unit_temperature
+    print*, 'unit_radflux', unit_radflux
+    print*, 'unit_opacity', unit_opacity
 
     print*, minval(y_is), xprobmin2
     print*, maxval(y_is), xprobmax2

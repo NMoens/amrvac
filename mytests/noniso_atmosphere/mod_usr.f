@@ -156,6 +156,8 @@ subroutine initglobaldata_usr
     print*, 'unit_density', unit_density
     print*, 'unit_pressure', unit_pressure
     print*, 'unit_temperature', unit_temperature
+    print*, 'unit_radflux', unit_radflux
+    print*, 'unit_opacity', unit_opacity
 
     print*, minval(y_is), xprobmin2
     print*, maxval(y_is), xprobmax2
@@ -186,11 +188,6 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
       y_res(1:nyc)
   integer :: i,j
 
-
-  print*, (x(1,2,2) - x(1,1,2))*unit_length
-
-  stop
-
   do i = ixGmin2,ixGmax2
     y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i,2))
     j = minloc(abs(y_res), 1)
@@ -203,7 +200,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   enddo
 
   !> perturb rho
-  amplitude = 0.5d-1
+  amplitude = 0.0d-1
   call RANDOM_NUMBER(pert)
   do i = ixGmin2+10,ixGmax2
     w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i,&
@@ -269,8 +266,8 @@ subroutine set_gravitation_field(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
      ixImin2:ixImax2,ndim)
 
   gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,1) = zero
-  gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,&
-     2) = -const_G*mstar/rstar**2*(unit_time**2/unit_length)
+    gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,&
+       2) = -const_G*mstar/rstar**2*(unit_time**2/unit_length)
 end subroutine set_gravitation_field
 
 !==========================================================================================
@@ -349,7 +346,7 @@ subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
        i_flux(idim))/fld_speedofligt_0
   enddo
   big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = g_rad(ixOmin1:ixOmax1,&
-     ixOmin2:ixOmax2,2)/(6.67e-8*mstar/rstar**2*(unit_time**2/unit_length))
+     ixOmin2:ixOmax2,2)/(const_G*mstar/rstar**2*(unit_time**2/unit_length))
 
   call rhd_get_tgas(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2, Tgas)

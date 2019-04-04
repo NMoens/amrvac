@@ -51,27 +51,30 @@ print('If there are ' + str(len(y_vac)) + ' cells, dx should be ' + str((r_top_h
 
 
 f_relax1 = os.getcwd() + '/profile_init.okc'
-A_relax1 = np.loadtxt(f_relax1,skiprows = 15)
+A_relax1 = np.loadtxt(f_relax1,skiprows = 17)
 
-x_rel, y_rel, z_rel, int_rho1, int_p1, int_r_e1, int_dt1 = np.transpose(A_relax1[0::128])
+x_rel, y_rel, z_rel, int_rho1, int_p1, int_r_e1, int_dt1, F_rel1 = np.transpose(A_relax1[0::128])
 
 f_relax2 = os.getcwd() + '/relaxed_profile_2.okc'
-A_relax2 = np.loadtxt(f_relax2,skiprows = 15)
+A_relax2 = np.loadtxt(f_relax2,skiprows = 17)
 
-x_rel, y_rel, z_rel, int_rho2, int_p2, int_r_e2, int_dt2 = np.transpose(A_relax2[0::128])
+x_rel, y_rel, z_rel, int_rho2, int_p2, int_r_e2, int_dt2, F_rel2 = np.transpose(A_relax2[0::128])
 
 unit_length = 8963898879.7622433
 unit_density = 3.2439805779365456E-008
 unit_pressure = 530577.09957521548
 unit_temperature = 120610.46245923516
+unit_radflux = 2024138883985.9893
 
 rho_rel1 = int_rho1/int_dt1*unit_density
 p_rel1 = int_p1/int_dt1*unit_pressure
 er_rel1 = int_r_e1/int_dt1*unit_pressure
+F_rel1 = F_rel1*unit_radflux
 
 rho_rel2 = int_rho2/int_dt2*unit_density
 p_rel2 = int_p2/int_dt2*unit_pressure
 er_rel2 = int_r_e2/int_dt2*unit_pressure
+F_rel2 = F_rel2*unit_radflux
 
 y_rel = y_rel*unit_length + r_bottom_cm
 
@@ -116,6 +119,21 @@ ax3.legend()
 ax3.set_xlabel('r [cm]')
 ax3.set_ylabel('$T_{rad}$ [g/cm3]')
 
+
+c = 2.99e10
+lam = 1./3.
+kap = 0.34
+
+flux_tot = -lam*c/(kap*rho_tot[1:])*(er_tot[1:] - er_tot[:-1])/(y_tot[1:] - y_tot[:-1])
+flux_vac = -lam*c/(kap*rho_vac[1:])*(er_vac[1:] - er_vac[:-1])/(y_vac[1:] - y_vac[:-1])
+
+
+
+plt.figure()
+plt.plot(y_tot[1:],flux_tot)
+plt.plot(y_vac[1:],flux_vac)
+plt.plot(y_rel,F_rel1)
+plt.plot(y_rel,F_rel2)
 
 
 plt.figure()

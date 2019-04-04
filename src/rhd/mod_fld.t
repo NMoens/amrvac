@@ -411,7 +411,7 @@ module mod_fld
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
-        call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
       end do
 
@@ -431,7 +431,7 @@ module mod_fld
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
-        call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
       end do
 
@@ -451,7 +451,7 @@ module mod_fld
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
-        call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
       end do
 
@@ -498,7 +498,7 @@ module mod_fld
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndir
       !> gradient or gradientS ?!?!?!?!?!?
-      call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
       rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
 
@@ -534,7 +534,7 @@ module mod_fld
     grad_r_e(ixI^S,:) = zero
     do idir = 1,ndir
       !> gradient or gradientS ?!?!?!?!?!?
-      call gradientS(rad_e,ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
+      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
@@ -652,7 +652,7 @@ module mod_fld
       !> Check if energy doesn't go faster than speed of light
       !for simplicity, only in direction 2
       rad_e(ixI^S) = w(ixI^S,iw_r_e)
-      call gradientS(rad_e,ixI^L,ixO^L,2,grad_r_e)
+      call gradient(rad_e,ixI^L,ixO^L,2,grad_r_e)
       max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
 
       do i = ixOmin1,ixOmax1

@@ -348,7 +348,7 @@ contains
     end if
 
       unit_radflux = unit_velocity*unit_pressure
-      unit_opacity = unit_velocity/(unit_time*unit_pressure)
+      unit_opacity = one/(unit_density*unit_length)
   end subroutine rhd_physical_units
 
   !> Returns 0 in argument flag where values are ok

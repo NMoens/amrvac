@@ -122,7 +122,7 @@ ax3.set_ylabel('$T_{rad}$ [g/cm3]')
 
 c = 2.99e10
 lam = 1./3.
-kap = 0.34
+kap = 0.35
 
 flux_tot = -lam*c/(kap*rho_tot[1:])*(er_tot[1:] - er_tot[:-1])/(y_tot[1:] - y_tot[:-1])
 flux_vac = -lam*c/(kap*rho_vac[1:])*(er_vac[1:] - er_vac[:-1])/(y_vac[1:] - y_vac[:-1])

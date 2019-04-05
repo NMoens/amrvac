@@ -52,6 +52,9 @@ contains
     ! Choose coordinate system as 2D Cartesian with three components for vectors
     call set_coordinate_system("cylindrical")
 
+    !afdasfas
+    usr_set_parameters => initglobaldata_usr
+
     ! A routine for initial conditions is always required
     usr_init_one_grid => initial_conditions
 
@@ -65,7 +68,6 @@ contains
     usr_get_dt => special_dt
 
     call usr_params_read(par_files)
-    call initglobaldata_usr
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length        = 1.d0 ! cm
@@ -333,7 +335,7 @@ contains
     w(ixI^S,i_g_cak) = g_CAK(ixI^S)
 
     ! finite disk correction
-    g_CAK(ixI^S) = g_CAK(ixI^S) * F_fd(ixI^S)
+    ! g_CAK(ixI^S) = g_CAK(ixI^S) * F_fd(ixI^S)
 
     ! effective gravity
     g_grav_sc(ixI^S) = G_dp*M_star/(x(ixI^S,1)**2)*(one-Gamma_e)

@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import os
 
 
-sn = 100
-
 def plot_profile(sn):
     if sn < 10:
         n = '000' + str(sn)
@@ -25,7 +23,7 @@ def plot_profile(sn):
 f,(ax1,ax2) = plt.subplots(2,1,sharex=True)
 
 n = plot_profile(0)
-n = plot_profile(50)
+n = plot_profile(18)
 
 ax1.grid(which='both')
 ax2.grid(which='both')

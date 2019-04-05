@@ -14,18 +14,30 @@ def ReadE(filename):
 
     return t, e_eq, e_r, e_g
 
+plt.title('Energy interaction schemes')
 
-t, e_eq, e_r, e_g = ReadE('/energy_1')
-plt.loglog(t,e_g,'r--')
-plt.loglog(t,e_r,'r-')
+t, e_eq, e_r, e_g = ReadE('/newton_11')
+plt.loglog(t,e_g,'r1',label='dt = 1e-10')
 
-t, e_eq, e_r, e_g = ReadE('/energy_2')
-plt.loglog(t,e_g,'b--')
-plt.loglog(t,e_r,'b-')
+t, e_eq, e_r, e_g = ReadE('/newton_12')
+plt.loglog(t,e_g,'b2',label='dt = 1e-8')
 
-t, e_eq, e_r, e_g = ReadE('/energy_3')
-plt.loglog(t,e_g,'y--')
-plt.loglog(t,e_r,'y-')
+t, e_eq, e_r, e_g = ReadE('/newton_13')
+plt.loglog(t,e_g,'y3',label='dt = 1e-6')
 
-plt.loglog(t,e_eq,'k-')
+t, e_eq, e_r, e_g = ReadE('/newton_21')
+plt.loglog(t,e_g,'r1')
+
+t, e_eq, e_r, e_g = ReadE('/newton_22')
+plt.loglog(t,e_g,'b2')
+
+t, e_eq, e_r, e_g = ReadE('/newton_23')
+plt.loglog(t,e_g,'y3')
+
+plt.loglog(t,e_eq,'k--', label='equilibrium level')
+
+plt.xlabel('time')
+plt.ylabel('gas energy')
+
+plt.legend()
 plt.show()

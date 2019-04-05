@@ -123,6 +123,7 @@ module mod_fld
     use mod_multigrid_coupling, only: mg_copy_boundary_conditions
 
     double precision, intent(in) :: He_abundance
+    double precision :: sigma_thomson
     integer :: idir,jdir
 
     character(len=1) :: ind_1
@@ -179,7 +180,6 @@ module mod_fld
     if (fld_maxdw .lt. 2) call mpistop("fld_maxdw should be an integer larger than 1")
 
     !> Need mean molecular weight
-    ! fld_mu = (1.d0+4.d0*He_abundance)/two
     fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
 
 
@@ -194,6 +194,11 @@ module mod_fld
 
     !> Read in opacity table if necesary
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
+    if (fld_opacity_law .eq. 'thomson') then
+      sigma_thomson = 6.6524585d-25
+      fld_kappa0 = sigma_thomson/const_mp * (1.+2.*He_abundance)/(1.+4.*He_abundance)/unit_opacity
+    endif
+
   end subroutine fld_init
 
   !> Compute all extra variables in w-array:
@@ -204,6 +209,8 @@ module mod_fld
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
+
+    !> Maybe call boundary 
 
     call fld_get_opacity(w, x, ixI^L, ixO^L)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
@@ -344,6 +351,8 @@ module mod_fld
 
     select case (fld_opacity_law)
       case('const')
+        fld_kappa = fld_kappa0
+      case('thomson')
         fld_kappa = fld_kappa0
       case('kramers')
         rho0 = half !> Take lower value of rho in domain
@@ -629,11 +638,8 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      !w(ixI^S,i_diff_mg) = one!*unit_length/unit_velocity
-      i = nghostcells+1
-      w(ixI^S,i_diff_mg) = fld_speedofligt_0*w(i,i,i_lambda)/(w(i,i,i_op)*w(i,i,iw_rho))
-
-      w(ixI^S,i_diff_mg) = 28.70d0
+      w(ixI^S,i_diff_mg) = one/(unit_length*unit_velocity)
+      print*, it,w(10,10,i_diff_mg)
 
     else
       !> calculate diffusion coefficient

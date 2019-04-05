@@ -80,7 +80,7 @@
  &fld_list
   fld_kappa0 = 0.34d0
   fld_split = .false.
-  fld_opacity_law = 'const'
+  fld_opacity_law = 'thomson'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'

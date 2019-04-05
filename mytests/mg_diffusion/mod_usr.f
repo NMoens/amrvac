@@ -18,19 +18,12 @@ contains
 
     use mod_constants
 
-     double precision :: rho_0 = one
-     double precision :: t_0 = -dlog(1.d-1)/(8.d0*dpi**two)
-     double precision :: e_0 = one
-
     call set_coordinate_system("Cartesian_2D")
 
-    unit_velocity = const_c
-    unit_numberdensity = rho_0/((1.d0+4.d0*He_abundance)*mp_cgs)
-    unit_length = t_0*const_c
 
-    ! unit_velocity = one
-    ! unit_numberdensity = rho_0/((1.d0+4.d0*He_abundance)*mp_cgs)
-    ! unit_length = one
+    unit_velocity = one
+    unit_numberdensity = one/((1.d0+4.d0*He_abundance)*mp_cgs)
+    unit_length = one
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -61,44 +54,54 @@ contains
   !==========================================================================================
 
     !> A routine for specifying initial conditions
-    subroutine initial_conditions(ixG^L, ix^L, w, x)
+    subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+       ixmin2,ixmax1,ixmax2, w, x)
       use mod_global_parameters
       use mod_constants
       use mod_fld
 
-      integer, intent(in)             :: ixG^L, ix^L
-      double precision, intent(in)    :: x(ixG^S, ndim)
-      double precision, intent(inout) :: w(ixG^S, nw)
+      integer, intent(in)             :: ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
+          ixmin1,ixmin2,ixmax1,ixmax2
+      double precision, intent(in)    :: x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+          ndim)
+      double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+          nw)
 
       ! Set initial values for w
-      w(ixG^S, rho_) = 1.d2
-      w(ixG^S, mom(:)) = zero
-      w(ixG^S, e_) = one
-      w(ixG^S,r_e) =  spotpattern(x,ixG^L,0.d0)
+      w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = one
+      w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, mom(:)) = zero
+      w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, e_) = one
+      w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,r_e) =  spotpattern(x,ixGmin1,ixGmin2,&
+         ixGmax1,ixGmax2,0.d0)
 
-      call fld_get_opacity(w, x, ixG^L, ix^L)
-      call fld_get_opacity(w, x, ixI^L, ixO^L)
-      call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
-      call fld_get_radflux(w, x, ixI^L, ixO^L)
+      call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+         ixmin2,ixmax1,ixmax2)
+      call fld_get_fluxlimiter(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+         ixmin2,ixmax1,ixmax2)
+      call fld_get_radflux(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+         ixmin2,ixmax1,ixmax2)
 
       if (fld_diff_scheme .eq. 'mg') then
-        call fld_get_diffcoef_central(w, x, ixG^L, ix^L)
+        call fld_get_diffcoef_central(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
+            ixmin1,ixmin2,ixmax1,ixmax2)
         call set_mg_bounds()
       endif
 
     end subroutine initial_conditions
 
-    function spotpattern(x,ixG^L,t1) result(e0)
+    function spotpattern(x,ixGmin1,ixGmin2,ixGmax1,ixGmax2,t1) result(e0)
       use mod_global_parameters
 
-      integer, intent(in) :: ixG^L
-      double precision, intent(in) :: x(ixG^S, ndim), t1
-      double precision :: e0(ixG^S)
+      integer, intent(in) :: ixGmin1,ixGmin2,ixGmax1,ixGmax2
+      double precision, intent(in) :: x(ixGmin1:ixGmax1,ixGmin2:ixGmax2, ndim),&
+          t1
+      double precision :: e0(ixGmin1:ixGmax1,ixGmin2:ixGmax2)
       integer i,j
 
       do i = ixGmin1,ixGmax1
         do j = ixGmin2,ixGmax2
-        e0(i,j) =  two + dexp(-8.d0 *dpi**two*t1*unit_time)*sin(two*dpi*x(i,j,1))*sin(two*dpi*x(i,j,2))
+        e0(i,j) =  dexp(-8.d0 *dpi**two*t1*unit_time)*sin(two*dpi*x(i,j,&
+           1))*sin(two*dpi*x(i,j,2))
         enddo
       enddo
 
@@ -121,24 +124,27 @@ contains
     !> which can be used to identify the internal boundary region location.
     !> Its effect should always be local as it acts on the mesh.
 
-    subroutine constant_var(level,qt,ixI^L,ixO^L,w,x)
+    subroutine constant_var(level,qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2,w,x)
       use mod_global_parameters
-      integer, intent(in)             :: ixI^L,ixO^L,level
+      integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
+         ixOmin1,ixOmin2,ixOmax1,ixOmax2,level
       double precision, intent(in)    :: qt
-      double precision, intent(inout) :: w(ixI^S,1:nw)
-      double precision, intent(in)    :: x(ixI^S,1:ndim)
+      double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1:nw)
+      double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1:ndim)
 
-      w(ixI^S,rho_) = 1.d2
-      w(ixI^S,mom(:)) = zero
-      w(ixI^S,e_) = 1.d0
-
-      ! print*, global_time, dexp(-8.d0 *dpi**two*global_time*unit_time), dexp(dlog(1.d-2)/(8.d0*dpi**two)*8.d0*dpi**two)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = one
+      w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = zero
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = one
 
     end subroutine constant_var
 
   !==========================================================================================
 
-  subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
+  subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,w,x,normconv)
   ! this subroutine can be used in convert, to add auxiliary variables to the
   ! converted output file, for further analysis using tecplot, paraview, ....
   ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
@@ -148,18 +154,28 @@ contains
     use mod_global_parameters
     use mod_physics
 
-    integer, intent(in)                :: ixI^L,ixO^L
-    double precision, intent(in)       :: x(ixI^S,1:ndim)
-    double precision                   :: w(ixI^S,nw+nwauxio)
+    integer, intent(in)                :: ixImin1,ixImin2,ixImax1,ixImax2,&
+       ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)       :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
+    double precision                   :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       nw+nwauxio)
     double precision                   :: normconv(0:nw+nwauxio)
-    double precision                   :: theoretical(ixI^S)
-    double precision                   :: residual(ixI^S)
+    double precision                   :: theoretical(ixImin1:ixImax1,&
+       ixImin2:ixImax2)
+    double precision                   :: residual(ixImin1:ixImax1,&
+       ixImin2:ixImax2)
 
-    theoretical(ixI^S) = spotpattern(x,ixI^L,global_time)
-    residual(ixI^S) = abs(theoretical(ixI^S) - w(ixI^S,r_e))/theoretical(ixI^S)
+    theoretical(ixImin1:ixImax1,ixImin2:ixImax2) = spotpattern(x,ixImin1,&
+       ixImin2,ixImax1,ixImax2,global_time)
+    residual(ixImin1:ixImax1,ixImin2:ixImax2) = &
+       abs(theoretical(ixImin1:ixImax1,ixImin2:ixImax2) - w(ixImin1:ixImax1,&
+       ixImin2:ixImax2,r_e))/theoretical(ixImin1:ixImax1,ixImin2:ixImax2)
 
-    w(ixO^S,nw+1) = theoretical(ixO^S)
-    w(ixO^S,nw+2) = residual(ixO^S)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1) = theoretical(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2) = residual(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
 
   end subroutine specialvar_output
 

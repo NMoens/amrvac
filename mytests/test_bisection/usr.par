@@ -61,7 +61,7 @@
 
  &paramlist
   !courantpar       = 0.6d0
-  dtpar = 1.d-10
+  dtpar = 1.d-9
  /
 
  &rhd_list
@@ -78,5 +78,5 @@
   fld_kappa0 = 0.34d0
   fld_split = .false.
   fld_opacity_law = 'const'
-  fld_interaction_method = 'Halley'
+  fld_interaction_method = 'Newton'
  /

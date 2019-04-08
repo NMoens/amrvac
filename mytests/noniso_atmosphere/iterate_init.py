@@ -2,68 +2,87 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
+rho0 = 3.1198e-8
+pg0 = 503463.97
+a20 = pg0/rho0
+er0 = 1499628.401102
 
-f_vac = os.getcwd() + '/initial_conditions/init_struc_amrvac'
+pr0 = er0/3.
 
-A_vac = np.loadtxt(f_vac)
-
-i_vac, y_vac, rho_vac, tg_vac, pg_vac, er_vac, tau_vac = np.transpose(A_vac)
-
-mu = 0.6
+kb = 1.3806e-16
+cc = 2.99e10
 mp = 1.672e-24
-arad = 7.564e-15
-kb = 1.38e-16
-G_newt = 6.672e-8
+grav = 6.67e-8
+arad = 7.5646e-15
 
-M_sun = 1.9e33
-R_sun = 6.96e10
+tr0 = (er0/arad)**0.25
+mu = 0.6
+tg0 = pg0*mu*mp/rho0/kb
 
-M_star = 50.0*M_sun
-R_star = 20.0*R_sun
+rsun = 6.96e10
+msun = 1.99e33
 
-g_star = G_newt*M_star/R_star**2
+rstar = 19.370383317782409*rsun
+mstar = 50.*msun
+gstar = grav*mstar/rstar**2.
 gamma = 0.5
+geff = gstar*(1.-gamma)
 
-rho_0 = rho_vac[0]
-p_0 = pg_vac[0]
+delta = pr0 - pg0*gamma*(1-gamma)
 
-print(rho_vac[0], pg_vac[0], er_vac[0],g_star,gamma)
+dy = 138087438.2
 
-y_new = (y_vac-y_vac[0])
+scale0 = a20/geff
 
-print y_new
+y_arr = [rstar]
+y_new = rstar
 
-def IterateConditions(y_array):
-    #Initial iteration:
-    g0 = g_star*(gamma-1)
+while y_new < rstar+2*scale0:
+    y_new = y_new+dy
+    y_arr.append(y_new)
 
-    a2 = (p_0/rho_0)**0.5*np.ones((len(y_array)))
-    scaleheight = a2/g0*np.ones((len(y_array)))
-    p = p_0*np.exp(-y_array/scaleheight)
-    rho = rho_0*np.exp(-y_array/scaleheight)
+ny = len(y_arr)
 
 
-    #plt.plot(y_array,p,label = str(0))
+################################################################################
 
-    for i in range(100):
+scale = scale0*np.ones((ny))
+temp = a20*mu*mp/kb
+rho = rho0*np.exp(-(np.array(y_arr)-rstar)/scale)
+pg = rho*kb*temp/mu/mp
+pr = pg*gamma/(1.-gamma) + delta
+er = pr*3.
+trad = (er/arad)**0.25
 
-        rho = rho_0*np.exp(-y_array/scaleheight)
-        temp = (3.*gamma/(1.-gamma)*rho*kb/mu/mp/arad)**(1./3)
-        p = kb*rho*temp/mu/mp
-
-        a2 = p/rho
-        scaleheight = a2/g0
-
-        if (i > 10):
-            plt.plot(y_array,p,label = str(i+1))
+max_err = 100000
 
 
-    return rho, p
+while max_err > 1e-10:
+    temp = trad
+    a2 = kb*temp/mu/mp
+    scale = a2/geff
+    rho = rho0*np.exp(-(np.array(y_arr)-rstar)/scale)
+    pg = rho*kb*temp/mu/mp
+    #pg = pg0*np.exp(-(np.array(y_arr)-rstar)/scale)
 
-plt.figure()
+    # print(pr0,pg0)
+    pg0 = rho[0]*kb*temp[0]/mu/mp
+    # pr0 = 1/3*(trad[0]*arad)**4
 
-rho, p = IterateConditions(rho_vac[0],pg_vac[0],y_new)
+    delta = pr0 - pg0*gamma*(1-gamma)
 
+    pr = pg*gamma/(1.-gamma) + delta
+    er = pr*3.
+    trad = (er/arad)**0.25
 
-plt.legend()
-plt.show()
+    max_err = max(abs(trad-temp)/temp)
+    print(delta)
+
+file = open('iterated_profile','w')
+for i in range(ny):
+    # print(i,y_arr[i],rho[i],pg[i],trad[i],er[i])
+    file.write(str(i)+'\t'+str(y_arr[i])+'\t'+str(rho[i])+'\t'+str(pg[i])+'\t'+str(trad[i])+'\t'+str(er[i]) + '\n')
+file.close()
+
+# plt.semilogy(y_arr,rho)
+# plt.show()

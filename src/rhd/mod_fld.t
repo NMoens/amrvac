@@ -196,7 +196,9 @@ module mod_fld
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
     if (fld_opacity_law .eq. 'thomson') then
       sigma_thomson = 6.6524585d-25
-      fld_kappa0 = sigma_thomson/const_mp * (1.+2.*He_abundance)/(1.+4.*He_abundance)/unit_opacity
+      fld_kappa0 = sigma_thomson/const_mp * (1.+2.*He_abundance)/(1.+4.*He_abundance)
+      print*, fld_kappa0
+      fld_kappa0 = fld_kappa0/unit_opacity
     endif
 
   end subroutine fld_init
@@ -210,7 +212,7 @@ module mod_fld
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
-    !> Maybe call boundary 
+    !> Maybe call boundary
 
     call fld_get_opacity(w, x, ixI^L, ixO^L)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)

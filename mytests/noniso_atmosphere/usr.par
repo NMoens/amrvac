@@ -41,7 +41,7 @@
   nghostcells  = 4
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 'special','cont','cont','special','special'
+  typeboundary_min2 = 'special','cont','cont','cont','special'
   typeboundary_max2 = 4*'noinflow','special'
   internalboundary = F
 /

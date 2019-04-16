@@ -16,7 +16,7 @@ def plot_profile(sn):
     r,rho,v, g_cak, g_eff, f_fd = np.loadtxt(f,skiprows=3, unpack=True)
 
     ax1.semilogy(r,rho,'.',label=n)
-    ax2.plot(r,v,'.',label=n)
+    ax2.plot(r,f_fd,'.',label=n)
 
     return n
 
@@ -24,6 +24,7 @@ f,(ax1,ax2) = plt.subplots(2,1,sharex=True)
 
 n = plot_profile(0)
 n = plot_profile(18)
+n = plot_profile(9)
 
 ax1.grid(which='both')
 ax2.grid(which='both')

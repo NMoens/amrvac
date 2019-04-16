@@ -17,20 +17,20 @@
    itsave(1,2)     = 0
    !ditsave_dat     = 1
    !ditsave_log     = 1
-   dtsave_dat     = 1.d-1
-   dtsave_log     = 1.d-2
+   dtsave_dat     = 5.d-1
+   dtsave_log     = 5.d-2
 /
 
  &stoplist
-   time_max = 1.d1
+   time_max = 5.d1
    dtmin = 1.0d-20
    !it_max = 20
 /
 
  &methodlist
    time_integrator = 'onestep'
-   flux_scheme     = 20*'tvdlf' !'tvdlf'/'hll'
-   limiter         = 20*'minmod' !'minmod'/'koren'
+   flux_scheme     = 20*'hll' !'tvdlf'/'hll'
+   limiter         = 20*'koren' !'minmod'/'koren'
    check_small_values = .true.
    small_values_method = 'replace'
    small_pressure = 1.d-6
@@ -41,7 +41,7 @@
   nghostcells  = 4
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 'special','cont','cont','cont','special'
+  typeboundary_min2 = 'special','cont','cont','special','special'
   typeboundary_max2 = 4*'noinflow','special'
   internalboundary = F
 /

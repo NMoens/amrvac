@@ -39,9 +39,6 @@ module mod_usr
 
   integer :: i_g_cak, i_g_eff, i_f_fd
 
-  integer :: dummy_it
-  logical :: first_it, second_it, third_it
-
 contains
 
   !> This routine should set user methods, and activate the physics module
@@ -185,12 +182,6 @@ contains
     print*, 'c_sound',c_sound
     print*, 'escape_speed',escape_speed
     print*, 'v_inf',v_inf
-    print*, 'eta_confine', eta_confine
-
-    dummy_it = -1
-    first_it = .true.
-    second_it = .true.
-    third_it = .true.
 
   end subroutine initglobaldata_usr
 
@@ -329,16 +320,16 @@ contains
     !--------------------------------------------------------------------------------------
 
     ! calculate g_CAK
-    g_CAK(ixI^S) = 1./(1.-alpha)*kappa_e*L_star*qbar/(4.*dpi*x(ixI^S,1)**2*c_light) &
-    *(grad_centCT(ixI^S)/(wCT(ixI^S,rho_)*c_light*qbar*kappa_e))**alpha
+    g_CAK(ixO^S) = 1./(1.-alpha)*kappa_e*L_star*qbar/(4.*dpi*x(ixO^S,1)**2*c_light) &
+    *(grad_centCT(ixO^S)/(wCT(ixO^S,rho_)*c_light*qbar*kappa_e))**alpha
 
-    w(ixI^S,i_g_cak) = g_CAK(ixI^S)
+    w(ixO^S,i_g_cak) = g_CAK(ixO^S)
 
     ! finite disk correction
     ! g_CAK(ixI^S) = g_CAK(ixI^S) * F_fd(ixI^S)
 
     ! effective gravity
-    g_grav_sc(ixI^S) = G_dp*M_star/(x(ixI^S,1)**2)*(one-Gamma_e)
+    g_grav_sc(ixO^S) = G_dp*M_star/(x(ixO^S,1)**2)*(one-Gamma_e)
 
     w(ixI^S,i_g_eff) = g_grav_sc(ixI^S)
 

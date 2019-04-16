@@ -520,6 +520,11 @@ module mod_fld
     ! rad_flux(ixImin1:ixImax1,ixOmax2,2) = rad_flux(ixImin1:ixImax1,ixOmax2-1,2)
 
     w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
+
+    w(:,ixOmin2,i_flux(2)) = w(:,ixOmin2 + 1,i_flux(2))
+    w(:,ixOmax2,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
+    w(:,ixOmax2-1,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
+
   end subroutine fld_get_radflux
 
   !> Calculate Eddington-tensor
@@ -708,8 +713,8 @@ module mod_fld
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
           mg%bc(iB, mg_iphi)%bc_value = 3.0174800255830467
         case (4)
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+          !mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          !mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
         case default
           print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
           error stop "You have to set a user-defined boundary method"

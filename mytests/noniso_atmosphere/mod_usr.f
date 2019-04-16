@@ -195,8 +195,8 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
     w(ixGmin1: ixGmax1, i, rho_) = rho_is(j)
     w(ixGmin1: ixGmax1, i, mom(1)) = zero
     w(ixGmin1: ixGmax1, i, mom(2)) = zero
-    w(ixGmin1: ixGmax1, i, e_) = pg_is(j)/(rhd_gamma-1.0)
     w(ixGmin1: ixGmax1, i, r_e) = er_is(j)
+    w(ixGmin1: ixGmax1, i, e_) = pg_is(j)/(rhd_gamma-1.0)
   enddo
 
   !> perturb rho
@@ -225,6 +225,9 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
   double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:nw)
   double precision                :: w_rad(ixGmin1:ixGmax1,ixGmin2:ixGmax2)
 
+  double precision :: temperature(ixGmin2:ixGmax2)
+  double precision :: pressure(ixGmin2:ixGmax2)
+
   double precision :: y_res(1:nyc)
   integer :: i,j
 
@@ -240,19 +243,25 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
       w(ixGmin1:ixGmax1,i,r_e) = er_is(j)
     enddo
 
+    ! do i = nghostcells,1,-1
+    !   w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i+1,rho_)/w(ixGmin1:ixGmax1,i+2,rho_) &
+    !   *(w(ixGmin1:ixGmax1,i+1,r_e) - w(ixGmin1:ixGmax1,i+2,r_e)) + w(ixGmin1:ixGmax1,i+1,r_e)
+    ! enddo
+
   case(4)
     do i = ixBmin2,ixBmax2
       !> Conserve gradE/rho
-      ! w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,rho_)/w(ixGmin1:ixGmax1,i-2,rho_) &
-      ! *(w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
+      w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,rho_)/w(ixGmin1:ixGmax1,&
+         i-2,rho_) *(w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,&
+         r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
 
       !> Conserve gradE
-      w(ixGmin1:ixGmax1,i,r_e) = (w(ixGmin1:ixGmax1,i-1,&
-         r_e) - w(ixGmin1:ixGmax1,i-2,r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
-      do j = ixGmin1,ixGmax1
-        w(j,i,r_e) = min(w(j,i-1,r_e), w(j,i,r_e))
-      enddo
-      
+      ! w(ixGmin1:ixGmax1,i,r_e) = &
+      ! (w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
+      ! do j = ixGmin1,ixGmax1
+      !   w(j,i,r_e) = min(w(j,i-1,r_e), w(j,i,r_e))
+      ! enddo
+
       !> Conserve vE + F
       ! w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,r_e) &
       ! + fld_speedofligt_0/(3*w(ixGmin1:ixGmax1,i,i_op)*w(ixGmin1:ixGmax1,i,rho_)) &

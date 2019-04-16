@@ -13,19 +13,36 @@ M_star = 50.0*M_sun
 
 f_tot = os.getcwd() + '/initial_conditions/init_struc_total'
 f_vac = os.getcwd() + '/initial_conditions/init_struc_amrvac'
-f_it = os.getcwd() + '/iterated_profile'
+f_it1 = os.getcwd() + '/iterated_gamma01'
+f_it2 = os.getcwd() + '/iterated_gamma02'
+f_it3 = os.getcwd() + '/iterated_gamma03'
+f_it4 = os.getcwd() + '/iterated_gamma04'
+f_it5 = os.getcwd() + '/iterated_gamma05'
+
 
 A_tot = np.loadtxt(f_tot)
 A_vac = np.loadtxt(f_vac)
-A_it = np.loadtxt(f_it)
 
+A_it1 = np.loadtxt(f_it1)
+A_it2 = np.loadtxt(f_it2)
+A_it3 = np.loadtxt(f_it3)
+A_it4 = np.loadtxt(f_it4)
+A_it5 = np.loadtxt(f_it5)
 
 i_vac, y_vac, rho_vac, tg_vac, pg_vac, er_vac, tau_vac = np.transpose(A_vac)
 rho_tot, tr_tot, pg_tot, tau_tot, mc_tot, gammar_tot, er_tot, y_tot = np.transpose(A_tot)
-i_it, y_it, rho_it, pg_it, tr_it, er_it = np.transpose(A_it)
-tg_it = tr_it
+i_it1, y_it1, rho_it1, pg_it1, tr_it1, er_it1 = np.transpose(A_it1)
+i_it2, y_it2, rho_it2, pg_it2, tr_it2, er_it2 = np.transpose(A_it2)
+i_it3, y_it3, rho_it3, pg_it3, tr_it3, er_it3 = np.transpose(A_it3)
+i_it4, y_it4, rho_it4, pg_it4, tr_it4, er_it4 = np.transpose(A_it4)
+i_it5, y_it5, rho_it5, pg_it5, tr_it5, er_it5 = np.transpose(A_it5)
+tg_it1 = tr_it1
+tg_it2 = tr_it2
+tg_it3 = tr_it3
+tg_it4 = tr_it4
+tg_it5 = tr_it5
 
-print (len(tg_it), len(y_it))
+print (len(tg_it1), len(y_it1))
 
 
 print('#cells total structure: ', len(y_tot))
@@ -120,54 +137,74 @@ def tem_ratio(Trad,Tgas):
 
 
 # ax1.semilogy(y_tot, rho_tot, label = 'Initial conditions total')
-ax1.semilogy(y_vac, rho_vac, label = 'Initial conditions amrvac')
+ax1.semilogy(y_vac, rho_vac,'--',label = 'Initial conditions amrvac')
 ax1.semilogy(y_rel, rho_rel1,'o', label = 'Average')
-ax1.semilogy(y_fin, rho_fin,'o', label = 'Final')
-ax1.semilogy(y_it, rho_it,'o', label = 'iterated')
+# ax1.semilogy(y_fin, rho_fin,'o', label = 'Final')
+ax1.semilogy(y_it1, rho_it1,'-', label = 'iterated, gamma = 0.42')
+ax1.semilogy(y_it2, rho_it2,'-', label = 'iterated, gamma = 0.44')
+ax1.semilogy(y_it3, rho_it3,'-', label = 'iterated, gamma = 0.46')
+ax1.semilogy(y_it4, rho_it4,'-', label = 'iterated, gamma = 0.48')
+ax1.semilogy(y_it5, rho_it5,'-', label = 'iterated, gamma = 0.50')
 
 ax1.legend()
 ax1.set_ylabel('$\\rho$ [g/cm3]')
 
 # ax2.plot(y_tot, rho_p_2_T(rho_tot,pg_tot))
-# ax2.plot(y_vac, rho_p_2_T(rho_vac,pg_vac))
-# ax2.plot(y_rel, rho_p_2_T(rho_rel1,p_rel1),'o')
+ax2.plot(y_vac, rho_p_2_T(rho_vac,pg_vac),'--')
+ax2.plot(y_rel, rho_p_2_T(rho_rel1,p_rel1),'o')
 # ax2.plot(y_rel, rho_p_2_T(rho_fin,p_fin),'o')
-# ax2.plot(y_it, tg_it,'o')
-# ax2.plot(y_tot, pg_tot)
-ax2.plot(y_vac, pg_vac)
-ax2.plot(y_rel, p_rel1,'o')
-ax2.plot(y_rel, p_fin,'o')
-ax2.plot(y_it, pg_it,'o')
+ax2.plot(y_it1, tg_it1,'-')
+ax2.plot(y_it2, tg_it2,'-')
+ax2.plot(y_it3, tg_it3,'-')
+ax2.plot(y_it4, tg_it4,'-')
+ax2.plot(y_it5, tg_it5,'-')
+# # ax2.plot(y_tot, pg_tot)
+# ax2.plot(y_vac, pg_vac)
+# ax2.plot(y_rel, p_rel1,'o')
+# ax2.plot(y_rel, p_fin,'o')
+# ax2.plot(y_it, pg_it,'o')
 
 
-ax2.set_ylabel('$p_{gas}$ [g/cm3]')
+ax2.set_ylabel('$T_{gas}$ [g/cm3]')
 
 # ax3.plot(y_tot, E_r_2_T(er_tot))
-# ax3.plot(y_vac, E_r_2_T(er_vac))
-# ax3.plot(y_rel, E_r_2_T(er_rel1),'o')
+ax3.plot(y_vac, E_r_2_T(er_vac),'--')
+ax3.plot(y_rel, E_r_2_T(er_rel1),'o')
 # ax3.plot(y_rel, E_r_2_T(er_fin),'o')
-# ax3.plot(y_it, tg_it,'o')
-# ax3.plot(y_tot, er_tot)
-ax3.plot(y_vac, er_vac)
-ax3.plot(y_rel, er_rel1,'o')
-ax3.plot(y_rel, er_fin,'o')
-ax3.plot(y_it, er_it,'o')
+ax3.plot(y_it1, tg_it1,'-')
+ax3.plot(y_it2, tg_it2,'-')
+ax3.plot(y_it3, tg_it3,'-')
+ax3.plot(y_it4, tg_it4,'-')
+ax3.plot(y_it5, tg_it5,'-')
+# # ax3.plot(y_tot, er_tot)
+# ax3.plot(y_vac, er_vac)
+# ax3.plot(y_rel, er_rel1,'o')
+# ax3.plot(y_rel, er_fin,'o')
+# ax3.plot(y_it, er_it,'o')
 
 ax3.set_xlabel('r [cm]')
-ax3.set_ylabel('$E_{rad}$ [g/cm3]')
+ax3.set_ylabel('$T_{rad}$ [g/cm3]')
 
 
 flux_tot = -lam*c/(kap*rho_tot[1:])*(er_tot[1:] - er_tot[:-1])/(y_tot[1:] - y_tot[:-1])
 flux_vac = -lam*c/(kap*rho_vac[1:])*(er_vac[1:] - er_vac[:-1])/(y_vac[1:] - y_vac[:-1])
-flux_it = -lam*c/(kap*rho_it[1:])*(er_it[1:] - er_it[:-1])/(y_it[1:] - y_it[:-1])
+flux_it1 = -lam*c/(kap*rho_it1[1:])*(er_it1[1:] - er_it1[:-1])/(y_it1[1:] - y_it1[:-1])
+flux_it2 = -lam*c/(kap*rho_it2[1:])*(er_it2[1:] - er_it2[:-1])/(y_it2[1:] - y_it2[:-1])
+flux_it3 = -lam*c/(kap*rho_it3[1:])*(er_it3[1:] - er_it3[:-1])/(y_it3[1:] - y_it3[:-1])
+flux_it4 = -lam*c/(kap*rho_it4[1:])*(er_it4[1:] - er_it4[:-1])/(y_it4[1:] - y_it4[:-1])
+flux_it5 = -lam*c/(kap*rho_it5[1:])*(er_it5[1:] - er_it5[:-1])/(y_it5[1:] - y_it5[:-1])
 
 
 plt.figure()
 # plt.plot(y_tot[1:],flux_tot,label='total profile')
-plt.plot(y_vac[1:],flux_vac,label='initial amrvac profile')
-plt.plot(y_it[1:],flux_it,label='iterated profile')
+plt.plot(y_vac[1:],flux_vac,'--',label='initial amrvac profile')
+plt.plot(y_it1[1:],flux_it1,'-',label='iterated profile')
+plt.plot(y_it2[1:],flux_it2,'-',label='iterated profile')
+plt.plot(y_it3[1:],flux_it3,'-',label='iterated profile')
+plt.plot(y_it4[1:],flux_it4,'-',label='iterated profile')
+plt.plot(y_it5[1:],flux_it5,'-',label='iterated profile')
 plt.plot(y_rel,F_rel1,label='Averaged')
-plt.plot(y_fin,F_fin,label='Final')
+# plt.plot(y_fin,F_fin,label='Final')
 
 # plt.plot(y_tot,rho_p_2_T(rho_tot,pg_tot)/E_r_2_T(er_tot),label='total profile')
 # plt.plot(y_vac,rho_p_2_T(rho_vac,pg_vac)/E_r_2_T(er_vac),label='initial amrvac profile')

@@ -200,7 +200,6 @@ module mod_fld
       print*, fld_kappa0
       fld_kappa0 = fld_kappa0/unit_opacity
     endif
-
   end subroutine fld_init
 
   !> Compute all extra variables in w-array:
@@ -259,8 +258,8 @@ module mod_fld
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
-            + qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
-            !+ qdt * radiation_force(ixO^S,idir)
+            + qdt * radiation_force(ixO^S,idir)
+            ! + qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
             !> NOT SURE ON HOW TO AVERAGE OVER LEFTHANDSIDE AND RIGHTHANDSIDE FLUX EDGE
       enddo
     end if
@@ -524,7 +523,6 @@ module mod_fld
     w(:,ixOmin2,i_flux(2)) = w(:,ixOmin2 + 1,i_flux(2))
     w(:,ixOmax2,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
     w(:,ixOmax2-1,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
-
   end subroutine fld_get_radflux
 
   !> Calculate Eddington-tensor

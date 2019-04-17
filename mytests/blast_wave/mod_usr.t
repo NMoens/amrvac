@@ -42,6 +42,13 @@ contains
     double precision :: Temp(ixI^S)
     double precision :: local_rad_e
 
+
+    print*, 'unit_length',unit_length
+    print*, 'unit_velocity',unit_velocity
+    print*, 'unit_density',unit_density
+    print*, 'unit_pressure',unit_pressure
+    print*, 'unit_flux',unit_radflux
+
     w(ixI^S,rho_) = one
     w(ixI^S,mom(:)) = zero
     w(ixI^S,e_) = one

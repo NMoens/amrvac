@@ -194,7 +194,7 @@ module mod_fld
 
     !> Read in opacity table if necesary
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
-    if (fld_opacity_law .eq. 'thomson') then
+    if ((fld_opacity_law .eq. 'thomson') .or. (fld_opacity_law .eq. 'fastwind'))  then
       sigma_thomson = 6.6524585d-25
       fld_kappa0 = sigma_thomson/const_mp * (1.+2.*He_abundance)/(1.+4.*He_abundance)
       print*, fld_kappa0
@@ -345,8 +345,9 @@ module mod_fld
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision :: fld_kappa(ixO^S)
-    double precision :: Temp(ixI^S)
+    double precision :: Temp(ixI^S), pth(ixI^S), a2(ixO^S)
     double precision :: rho0,Temp0,n,sigma_b
+    double precision :: akram, bkram
 
     integer :: i,j
 
@@ -373,6 +374,21 @@ module mod_fld
         Temp0 = one
         n = -7.d0/two
         fld_kappa(ixO^S) = fld_kappa0*(w(ixO^S,iw_rho)/rho0)*(Temp(ixO^S)/Temp0)**n
+      case('fastwind')
+        call phys_get_pthermal(w,x,ixI^L,ixO^L,pth)
+        a2(ixO^S) = pth(ixO^S)/w(ixO^S,iw_rho)*unit_velocity**2.d0
+
+        akram = 13.1351597305
+        bkram = -4.5182188206
+
+        fld_kappa(ixO^S) = fld_kappa0 &
+        * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*(a2(ixO^S)/1.d12)**bkram)
+
+        ! print*, (1.d0+10.d0**akram*w(10,10,iw_rho)*(a2(10,10)/1.d12)**bkram), 10.d0**akram*w(10,10,iw_rho), (a2(10,10)/1.d12)**bkram
+        ! print*, fld_kappa0, w(10,10,iw_rho), (a2(10,10)/1.d12)
+        !
+        ! stop
+
       case('opal')
         !call mpistop("Not implemented yet, hold your bloody horses")
         call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
@@ -380,9 +396,7 @@ module mod_fld
           do j= ixOmin2,ixOmax2
             rho0 = w(i,j,iw_rho)*unit_density
             Temp0 = Temp(i,j)*unit_temperature
-
             call set_opal_opacity(rho0,Temp0,n)
-
             fld_kappa(i,j) = n/unit_opacity
           enddo
         enddo

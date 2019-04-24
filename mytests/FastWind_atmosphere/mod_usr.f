@@ -10,34 +10,25 @@ implicit none
 
   integer :: int_rho, int_r_e, int_p, int_m1, int_m2, int_t
 
-  integer, parameter :: nyc = 136
+  integer, parameter :: FW_cells = 66
   double precision, parameter :: M_sun = 1.99d33
   double precision, parameter :: R_sun = 6.96d10
   double precision, parameter :: year = 365.25*24*60*60
 
 
-  integer :: i_is(1:nyc)
-  double precision :: y_is(1:nyc)
-  double precision :: rho_is(1:nyc)
-  double precision :: tg_is(1:nyc)
-  double precision :: pg_is(1:nyc)
-  double precision :: er_is(1:nyc)
-  double precision :: tau_is(1:nyc)
-  double precision :: vel_is(1:nyc)
-  double precision :: tr_is(1:nyc)
+  double precision :: y_FW(1:FW_cells)
+  double precision :: rho_FW(1:FW_cells)
+  double precision :: v_FW(1:FW_cells)
+  double precision :: pg_FW(1:FW_cells)
+  double precision :: Tg_FW(1:FW_cells)
+  double precision :: a2_FW(1:FW_cells)
 
-  double precision :: gamma0
-  double precision :: mstar
+  double precision :: er_FW(1:FW_cells)
+  double precision :: tr_FW(1:FW_cells)
+  double precision :: Heff_FW(1:FW_cells)
+
   double precision :: rstar
-  double precision :: yhe
-  integer :: ny_vac
-  double precision :: dy_vac
-  double precision :: tau_max
-  character :: kap_law
-
-  double precision :: M_star, L_star, Gamma_e, R_core, R_up
-  double precision :: log_g, T_gas_core, rho_core, tau_core
-  double precision :: mdot, vinf, Hp
+  double precision :: mstar
 
 contains
 
@@ -88,51 +79,35 @@ end subroutine usr_init
 subroutine initglobaldata_usr
   use mod_global_parameters
 
-  character(len=20) :: dum1
-  double precision :: dum2,dum3,dum4
-  integer :: i
+  integer :: i,j
+  double precision :: dum1, dum2
+  double precision :: geff(FW_cells)
 
   !> Reading in parameters
-  OPEN(1,FILE='initial_conditions/init_indat')
-   READ(1,*) gamma0,mstar,rstar,yhe,ny_vac,dy_vac,tau_max,kap_law
+  OPEN(1,FILE='FastWind_profile.txt')
+    READ(1,*)
+    READ(1,*)
+    READ(1,*)
+    READ(1,*)
+    do i = 1,FW_cells
+        j = FW_cells - i + 1
+        READ(1,*) y_FW(j), rho_FW(j), v_FW(j), pg_FW(j), Tg_FW(j), dum1,&
+            a2_FW(j)
+    enddo
   CLOSE(1)
 
-  mstar = mstar*M_sun
-  rstar = rstar*R_sun
+  mstar = 66.8*M_sun
+  rstar = y_FW(1)
 
-  !> Perform checks to see if init_indat and usr.par agree
-  if (ny_vac .ne. nyc) call mpistop('Number of cells dont agree')
+  geff = const_G*mstar/rstar**2*(0.5)
 
-  OPEN(2,FILE='initial_conditions/init_struc_amrvac')
-  do i = 1,domain_nx2+2*nghostcells
-    READ(2,'(1i4,1e20.10,5e18.8)') i_is(i), y_is(i), rho_is(i), tg_is(i),&
-        pg_is(i), er_is(i), tau_is(i)
-  enddo
-  CLOSE(2)
-
-  OPEN(3,FILE='initial_conditions/init_params_amrvac')
-    READ(3,*) dum1, M_star
-    READ(3,*) dum1, L_star
-    READ(3,*) dum1, Gamma_e
-    READ(3,*) dum1, R_core
-    READ(3,*) dum1, R_up
-    READ(3,*)
-    READ(3,*) dum1, log_g
-    READ(3,*) dum1, T_gas_core
-    READ(3,*) dum1, rho_core
-    READ(3,*) dum1, Hp
-    READ(3,*)
-    READ(3,*) dum1, tau_core
-  CLOSE(3)
-
-  M_star = M_star*M_sun
-  R_up = R_up*R_sun
-  Hp = Hp*R_core
+  Heff_FW = a2_FW/geff
+  er_FW = const_rad_a*tg_FW**4
 
   !> Define units
-  unit_numberdensity = rho_core/((1.d0+4.d0*He_abundance)*mp_cgs)
-  unit_temperature = T_gas_core
-  unit_length = Hp
+  unit_numberdensity = rho_FW(1)/((1.d0+4.d0*He_abundance)*mp_cgs)
+  unit_temperature = Tg_FW(1)
+  unit_length = Heff_FW(1)
 
   !> Remaining units
   unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
@@ -142,14 +117,15 @@ subroutine initglobaldata_usr
   unit_time=unit_length/unit_velocity
 
   !> Make input dimensionless:
-  y_is = y_is/unit_length
-  rho_is = rho_is/unit_density
-  tg_is = tg_is/unit_temperature
-  pg_is = pg_is/unit_pressure
-  er_is = er_is/unit_pressure
+  y_FW = y_FW/unit_length
+  rho_FW = rho_FW/unit_density
+  v_FW = v_FW/unit_velocity
+  tg_FW = tg_FW/unit_temperature
+  pg_FW = pg_FW/unit_pressure
+  er_FW = er_FW/unit_pressure
 
-  y_is = y_is - y_is(1)
-  tr_is  = (er_is/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
+  y_FW = y_FW - y_FW(1)
+  tr_FW  = (er_FW/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
 
   if (mype .eq. 0) then
     print*, 'unit_length', unit_length
@@ -160,13 +136,11 @@ subroutine initglobaldata_usr
     print*, 'unit_opacity', unit_opacity
     print*, 'unit time', unit_time
 
-    print*, minval(y_is), xprobmin2
-    print*, maxval(y_is), xprobmax2
+    print*, minval(y_FW), xprobmin2
+    print*, maxval(y_FW), xprobmax2
 
-    if (minval(y_is) .gt. xprobmin2) call &
-       mpistop("Simulation space not covered")
-    if (maxval(y_is) .lt. xprobmax2) call &
-       mpistop("Simulation space not covered")
+    ! if (minval(y_FW) .gt. xprobmin2) call mpistop("Simulation space not covered")
+    ! if (maxval(y_FW) .lt. xprobmax2) call mpistop("Simulation space not covered")
   endif
 
 end subroutine initglobaldata_usr
@@ -185,21 +159,32 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   double precision, intent(in)    :: x(ixGmin1:ixGmax1,ixGmin2:ixGmax2, ndim)
   double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, nw)
 
-  double precision :: pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2), amplitude,&
-      y_res(1:nyc)
-  integer :: i,j
+  double precision :: x_vac(ixGmin2:ixGmax2)
+  double precision :: rho_vac(ixGmin2:ixGmax2)
+  double precision :: v_vac(ixGmin2:ixGmax2)
+  double precision :: pg_vac(ixGmin2:ixGmax2)
+  double precision :: er_vac(ixGmin2:ixGmax2)
 
-  do i = ixGmin2,ixGmax2
-    y_res(1:nyc) = y_is(1:nyc)-(x(1+nghostcells,i,2))
-    j = minloc(abs(y_res), 1)
+  double precision :: pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2), amplitude
+  integer :: i
 
-    w(ixGmin1: ixGmax1, i, rho_) = rho_is(j)
-    w(ixGmin1: ixGmax1, i, mom(1)) = zero
-    w(ixGmin1: ixGmax1, i, mom(2)) = zero
-    w(ixGmin1: ixGmax1, i, r_e) = er_is(j)
-    w(ixGmin1: ixGmax1, i, e_) = pg_is(j)/(rhd_gamma-1.0)
+  x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, v_FW, v_vac)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac)
+
+  ! print*, rho_vac
+  ! stop
+
+
+  do i = ixGmin1, ixGmax1
+    w(i, :, rho_) = rho_vac(:)
+    w(i, :, mom(1)) = zero
+    w(i, :, mom(2)) = rho_vac(:)*v_vac(:)
+    w(i, :, r_e) = er_vac(:)
+    w(i, :, e_) = pg_vac(:)/(rhd_gamma-1.0)
   enddo
-
   !> perturb rho
   amplitude = 0.0d-1
   call RANDOM_NUMBER(pert)
@@ -211,6 +196,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
   call set_mg_bounds()
+
 
 end subroutine initial_conditions
 
@@ -224,52 +210,40 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
   double precision, intent(in)    :: qt, x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
      1:ndim)
   double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:nw)
-  double precision                :: w_rad(ixGmin1:ixGmax1,ixGmin2:ixGmax2)
 
-  double precision :: temperature(ixGmin2:ixGmax2)
-  double precision :: pressure(ixGmin2:ixGmax2)
+  double precision :: x_vac(ixGmin2:ixGmax2)
+  double precision :: rho_vac(ixGmin2:ixGmax2)
+  double precision :: v_vac(ixGmin2:ixGmax2)
+  double precision :: pg_vac(ixGmin2:ixGmax2)
+  double precision :: er_vac(ixGmin2:ixGmax2)
+  integer :: i
 
-  double precision :: y_res(1:nyc)
-  integer :: i,j
+  x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, v_FW, v_vac)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac)
 
   select case (iB)
 
   case(3)
     do i = ixBmin2,ixBmax2
-      y_res(1:nyc) = y_is(1:nyc)-(x(ixBmin1+nghostcells,i,2))
-      j = minloc(abs(y_res), 1)
-
-      w(ixGmin1:ixGmax1,i,rho_) = rho_is(j)
-      w(ixGmin1:ixGmax1,i,e_) = pg_is(j)/(rhd_gamma-1.0)
-      w(ixGmin1:ixGmax1,i,r_e) = er_is(j)
+      w(ixGmin1:ixGmax1,i,rho_) = rho_vac(i)
+      w(ixGmin1:ixGmax1,i,e_) = pg_vac(i)/(rhd_gamma-1.0)
+      w(ixGmin1:ixGmax1,i,r_e) = er_vac(i)
     enddo
 
     ! do i = nghostcells,1,-1
     !   w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i+1,rho_)/w(ixGmin1:ixGmax1,i+2,rho_) &
     !   *(w(ixGmin1:ixGmax1,i+1,r_e) - w(ixGmin1:ixGmax1,i+2,r_e)) + w(ixGmin1:ixGmax1,i+1,r_e)
     ! enddo
-
+    
   case(4)
     do i = ixBmin2,ixBmax2
       !> Conserve gradE/rho
       w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,rho_)/w(ixGmin1:ixGmax1,&
          i-2,rho_) *(w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,&
          r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
-
-      !> Conserve gradE
-      ! w(ixGmin1:ixGmax1,i,r_e) = &
-      ! (w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
-      ! do j = ixGmin1,ixGmax1
-      !   w(j,i,r_e) = min(w(j,i-1,r_e), w(j,i,r_e))
-      ! enddo
-
-      !> Conserve vE + F
-      ! w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,r_e) &
-      ! + fld_speedofligt_0/(3*w(ixGmin1:ixGmax1,i,i_op)*w(ixGmin1:ixGmax1,i,rho_)) &
-      ! *(w(ixGmin1:ixGmax1,i-1,mom(2))/w(ixGmin1:ixGmax1,i-1,rho_)*w(ixGmin1:ixGmax1,i-1,r_e) &
-      ! - w(ixGmin1:ixGmax1,i,mom(2))/w(ixGmin1:ixGmax1,i,rho_)*w(ixGmin1:ixGmax1,i,r_e)) &
-      ! + w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,r_e)
-
     enddo
 
   case default
@@ -291,8 +265,8 @@ subroutine set_gravitation_field(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
      ixImin2:ixImax2,ndim)
 
   gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,1) = zero
-    gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,&
-       2) = -const_G*mstar/rstar**2*(unit_time**2/unit_length)
+  gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,&
+     2) = -const_G*mstar/rstar**2*(unit_time**2/unit_length)
 end subroutine set_gravitation_field
 
 !==========================================================================================
@@ -393,6 +367,39 @@ subroutine specialvarnames_output(varnames)
 
   varnames = 'Tgas Trad Gamma'
 end subroutine specialvarnames_output
+
+
+subroutine Interpolate(ixImin2, ixImax2, x_in, x_out, f_in, f_out)
+  use mod_global_parameters
+  use mod_constants
+  use mod_variables
+
+  integer, intent(in)             :: ixImin2,ixImax2
+  double precision, intent(in)    :: x_in(FW_cells), f_in(FW_cells)
+  double precision, intent(in)    :: x_out(ixImin2:ixImax2)
+  double precision, intent(out)    :: f_out(ixImin2:ixImax2)
+
+  double precision :: res(FW_cells), low_val
+  integer :: up_i, low_i, i
+
+  do i = ixImin2,ixImax2
+    !> First look for the two surrounding cells in the in-grid
+    res = x_in - x_out(i)
+
+    low_val = maxval(res, MASK = res .le. 0) + x_out(i)
+    low_i = minloc(abs(x_in - low_val),1)
+
+    up_i = low_i + 1
+
+    !> Interpolate
+    f_out(i) = f_in(low_i) + (x_out(i) - x_in(low_i))*(f_in(up_i) - &
+       f_in(low_i))/(x_in(up_i) - x_in(low_i))
+
+    ! print*, low_i, up_i, x_in(low_i), x_out(i), x_in(up_i), f_out(i)
+  enddo
+
+end subroutine Interpolate
+
 
 !==========================================================================================
 

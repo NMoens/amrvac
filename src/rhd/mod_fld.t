@@ -382,7 +382,7 @@ module mod_fld
         bkram = -4.5182188206
 
         fld_kappa(ixO^S) = fld_kappa0 &
-        * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*(a2(ixO^S)/1.d12)**bkram)
+        * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
 
         ! print*, (1.d0+10.d0**akram*w(10,10,iw_rho)*(a2(10,10)/1.d12)**bkram), 10.d0**akram*w(10,10,iw_rho), (a2(10,10)/1.d12)**bkram
         ! print*, fld_kappa0, w(10,10,iw_rho), (a2(10,10)/1.d12)

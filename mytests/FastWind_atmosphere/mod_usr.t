@@ -125,6 +125,8 @@ subroutine initglobaldata_usr
   y_FW = y_FW - y_FW(1)
   tr_FW  = (er_FW/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
 
+  pg_FW = kB_cgs/(mp_cgs*fld_mu)*tr_FW*rho_FW*(unit_temperature*unit_density)/unit_pressure
+
   if (mype .eq. 0) then
     print*, 'unit_length', unit_length
     print*, 'unit_density', unit_density
@@ -132,7 +134,7 @@ subroutine initglobaldata_usr
     print*, 'unit_temperature', unit_temperature
     print*, 'unit_radflux', unit_radflux
     print*, 'unit_opacity', unit_opacity
-    print*, 'unit time', unit_time
+    print*, 'unit_time', unit_time
 
     print*, minval(y_FW), xprobmin2
     print*, maxval(y_FW), xprobmax2
@@ -165,14 +167,10 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   integer :: i
 
   x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, v_FW, v_vac)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac)
-
-  ! print*, rho_vac
-  ! stop
-
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac,.false.)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, v_FW, v_vac,.false.)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac,.false.)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac,.false.)
 
   do i = ixGmin1, ixGmax1
     w(i, :, rho_) = rho_vac(:)
@@ -211,10 +209,10 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
   integer :: i
 
   x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, v_FW, v_vac)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac,.false.)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, v_FW, v_vac,.false.)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac,.false.)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac,.false.)
 
   select case (iB)
 
@@ -229,7 +227,7 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
     !   w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i+1,rho_)/w(ixGmin1:ixGmax1,i+2,rho_) &
     !   *(w(ixGmin1:ixGmax1,i+1,r_e) - w(ixGmin1:ixGmax1,i+2,r_e)) + w(ixGmin1:ixGmax1,i+1,r_e)
     ! enddo
-    
+
   case(4)
     do i = ixBmin2,ixBmax2
       !> Conserve gradE/rho
@@ -332,7 +330,7 @@ subroutine specialvarnames_output(varnames)
 end subroutine specialvarnames_output
 
 
-subroutine Interpolate(ixImin2, ixImax2, x_in, x_out, f_in, f_out)
+subroutine Interpolate(ixImin2, ixImax2, x_in, x_out, f_in, f_out, log)
   use mod_global_parameters
   use mod_constants
   use mod_variables
@@ -340,10 +338,16 @@ subroutine Interpolate(ixImin2, ixImax2, x_in, x_out, f_in, f_out)
   integer, intent(in)             :: ixImin2,ixImax2
   double precision, intent(in)    :: x_in(FW_cells), f_in(FW_cells)
   double precision, intent(in)    :: x_out(ixImin2:ixImax2)
+  logical, intent(in)             :: log
   double precision, intent(out)    :: f_out(ixImin2:ixImax2)
 
+  double precision :: log_f_in_low, log_f_in_up, log_f_out
   double precision :: res(FW_cells), low_val
   integer :: up_i, low_i, i
+
+  double precision :: x12, xx12, f12
+  double precision :: x13, xx13, f13
+  double precision :: a,b,c
 
   do i = ixImin2,ixImax2
     !> First look for the two surrounding cells in the in-grid
@@ -354,10 +358,50 @@ subroutine Interpolate(ixImin2, ixImax2, x_in, x_out, f_in, f_out)
 
     up_i = low_i + 1
 
-    !> Interpolate
-    f_out(i) = f_in(low_i) + (x_out(i) - x_in(low_i))*(f_in(up_i) - f_in(low_i))/(x_in(up_i) - x_in(low_i))
+    if (log) then
+      !> Logarithmic Interpolation
+      ! log_f_in_low = dlog(f_in(low_i))
+      ! log_f_in_up = dlog(f_in(up_i))
+      ! log_f_out = log_f_in_low + (x_out(i) - x_in(low_i))*(log_f_in_up - log_f_in_low)/(x_in(up_i) - x_in(low_i))
+      ! f_out(i) = dexp(log_f_out)
 
-    ! print*, low_i, up_i, x_in(low_i), x_out(i), x_in(up_i), f_out(i)
+      x12 = x_in(low_i) - x_in(up_i)
+      x13 = x_in(low_i) - x_in(up_i + 1)
+
+      xx12 = x_in(low_i)**2 - x_in(up_i)**2
+      xx13 = x_in(low_i)**2 - x_in(up_i + 1)**2
+
+      f12 = dlog(f_in(low_i)) - dlog(f_in(up_i))
+      f13 = dlog(f_in(low_i)) - dlog(f_in(up_i + 1))
+
+      b = (f13/xx13 - f12/xx12)/(x13/xx13 - x12/xx12)
+      c = (f13/x13 - f12/x12)/(xx13/x13 - xx12/x12)
+      a = f_in(low_i) - (b*x_in(low_i) + c*x_in(low_i)**2)
+
+      f_out(i) = dexp(a + b*x_out(i) + c*x_out(i)**2)
+
+
+    else
+      ! !> Linear Interpolation
+      ! f_out(i) = f_in(low_i) + (x_out(i) - x_in(low_i))*(f_in(up_i) - f_in(low_i))/(x_in(up_i) - x_in(low_i))
+
+      x12 = x_in(low_i) - x_in(up_i)
+      x13 = x_in(low_i) - x_in(up_i + 1)
+
+      xx12 = x_in(low_i)**2 - x_in(up_i)**2
+      xx13 = x_in(low_i)**2 - x_in(up_i + 1)**2
+
+      f12 = f_in(low_i) - f_in(up_i)
+      f13 = f_in(low_i) - f_in(up_i + 1)
+
+      b = (f13/xx13 - f12/xx12)/(x13/xx13 - x12/xx12)
+      c = (f13/x13 - f12/x12)/(xx13/x13 - xx12/x12)
+      a = f_in(low_i) - (b*x_in(low_i) + c*x_in(low_i)**2)
+
+      f_out(i) = a + b*x_out(i) + c*x_out(i)**2
+    endif
+
+    ! print*, x_in(low_i), x_in(up_i), x_out(i), f_in(low_i), f_in(up_i), f_out(i)
   enddo
 
 end subroutine Interpolate

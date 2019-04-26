@@ -81,5 +81,5 @@
   fld_opacity_law = 'fastwind'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Diffusion'
+  fld_fluxlimiter = 'Pomraning'
   /

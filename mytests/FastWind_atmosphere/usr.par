@@ -15,14 +15,14 @@
    itsave(1,2)     = 0
    !ditsave_dat     = 1
    !ditsave_log     = 1
-   dtsave_dat     = 1.d-1
-   dtsave_log     = 1.d-2
+   dtsave_dat     = 5.d-1
+   dtsave_log     = 5.d-2
 /
 
  &stoplist
-   time_max = 1.d1
+   time_max = 5.d1
    dtmin = 1.0d-20
-   !it_max = 5
+   !it_max = 20
 /
 
  &methodlist
@@ -31,12 +31,12 @@
    limiter         = 20*'koren' !'minmod'/'koren'
    check_small_values = .true.
    small_values_method = 'replace'
-   small_pressure = 1.d-6
-   small_density = 1.d-6
+   small_pressure = 1.d-8
+   small_density = 1.d-8
 /
 
 &boundlist
-  nghostcells  = 4
+  !nghostcells  = 4
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 'special','cont','cont','special','special'
@@ -46,10 +46,10 @@
 
  &meshlist
    refine_max_level   = 1
-   domain_nx1         = 128
-   domain_nx2         = 128
-   block_nx1          = 128
-   block_nx2          = 128
+   domain_nx1         = 256
+   domain_nx2         = 256
+   block_nx1          = 256
+   block_nx2          = 256
    xprobmin1       = -2.d0
    xprobmax1       = 2.d0
    xprobmin2       = 0.d0
@@ -81,5 +81,5 @@
   fld_opacity_law = 'fastwind'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Pomraning'
+  fld_fluxlimiter = 'Minerbo'
   /

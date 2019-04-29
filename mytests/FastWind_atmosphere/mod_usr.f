@@ -127,8 +127,7 @@ subroutine initglobaldata_usr
   y_FW = y_FW - y_FW(1)
   tr_FW  = (er_FW/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
 
-  pg_FW = kB_cgs/(mp_cgs*fld_mu)*tr_FW*rho_FW*(&
-     unit_temperature*unit_density)/unit_pressure
+  ! pg_FW = kB_cgs/(mp_cgs*fld_mu)*tr_FW*rho_FW*(unit_temperature*unit_density)/unit_pressure
 
   if (mype .eq. 0) then
     print*, 'unit_length', unit_length
@@ -177,8 +176,8 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac,.false.)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac,.false.)
 
-  ! print*, rho_vac
-  ! stop
+
+  ! print*, er_vac(1:5)
 
 
   do i = ixGmin1, ixGmax1
@@ -186,10 +185,13 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
     w(i, :, mom(1)) = zero
     w(i, :, mom(2)) = rho_vac(:)*v_vac(:)
     w(i, :, r_e) = er_vac(:)
-    w(i, :, e_) = pg_vac(:)/(rhd_gamma-1.0)
+    w(i, :, e_) = pg_vac(:)/(rhd_gamma-1.0) + &
+       half*rho_vac(:)*v_vac(:)*v_vac(:)
   enddo
+
+
   !> perturb rho
-  amplitude = 0.0d-1
+  amplitude = 0.05d0
   call RANDOM_NUMBER(pert)
   do i = ixGmin2+10,ixGmax2
     w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i,&
@@ -198,7 +200,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
-  call set_mg_bounds()
+  ! call set_mg_bounds()
 
 
 end subroutine initial_conditions
@@ -227,14 +229,23 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac,.false.)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac,.false.)
 
+
+
   select case (iB)
 
   case(3)
     do i = ixBmin2,ixBmax2
       w(ixGmin1:ixGmax1,i,rho_) = rho_vac(i)
-      w(ixGmin1:ixGmax1,i,e_) = pg_vac(i)/(rhd_gamma-1.0)
+      w(ixGmin1:ixGmax1,i,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1))
+      w(ixGmin1:ixGmax1,i,mom(2)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(2))
+      w(ixGmin1:ixGmax1,i,e_) = pg_vac(i)/(rhd_gamma-1.0) + &
+         half*(w(ixGmin1:ixGmax1,i,mom(1))**2+w(ixGmin1:ixGmax1,i,&
+         mom(1))**2)/rho_vac(i)
       w(ixGmin1:ixGmax1,i,r_e) = er_vac(i)
     enddo
+
+
+    ! print*, er_vac(1:5)
 
     ! do i = nghostcells,1,-1
     !   w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i+1,rho_)/w(ixGmin1:ixGmax1,i+2,rho_) &
@@ -402,11 +413,27 @@ subroutine Interpolate(ixImin2, ixImax2, x_in, x_out, f_in, f_out, log)
 
     if (log) then
       !> Logarithmic Interpolation
-      log_f_in_low = dlog(f_in(low_i))
-      log_f_in_up = dlog(f_in(up_i))
-      log_f_out = log_f_in_low + (x_out(i) - x_in(low_i))*(log_f_in_up - &
-         log_f_in_low)/(x_in(up_i) - x_in(low_i))
-      f_out(i) = dexp(log_f_out)
+      ! log_f_in_low = dlog(f_in(low_i))
+      ! log_f_in_up = dlog(f_in(up_i))
+      ! log_f_out = log_f_in_low + (x_out(i) - x_in(low_i))*(log_f_in_up - log_f_in_low)/(x_in(up_i) - x_in(low_i))
+      ! f_out(i) = dexp(log_f_out)
+
+      x12 = x_in(low_i) - x_in(up_i)
+      x13 = x_in(low_i) - x_in(up_i + 1)
+
+      xx12 = x_in(low_i)**2 - x_in(up_i)**2
+      xx13 = x_in(low_i)**2 - x_in(up_i + 1)**2
+
+      f12 = dlog(f_in(low_i)) - dlog(f_in(up_i))
+      f13 = dlog(f_in(low_i)) - dlog(f_in(up_i + 1))
+
+      b = (f13/xx13 - f12/xx12)/(x13/xx13 - x12/xx12)
+      c = (f13/x13 - f12/x12)/(xx13/x13 - xx12/x12)
+      a = f_in(low_i) - (b*x_in(low_i) + c*x_in(low_i)**2)
+
+      f_out(i) = dexp(a + b*x_out(i) + c*x_out(i)**2)
+
+
     else
       ! !> Linear Interpolation
       ! f_out(i) = f_in(low_i) + (x_out(i) - x_in(low_i))*(f_in(up_i) - f_in(low_i))/(x_in(up_i) - x_in(low_i))

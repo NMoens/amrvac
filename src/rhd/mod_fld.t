@@ -211,6 +211,7 @@ module mod_fld
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
+    double precision :: val3,grad4
     !> Maybe call boundary
 
     call fld_get_opacity(w, x, ixI^L, ixO^L)
@@ -220,7 +221,12 @@ module mod_fld
 
     if (fld_diff_scheme .eq. 'mg') then
       call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
-      call set_mg_bounds()
+
+      val3 = 7.6447315544263788
+      grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
+      / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1-ixOmin1)
+
+      call set_mg_bounds(val3,grad4)
     endif
   end subroutine get_rad_extravars
 
@@ -311,6 +317,8 @@ module mod_fld
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
 
+    double precision :: grad4, val3
+
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
@@ -321,8 +329,16 @@ module mod_fld
       case('mg')
         !> Do nothing OR CHECK WHAT IS ALREADY DONE BY POINTING
         call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
+
         call set_mg_diffcoef()
-        call set_mg_bounds()
+
+        val3 = 7.6447315544263788
+        grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
+        / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1/ixOmin1)
+
+        ! print*, grad4
+
+        call set_mg_bounds(val3, grad4)
         call phys_global_source(dt, global_time, active)
       case default
         call mpistop('Numerical diffusionscheme unknown, try adi or mg')
@@ -533,10 +549,10 @@ module mod_fld
     ! rad_flux(ixImin1:ixImax1,ixOmax2,2) = rad_flux(ixImin1:ixImax1,ixOmax2-1,2)
 
     w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
-
-    w(:,ixOmin2,i_flux(2)) = w(:,ixOmin2 + 1,i_flux(2))
-    w(:,ixOmax2,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
-    w(:,ixOmax2-1,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
+    !
+    ! w(:,ixOmin2,i_flux(2)) = w(:,ixOmin2 + 1,i_flux(2))
+    ! w(:,ixOmax2,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
+    ! w(:,ixOmax2-1,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
   end subroutine fld_get_radflux
 
   !> Calculate Eddington-tensor
@@ -680,6 +696,11 @@ module mod_fld
       call gradient(rad_e,ixI^L,ixO^L,2,grad_r_e)
       max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
 
+      ! !> CHEATY
+      ! do i = ixOmin1,ixOmax1
+      !   w(i,ixOmax2-2:,i_diff_mg) = w(i,ixOmax2-3,i_diff_mg)
+      ! enddo
+
       do i = ixOmin1,ixOmax1
         do j = ixOmin2,ixOmax2
           ! print*, i, j, w(i,j,i_diff_mg), max_D(i,j)
@@ -698,9 +719,11 @@ module mod_fld
   end subroutine set_mg_diffcoef
 
   !> Sets boundary conditions for multigrid, based on hydro-bounds
-  subroutine set_mg_bounds()
+  subroutine set_mg_bounds(val3,grad4)
     use mod_global_parameters
     integer :: iB
+
+    double precision, intent(in) :: val3, grad4
 
     do iB = 1,4
       select case (typeboundary(iw_r_e, iB))
@@ -723,10 +746,10 @@ module mod_fld
            mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
         case (3)
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-          mg%bc(iB, mg_iphi)%bc_value = 3.0174800255830467
+          mg%bc(iB, mg_iphi)%bc_value = val3
         case (4)
-          !mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-          !mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          mg%bc(iB, mg_iphi)%bc_value = grad4
         case default
           print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
           error stop "You have to set a user-defined boundary method"

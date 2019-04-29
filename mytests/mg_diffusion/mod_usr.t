@@ -75,7 +75,7 @@ contains
 
       if (fld_diff_scheme .eq. 'mg') then
         call fld_get_diffcoef_central(w, x, ixG^L, ix^L)
-        call set_mg_bounds()
+        call set_mg_bounds(1.d0,1.d0)
       endif
 
     end subroutine initial_conditions

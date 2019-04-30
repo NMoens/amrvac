@@ -329,14 +329,11 @@ module mod_fld
       case('mg')
         !> Do nothing OR CHECK WHAT IS ALREADY DONE BY POINTING
         call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
-
         call set_mg_diffcoef()
 
         val3 = 7.6447315544263788
         grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
         / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1/ixOmin1)
-
-        ! print*, grad4
 
         call set_mg_bounds(val3, grad4)
         call phys_global_source(dt, global_time, active)
@@ -365,7 +362,7 @@ module mod_fld
     double precision :: rho0,Temp0,n,sigma_b
     double precision :: akram, bkram
 
-    integer :: i,j
+    integer :: i,j, ix^D
 
     select case (fld_opacity_law)
       case('const')
@@ -400,22 +397,15 @@ module mod_fld
         fld_kappa(ixO^S) = fld_kappa0 &
         * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
 
-        ! print*, (1.d0+10.d0**akram*w(10,10,iw_rho)*(a2(10,10)/1.d12)**bkram), 10.d0**akram*w(10,10,iw_rho), (a2(10,10)/1.d12)**bkram
-        ! print*, fld_kappa0, w(10,10,iw_rho), (a2(10,10)/1.d12)
-        !
-        ! stop
-
       case('opal')
         !call mpistop("Not implemented yet, hold your bloody horses")
         call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
-        do i = ixOmin1,ixOmax1
-          do j= ixOmin2,ixOmax2
-            rho0 = w(i,j,iw_rho)*unit_density
-            Temp0 = Temp(i,j)*unit_temperature
+        {do ix^D=ixOmin^D,ixOmax^D\ }
+            rho0 = w(ix^D,iw_rho)*unit_density
+            Temp0 = Temp(ix^D)*unit_temperature
             call set_opal_opacity(rho0,Temp0,n)
-            fld_kappa(i,j) = n/unit_opacity
-          enddo
-        enddo
+            fld_kappa(ix^D) = n/unit_opacity
+        {enddo\ }
       case default
         call mpistop("Doesn't know opacity law")
       end select
@@ -670,7 +660,7 @@ module mod_fld
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
     double precision :: max_D(ixI^S), grad_r_e(ixI^S), rad_e(ixI^S)
-    integer :: idir,i,j
+    integer :: idir,i,j, ix^D
 
     if (fld_diff_testcase) then
       w(ixI^S,i_diff_mg) = one/(unit_length*unit_velocity)
@@ -680,6 +670,7 @@ module mod_fld
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
 
+      !> ghostcells
       do i = ixImin1,ixImax1
         w(i,ixImin2:ixImin2+nghostcells-1,i_diff_mg) = w(i,ixImin2+nghostcells,i_diff_mg)
         w(i,ixImax2-nghostcells+1:ixImin2,i_diff_mg) = w(i,ixImax2-nghostcells,i_diff_mg)
@@ -696,19 +687,10 @@ module mod_fld
       call gradient(rad_e,ixI^L,ixO^L,2,grad_r_e)
       max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
 
-      ! !> CHEATY
-      ! do i = ixOmin1,ixOmax1
-      !   w(i,ixOmax2-2:,i_diff_mg) = w(i,ixOmax2-3,i_diff_mg)
-      ! enddo
+      {do ix^D=ixOmin^D,ixOmax^D\ }
+          w(ix^D,i_diff_mg) = min(w(ix^D,i_diff_mg), max_D(ix^D))
+      {enddo\ }
 
-      do i = ixOmin1,ixOmax1
-        do j = ixOmin2,ixOmax2
-          ! print*, i, j, w(i,j,i_diff_mg), max_D(i,j)
-          ! if (w(i,j,i_diff_mg) .gt. max_D(i,j)) &
-          ! call mpistop('You have reached maximal D, the D is too big')
-          w(i,j,i_diff_mg) = min(w(i,j,i_diff_mg), max_D(i,j))
-        enddo
-      enddo
 
     endif
   end subroutine fld_get_diffcoef_central
@@ -725,7 +707,7 @@ module mod_fld
 
     double precision, intent(in) :: val3, grad4
 
-    do iB = 1,4
+    do iB = 1,2*ndim
       select case (typeboundary(iw_r_e, iB))
       case ('symm')
          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
@@ -1313,7 +1295,7 @@ module mod_fld
     double precision :: e_gas(ixO^S), E_rad(ixO^S)
     double precision :: grad_v(ixI^S)
 
-    integer :: i,j,idir
+    integer :: ix^D,i,j,idir
 
     !> calculate tensor div_v
     do i = 1,ndim
@@ -1325,11 +1307,29 @@ module mod_fld
       enddo
     enddo
 
+    {^IFONED
+    divvP(ixO^S) = div_v(ixO^S,1,1)*w(ixO^S,i_edd(1,1))  &
+    }
+
+    {^IFTWOD
     !>eq 34 Turner and stone (Only 2D)
     divvP(ixO^S) = div_v(ixO^S,1,1)*w(ixO^S,i_edd(1,1))  &
-                 + div_v(ixO^S,2,2)*w(ixO^S,i_edd(2,2))  &
                  + div_v(ixO^S,1,2)*w(ixO^S,i_edd(1,2))  &
-                 + div_v(ixO^S,2,1)*w(ixO^S,i_edd(2,1))
+                 + div_v(ixO^S,2,1)*w(ixO^S,i_edd(2,1))  &
+                 + div_v(ixO^S,2,2)*w(ixO^S,i_edd(2,2))
+    }
+
+    {^IFTHREED
+    divvP(ixO^S) = div_v(ixO^S,1,1)*w(ixO^S,i_edd(1,1))  &
+                 + div_v(ixO^S,1,2)*w(ixO^S,i_edd(1,2))  &
+                 + div_v(ixO^S,1,3)*w(ixO^S,i_edd(1,3))  &
+                 + div_v(ixO^S,2,1)*w(ixO^S,i_edd(2,1))  &
+                 + div_v(ixO^S,2,2)*w(ixO^S,i_edd(2,2))  &
+                 + div_v(ixO^S,2,3)*w(ixO^S,i_edd(2,3))  &
+                 + div_v(ixO^S,3,1)*w(ixO^S,i_edd(3,1))  &
+                 + div_v(ixO^S,3,2)*w(ixO^S,i_edd(3,2))  &
+                 + div_v(ixO^S,3,3)*w(ixO^S,i_edd(3,3))
+    }
 
     divvP(ixO^S) = divvP(ixO^S)*w(ixO^S,iw_r_e)
 
@@ -1350,9 +1350,18 @@ module mod_fld
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !! Dimensionless notation for do loop with LASY:
 
-    ! {do ix^D=1,100 \ }
-    ! a(ix^D)= ix^D*
-    ! {enddo\ }
+    {do ix^D=ixOmin^D,ixOmax^D\ }
+    select case(fld_interaction_method)
+    case('Bisect')
+      call Bisection_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
+    case('Newton')
+      call Newton_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
+    case('Halley')
+      call Halley_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
+    case default
+      call mpistop('root-method not known')
+    end select
+    {enddo\ }
 
     ! which translates to:
 
@@ -1366,20 +1375,20 @@ module mod_fld
     !Do similar stuff for the eddington_tensor
 
     !> Loop over every cell for bisection method
-    do i = ixOmin1,ixOmax1
-    do j =  ixOmin2,ixOmax2
-      select case(fld_interaction_method)
-      case('Bisect')
-        call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
-      case('Newton')
-        call Newton_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
-      case('Halley')
-        call Halley_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
-      case default
-        call mpistop('root-method not known')
-      end select
-    enddo
-    enddo
+    ! do i = ixOmin1,ixOmax1
+    ! do j =  ixOmin2,ixOmax2
+    !   select case(fld_interaction_method)
+    !   case('Bisect')
+    !     call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+    !   case('Newton')
+    !     call Newton_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+    !   case('Halley')
+    !     call Halley_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+    !   case default
+    !     call mpistop('root-method not known')
+    !   end select
+    ! enddo
+    ! enddo
 
     !> Update gas-energy in w
     w(ixO^S,iw_e) = e_gas(ixO^S)

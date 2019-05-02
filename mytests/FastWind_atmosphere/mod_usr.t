@@ -186,7 +186,7 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
 
 
   !> perturb rho
-  amplitude = 0.05d0
+  amplitude = 0.00d0
   call RANDOM_NUMBER(pert)
   do i = ixGmin2+10,ixGmax2
     w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i, rho_)&
@@ -227,7 +227,7 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
   case(3)
     do i = ixBmin2,ixBmax2
       w(ixGmin1:ixGmax1,i,rho_) = rho_vac(i)
-      w(ixGmin1:ixGmax1,i,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1))
+      w(ixGmin1:ixGmax1,i,mom(1)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(1)) !rho_vac(i)*v_vac(i)
       w(ixGmin1:ixGmax1,i,mom(2)) = w(ixGmin1:ixGmax1,ixBmax2+1,mom(2))
       w(ixGmin1:ixGmax1,i,e_) = pg_vac(i)/(rhd_gamma-1.0) &
        + half*(w(ixGmin1:ixGmax1,i,mom(1))**2+w(ixGmin1:ixGmax1,i,mom(1))**2)/rho_vac(i)

@@ -225,6 +225,10 @@ module mod_fld
       val3 = 7.6447315544263788
       grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
       / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1-ixOmin1)
+      ! grad4 = sum(w(ixOmin1:ixOmax1,ixOmax2, i_flux(2))*w(ixOmin1:ixOmax1,ixOmax2, i_op) &
+      ! *w(ixOmin1:ixOmax1,ixOmax2, iw_rho)&
+      ! /(w(ixOmin1:ixOmax1,ixOmax2, i_lambda)*fld_speedofligt_0))/(ixOmax1-ixOmin1)
+
 
       call set_mg_bounds(val3,grad4)
     endif
@@ -334,6 +338,10 @@ module mod_fld
         val3 = 7.6447315544263788
         grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
         / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1/ixOmin1)
+        ! grad4 = sum(w(ixOmin1:ixOmax1,ixOmax2, i_flux(2))*w(ixOmin1:ixOmax1,ixOmax2, i_op) &
+        ! *w(ixOmin1:ixOmax1,ixOmax2, iw_rho)&
+        ! /(w(ixOmin1:ixOmax1,ixOmax2, i_lambda)*fld_speedofligt_0))/(ixOmax1-ixOmin1)
+
 
         call set_mg_bounds(val3, grad4)
         call phys_global_source(dt, global_time, active)

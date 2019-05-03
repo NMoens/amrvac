@@ -78,6 +78,8 @@ contains
         call set_mg_bounds(1.d0,1.d0)
       endif
 
+      print*, mype, npe
+
     end subroutine initial_conditions
 
     function spotpattern(x,ixG^L,t1) result(e0)

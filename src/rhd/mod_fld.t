@@ -167,7 +167,9 @@ module mod_fld
 
       use_multigrid = .true.
 
-      ! phys_global_source => Diffuse_E_rad_mg
+      !if (rhd_radiation_diffusion) then
+        phys_global_source => Diffuse_E_rad_mg
+      !endif
       mg_after_new_tree => set_mg_diffcoef
 
       mg%n_extra_vars = 1
@@ -330,17 +332,17 @@ module mod_fld
       case('adi')
         call Evolve_E_rad(w, x, ixI^L, ixO^L)
       case('mg')
-
-        print*, 'process ', mype, ' out of ', npe
-
-        call mpi_Barrier(icomm,ierrmpi)
-
-        stop
+        !
+        ! print*, 'process ', mype, ' out of ', npe
+        !
+        ! call mpi_Barrier(icomm,ierrmpi)
+        !
+        ! stop
 
         !> Do nothing OR CHECK WHAT IS ALREADY DONE BY POINTING
         call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
-        call set_mg_diffcoef()
-
+        ! call set_mg_diffcoef()
+        !
         val3 = 7.6447315544263788
         grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
         / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1/ixOmin1)
@@ -348,10 +350,10 @@ module mod_fld
         call set_mg_bounds(val3, grad4)
 
         !call phys_global_source(dt, global_time, active)
-        call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-        call set_mg_bounds(val3, grad4)
-        call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
-        call mg_copy_from_tree(mg_iphi, iw_r_e)
+        ! call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
+        ! call set_mg_bounds(val3, grad4)
+        ! call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
+        ! call mg_copy_from_tree(mg_iphi, iw_r_e)
         active = .true.
 
       case default
@@ -659,20 +661,27 @@ module mod_fld
 
   !> Calling all subroutines to perform the multigrid method
   !> Communicates rad_e and diff_coeff to multigrid library
-  ! subroutine Diffuse_E_rad_mg(qdt, qt, active)
-  !   use mod_global_parameters
-  !   use mod_multigrid_coupling
-  !   use m_diffusion
-  !
-  !   double precision, intent(in) :: qdt, qt
-  !   logical, intent(inout)       :: active
-  !   double precision             :: max_res
-  !
-  !   call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-  !   call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
-  !   call mg_copy_from_tree(mg_iphi, iw_r_e)
-  !   active = .true.
-  ! end subroutine Diffuse_E_rad_mg
+  subroutine Diffuse_E_rad_mg(qdt, qt, active)
+    use mod_global_parameters
+    use mod_multigrid_coupling
+    use m_diffusion
+
+    double precision, intent(in) :: qdt, qt
+    logical, intent(inout)       :: active
+    double precision             :: max_res, val3, grad4
+
+    call set_mg_diffcoef()
+    call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
+
+    ! val3 = 7.6447315544263788
+    ! grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
+    ! / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1/ixOmin1)
+    !
+    ! call set_mg_bounds(val3, grad4)
+    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
+    call mg_copy_from_tree(mg_iphi, iw_r_e)
+    active = .true.
+  end subroutine Diffuse_E_rad_mg
 
   !> Calculates cell-centered diffusion coefficient to be used in multigrid
   subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L)

@@ -49,8 +49,8 @@
    refine_max_level   = 3
    domain_nx1         = 128
    domain_nx2         = 128
-   block_nx2          = 128
-   block_nx1          = 128
+   block_nx2          = 64
+   block_nx1          = 64
    xprobmin1       =  0.d0
    xprobmax1       =  4.d0
    xprobmin2       =  -2.d0

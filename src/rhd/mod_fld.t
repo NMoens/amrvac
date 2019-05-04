@@ -360,6 +360,7 @@ module mod_fld
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
     use mod_physics, only: phys_get_tgas
+    use mod_usr_methods
     use mod_opacity
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -414,6 +415,11 @@ module mod_fld
             call set_opal_opacity(rho0,Temp0,n)
             fld_kappa(ix^D) = n/unit_opacity
         {enddo\ }
+      case('special')
+        if (.not. associated(usr_special_opacity)) then
+          call mpistop("special opacity not defined")
+        endif
+        call usr_special_opacity(ixI^L, ixO^L, w, x, fld_kappa)
       case default
         call mpistop("Doesn't know opacity law")
       end select
@@ -428,6 +434,7 @@ module mod_fld
   subroutine fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
+    use mod_usr_methods
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
@@ -509,7 +516,13 @@ module mod_fld
 
       w(ixI^S,i_lambda) = fld_lambda(ixI^S)
       w(ixI^S,i_fld_R) = fld_R(ixI^S)
-
+    case('special')
+      if (.not. associated(usr_special_opacity)) then
+        call mpistop("special fluxlimiter not defined")
+      endif
+      call usr_special_fluxlimiter(ixI^L, ixO^L, w, x, fld_lambda, fld_R)
+      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
+      w(ixI^S,i_fld_R) = fld_R(ixI^S)
     case default
       call mpistop('Fluxlimiter unknown')
     end select

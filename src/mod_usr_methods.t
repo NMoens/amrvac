@@ -62,6 +62,10 @@ module mod_usr_methods
   procedure(particle_fields), pointer   :: usr_particle_fields   => null()
   procedure(particle_analytic), pointer :: usr_particle_analytic => null()
 
+  ! Radiation quantity related
+  procedure(special_opacity), pointer   :: usr_special_opacity => null()
+  procedure(special_fluxlimiter), pointer   :: usr_special_fluxlimiter => null()
+
   ! Called after the mesh has been adjuste
   procedure(after_refine), pointer      :: usr_after_refine => null()
 
@@ -346,6 +350,20 @@ module mod_usr_methods
        integer, intent(in) :: n_coarsen
        integer, intent(in) :: n_refine
      end subroutine after_refine
+
+     subroutine special_opacity(ixI^L,ixO^L,w,x,kappa)
+       use mod_global_parameters
+       integer, intent(in)          :: ixI^L, ixO^L
+       double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
+       double precision, intent(out):: kappa(ixO^S)
+     end subroutine special_opacity
+
+     subroutine special_fluxlimiter(ixI^L,ixO^L,w,x,fld_lambda,fld_R)
+       use mod_global_parameters
+       integer, intent(in)          :: ixI^L, ixO^L
+       double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
+       double precision, intent(out):: fld_lambda(ixI^S),fld_R(ixI^S)
+     end subroutine special_fluxlimiter
 
   end interface
 

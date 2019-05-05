@@ -186,7 +186,7 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
 
 
   !> perturb rho
-  amplitude = 0.05d0
+  amplitude = 0.00d0
   call RANDOM_NUMBER(pert)
   do i = ixGmin2+10,ixGmax2
     w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i, rho_)&
@@ -212,7 +212,7 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
   double precision :: v_vac(ixGmin2:ixGmax2)
   double precision :: pg_vac(ixGmin2:ixGmax2)
   double precision :: er_vac(ixGmin2:ixGmax2)
-  integer :: i
+  integer :: i,j
 
   x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac,.false.)
@@ -247,6 +247,9 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
       !> Conserve gradE/rho
       w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,rho_)/w(ixGmin1:ixGmax1,i-2,rho_) &
       *(w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
+      do j = ixGmin1,ixGmax1
+        w(j,i,r_e) = min(w(j,i,r_e),w(j,i-1,r_e))
+      enddo
     enddo
 
   case default
@@ -297,7 +300,6 @@ subroutine time_average_values(ixI^L,ixO^L,qt,w,x)
   w(ixI^S,int_m1) = w(ixI^S,int_m1) + w(ixI^S,mom(1))*dt
   w(ixI^S,int_m2) = w(ixI^S,int_m2) + w(ixI^S,mom(2))*dt
   w(ixI^S,int_t) = w(ixI^S,int_t) + dt
-
 end subroutine time_average_values
 
 
@@ -417,7 +419,6 @@ subroutine Interpolate(ixImin2, ixImax2, x_in, x_out, f_in, f_out, log)
 
     ! print*, x_in(low_i), x_in(up_i), x_out(i), f_in(low_i), f_in(up_i), f_out(i)
   enddo
-
 end subroutine Interpolate
 
 

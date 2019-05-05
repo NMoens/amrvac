@@ -518,7 +518,7 @@ module mod_fld
     double precision :: L_star, R_star
     double precision :: grad_r_e(ixI^S)
     double precision :: rad_e(ixI^S)
-    integer :: idir
+    integer :: ix^D, idir
 
     rad_e(ixI^S) = w(ixI^S, iw_r_e)
 
@@ -536,7 +536,11 @@ module mod_fld
     ! rad_flux(ixImin1:ixImax1,ixOmin2,2) = rad_flux(ixImin1:ixImax1,ixOmin2+1,2)
     ! rad_flux(ixImin1:ixImax1,ixOmax2,2) = rad_flux(ixImin1:ixImax1,ixOmax2-1,2)
 
-    w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
+    {do ix^D=ixImin^D,ixImax^D\ }
+      do idir = 1,ndir
+        w(ix^D,i_flux(idir)) = rad_flux(ix^D,idir)
+      enddo
+    {enddo\}
     !
     ! w(:,ixOmin2,i_flux(2)) = w(:,ixOmin2 + 1,i_flux(2))
     ! w(:,ixOmax2,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))

@@ -119,6 +119,7 @@ module mod_fld
     use mod_global_parameters
     use mod_variables
     use mod_physics, only: phys_global_source
+    use mod_rhd_phys, only: rhd_radiation_diffusion
     use mod_opacity, only: init_opal
     use mod_multigrid_coupling, only: mg_copy_boundary_conditions
 
@@ -163,19 +164,21 @@ module mod_fld
       enddo
     enddo
 
-    if (fld_diff_scheme .eq. 'mg') then
+    if (rhd_radiation_diffusion) then
+      if (fld_diff_scheme .eq. 'mg') then
 
-      use_multigrid = .true.
+        use_multigrid = .true.
 
-      !if (rhd_radiation_diffusion) then
-        phys_global_source => Diffuse_E_rad_mg
-      !endif
-      mg_after_new_tree => set_mg_diffcoef
+        !if (rhd_radiation_diffusion) then
+          phys_global_source => Diffuse_E_rad_mg
+        !endif
+        mg_after_new_tree => set_mg_diffcoef
 
-      mg%n_extra_vars = 1
-      mg%operator_type = mg_vhelmholtz
+        mg%n_extra_vars = 1
+        mg%operator_type = mg_vhelmholtz
 
-      i_diff_mg = var_set_extravar("D", "D")
+        i_diff_mg = var_set_extravar("D", "D")
+      endif
     endif
 
     !> Check if fld_numdt is not 1
@@ -332,37 +335,19 @@ module mod_fld
       case('adi')
         call Evolve_E_rad(w, x, ixI^L, ixO^L)
       case('mg')
-        !
-        ! print*, 'process ', mype, ' out of ', npe
-        !
-        ! call mpi_Barrier(icomm,ierrmpi)
-        !
-        ! stop
-
-        !> Do nothing OR CHECK WHAT IS ALREADY DONE BY POINTING
         call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
-        ! call set_mg_diffcoef()
-        !
         val3 = 7.6447315544263788
         grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
         / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1/ixOmin1)
 
         call set_mg_bounds(val3, grad4)
 
-        !call phys_global_source(dt, global_time, active)
-        ! call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-        ! call set_mg_bounds(val3, grad4)
-        ! call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
-        ! call mg_copy_from_tree(mg_iphi, iw_r_e)
         active = .true.
 
       case default
         call mpistop('Numerical diffusionscheme unknown, try adi or mg')
       end select
       end if
-
-      !> Set Diffcoef for next timestep?
-      ! call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
   end subroutine get_fld_diffusion
 
   !> Sets the opacity in the w-array
@@ -670,14 +655,8 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res, val3, grad4
 
-    call set_mg_diffcoef()
+    print*, it, 'Diffusing'
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-
-    ! val3 = 7.6447315544263788
-    ! grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
-    ! / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1/ixOmin1)
-    !
-    ! call set_mg_bounds(val3, grad4)
     call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
@@ -747,6 +726,8 @@ module mod_fld
     integer :: iB
 
     double precision, intent(in) :: val3, grad4
+
+    print*, it, 'setting bounds'
 
     do iB = 1,4
       select case (typeboundary(iw_r_e, iB))

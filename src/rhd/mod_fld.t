@@ -756,14 +756,15 @@ module mod_fld
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
           mg%bc(iB, mg_iphi)%bc_value = val3
         case (4)
-          ! if (grad4 .lt. 0) then
-          !   mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-          ! else
-          !   mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          !   mg%bc(iB, mg_iphi)%bc_value = 0.d0
-          ! endif
+          if (grad4 .lt. 0) then
+            mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+            mg%bc(iB, mg_iphi)%bc_value = grad4
+          else
+            mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+            mg%bc(iB, mg_iphi)%bc_value = 0.d0
+          endif
 
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
           ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
           ! mg%bc(iB, mg_iphi)%bc_value = grad4

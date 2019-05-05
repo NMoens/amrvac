@@ -216,9 +216,6 @@ module mod_fld
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
-    double precision :: val3,grad4
-    !> Maybe call boundary
-
     call fld_get_opacity(w, x, ixI^L, ixO^L)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
     call fld_get_radflux(w, x, ixI^L, ixO^L)
@@ -226,12 +223,7 @@ module mod_fld
 
     if (fld_diff_scheme .eq. 'mg') then
       call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
-
-      val3 = 7.6447315544263788
-      grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
-      / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1-ixOmin1)
-
-      call set_mg_bounds(val3,grad4)
+      call set_mg_bounds(w, x, ixI^L, ixO^L)
     endif
   end subroutine get_rad_extravars
 
@@ -325,7 +317,6 @@ module mod_fld
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
 
-    double precision :: grad4, val3
 
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
@@ -336,11 +327,7 @@ module mod_fld
         call Evolve_E_rad(w, x, ixI^L, ixO^L)
       case('mg')
         call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
-        val3 = 7.6447315544263788
-        grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
-        / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1/ixOmin1)
-
-        call set_mg_bounds(val3, grad4)
+        call set_mg_bounds(w, x, ixI^L, ixO^L)
 
         active = .true.
 
@@ -653,9 +640,9 @@ module mod_fld
 
     double precision, intent(in) :: qdt, qt
     logical, intent(inout)       :: active
-    double precision             :: max_res, val3, grad4
+    double precision             :: max_res
 
-    print*, it, 'Diffusing'
+    ! print*, it, 'Diffusing'
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
     call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
@@ -676,8 +663,6 @@ module mod_fld
 
     if (fld_diff_testcase) then
       w(ixI^S,i_diff_mg) = one/(unit_length*unit_velocity)
-      print*, it,w(10,10,i_diff_mg)
-
     else
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
@@ -721,13 +706,32 @@ module mod_fld
   end subroutine set_mg_diffcoef
 
   !> Sets boundary conditions for multigrid, based on hydro-bounds
-  subroutine set_mg_bounds(val3,grad4)
+  subroutine set_mg_bounds(w, x, ixI^L, ixO^L)
     use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+
     integer :: iB
+    double precision :: val3, val4, grad4
 
-    double precision, intent(in) :: val3, grad4
+    ! print*, it, 'setting bounds'
 
-    print*, it, 'setting bounds'
+
+    val3 = 7.6447315544263788
+    val4 = sum(w(ixOmin1:ixOmax1,ixOmax2+1, iw_r_e))/(ixOmax1-ixOmin1)
+
+    ! val4 = (sum((x(nghostcells,ixOmax2+1,2)-x(nghostcells,ixOmax2,2))**2 &
+    ! *w(ixOmin1:ixOmax1,ixOmax2, i_flux(2))/w(ixOmin1:ixOmax1,ixOmax2+1, i_diff_mg)) &
+    ! + 2*sum(w(ixOmin1:ixOmax1,ixOmax2, iw_r_e)) &
+    ! - sum(w(ixOmin1:ixOmax1,ixOmax2-1, iw_r_e))) &
+    ! /(ixOmax1-ixOmin1)
+
+
+    grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
+    / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1-ixOmin1)
+
 
     do iB = 1,4
       select case (typeboundary(iw_r_e, iB))
@@ -752,8 +756,23 @@ module mod_fld
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
           mg%bc(iB, mg_iphi)%bc_value = val3
         case (4)
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          mg%bc(iB, mg_iphi)%bc_value = grad4
+          ! if (grad4 .lt. 0) then
+          !   mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          ! else
+          !   mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          !   mg%bc(iB, mg_iphi)%bc_value = 0.d0
+          ! endif
+
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          ! mg%bc(iB, mg_iphi)%bc_value = grad4
+
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+          ! mg%bc(iB, mg_iphi)%bc_value = val4
         case default
           print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
           error stop "You have to set a user-defined boundary method"

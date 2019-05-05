@@ -538,7 +538,7 @@ module mod_fld
 
     {do ix^D=ixImin^D,ixImax^D\ }
       do idir = 1,ndir
-        w(ix^D,i_flux(idir)) = rad_flux(ix^D,idir)
+        w(ix^D,i_flux(idir)) = min(rad_flux(ix^D,idir),fld_speedofligt_0*w(ix^D,iw_r_e))
       enddo
     {enddo\}
     !

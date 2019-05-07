@@ -72,7 +72,7 @@ module mod_fld
     logical :: fld_diff_testcase = .false.
 
     !> public methods
-    !> these are called in mod_hd_phys
+    !> these are called in mod_rhd_phys
     public :: get_fld_rad_force
     public :: get_fld_energy_interact
     public :: get_fld_diffusion
@@ -115,15 +115,15 @@ module mod_fld
   !> Add extra variables to w-array, flux, kappa, eddington Tensor
   !> Lambda and R
   !> ...
-  subroutine fld_init(He_abundance)
+  subroutine fld_init(He_abundance, rhd_radiation_diffusion)
     use mod_global_parameters
     use mod_variables
     use mod_physics, only: phys_global_source
-    use mod_rhd_phys, only: rhd_radiation_diffusion
     use mod_opacity, only: init_opal
     use mod_multigrid_coupling, only: mg_copy_boundary_conditions
 
     double precision, intent(in) :: He_abundance
+    logical, intent(in) :: rhd_radiation_diffusion
     double precision :: sigma_thomson
     integer :: idir,jdir
 
@@ -503,6 +503,11 @@ module mod_fld
     case default
       call mpistop('Fluxlimiter unknown')
     end select
+
+    if (fld_fluxlimiter .ne. 'Diffusion') &
+      print*, 'Problems with timestep due to Edd tensor with limiter'
+
+
   end subroutine fld_get_fluxlimiter
 
   !> Calculate Radiation Flux
@@ -530,21 +535,17 @@ module mod_fld
       rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
 
-    w(ixI^S,i_test) = grad_r_e(ixI^S)
-
-    !>CHEATY BIT:
-    ! rad_flux(ixImin1:ixImax1,ixOmin2,2) = rad_flux(ixImin1:ixImax1,ixOmin2+1,2)
-    ! rad_flux(ixImin1:ixImax1,ixOmax2,2) = rad_flux(ixImin1:ixImax1,ixOmax2-1,2)
-
+    if (fld_fluxlimiter .eq. 'Diffusion') then
     {do ix^D=ixImin^D,ixImax^D\ }
       do idir = 1,ndir
         w(ix^D,i_flux(idir)) = min(rad_flux(ix^D,idir),fld_speedofligt_0*w(ix^D,iw_r_e))
       enddo
     {enddo\}
-    !
-    ! w(:,ixOmin2,i_flux(2)) = w(:,ixOmin2 + 1,i_flux(2))
-    ! w(:,ixOmax2,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
-    ! w(:,ixOmax2-1,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
+    else
+      w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
+    endif
+
+
   end subroutine fld_get_radflux
 
   !> Calculate Eddington-tensor
@@ -687,15 +688,8 @@ module mod_fld
       call gradient(rad_e,ixI^L,ixO^L,2,grad_r_e)
       max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
 
-      ! !> CHEATY
-      ! do i = ixOmin1,ixOmax1
-      !   w(i,ixOmax2-2:,i_diff_mg) = w(i,ixOmax2-3,i_diff_mg)
-      ! enddo
-
       do i = ixOmin1,ixOmax1
         do j = ixOmin2,ixOmax2
-          ! print*, i, j, w(i,j,i_diff_mg), max_D(i,j)
-          ! if (w(i,j,i_diff_mg) .gt. max_D(i,j)) &
           ! call mpistop('You have reached maximal D, the D is too big')
           w(i,j,i_diff_mg) = min(w(i,j,i_diff_mg), max_D(i,j))
         enddo
@@ -712,30 +706,13 @@ module mod_fld
   !> Sets boundary conditions for multigrid, based on hydro-bounds
   subroutine set_mg_bounds(w, x, ixI^L, ixO^L)
     use mod_global_parameters
+    use mod_usr_methods
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
     integer :: iB
-    double precision :: val3, val4, grad4
-
-    ! print*, it, 'setting bounds'
-
-
-    val3 = 7.6447315544263788
-    val4 = sum(w(ixOmin1:ixOmax1,ixOmax2+1, iw_r_e))/(ixOmax1-ixOmin1)
-
-    ! val4 = (sum((x(nghostcells,ixOmax2+1,2)-x(nghostcells,ixOmax2,2))**2 &
-    ! *w(ixOmin1:ixOmax1,ixOmax2, i_flux(2))/w(ixOmin1:ixOmax1,ixOmax2+1, i_diff_mg)) &
-    ! + 2*sum(w(ixOmin1:ixOmax1,ixOmax2, iw_r_e)) &
-    ! - sum(w(ixOmin1:ixOmax1,ixOmax2-1, iw_r_e))) &
-    ! /(ixOmax1-ixOmin1)
-
-
-    grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
-    / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1-ixOmin1)
-
 
     do iB = 1,4
       select case (typeboundary(iw_r_e, iB))
@@ -750,38 +727,10 @@ module mod_fld
       case ('periodic')
         !> Do nothing
       case ('special')
-        !call mpistop('Hold your bloody horses, not implemented yet.')
-        select case (iB)
-        case (1)
-           mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        case (2)
-           mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        case (3)
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-          mg%bc(iB, mg_iphi)%bc_value = val3
-        case (4)
-          if (grad4 .lt. 0) then
-            mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-            mg%bc(iB, mg_iphi)%bc_value = grad4
-          else
-            mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-            mg%bc(iB, mg_iphi)%bc_value = 0.d0
-          endif
 
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        if (.not. associated(usr_special_mg_bc)) call mpistop("Set special mg bound")
+        call usr_special_mg_bc(global_time,ixI^L,ixO^L,iB,w,x)
 
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          ! mg%bc(iB, mg_iphi)%bc_value = grad4
-
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
-
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-          ! mg%bc(iB, mg_iphi)%bc_value = val4
-        case default
-          print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
-          error stop "You have to set a user-defined boundary method"
-        end select
       case default
          print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
          error stop "You have to set a user-defined boundary method"
@@ -1204,7 +1153,6 @@ module mod_fld
   !> Perform boundary conditions to the tridiagonal matrix
   subroutine ADI_boundary_conditions(ixI^L,ixO^L,E_m,w,x)
     use mod_global_parameters
-    use mod_usr_methods, only: usr_radiation_bc
 
     integer, intent(in) :: ixI^L,ixO^L
     double precision, intent(in) :: w(ixI^S,1:nw),x(ixI^S,1:ndim)
@@ -1233,10 +1181,7 @@ module mod_fld
     case('fixed')
       E_m(ixImin1:ixImin1+nghostcells-1,:) = w(ixImin1:ixImin1+nghostcells-1,:,iw_r_e)
     case('special')
-      if (.not. associated(usr_radiation_bc)) then
-        call mpistop("special ADI boundary not defined")
-      endif
-      call usr_radiation_bc(global_time,ixI^L,1,w,E_m,x)
+      call mpistop("Special adi not existing anymore")
     case default
       call mpistop("ADI boundary not defined")
     end select
@@ -1252,10 +1197,8 @@ module mod_fld
     case('fixed')
       E_m(ixOmax1+1:ixImax1,:) = w(ixOmax1+1:ixImax1,:,iw_r_e)
     case('special')
-      if (.not. associated(usr_radiation_bc)) then
-        call mpistop("special ADI boundary not defined")
-      endif
-      call usr_radiation_bc(global_time,ixI^L,2,w,E_m,x)
+      call mpistop("Special adi not existing anymore")
+
     case default
       call mpistop("ADI boundary not defined")
     end select
@@ -1271,10 +1214,8 @@ module mod_fld
     case('fixed')
       E_m(:,ixImin2:ixImin2+nghostcells-1) = w(:,ixImin2:ixImin2+nghostcells-1,iw_r_e)
     case('special')
-      if (.not. associated(usr_radiation_bc)) then
-        call mpistop("special ADI boundary not defined")
-      endif
-      call usr_radiation_bc(global_time,ixI^L,3,w,E_m,x)
+      call mpistop("Special adi not existing anymore")
+
     case default
       call mpistop("ADI boundary not defined")
     end select
@@ -1297,10 +1238,8 @@ module mod_fld
     case('fixed')
       E_m(:,ixImax2-nghostcells+1:ixImax2) = w(:,ixImax2-nghostcells+1:ixImax2,iw_r_e)
     case('special')
-      if (.not. associated(usr_radiation_bc)) then
-        call mpistop("special ADI boundary not defined")
-      endif
-      call usr_radiation_bc(global_time,ixI^L,4,w,E_m,x)
+      call mpistop("Special adi not existing anymore")
+
     case default
       call mpistop("ADI boundary not defined")
     end select
@@ -1375,23 +1314,6 @@ module mod_fld
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !! Dimensionless notation for do loop with LASY:
-
-    ! {do ix^D=1,100 \ }
-    ! a(ix^D)= ix^D*
-    ! {enddo\ }
-
-    ! which translates to:
-
-    ! do ix1=1,100
-    ! do ix2=1,100
-    !     a(ix1,ix2)= ix1*ix2
-    ! enddo
-    ! enddo
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !Do similar stuff for the eddington_tensor
 
     !> Loop over every cell for bisection method
     do i = ixOmin1,ixOmax1
@@ -1499,9 +1421,6 @@ module mod_fld
         endif
 
         goto 2435
-
-
-
 
       endif
     enddo

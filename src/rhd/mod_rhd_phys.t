@@ -252,7 +252,7 @@ contains
 
     select case (rhd_radiation_formalism)
     case('fld')
-      call fld_init(He_abundance)
+      call fld_init(He_abundance, rhd_radiation_diffusion)
     case default
       call mpistop('Radiation formalism unknown')
     end select
@@ -991,6 +991,8 @@ contains
     logical, intent(in) :: qsourcesplit
     logical, intent(inout) :: active
 
+    double precision :: cmax(ixI^S)
+
     !> Update opacities, flux limiter and radiation fluxes
     call fld_get_opacity(w, x, ixI^L, ixO^L)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
@@ -1016,6 +1018,11 @@ contains
     case default
       call mpistop('Radiation formalism unknown')
     end select
+
+    ! call rhd_get_cmax(w, x, ixI^L, ixO^L, 1, cmax)
+    call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
+    w(ixI^S,i_test) = cmax(ixI^S)
+
 
   end subroutine rhd_add_radiation_source
 

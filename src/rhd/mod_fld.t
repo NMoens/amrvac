@@ -388,13 +388,7 @@ module mod_fld
         fld_kappa(ixO^S) = fld_kappa0 &
         * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
 
-        ! print*, (1.d0+10.d0**akram*w(10,10,iw_rho)*(a2(10,10)/1.d12)**bkram), 10.d0**akram*w(10,10,iw_rho), (a2(10,10)/1.d12)**bkram
-        ! print*, fld_kappa0, w(10,10,iw_rho), (a2(10,10)/1.d12)
-        !
-        ! stop
-
       case('opal')
-        !call mpistop("Not implemented yet, hold your bloody horses")
         call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
         do i = ixOmin1,ixOmax1
           do j= ixOmin2,ixOmax2
@@ -503,11 +497,6 @@ module mod_fld
     case default
       call mpistop('Fluxlimiter unknown')
     end select
-
-    if (fld_fluxlimiter .ne. 'Diffusion') &
-      print*, 'Problems with timestep due to Edd tensor with limiter'
-
-
   end subroutine fld_get_fluxlimiter
 
   !> Calculate Radiation Flux

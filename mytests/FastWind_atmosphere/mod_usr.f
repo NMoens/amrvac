@@ -174,6 +174,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
 
   double precision :: pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2), amplitude
   integer :: i
+  double precision :: rbs, xc1,xc2
 
   x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac,.false.)
@@ -195,13 +196,20 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   enddo
 
 
-  !> perturb rho
-  amplitude = 0.01d0
+  ! !> perturb rho
+  amplitude = 0.1d0
   call RANDOM_NUMBER(pert)
-  do i = ixGmin2+10,ixGmax2
-    w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i,&
-        rho_)*(one + amplitude*pert(ixGmin1:ixGmax1, i))
-  enddo
+
+  w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i,&
+      rho_)*(one + amplitude*pert(ixGmin1:ixGmax1, i))
+
+
+  ! rbs = (xprobmin1+xprobmax1)*0.25d0
+  ! xc1 = (xprobmin1+xprobmax1)*0.5d0
+  ! xc2 = (xprobmin2+xprobmax2)*0.5d0
+  ! where((x(ix^S,1)-xc1)**2+(x(ix^S,2)-xc2)**2<rbs**2)
+  !   w(ix^S,rho_) = one
+  ! endwhere
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)

@@ -59,8 +59,8 @@ subroutine usr_init()
   ! Graviatational field
   usr_gravity => set_gravitation_field
 
-  ! ! Get time integrated values
-  ! usr_modify_output => time_average_values
+  ! Get time integrated values
+  usr_modify_output => time_average_values
 
   ! Output routines
   usr_aux_output    => specialvar_output
@@ -69,12 +69,12 @@ subroutine usr_init()
   ! Active the physics module
   call rhd_activate()
 
-  ! int_rho = var_set_extravar('int_rho','int_rho')
-  ! int_r_e = var_set_extravar('int_r_e','int_r_e')
-  ! int_p = var_set_extravar('int_p','int_p')
-  ! int_m1 = var_set_extravar('int_m1','int_m1')
-  ! int_m2 = var_set_extravar('int_m2','int_m2')
-  ! int_t = var_set_extravar('int_t','int_t')
+  int_rho = var_set_extravar('int_rho','int_rho')
+  int_r_e = var_set_extravar('int_r_e','int_r_e')
+  int_p = var_set_extravar('int_p','int_p')
+  int_m1 = var_set_extravar('int_m1','int_m1')
+  int_m2 = var_set_extravar('int_m2','int_m2')
+  int_t = var_set_extravar('int_t','int_t')
 
 end subroutine usr_init
 
@@ -197,11 +197,11 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
 
 
   ! !> perturb rho
-  amplitude = 0.1d0
-  call RANDOM_NUMBER(pert)
-
-  w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i,&
-      rho_)*(one + amplitude*pert(ixGmin1:ixGmax1, i))
+  ! amplitude = 0.00d0
+  ! call RANDOM_NUMBER(pert)
+  !
+  ! w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i, rho_)&
+  ! *(one + amplitude*pert(ixGmin1:ixGmax1, i))
 
 
   ! rbs = (xprobmin1+xprobmax1)*0.25d0
@@ -263,12 +263,12 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
       w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,rho_)/w(ixGmin1:ixGmax1,&
          i-2,rho_) *(w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,&
          r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
-      do j = ixGmin1,ixGmax1
-        w(j,i,r_e) = min(w(j,i,r_e),w(j,i-1,r_e))
-      enddo
+      ! do j = ixGmin1,ixGmax1
+      !   w(j,i,r_e) = min(w(j,i,r_e),w(j,i-1,r_e))
+      ! enddo
     enddo
 
-    mg_val4 = sum(w(:,ixBmin2,r_e))/(ixGmax1 - ixGmin1)
+    ! mg_val4 = sum(w(:,ixBmin2,r_e))/(ixGmax1 - ixGmin1)
 
   case default
     call mpistop('boundary not known')
@@ -288,9 +288,9 @@ subroutine mg_boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
 
   double precision :: grad4
 
-  grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2-1,r_e)-w(ixOmin1:ixOmax1,ixOmax2-2,&
-     r_e))/(x(ixOmin1:ixOmax1,ixOmax2-1,2)-x(ixOmin1:ixOmax1,ixOmax2-2,&
-     2))) / (ixOmax1-ixOmin1)
+  grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2,r_e) - w(ixOmin1:ixOmax1,ixOmax2+1,&
+      r_e)) / (x(ixOmin1:ixOmax1,ixOmax2,2) - x(ixOmin1:ixOmax1,ixOmax2+1,&
+     2)))/(ixOmax1-ixOmin1)
 
   select case (iB)
     case (1)
@@ -304,7 +304,7 @@ subroutine mg_boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
       ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
       ! mg%bc(iB, mg_iphi)%bc_value = 0.77780683570039721
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-      ! mg%bc(iB, mg_iphi)%bc_value = min(grad4,zero)
+      ! mg%bc(iB, mg_iphi)%bc_value = grad4 !min(grad4,zero)
       ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
     case default

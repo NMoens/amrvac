@@ -359,7 +359,7 @@ module mod_fld
     double precision :: rho0,Temp0,n,sigma_b
     double precision :: akram, bkram
 
-    integer :: i,j
+    integer :: i,j,ix^D
 
     select case (fld_opacity_law)
       case('const')
@@ -394,16 +394,18 @@ module mod_fld
         fld_kappa(ixO^S) = fld_kappa0 &
         * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
 
+        {do ix^D=ixOmin^D,ixOmax^D\ }
+          fld_kappa(ix^D) = min(fld_kappa(ix^D),2.d0*fld_kappa0)
+        {enddo\ }
+
       case('opal')
         call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
-        do i = ixOmin1,ixOmax1
-          do j= ixOmin2,ixOmax2
-            rho0 = w(i,j,iw_rho)*unit_density
-            Temp0 = Temp(i,j)*unit_temperature
+        {do ix^D=ixOmin^D,ixOmax^D\ }
+            rho0 = w(ix^D,iw_rho)*unit_density
+            Temp0 = Temp(ix^D)*unit_temperature
             call set_opal_opacity(rho0,Temp0,n)
-            fld_kappa(i,j) = n/unit_opacity
-          enddo
-        enddo
+            fld_kappa(ix^D) = n/unit_opacity
+        {enddo\ }
       case default
         call mpistop("Doesn't know opacity law")
       end select

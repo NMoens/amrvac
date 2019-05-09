@@ -71,6 +71,11 @@ module mod_fld
     !> Set Diffusion coefficient to unity
     logical :: fld_diff_testcase = .false.
 
+    !> Take running average for Diffusion coefficient
+    logical :: diff_coef_filter = .false.
+    integer :: size_D_filter = 1
+
+
     !> public methods
     !> these are called in mod_rhd_phys
     public :: get_fld_rad_force
@@ -99,7 +104,8 @@ module mod_fld
 
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
     fld_bisect_tol, fld_diff_testcase, fld_adi_tol, fld_max_fracdt,&
-    fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method
+    fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
+    diff_coef_filter, size_D_filter
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -564,10 +570,6 @@ module mod_fld
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
-    ! print*, w(10,nghostcells-2:nghostcells+3,iw_r_e)
-    ! print*, grad_r_e(10,nghostcells-2:nghostcells+3,2)
-    ! print*, '------------------------------------------------------------------'
-
     !> Calculate radiation pressure
     !> P = (lambda + lambda^2 R^2)*E
     f(ixO^S) = w(ixO^S,i_lambda) + w(ixO^S, i_lambda)**two * w(ixO^S, i_fld_R)**two
@@ -653,7 +655,7 @@ module mod_fld
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
     double precision :: max_D(ixI^S), grad_r_e(ixI^S), rad_e(ixI^S)
-    integer :: idir,i,j
+    integer :: idir,i,j, ix^D
 
     if (fld_diff_testcase) then
       w(ixI^S,i_diff_mg) = one/(unit_length*unit_velocity)
@@ -670,22 +672,60 @@ module mod_fld
         w(ixImax1-nghostcells+1:ixImin1,i,i_diff_mg) = w(ixImax1-nghostcells,i,i_diff_mg)
       enddo
 
-
       !> Check if energy doesn't go faster than speed of light
       !for simplicity, only in direction 2
       rad_e(ixI^S) = w(ixI^S,iw_r_e)
       call gradient(rad_e,ixI^L,ixO^L,2,grad_r_e)
       max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
 
-      do i = ixOmin1,ixOmax1
-        do j = ixOmin2,ixOmax2
+      {do ix^D = ixOmin^D,ixOmax^D\}
           ! call mpistop('You have reached maximal D, the D is too big')
           w(i,j,i_diff_mg) = min(w(i,j,i_diff_mg), max_D(i,j))
-        enddo
-      enddo
+      {enddo\}
 
+      if (diff_coef_filter) then
+        call mpistop('Hold your bloody horses, not implemented yet ')
+        call fld_smooth_diffcoef(w, ixI^L, ixO^L)
+      endif
     endif
   end subroutine fld_get_diffcoef_central
+
+  !> Filter peaks in cmax due to radiation energy density
+  subroutine fld_smooth_diffcoef(w, ixI^L, ixO^L)
+    use mod_global_parameters
+
+    integer, intent(in)                       :: ixI^L, ixO^L
+    double precision, intent(inout)           :: w(ixI^S, 1:nw)
+
+    double precision :: tmp_D(ixI^S), filtered_D(ixO^S)
+    integer :: ix^D, filter, idim
+
+    if (size_D_filter .lt. 1) call mpistop("D filter of size < 1 makes no sense")
+    if (size_D_filter .gt. nghostcells) call mpistop("D filter of size < nghostcells makes no sense")
+
+    tmp_D(ixI^S) = w(ixI^S,i_diff_mg)
+    filtered_D(ixI^S) = zero
+
+    do filter = 1,size_D_filter
+      {do ix^D = ixOmin^D+size_D_filter,ixOmax^D-size_D_filter\}
+        do idim = 1,ndim
+          filtered_D(ix^D) = filtered_D(ix^D) &
+                           + tmp_D(ix^D+filter*kr(idim,^D)) &
+                           - tmp_D(ix^D-filter*kr(idim,^D))
+        enddo
+      {enddo\}
+    enddo
+
+    w(ixO^S,i_diff_mg) = (tmp_D(ixO^S)+filtered_D(ixO^S))/(1+2*size_D_filter*ndim)
+
+    print*, '############################################3'
+    print*, '############################################3'
+    print*, '############################################3'
+    print*, '############################################3'
+    print*, '############################################3'
+    print*, '############################################3'
+  end subroutine fld_smooth_diffcoef
+
 
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()

@@ -84,4 +84,5 @@
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Minerbo'
+  diff_coef_filter = .true.
   /

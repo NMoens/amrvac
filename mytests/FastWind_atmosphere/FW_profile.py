@@ -81,8 +81,8 @@ plt.ylabel('Detla_T')
 
 
 plt.figure()
-plt.semilogy(y_rel,Gamma,'o')
-plt.semilogy(y_rel,Gamma_e,'o')
+plt.plot(y_rel,Gamma,'o')
+plt.plot(y_rel,Gamma_e,'o')
 plt.ylabel('Gamma')
 # plt.ylim([rho[0], rho[-1]])
 

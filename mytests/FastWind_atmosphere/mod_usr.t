@@ -220,8 +220,6 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac,.false.)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac,.false.)
 
-
-
   select case (iB)
 
   case(3)

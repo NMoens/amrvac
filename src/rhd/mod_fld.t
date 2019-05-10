@@ -197,7 +197,6 @@ module mod_fld
     if ((fld_opacity_law .eq. 'thomson') .or. (fld_opacity_law .eq. 'fastwind'))  then
       sigma_thomson = 6.6524585d-25
       fld_kappa0 = sigma_thomson/const_mp * (1.+2.*He_abundance)/(1.+4.*He_abundance)
-      print*, fld_kappa0
       fld_kappa0 = fld_kappa0/unit_opacity
     endif
   end subroutine fld_init
@@ -351,7 +350,7 @@ module mod_fld
       end if
 
       !> Set Diffcoef for next timestep?
-      call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
+      ! call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
   end subroutine get_fld_diffusion
 
   !> Sets the opacity in the w-array
@@ -406,8 +405,11 @@ module mod_fld
         fld_kappa(ixO^S) = fld_kappa0 &
         * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
 
+        {do ix^D=ixOmin^D,ixOmax^D\ }
+          fld_kappa(ix^D) = min(fld_kappa(ix^D),2.d0*fld_kappa0)
+        {enddo\ }
+
       case('opal')
-        !call mpistop("Not implemented yet, hold your bloody horses")
         call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
         {do ix^D=ixOmin^D,ixOmax^D\ }
             rho0 = w(ix^D,iw_rho)*unit_density
@@ -593,10 +595,6 @@ module mod_fld
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
-    ! print*, w(10,nghostcells-2:nghostcells+3,iw_r_e)
-    ! print*, grad_r_e(10,nghostcells-2:nghostcells+3,2)
-    ! print*, '------------------------------------------------------------------'
-
     !> Calculate radiation pressure
     !> P = (lambda + lambda^2 R^2)*E
     f(ixO^S) = w(ixO^S,i_lambda) + w(ixO^S, i_lambda)**two * w(ixO^S, i_fld_R)**two
@@ -685,7 +683,6 @@ module mod_fld
 
     if (fld_diff_testcase) then
       w(ixI^S,i_diff_mg) = one/(unit_length*unit_velocity)
-      print*, it,w(10,10,i_diff_mg)
 
     else
       !> calculate diffusion coefficient
@@ -711,8 +708,6 @@ module mod_fld
       {do ix^D=ixOmin^D,ixOmax^D\ }
           w(ix^D,i_diff_mg) = min(w(ix^D,i_diff_mg), max_D(ix^D))
       {enddo\ }
-
-
     endif
   end subroutine fld_get_diffcoef_central
 
@@ -751,8 +746,9 @@ module mod_fld
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
           mg%bc(iB, mg_iphi)%bc_value = val3
         case (4)
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          mg%bc(iB, mg_iphi)%bc_value = grad4
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          ! mg%bc(iB, mg_iphi)%bc_value = grad4
         case default
           print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
           error stop "You have to set a user-defined boundary method"
@@ -1004,12 +1000,7 @@ module mod_fld
     integer :: idir,i,j
 
     if (fld_diff_testcase) then
-      !dE/dt + D dE/dx2
-      ! [D] = x2/t = [v*l]
-
       D(ixI^S,1:ndim) = one/(unit_length*unit_velocity)
-
-
     else
       !> calculate diffusion coefficient
       D_center(ixO^S) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
@@ -1452,10 +1443,6 @@ module mod_fld
 
       n = n +1
       if (n .gt. max_its) then
-        !print*, 'Bisection tolerance not reached'
-        !print*, 'relative error ~', abs(bisect_b-bisect_a)/min(e_gas,E_rad)
-        ! bisect_a = bisect_c
-        ! bisect_b = bisect_c
         goto 2435
         call mpistop('No convergece in bisection scheme')
       endif

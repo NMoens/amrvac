@@ -1311,7 +1311,7 @@ module mod_fld
     double precision :: e_gas(ixO^S), E_rad(ixO^S)
     double precision :: grad_v(ixI^S)
 
-    integer :: i,j,idir
+    integer :: i,j,idir,ix^D
 
     !> calculate tensor div_v
     do i = 1,ndim
@@ -1347,20 +1347,18 @@ module mod_fld
 
 
     !> Loop over every cell for bisection method
-    do i = ixOmin1,ixOmax1
-    do j =  ixOmin2,ixOmax2
+    {do ix^D=ixOmin^D,ixOmax^D\ }
       select case(fld_interaction_method)
       case('Bisect')
-        call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+        call Bisection_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
       case('Newton')
-        call Newton_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+        call Newton_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
       case('Halley')
-        call Halley_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
+        call Halley_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
       case default
         call mpistop('root-method not known')
       end select
-    enddo
-    enddo
+    {enddo\}
 
     !> Update gas-energy in w
     w(ixO^S,iw_e) = e_gas(ixO^S)

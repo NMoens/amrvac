@@ -113,6 +113,8 @@ subroutine initglobaldata_usr
   unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*kB_cgs*unit_temperature
   unit_velocity=dsqrt(unit_pressure/unit_density)
   unit_time=unit_length/unit_velocity
+  unit_radflux = unit_velocity*unit_pressure
+  unit_opacity = one/(unit_density*unit_length)
 
   !> Make input dimensionless:
   y_FW = y_FW/unit_length

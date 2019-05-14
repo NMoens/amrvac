@@ -541,8 +541,6 @@ module mod_fld
     else
       w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
     endif
-
-
   end subroutine fld_get_radflux
 
   !> Calculate Eddington-tensor

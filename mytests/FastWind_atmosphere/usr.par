@@ -13,8 +13,8 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat     = 100
-   ditsave_log     = 100
+   !ditsave_dat     = 100
+   !ditsave_log     = 100
    dtsave_dat     = 5.d-1
    dtsave_log     = 5.d-2
 /
@@ -74,6 +74,8 @@
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
+  radio_acoustic_filter = .true.
+  size_ra_filter = 2
  /
 
  &fld_list
@@ -82,4 +84,6 @@
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Minerbo'
+  !diff_coef_filter = .false.
+  !size_D_filter = 1
   /

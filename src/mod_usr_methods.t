@@ -13,7 +13,7 @@ module mod_usr_methods
 
   ! Boundary condition related
   procedure(special_bc), pointer      :: usr_special_bc       => null()
-  procedure(radiation_bc), pointer    :: usr_radiation_bc     => null()
+  procedure(special_mg_bc), pointer    :: usr_special_mg_bc     => null()
   procedure(internal_bc), pointer     :: usr_internal_bc      => null()
 
   ! Output related
@@ -94,13 +94,12 @@ module mod_usr_methods
      !> Special boundary type for radiation hydrodynamics module, only used to
      !> set the boundary conditions for the radiation energy. Called every
      !> pseudo-timestep before every half step in the ADI flux_scheme
-     subroutine radiation_bc(qt,ixI^L,iB,w,w_rad,x)
+     subroutine special_mg_bc(qt,ixI^L,ixO^L,iB,w,x)
        use mod_global_parameters
-       integer, intent(in)             :: ixI^L, iB
+       integer, intent(in)             :: ixI^L, ixO^L, iB
        double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
        double precision, intent(in)    :: w(ixI^S,1:nw)
-       double precision, intent(out)   :: w_rad(ixI^S)
-     end subroutine radiation_bc
+     end subroutine special_mg_bc
 
      !> internal boundary, user defined
      !

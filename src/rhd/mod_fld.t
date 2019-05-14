@@ -71,8 +71,13 @@ module mod_fld
     !> Set Diffusion coefficient to unity
     logical :: fld_diff_testcase = .false.
 
+    !> Take running average for Diffusion coefficient
+    logical :: diff_coef_filter = .false.
+    integer :: size_D_filter = 1
+
+
     !> public methods
-    !> these are called in mod_hd_phys
+    !> these are called in mod_rhd_phys
     public :: get_fld_rad_force
     public :: get_fld_energy_interact
     public :: get_fld_diffusion
@@ -99,7 +104,8 @@ module mod_fld
 
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
     fld_bisect_tol, fld_diff_testcase, fld_adi_tol, fld_max_fracdt,&
-    fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method
+    fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
+    diff_coef_filter, size_D_filter
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -115,7 +121,7 @@ module mod_fld
   !> Add extra variables to w-array, flux, kappa, eddington Tensor
   !> Lambda and R
   !> ...
-  subroutine fld_init(He_abundance)
+  subroutine fld_init(He_abundance, rhd_radiation_diffusion)
     use mod_global_parameters
     use mod_variables
     use mod_physics, only: phys_global_source
@@ -123,6 +129,7 @@ module mod_fld
     use mod_multigrid_coupling, only: mg_copy_boundary_conditions
 
     double precision, intent(in) :: He_abundance
+    logical, intent(in) :: rhd_radiation_diffusion
     double precision :: sigma_thomson
     integer :: idir,jdir
 
@@ -163,17 +170,21 @@ module mod_fld
       enddo
     enddo
 
-    if (fld_diff_scheme .eq. 'mg') then
+    if (rhd_radiation_diffusion) then
+      if (fld_diff_scheme .eq. 'mg') then
 
-      use_multigrid = .true.
+        use_multigrid = .true.
 
-      phys_global_source => Diffuse_E_rad_mg
-      mg_after_new_tree => set_mg_diffcoef
+        !if (rhd_radiation_diffusion) then
+          phys_global_source => Diffuse_E_rad_mg
+        !endif
+        mg_after_new_tree => set_mg_diffcoef
 
-      mg%n_extra_vars = 1
-      mg%operator_type = mg_vhelmholtz
+        mg%n_extra_vars = 1
+        mg%operator_type = mg_vhelmholtz
 
-      i_diff_mg = var_set_extravar("D", "D")
+        i_diff_mg = var_set_extravar("D", "D")
+      endif
     endif
 
     !> Check if fld_numdt is not 1
@@ -210,9 +221,6 @@ module mod_fld
     double precision, intent(inout) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
-    double precision :: val3,grad4
-    !> Maybe call boundary
-
     call fld_get_opacity(w, x, ixI^L, ixO^L)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
     call fld_get_radflux(w, x, ixI^L, ixO^L)
@@ -220,16 +228,7 @@ module mod_fld
 
     if (fld_diff_scheme .eq. 'mg') then
       call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
-
-      val3 = 7.6447315544263788
-      grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
-      / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1-ixOmin1)
-      ! grad4 = sum(w(ixOmin1:ixOmax1,ixOmax2, i_flux(2))*w(ixOmin1:ixOmax1,ixOmax2, i_op) &
-      ! *w(ixOmin1:ixOmax1,ixOmax2, iw_rho)&
-      ! /(w(ixOmin1:ixOmax1,ixOmax2, i_lambda)*fld_speedofligt_0))/(ixOmax1-ixOmin1)
-
-
-      call set_mg_bounds(val3,grad4)
+      call set_mg_bounds(w, x, ixI^L, ixO^L)
     endif
   end subroutine get_rad_extravars
 
@@ -309,6 +308,9 @@ module mod_fld
     use mod_global_parameters
     use mod_usr_methods
     use mod_physics
+    use mod_multigrid_coupling
+    use m_diffusion
+    use mpi
 
     use mod_physics, only: phys_get_pthermal  !needed to get temp
 
@@ -320,7 +322,6 @@ module mod_fld
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
 
-    double precision :: grad4, val3
 
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
@@ -330,27 +331,15 @@ module mod_fld
       case('adi')
         call Evolve_E_rad(w, x, ixI^L, ixO^L)
       case('mg')
-        !> Do nothing OR CHECK WHAT IS ALREADY DONE BY POINTING
         call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
-        call set_mg_diffcoef()
+        call set_mg_bounds(w, x, ixI^L, ixO^L)
 
-        val3 = 7.6447315544263788
-        grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2, iw_r_e) - w(ixOmin1:ixOmax1,ixOmax2 + 1, iw_r_e)) &
-        / (x(ixOmin1:ixOmax1,ixOmax2, 2) - x(ixOmin1:ixOmax1,ixOmax2 + 1, 2)))/(ixOmax1/ixOmin1)
-        ! grad4 = sum(w(ixOmin1:ixOmax1,ixOmax2, i_flux(2))*w(ixOmin1:ixOmax1,ixOmax2, i_op) &
-        ! *w(ixOmin1:ixOmax1,ixOmax2, iw_rho)&
-        ! /(w(ixOmin1:ixOmax1,ixOmax2, i_lambda)*fld_speedofligt_0))/(ixOmax1-ixOmin1)
+        active = .true.
 
-
-        call set_mg_bounds(val3, grad4)
-        call phys_global_source(dt, global_time, active)
       case default
         call mpistop('Numerical diffusionscheme unknown, try adi or mg')
       end select
       end if
-
-      !> Set Diffcoef for next timestep?
-      ! call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
   end subroutine get_fld_diffusion
 
   !> Sets the opacity in the w-array
@@ -370,7 +359,7 @@ module mod_fld
     double precision :: rho0,Temp0,n,sigma_b
     double precision :: akram, bkram
 
-    integer :: i,j, ix^D
+    integer :: i,j,ix^D
 
     select case (fld_opacity_law)
       case('const')
@@ -417,11 +406,6 @@ module mod_fld
             call set_opal_opacity(rho0,Temp0,n)
             fld_kappa(ix^D) = n/unit_opacity
         {enddo\ }
-      case('special')
-        if (.not. associated(usr_special_opacity)) then
-          call mpistop("special opacity not defined")
-        endif
-        call usr_special_opacity(ixI^L, ixO^L, w, x, fld_kappa)
       case default
         call mpistop("Doesn't know opacity law")
       end select
@@ -543,7 +527,7 @@ module mod_fld
     double precision :: L_star, R_star
     double precision :: grad_r_e(ixI^S)
     double precision :: rad_e(ixI^S)
-    integer :: idir
+    integer :: ix^D, idir
 
     rad_e(ixI^S) = w(ixI^S, iw_r_e)
 
@@ -555,17 +539,15 @@ module mod_fld
       rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
 
-    w(ixI^S,i_test) = grad_r_e(ixI^S)
-
-    !>CHEATY BIT:
-    ! rad_flux(ixImin1:ixImax1,ixOmin2,2) = rad_flux(ixImin1:ixImax1,ixOmin2+1,2)
-    ! rad_flux(ixImin1:ixImax1,ixOmax2,2) = rad_flux(ixImin1:ixImax1,ixOmax2-1,2)
-
-    w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
-    !
-    ! w(:,ixOmin2,i_flux(2)) = w(:,ixOmin2 + 1,i_flux(2))
-    ! w(:,ixOmax2,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
-    ! w(:,ixOmax2-1,i_flux(2)) = w(:,ixOmax2-2,i_flux(2))
+    if (fld_fluxlimiter .eq. 'Diffusion') then
+    {do ix^D=ixImin^D,ixImax^D\ }
+      do idir = 1,ndir
+        w(ix^D,i_flux(idir)) = min(rad_flux(ix^D,idir),fld_speedofligt_0*w(ix^D,iw_r_e))
+      enddo
+    {enddo\}
+    else
+      w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
+    endif
   end subroutine fld_get_radflux
 
   !> Calculate Eddington-tensor
@@ -663,6 +645,7 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res
 
+    ! print*, it, 'Diffusing'
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
     call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
@@ -683,7 +666,6 @@ module mod_fld
 
     if (fld_diff_testcase) then
       w(ixI^S,i_diff_mg) = one/(unit_length*unit_velocity)
-
     else
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
@@ -698,18 +680,60 @@ module mod_fld
         w(ixImax1-nghostcells+1:ixImin1,i,i_diff_mg) = w(ixImax1-nghostcells,i,i_diff_mg)
       enddo
 
-
       !> Check if energy doesn't go faster than speed of light
       !for simplicity, only in direction 2
       rad_e(ixI^S) = w(ixI^S,iw_r_e)
       call gradient(rad_e,ixI^L,ixO^L,2,grad_r_e)
       max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
 
-      {do ix^D=ixOmin^D,ixOmax^D\ }
-          w(ix^D,i_diff_mg) = min(w(ix^D,i_diff_mg), max_D(ix^D))
-      {enddo\ }
+      {do ix^D = ixOmin^D,ixOmax^D\}
+          ! call mpistop('You have reached maximal D, the D is too big')
+          w(i,j,i_diff_mg) = min(w(i,j,i_diff_mg), max_D(i,j))
+      {enddo\}
+
+      if (diff_coef_filter) then
+        call mpistop('Hold your bloody horses, not implemented yet ')
+        call fld_smooth_diffcoef(w, ixI^L, ixO^L)
+      endif
     endif
   end subroutine fld_get_diffcoef_central
+
+  !> Filter peaks in cmax due to radiation energy density
+  subroutine fld_smooth_diffcoef(w, ixI^L, ixO^L)
+    use mod_global_parameters
+
+    integer, intent(in)                       :: ixI^L, ixO^L
+    double precision, intent(inout)           :: w(ixI^S, 1:nw)
+
+    double precision :: tmp_D(ixI^S), filtered_D(ixO^S)
+    integer :: ix^D, filter, idim
+
+    if (size_D_filter .lt. 1) call mpistop("D filter of size < 1 makes no sense")
+    if (size_D_filter .gt. nghostcells) call mpistop("D filter of size < nghostcells makes no sense")
+
+    tmp_D(ixI^S) = w(ixI^S,i_diff_mg)
+    filtered_D(ixI^S) = zero
+
+    do filter = 1,size_D_filter
+      {do ix^D = ixOmin^D+size_D_filter,ixOmax^D-size_D_filter\}
+        do idim = 1,ndim
+          filtered_D(ix^D) = filtered_D(ix^D) &
+                           + tmp_D(ix^D+filter*kr(idim,^D)) &
+                           - tmp_D(ix^D-filter*kr(idim,^D))
+        enddo
+      {enddo\}
+    enddo
+
+    w(ixO^S,i_diff_mg) = (tmp_D(ixO^S)+filtered_D(ixO^S))/(1+2*size_D_filter*ndim)
+
+    print*, '############################################3'
+    print*, '############################################3'
+    print*, '############################################3'
+    print*, '############################################3'
+    print*, '############################################3'
+    print*, '############################################3'
+  end subroutine fld_smooth_diffcoef
+
 
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
@@ -717,11 +741,15 @@ module mod_fld
   end subroutine set_mg_diffcoef
 
   !> Sets boundary conditions for multigrid, based on hydro-bounds
-  subroutine set_mg_bounds(val3,grad4)
+  subroutine set_mg_bounds(w, x, ixI^L, ixO^L)
     use mod_global_parameters
-    integer :: iB
+    use mod_usr_methods
 
-    double precision, intent(in) :: val3, grad4
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+
+    integer :: iB
 
     do iB = 1,2*ndim
       select case (typeboundary(iw_r_e, iB))
@@ -736,23 +764,10 @@ module mod_fld
       case ('periodic')
         !> Do nothing
       case ('special')
-        !call mpistop('Hold your bloody horses, not implemented yet.')
-        select case (iB)
-        case (1)
-           mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        case (2)
-           mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        case (3)
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-          mg%bc(iB, mg_iphi)%bc_value = val3
-        case (4)
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          ! mg%bc(iB, mg_iphi)%bc_value = grad4
-        case default
-          print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
-          error stop "You have to set a user-defined boundary method"
-        end select
+
+        if (.not. associated(usr_special_mg_bc)) call mpistop("Set special mg bound")
+        call usr_special_mg_bc(global_time,ixI^L,ixO^L,iB,w,x)
+
       case default
          print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
          error stop "You have to set a user-defined boundary method"
@@ -1170,7 +1185,6 @@ module mod_fld
   !> Perform boundary conditions to the tridiagonal matrix
   subroutine ADI_boundary_conditions(ixI^L,ixO^L,E_m,w,x)
     use mod_global_parameters
-    use mod_usr_methods, only: usr_radiation_bc
 
     integer, intent(in) :: ixI^L,ixO^L
     double precision, intent(in) :: w(ixI^S,1:nw),x(ixI^S,1:ndim)
@@ -1199,10 +1213,7 @@ module mod_fld
     case('fixed')
       E_m(ixImin1:ixImin1+nghostcells-1,:) = w(ixImin1:ixImin1+nghostcells-1,:,iw_r_e)
     case('special')
-      if (.not. associated(usr_radiation_bc)) then
-        call mpistop("special ADI boundary not defined")
-      endif
-      call usr_radiation_bc(global_time,ixI^L,1,w,E_m,x)
+      call mpistop("Special adi not existing anymore")
     case default
       call mpistop("ADI boundary not defined")
     end select
@@ -1218,10 +1229,8 @@ module mod_fld
     case('fixed')
       E_m(ixOmax1+1:ixImax1,:) = w(ixOmax1+1:ixImax1,:,iw_r_e)
     case('special')
-      if (.not. associated(usr_radiation_bc)) then
-        call mpistop("special ADI boundary not defined")
-      endif
-      call usr_radiation_bc(global_time,ixI^L,2,w,E_m,x)
+      call mpistop("Special adi not existing anymore")
+
     case default
       call mpistop("ADI boundary not defined")
     end select
@@ -1237,10 +1246,8 @@ module mod_fld
     case('fixed')
       E_m(:,ixImin2:ixImin2+nghostcells-1) = w(:,ixImin2:ixImin2+nghostcells-1,iw_r_e)
     case('special')
-      if (.not. associated(usr_radiation_bc)) then
-        call mpistop("special ADI boundary not defined")
-      endif
-      call usr_radiation_bc(global_time,ixI^L,3,w,E_m,x)
+      call mpistop("Special adi not existing anymore")
+
     case default
       call mpistop("ADI boundary not defined")
     end select
@@ -1263,10 +1270,8 @@ module mod_fld
     case('fixed')
       E_m(:,ixImax2-nghostcells+1:ixImax2) = w(:,ixImax2-nghostcells+1:ixImax2,iw_r_e)
     case('special')
-      if (.not. associated(usr_radiation_bc)) then
-        call mpistop("special ADI boundary not defined")
-      endif
-      call usr_radiation_bc(global_time,ixI^L,4,w,E_m,x)
+      call mpistop("Special adi not existing anymore")
+
     case default
       call mpistop("ADI boundary not defined")
     end select
@@ -1307,7 +1312,7 @@ module mod_fld
     double precision :: e_gas(ixO^S), E_rad(ixO^S)
     double precision :: grad_v(ixI^S)
 
-    integer :: ix^D,i,j,idir
+    integer :: i,j,idir,ix^D
 
     !> calculate tensor div_v
     do i = 1,ndim
@@ -1359,48 +1364,20 @@ module mod_fld
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !! Dimensionless notation for do loop with LASY:
-
-    {do ix^D=ixOmin^D,ixOmax^D\ }
-    select case(fld_interaction_method)
-    case('Bisect')
-      call Bisection_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
-    case('Newton')
-      call Newton_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
-    case('Halley')
-      call Halley_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
-    case default
-      call mpistop('root-method not known')
-    end select
-    {enddo\ }
-
-    ! which translates to:
-
-    ! do ix1=1,100
-    ! do ix2=1,100
-    !     a(ix1,ix2)= ix1*ix2
-    ! enddo
-    ! enddo
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !Do similar stuff for the eddington_tensor
 
     !> Loop over every cell for bisection method
-    ! do i = ixOmin1,ixOmax1
-    ! do j =  ixOmin2,ixOmax2
-    !   select case(fld_interaction_method)
-    !   case('Bisect')
-    !     call Bisection_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
-    !   case('Newton')
-    !     call Newton_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
-    !   case('Halley')
-    !     call Halley_method(e_gas(i,j), E_rad(i,j), c0(i,j), c1(i,j))
-    !   case default
-    !     call mpistop('root-method not known')
-    !   end select
-    ! enddo
-    ! enddo
+    {do ix^D=ixOmin^D,ixOmax^D\ }
+      select case(fld_interaction_method)
+      case('Bisect')
+        call Bisection_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
+      case('Newton')
+        call Newton_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
+      case('Halley')
+        call Halley_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
+      case default
+        call mpistop('root-method not known')
+      end select
+    {enddo\}
 
     !> Update gas-energy in w
     w(ixO^S,iw_e) = e_gas(ixO^S)
@@ -1488,9 +1465,6 @@ module mod_fld
         endif
 
         goto 2435
-
-
-
 
       endif
     enddo

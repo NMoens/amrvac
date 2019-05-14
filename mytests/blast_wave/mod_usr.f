@@ -45,12 +45,13 @@ contains
     double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: local_rad_e
 
-
-    print*, 'unit_length',unit_length
-    print*, 'unit_velocity',unit_velocity
-    print*, 'unit_density',unit_density
-    print*, 'unit_pressure',unit_pressure
-    print*, 'unit_flux',unit_radflux
+    if (mype .eq. 0) then
+      print*, 'unit_length',unit_length
+      print*, 'unit_velocity',unit_velocity
+      print*, 'unit_density',unit_density
+      print*, 'unit_pressure',unit_pressure
+      print*, 'unit_flux',unit_radflux
+    endif
 
     w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = one
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = zero

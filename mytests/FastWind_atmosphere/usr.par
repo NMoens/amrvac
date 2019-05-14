@@ -4,6 +4,7 @@
 
 &filelist
   base_filename='./output/const'
+  !restart_from_file = './output/const0006.dat'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
@@ -13,10 +14,10 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   !ditsave_dat     = 1
-   !ditsave_log     = 1
-   dtsave_dat     = 2.5d-1
-   dtsave_log     = 2.5d-2
+   !ditsave_dat     = 100
+   !ditsave_log     = 100
+   dtsave_dat     = 1.d-1
+   !dtsave_log     = 5.d-2
 /
 
  &stoplist
@@ -40,7 +41,7 @@
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 'special','cont','cont','special','special'
-  typeboundary_max2 = 4*'noinflow','special'
+  typeboundary_max2 = 'cont',3*'noinflow','special'
   internalboundary = F
 /
 
@@ -61,7 +62,7 @@
 
  &paramlist
   courantpar       = 0.1d0
-  !dtpar           = 1d-8
+  !dtpar           = 1d-5
  /
 
  &rhd_list
@@ -74,6 +75,8 @@
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
+  radio_acoustic_filter = .true.
+  size_ra_filter = 2
  /
 
  &fld_list
@@ -82,4 +85,6 @@
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Minerbo'
+  !diff_coef_filter = .false.
+  !size_D_filter = 1
   /

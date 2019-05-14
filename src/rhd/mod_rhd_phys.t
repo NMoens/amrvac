@@ -1,4 +1,4 @@
-!> Hydrodynamics physics module
+!> RadiatHydrodynamics physics module
 module mod_rhd_phys
 
   implicit none
@@ -76,6 +76,10 @@ module mod_rhd_phys
   !> Treat radiation advection
   logical, public, protected :: rhd_radiation_advection = .true.
 
+  !> Do a running mean over the radiation pressure when determining dt
+  logical, protected :: radio_acoustic_filter = .false.
+  integer, protected :: size_ra_filter = 1
+
 
   ! Public methods
   public :: rhd_phys_init
@@ -99,7 +103,8 @@ contains
     namelist /rhd_list/ rhd_energy, rhd_n_tracer, rhd_gamma, rhd_adiab, &
     rhd_dust, rhd_thermal_conduction, rhd_radiative_cooling, rhd_viscosity, &
     rhd_gravity, He_abundance, SI_unit, rhd_particles, rhd_radiation_formalism,&
-    rhd_radiation_force, rhd_energy_interact, rhd_radiation_diffusion, rhd_radiation_advection
+    rhd_radiation_force, rhd_energy_interact, rhd_radiation_diffusion, &
+    rhd_radiation_advection, radio_acoustic_filter, size_ra_filter
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -252,7 +257,7 @@ contains
 
     select case (rhd_radiation_formalism)
     case('fld')
-      call fld_init(He_abundance)
+      call fld_init(He_abundance, rhd_radiation_diffusion)
     case default
       call mpistop('Radiation formalism unknown')
     end select
@@ -505,7 +510,6 @@ contains
     call rhd_get_v(w, x, ixI^L, ixO^L, idim, v)
     call rhd_get_csound2(w,x,ixI^L,ixO^L,csound)
     csound(ixO^S) = sqrt(csound(ixO^S))
-
     cmax(ixO^S) = abs(v(ixO^S))+csound(ixO^S)
 
     if (rhd_dust) then
@@ -650,20 +654,51 @@ contains
     double precision             :: prad_tensor(ixO^S, 1:ndim, 1:ndim)
     double precision             :: prad_max(ixO^S)
     double precision, intent(out):: ptot(ixI^S)
-    integer :: i,j
+    integer :: ix^D
 
     call rhd_get_pthermal(w, x, ixI^L, ixO^L, pth)
     call rhd_get_pradiation(w, x, ixI^L, ixO^L, prad_tensor)
 
-    do i = ixOmin1,ixOmax1
-      do j = ixOmin2,ixOmax2
-        prad_max(i,j) = maxval(prad_tensor(i,j,:,:))
-      enddo
-    enddo
+    {do ix^D = ixOmin^D,ixOmax^D\}
+      prad_max(ix^D) = maxval(prad_tensor(ix^D,:,:))
+    {enddo\}
+
+    !> filter cmax
+    if (radio_acoustic_filter) then
+      call rhd_radio_acoustic_filter(x, ixI^L, ixO^L, prad_max)
+    endif
 
     ptot(ixO^S) = pth(ixO^S) + prad_max(ixO^S)
 
   end subroutine rhd_get_ptot
+
+  !> Filter peaks in cmax due to radiation energy density
+  subroutine rhd_radio_acoustic_filter(x, ixI^L, ixO^L, prad_max)
+    use mod_global_parameters
+
+    integer, intent(in)                       :: ixI^L, ixO^L
+    double precision, intent(in)              :: x(ixI^S, 1:ndim)
+    double precision, intent(inout)           :: prad_max(ixO^S)
+
+    double precision :: tmp_prad(ixI^S)
+    integer :: ix^D, filter, idim
+
+    if (size_ra_filter .lt. 1) call mpistop("ra filter of size < 1 makes no sense")
+    if (size_ra_filter .gt. nghostcells) call mpistop("ra filter of size < nghostcells makes no sense")
+
+    tmp_prad(ixI^S) = zero
+    tmp_prad(ixO^S) = prad_max(ixO^S)
+
+    do filter = 1,size_ra_filter
+      do idim = 1,ndim
+        ! {do ix^D = ixOmin^D+filter,ixOmax^D-filter\}
+        {do ix^D = ixOmin^D,ixOmax^D\}
+            prad_max(ix^D) = min(tmp_prad(ix^D),tmp_prad(ix^D+filter*kr(idim,^D)))
+            prad_max(ix^D) = min(tmp_prad(ix^D),tmp_prad(ix^D-filter*kr(idim,^D)))
+        {enddo\}
+      enddo
+    enddo
+  end subroutine rhd_radio_acoustic_filter
 
   !> Calculates gas temperature
   subroutine rhd_get_tgas(w, x, ixI^L, ixO^L, tgas)
@@ -679,7 +714,6 @@ contains
 
     call rhd_get_pthermal(w, x, ixI^L, ixO^L, pth)
 
-    !mu = (1.d0+4.d0*He_abundance)/two
     mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
 
     tgas(ixI^S) = pth(ixI^S)/w(ixI^S,rho_)*const_mp*mu/const_kB &
@@ -991,6 +1025,8 @@ contains
     logical, intent(in) :: qsourcesplit
     logical, intent(inout) :: active
 
+    double precision :: cmax(ixI^S)
+
     !> Update opacities, flux limiter and radiation fluxes
     call fld_get_opacity(w, x, ixI^L, ixO^L)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
@@ -1016,6 +1052,10 @@ contains
     case default
       call mpistop('Radiation formalism unknown')
     end select
+
+    call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
+    w(ixI^S,i_test) = cmax(ixI^S)
+
 
   end subroutine rhd_add_radiation_source
 

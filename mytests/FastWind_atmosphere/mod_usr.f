@@ -30,6 +30,8 @@ implicit none
   double precision :: rstar
   double precision :: mstar
 
+  double precision :: mg_val4
+
 contains
 
 !> This routine should set user methods, and activate the physics module
@@ -48,6 +50,8 @@ subroutine usr_init()
 
   ! Routine for setting special boundary conditions
   usr_special_bc => boundary_conditions
+  usr_special_mg_bc => mg_boundary_conditions
+
 
   ! Graviatational field
   usr_gravity => set_gravitation_field
@@ -136,6 +140,7 @@ subroutine initglobaldata_usr
     print*, 'unit_radflux', unit_radflux
     print*, 'unit_opacity', unit_opacity
     print*, 'unit_time', unit_time
+    print*, 'unit_velocity', unit_velocity
 
     print*, minval(y_FW), xprobmin2
     print*, maxval(y_FW), xprobmax2
@@ -168,6 +173,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
 
   double precision :: pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2), amplitude
   integer :: i
+  double precision :: rbs, xc1,xc2
 
   x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac,.false.)
@@ -189,13 +195,20 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   enddo
 
 
-  !> perturb rho
-  amplitude = 0.00d0
-  call RANDOM_NUMBER(pert)
-  do i = ixGmin2+10,ixGmax2
-    w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i,&
-        rho_)*(one + amplitude*pert(ixGmin1:ixGmax1, i))
-  enddo
+  ! !> perturb rho
+  ! amplitude = 0.00d0
+  ! call RANDOM_NUMBER(pert)
+  !
+  ! w(ixGmin1:ixGmax1, i, rho_) = w(ixGmin1:ixGmax1, i, rho_)&
+  ! *(one + amplitude*pert(ixGmin1:ixGmax1, i))
+
+
+  ! rbs = (xprobmin1+xprobmax1)*0.25d0
+  ! xc1 = (xprobmin1+xprobmax1)*0.5d0
+  ! xc2 = (xprobmin2+xprobmax2)*0.5d0
+  ! where((x(ix^S,1)-xc1)**2+(x(ix^S,2)-xc2)**2<rbs**2)
+  !   w(ix^S,rho_) = one
+  ! endwhere
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
@@ -220,7 +233,7 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
   double precision :: v_vac(ixGmin2:ixGmax2)
   double precision :: pg_vac(ixGmin2:ixGmax2)
   double precision :: er_vac(ixGmin2:ixGmax2)
-  integer :: i
+  integer :: i,j
 
   x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac,.false.)
@@ -241,26 +254,61 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
       w(ixGmin1:ixGmax1,i,r_e) = er_vac(i)
     enddo
 
-
-    ! print*, er_vac(1:5)
-
-    ! do i = nghostcells,1,-1
-    !   w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i+1,rho_)/w(ixGmin1:ixGmax1,i+2,rho_) &
-    !   *(w(ixGmin1:ixGmax1,i+1,r_e) - w(ixGmin1:ixGmax1,i+2,r_e)) + w(ixGmin1:ixGmax1,i+1,r_e)
-    ! enddo
-
   case(4)
     do i = ixBmin2,ixBmax2
       !> Conserve gradE/rho
       w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,rho_)/w(ixGmin1:ixGmax1,&
          i-2,rho_) *(w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,&
          r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
+      ! do j = ixGmin1,ixGmax1
+      !   w(j,i,r_e) = min(w(j,i,r_e),w(j,i-1,r_e))
+      ! enddo
     enddo
+
+    ! mg_val4 = sum(w(:,ixBmin2,r_e))/(ixGmax1 - ixGmin1)
 
   case default
     call mpistop('boundary not known')
   end select
 end subroutine boundary_conditions
+
+subroutine mg_boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+   ixOmin2,ixOmax1,ixOmax2,iB,w,x)
+
+  use mod_global_parameters
+
+  integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+     ixOmin2,ixOmax1,ixOmax2, iB
+  double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
+     1:ndim)
+  double precision, intent(in)    :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+
+  double precision :: grad4
+
+  grad4 = sum((w(ixOmin1:ixOmax1,ixOmax2,r_e) - w(ixOmin1:ixOmax1,ixOmax2+1,&
+      r_e)) / (x(ixOmin1:ixOmax1,ixOmax2,2) - x(ixOmin1:ixOmax1,ixOmax2+1,&
+     2)))/(ixOmax1-ixOmin1)
+
+  select case (iB)
+    case (1)
+       mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+    case (2)
+       mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+    case (3)
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+      mg%bc(iB, mg_iphi)%bc_value = 7.6447315544263788
+    case (4)
+      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+      ! mg%bc(iB, mg_iphi)%bc_value = 0.77780683570039721
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      ! mg%bc(iB, mg_iphi)%bc_value = grad4 !min(grad4,zero)
+      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
+    case default
+      print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
+      error stop "You have to set a user-defined boundary method"
+  end select
+end subroutine mg_boundary_conditions
 
 !==========================================================================================
 
@@ -319,7 +367,6 @@ subroutine time_average_values(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixImin2:ixImax2,int_m2) + w(ixImin1:ixImax1,ixImin2:ixImax2,mom(2))*dt
   w(ixImin1:ixImax1,ixImin2:ixImax2,int_t) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
      int_t) + dt
-
 end subroutine time_average_values
 
 
@@ -453,7 +500,6 @@ subroutine Interpolate(ixImin2, ixImax2, x_in, x_out, f_in, f_out, log)
 
     ! print*, x_in(low_i), x_in(up_i), x_out(i), f_in(low_i), f_in(up_i), f_out(i)
   enddo
-
 end subroutine Interpolate
 
 

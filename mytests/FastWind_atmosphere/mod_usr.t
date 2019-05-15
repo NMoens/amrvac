@@ -209,8 +209,6 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   ! endwhere
 
   call get_rad_extravars(w, x, ixG^L, ix^L)
-  ! call set_mg_bounds()
-
 
 end subroutine initial_conditions
 

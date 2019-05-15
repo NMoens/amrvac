@@ -42,6 +42,9 @@ subroutine usr_init()
 
   call set_coordinate_system("Cartesian_2D")
 
+  call initglobaldata_usr
+
+
   ! Initialize units
   usr_set_parameters => initglobaldata_usr
 
@@ -212,8 +215,6 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
-  ! call set_mg_bounds()
-
 
 end subroutine initial_conditions
 

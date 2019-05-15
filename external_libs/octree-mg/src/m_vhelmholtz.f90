@@ -30,6 +30,9 @@ contains
     mg%bc(:, mg_iveps)%bc_type = mg_bc_neumann
     mg%bc(:, mg_iveps)%bc_value = 0.0_dp
 
+    ! !> Make this pointable to a user subroutine
+    ! mg%bc(4, mg_iveps)%bc_type = mg_bc_continuous
+
     select case (mg%geometry_type)
     case (mg_cartesian)
        mg%box_op => box_vhelmh

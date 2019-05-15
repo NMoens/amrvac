@@ -395,7 +395,13 @@ module mod_fld
         * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
 
         {do ix^D=ixOmin^D,ixOmax^D\ }
-          fld_kappa(ix^D) = min(fld_kappa(ix^D),2.d0*fld_kappa0)
+          ! fld_kappa(ix^D) = min(fld_kappa(ix^D),2.3d0*fld_kappa0)
+          fld_kappa(ix^D) = fld_kappa0 &
+          * (1.d0+10.d0**akram*w(ix^D,iw_rho)*unit_density &
+          * (max(a2(ix^D),const_kB*5.9d4/(fld_mu*const_mp))/1.d12)**bkram)
+
+          ! p = a2 rho
+          ! p = kb T /mp mu rho
         {enddo\ }
 
       case('opal')

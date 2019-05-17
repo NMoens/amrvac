@@ -28,9 +28,9 @@ kappa_vac = kappa_vac*unit_opacity
 v_vac = mom_vac/rho_vac
 p_vac = (5./3.-1.)*(e_vac-0.5*v_vac*v_vac*rho_vac)
 
-mu = 0.6
-mp = 1.6e-24
-kb = 1.38e-16
+mu = 0.608
+mp = 1.6726231e-24
+kb = 1.380658e-16
 arad = 7.5646e-15
 Tg_vac = p_vac/rho_vac * (mu*mp)/kb
 
@@ -69,16 +69,15 @@ def get_rho(p,E):
 
 def get_kappa(p,E):
     rho = get_rho(p,E)
-
     speedofsound = p/rho
     kappa = kappa_0*(1.+10**akram*rho*(speedofsound/1.e12)**bkram)
     return kappa
+    # return kappa_rk[0]
 
 def get_Gamma(p,E):
     kappa = get_kappa(p,E)
     Gamma = kappa*F_rk/(grav*c)
     return Gamma
-
 
 def f_pressure(p,E):
     return -get_rho(p,E)*grav*(1-get_Gamma(p,E))
@@ -86,6 +85,15 @@ def f_pressure(p,E):
 def f_radiation(p,E):
     return -3*F_rk/c*get_kappa(p,E)*get_rho(p,E)
 
+
+rho_rk[0] = get_rho(p_rk[0],E_rk[0])
+kappa_rk[0] = get_kappa(p_rk[0],E_rk[0])
+Gamma_rk[0] = get_Gamma(p_rk[0],E_rk[0])
+T_rk[0] = (E_rk[-1]/arad)**0.25
+
+print('density', rho_rk[0], rho_vac[0])
+print('pressure', p_rk[0], p_vac[0])
+print('radiation', E_rk[0], er_vac[0])
 
 def Runge_Kutta():
     for i in range(1,len(y_rk)):
@@ -109,7 +117,7 @@ def Runge_Kutta():
         Gamma_rk.append(get_Gamma(p_rk[-1],E_rk[-1]))
         T_rk.append((E_rk[-1]/arad)**0.25)
 
-        print(y_rk[i], rho_rk[i])
+        # print(y_rk[i], rho_rk[i])
 
     return
 
@@ -134,7 +142,28 @@ def Runge_Kutta():
 Runge_Kutta()
 
 plt.figure()
-plt.plot(y_rk,E_rk,'-',label='outward RK')
-plt.plot(y_rel,er_vac,'-',label='initial conditions')
+plt.plot(y_rk,(np.array(E_rk)/arad)**0.25,'-',label='outward RK')
+plt.plot(y_rel,(np.array(er_vac)/arad)**0.25,'-',label='initial conditions')
+plt.ylabel('radiation T')
 plt.legend()
+
+plt.figure()
+plt.plot(y_rk,p_rk,'-',label='outward RK')
+plt.plot(y_rel,p_vac,'-',label='initial conditions')
+plt.ylabel('gas p')
+plt.legend()
+
+plt.figure()
+plt.plot(y_rk,rho_rk,'-',label='outward RK')
+plt.plot(y_rel,rho_vac,'-',label='initial conditions')
+plt.ylabel('gas rho')
+plt.legend()
+
+plt.figure()
+plt.plot(y_rk,kappa_rk,'-',label='outward RK')
+plt.ylabel('Opacity')
+plt.legend()
+
+
+
 plt.show()

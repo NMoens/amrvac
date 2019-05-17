@@ -714,7 +714,7 @@ contains
 
     call rhd_get_pthermal(w, x, ixI^L, ixO^L, pth)
 
-    mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
+    mu = (1.d0+4.d0*He_abundance)/(2.d0+3.d0*He_abundance)
 
     tgas(ixI^S) = pth(ixI^S)/w(ixI^S,rho_)*const_mp*mu/const_kB &
     *unit_pressure/(unit_density*unit_temperature)

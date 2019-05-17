@@ -106,7 +106,7 @@ subroutine initglobaldata_usr
   geff = const_G*mstar/rstar**2*(0.5)
 
   Heff_FW = a2_FW/geff
-  er_FW = const_rad_a*tg_FW**4
+  ! er_FW = const_rad_a*tg_FW**4
 
   !> Define units
   unit_numberdensity = rho_FW(1)/((1.d0+4.d0*He_abundance)*mp_cgs)
@@ -128,12 +128,8 @@ subroutine initglobaldata_usr
   v_FW = v_FW/unit_velocity
   tg_FW = tg_FW/unit_temperature
   pg_FW = pg_FW/unit_pressure
-  er_FW = er_FW/unit_pressure
 
   y_FW = y_FW - y_FW(1)
-  tr_FW  = (er_FW/const_rad_a*unit_pressure/unit_temperature**4)**(1.0/4.0)
-
-  ! pg_FW = kB_cgs/(mp_cgs*fld_mu)*tr_FW*rho_FW*(unit_temperature*unit_density)/unit_pressure
 
   if (mype .eq. 0) then
     print*, 'unit_length', unit_length
@@ -144,12 +140,6 @@ subroutine initglobaldata_usr
     print*, 'unit_opacity', unit_opacity
     print*, 'unit_time', unit_time
     print*, 'unit_velocity', unit_velocity
-
-    print*, minval(y_FW), xprobmin2
-    print*, maxval(y_FW), xprobmax2
-
-    ! if (minval(y_FW) .gt. xprobmin2) call mpistop("Simulation space not covered")
-    ! if (maxval(y_FW) .lt. xprobmax2) call mpistop("Simulation space not covered")
   endif
 
 end subroutine initglobaldata_usr
@@ -173,6 +163,7 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   double precision :: v_vac(ixGmin2:ixGmax2)
   double precision :: pg_vac(ixGmin2:ixGmax2)
   double precision :: er_vac(ixGmin2:ixGmax2)
+  double precision :: temp_vac(ixGmin2:ixGmax2)
 
   double precision :: pert(ixGmin1:ixGmax1,ixGmin2:ixGmax2), amplitude
   integer :: i
@@ -181,12 +172,11 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac,.false.)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, v_FW, v_vac,.false.)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac,.false.)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac,.false.)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, Tg_FW, temp_vac,.false.)
 
-
-  ! print*, er_vac(1:5)
-
+  er_vac(:) = const_rad_a*(temp_vac(:)*unit_temperature)**4.d0/unit_pressure
+  pg_vac(:) = const_kB*temp_vac(:)/(const_mp*fld_mu)*rho_vac(&
+     :)*unit_temperature*unit_density/unit_pressure
 
   do i = ixGmin1, ixGmax1
     w(i, :, rho_) = rho_vac(:)
@@ -234,13 +224,17 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
   double precision :: v_vac(ixGmin2:ixGmax2)
   double precision :: pg_vac(ixGmin2:ixGmax2)
   double precision :: er_vac(ixGmin2:ixGmax2)
+  double precision :: temp_vac(ixGmin2:ixGmax2)
   integer :: i,j
 
   x_vac(ixGmin2:ixGmax2) = x(nghostcells+1,ixGmin2:ixGmax2,2)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, rho_FW, rho_vac,.false.)
   call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, v_FW, v_vac,.false.)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, pg_FW, pg_vac,.false.)
-  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, er_FW, er_vac,.false.)
+  call Interpolate(ixGmin2, ixGmax2, y_FW, x_vac, Tg_FW, temp_vac,.false.)
+
+  er_vac = const_rad_a*(temp_vac*unit_temperature)**4.d0/unit_pressure
+  pg_vac = const_kB*temp_vac/(const_mp*fld_mu)&
+     *rho_vac*unit_temperature*unit_density/unit_pressure
 
   select case (iB)
 
@@ -301,9 +295,18 @@ subroutine mg_boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
     case (4)
       ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
       ! mg%bc(iB, mg_iphi)%bc_value = 0.77780683570039721
-      mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
       ! mg%bc(iB, mg_iphi)%bc_value = grad4 !min(grad4,zero)
       ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+
+      ! if (sum(w(ixOmin1:ixOmax1,ixOmax2,r_e)) .le. &
+      !    sum(w(ixOmin1:ixOmax1,ixOmax2+1, r_e))) then
+      !    mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      !    mg%bc(iB, mg_iphi)%bc_value = zero
+      ! else
+      !   mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+      ! endif
 
     case default
       print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))

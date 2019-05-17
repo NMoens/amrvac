@@ -193,7 +193,6 @@ module mod_fld
     !> Need mean molecular weight
     fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
 
-
     !> Dimensionless speed of light
     fld_speedofligt_0 = const_c/unit_velocity
 
@@ -395,13 +394,18 @@ module mod_fld
         * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
 
         {do ix^D=ixOmin^D,ixOmax^D\ }
+          !> Hard limit on kappa
           ! fld_kappa(ix^D) = min(fld_kappa(ix^D),2.3d0*fld_kappa0)
+
+          !> Limit kappa through T
           fld_kappa(ix^D) = fld_kappa0 &
           * (1.d0+10.d0**akram*w(ix^D,iw_rho)*unit_density &
           * (max(a2(ix^D),const_kB*5.9d4/(fld_mu*const_mp))/1.d12)**bkram)
 
-          ! p = a2 rho
-          ! p = kb T /mp mu rho
+          !> Constant kappa
+          ! fld_kappa(ix^D) = fld_kappa0 &
+          ! * (1.d0+10.d0**akram*w(ixOmin2-1,ix2,iw_rho)*unit_density &
+          ! * (max(a2(ixOmin2-1,ix2),const_kB*5.9d4/(fld_mu*const_mp))/1.d12)**bkram)
         {enddo\ }
 
       case('opal')
@@ -698,20 +702,21 @@ module mod_fld
       {enddo\}
 
       if (diff_coef_filter) then
-        call mpistop('Hold your bloody horses, not implemented yet ')
+        ! call mpistop('Hold your bloody horses, not implemented yet ')
         call fld_smooth_diffcoef(w, ixI^L, ixO^L)
+        ! print*, w(20,:,i_diff_mg)
       endif
     endif
   end subroutine fld_get_diffcoef_central
 
-  !> Filter peaks in cmax due to radiation energy density
+  !> Use running average on Diffusion coefficient
   subroutine fld_smooth_diffcoef(w, ixI^L, ixO^L)
     use mod_global_parameters
 
-    integer, intent(in)                       :: ixI^L, ixO^L
-    double precision, intent(inout)           :: w(ixI^S, 1:nw)
+    integer, intent(in) :: ixI^L, ixO^L
+    double precision, intent(inout) :: w(ixI^S, 1:nw)
 
-    double precision :: tmp_D(ixI^S), filtered_D(ixO^S)
+    double precision :: tmp_D(ixI^S), filtered_D(ixI^S)
     integer :: ix^D, filter, idim
 
     if (size_D_filter .lt. 1) call mpistop("D filter of size < 1 makes no sense")
@@ -725,19 +730,16 @@ module mod_fld
         do idim = 1,ndim
           filtered_D(ix^D) = filtered_D(ix^D) &
                            + tmp_D(ix^D+filter*kr(idim,^D)) &
-                           - tmp_D(ix^D-filter*kr(idim,^D))
+                           + tmp_D(ix^D-filter*kr(idim,^D))
         enddo
       {enddo\}
     enddo
 
-    w(ixO^S,i_diff_mg) = (tmp_D(ixO^S)+filtered_D(ixO^S))/(1+2*size_D_filter*ndim)
+    {do ix^D = ixOmin^D+size_D_filter,ixOmax^D-size_D_filter\}
+      tmp_D(ix^D) = (tmp_D(ix^D)+filtered_D(ix^D))/(1+2*size_D_filter*ndim)
+    {enddo\}
 
-    print*, '############################################3'
-    print*, '############################################3'
-    print*, '############################################3'
-    print*, '############################################3'
-    print*, '############################################3'
-    print*, '############################################3'
+    w(ixO^S,i_diff_mg) = tmp_D(ixO^S)
   end subroutine fld_smooth_diffcoef
 
 

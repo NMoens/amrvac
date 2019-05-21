@@ -86,11 +86,10 @@ contains
       call fld_get_radflux(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
          ixmin2,ixmax1,ixmax2)
 
-      if (fld_diff_scheme .eq. 'mg') then
-        call fld_get_diffcoef_central(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
-            ixmin1,ixmin2,ixmax1,ixmax2)
-        ! call set_mg_bounds()
-      endif
+      ! if (fld_diff_scheme .eq. 'mg') then
+      !   call fld_get_diffcoef_central(w, x, ixG^L, ix^L)
+      !   call set_mg_bounds()
+      ! endif
 
     end subroutine initial_conditions
 
@@ -103,7 +102,7 @@ contains
       double precision :: e0(ixGmin1:ixGmax1,ixGmin2:ixGmax2)
 
 
-      e0(ixGmin1:ixGmax1,ixGmin2:ixGmax2) = sin(two*dpi*(x(ixGmin1:ixGmax1,&
+      e0(ixGmin1:ixGmax1,ixGmin2:ixGmax2) = 2 + sin(two*dpi*(x(ixGmin1:ixGmax1,&
          ixGmin2:ixGmax2,1)-t1*v1)) *sin(two*dpi*(x(ixGmin1:ixGmax1,&
          ixGmin2:ixGmax2,2)-t1*v2))
 

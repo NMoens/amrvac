@@ -8,8 +8,7 @@ module mod_usr
 
   ! Custom variables can be defined here
   ! ...
-  double precision, parameter :: v1 = 1.d0
-  double precision, parameter :: v2 = 1.d0
+  double precision, parameter :: gradE = -1.d0
 
 contains
 
@@ -21,7 +20,6 @@ contains
     use mod_constants
 
     call set_coordinate_system("Cartesian_2D")
-
 
     unit_velocity = one
     unit_numberdensity = one/((1.d0+4.d0*He_abundance)*mp_cgs)
@@ -56,45 +54,36 @@ contains
   !==========================================================================================
 
     !> A routine for specifying initial conditions
-    subroutine initial_conditions(ixG^L, ix^L, w, x)
+    subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+       ixmin2,ixmax1,ixmax2, w, x)
       use mod_global_parameters
       use mod_constants
       use mod_fld
 
-      integer, intent(in)             :: ixG^L, ix^L
-      double precision, intent(in)    :: x(ixG^S, ndim)
-      double precision, intent(inout) :: w(ixG^S, nw)
+      integer, intent(in)             :: ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
+          ixmin1,ixmin2,ixmax1,ixmax2
+      double precision, intent(in)    :: x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+          ndim)
+      double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+          nw)
 
       ! Set initial values for w
-      w(ixG^S, rho_) = one
-      w(ixG^S, mom(1)) = v1*w(ixG^S, rho_)
-      w(ixG^S, mom(2)) = v2*w(ixG^S, rho_)
-      w(ixG^S, e_) = one
-      w(ixG^S,r_e) =  spotpattern(x,ixG^L,0.d0)
+      w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = one
+      w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, mom(1)) = zero
+      w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, mom(2)) = zero
+      w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, e_) = one
+      w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,r_e) = gradE*x(ixGmin1:ixGmax1,&
+         ixGmin2:ixGmax2,1)
 
-      call fld_get_opacity(w, x, ixG^L, ix^L)
-      call fld_get_fluxlimiter(w, x, ixG^L, ix^L)
-      call fld_get_radflux(w, x, ixG^L, ix^L)
 
-      ! if (fld_diff_scheme .eq. 'mg') then
-      !   call fld_get_diffcoef_central(w, x, ixG^L, ix^L)
-      !   call set_mg_bounds()
-      ! endif
+      call fld_get_opacity(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+         ixmin2,ixmax1,ixmax2)
+      call fld_get_fluxlimiter(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+         ixmin2,ixmax1,ixmax2)
+      call fld_get_radflux(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+         ixmin2,ixmax1,ixmax2)
 
     end subroutine initial_conditions
-
-    function spotpattern(x,ixG^L,t1) result(e0)
-      use mod_global_parameters
-
-      integer, intent(in) :: ixG^L
-      double precision, intent(in) :: x(ixG^S, ndim), t1
-      double precision :: e0(ixG^S)
-
-
-      e0(ixG^S) = 2 + sin(two*dpi*(x(ixG^S,1)-t1*v1)) &
-                 *sin(two*dpi*(x(ixG^S,2)-t1*v2))
-
-    end function spotpattern
 
   !==========================================================================================
 
@@ -113,23 +102,29 @@ contains
     !> which can be used to identify the internal boundary region location.
     !> Its effect should always be local as it acts on the mesh.
 
-    subroutine constant_var(level,qt,ixI^L,ixO^L,w,x)
+    subroutine constant_var(level,qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2,w,x)
       use mod_global_parameters
-      integer, intent(in)             :: ixI^L,ixO^L,level
+      use mod_fld
+      integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
+         ixOmin1,ixOmin2,ixOmax1,ixOmax2,level
       double precision, intent(in)    :: qt
-      double precision, intent(inout) :: w(ixI^S,1:nw)
-      double precision, intent(in)    :: x(ixI^S,1:ndim)
+      double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1:nw)
+      double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1:ndim)
 
-      w(ixI^S,rho_) = one
-      w(ixI^S,mom(1)) = v1*w(ixI^S, rho_)
-      w(ixI^S,mom(2)) = v2*w(ixI^S, rho_)
-      w(ixI^S,e_) = one
+      w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = one
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = one
+      w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = gradE*x(ixImin1:ixImax1,&
+         ixImin2:ixImax2,1)
 
     end subroutine constant_var
 
   !==========================================================================================
 
-  subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
+  subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,w,x,normconv)
   ! this subroutine can be used in convert, to add auxiliary variables to the
   ! converted output file, for further analysis using tecplot, paraview, ....
   ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
@@ -138,19 +133,34 @@ contains
   ! corresponding normalization values (default value 1)
     use mod_global_parameters
     use mod_physics
+    use mod_fld
 
-    integer, intent(in)                :: ixI^L,ixO^L
-    double precision, intent(in)       :: x(ixI^S,1:ndim)
-    double precision                   :: w(ixI^S,nw+nwauxio)
+    integer, intent(in)                :: ixImin1,ixImin2,ixImax1,ixImax2,&
+       ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)       :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
+    double precision                   :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       nw+nwauxio)
     double precision                   :: normconv(0:nw+nwauxio)
-    double precision                   :: theoretical(ixI^S)
-    double precision                   :: residual(ixI^S)
+    double precision                   :: theoretical(ixImin1:ixImax1,&
+       ixImin2:ixImax2)
+    double precision                   :: residual(ixImin1:ixImax1,&
+       ixImin2:ixImax2)
 
-    theoretical(ixI^S) = spotpattern(x,ixI^L,global_time)
-    residual(ixI^S) = abs(theoretical(ixI^S) - w(ixI^S,r_e))/theoretical(ixI^S)
+    theoretical(ixImin1:ixImax1,ixImin2:ixImax2) = &
+       -gradE*1.d0/3.d0*global_time
+    residual(ixImin1:ixImax1,ixImin2:ixImax2) = &
+       abs(theoretical(ixImin1:ixImax1,ixImin2:ixImax2) - w(ixImin1:ixImax1,&
+       ixImin2:ixImax2,mom(1)))/theoretical(ixImin1:ixImax1,ixImin2:ixImax2)
 
-    w(ixO^S,nw+1) = theoretical(ixO^S)
-    w(ixO^S,nw+2) = residual(ixO^S)
+    if (it .eq. 0) open(1,file='f1_1')
+    write(1,*) global_time, w(100,100,mom(1)), -gradE*1.d0/3.d0*global_time,&
+        w(100,100,i_flux(1))
+    if (global_time .ge. time_max - dt) close(1)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1) = theoretical(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2) = residual(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
 
   end subroutine specialvar_output
 

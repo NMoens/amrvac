@@ -138,6 +138,9 @@ def Runge_Kutta():
 #
 #     print(y_rk[i], rho_rk[i], T_rk[i])
 
+dEdy = (E_rk[1:] - E_rk[:-1])/(y_rk[1:] - y_rk[:-1])
+F_new = - c/(3*kappa_rk[1:]*rho_rk[1:])*dEdy
+
 
 Runge_Kutta()
 
@@ -164,6 +167,11 @@ plt.plot(y_rk,kappa_rk,'-',label='outward RK')
 plt.ylabel('Opacity')
 plt.legend()
 
+
+plt.figure()
+plt.plot(y_rk[1:],F_new,'-',label='outward RK')
+plt.ylabel('Flux')
+plt.legend()
 
 
 plt.show()

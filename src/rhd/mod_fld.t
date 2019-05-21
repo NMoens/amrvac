@@ -183,9 +183,11 @@ module mod_fld
         mg%n_extra_vars = 1
         mg%operator_type = mg_vhelmholtz
 
-        i_diff_mg = var_set_extravar("D", "D")
+        ! i_diff_mg = var_set_extravar("D", "D")
       endif
     endif
+    i_diff_mg = var_set_extravar("D", "D")
+
 
     !> Check if fld_numdt is not 1
     if (fld_maxdw .lt. 2) call mpistop("fld_maxdw should be an integer larger than 1")
@@ -268,6 +270,8 @@ module mod_fld
             + qdt * radiation_force(ixO^S,idir)
             ! + qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
             !> NOT SURE ON HOW TO AVERAGE OVER LEFTHANDSIDE AND RIGHTHANDSIDE FLUX EDGE
+
+            print*,w(5,5,i_op),wCT(5,5,iw_rho),w(5,5, i_flux(idir))
       enddo
     end if
   end subroutine get_fld_rad_force
@@ -549,15 +553,15 @@ module mod_fld
       rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
 
-    if (fld_fluxlimiter .eq. 'Diffusion') then
-    {do ix^D=ixImin^D,ixImax^D\ }
-      do idir = 1,ndir
-        w(ix^D,i_flux(idir)) = min(rad_flux(ix^D,idir),fld_speedofligt_0*w(ix^D,iw_r_e))
-      enddo
-    {enddo\}
-    else
+    ! if (fld_fluxlimiter .eq. 'Diffusion') then !!> CERTAINLY NOT>> LOOK AT SIGN OF FLUX
+    ! {do ix^D=ixImin^D,ixImax^D\ }
+    !   do idir = 1,ndir
+    !     w(ix^D,i_flux(idir)) = min(rad_flux(ix^D,idir),fld_speedofligt_0*w(ix^D,iw_r_e))
+    !   enddo
+    ! {enddo\}
+    ! else
       w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
-    endif
+    ! endif
   end subroutine fld_get_radflux
 
   !> Calculate Eddington-tensor

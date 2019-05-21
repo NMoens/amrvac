@@ -15,15 +15,15 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat = 100
+   dtsave_dat = 1.d-2
    ditsave_log = 1
    !dtsave_dat     = 1.d-1
 /
 
  &stoplist
-   time_max = 2.d0
+   time_max = 1.d0
    !dtmin = 1.0d-20
-   it_max = 2000
+   !it_max = 2000
 /
 
  &methodlist
@@ -38,10 +38,10 @@
 
 &boundlist
   nghostcells  =  2
-  typeboundary_min1 = 5*'periodic'
-  typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 5*'periodic'
-  typeboundary_max2 = 5*'periodic'
+  typeboundary_min1 = 5*'cont'
+  typeboundary_max1 = 5*'cont'
+  typeboundary_min2 = 5*'cont'
+  typeboundary_max2 = 5*'cont'
   internalboundary = T
 /
 
@@ -49,8 +49,8 @@
    refine_max_level   = 3
    domain_nx1         = 128
    domain_nx2         = 128
-   block_nx2          = 64
-   block_nx1          = 64
+   block_nx2          = 128
+   block_nx1          = 128
    xprobmin1       =  0.d0
    xprobmax1       =  1.d0
    xprobmin2       =  -0.5d0
@@ -62,15 +62,15 @@
 
  &paramlist
   !courantpar       = 0.6d0
-  dtpar =   1.d-4
+  dtpar =   1.d-3
  /
 
  &rhd_list
   rhd_energy = .true.
   rhd_gamma = 1.666666666d0
   rhd_radiation_formalism = 'fld'
-  rhd_radiation_advection = .true.
-  rhd_radiation_force = .false.
+  rhd_radiation_advection = .false.
+  rhd_radiation_force = .true.
   rhd_energy_interact = .false.
   rhd_radiation_diffusion = .false.
  /
@@ -78,7 +78,8 @@
  &fld_list
  !fld_split = .false.
  fld_kappa0 = 0.34d0
- fld_opacity_law = 'const'
+ fld_opacity_law = 'thomson'
  fld_diff_testcase = .true.
  fld_diff_scheme = 'mg'
+ fld_fluxlimiter = 'Diffusion'
  /

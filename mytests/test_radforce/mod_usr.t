@@ -65,7 +65,7 @@ contains
 
       ! Set initial values for w
       w(ixG^S, rho_) = one
-      w(ixG^S, mom(1)) = one
+      w(ixG^S, mom(1)) = zero
       w(ixG^S, mom(2)) = zero
       w(ixG^S, e_) = one
       w(ixG^S,r_e) = gradE*x(ixG^S,1)

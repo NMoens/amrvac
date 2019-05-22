@@ -10,7 +10,8 @@ plt.figure()
 plt.plot(t,theoretical,'b-',label = 'theoretical')
 plt.plot(t,momentum,'r.',label = 'simulation')
 
-plt.figure()
-plt.semilogy(flux)
-
+plt.title('Testcase radiation force',fontsize=20)
+plt.xlabel('$t$',fontsize=15)
+plt.ylabel('$\\vec{v}\\rho$',fontsize=15)
+plt.legend()
 plt.show()

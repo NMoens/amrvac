@@ -270,8 +270,6 @@ module mod_fld
             + qdt * radiation_force(ixO^S,idir)
             ! + qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
             !> NOT SURE ON HOW TO AVERAGE OVER LEFTHANDSIDE AND RIGHTHANDSIDE FLUX EDGE
-
-            print*,w(5,5,i_op),wCT(5,5,iw_rho),w(5,5, i_flux(idir))
       enddo
     end if
   end subroutine get_fld_rad_force
@@ -659,7 +657,6 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res
 
-    ! print*, it, 'Diffusing'
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
     call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
@@ -706,9 +703,8 @@ module mod_fld
       {enddo\}
 
       if (diff_coef_filter) then
-        ! call mpistop('Hold your bloody horses, not implemented yet ')
+        !call mpistop('Hold your bloody horses, not implemented yet ')
         call fld_smooth_diffcoef(w, ixI^L, ixO^L)
-        ! print*, w(20,:,i_diff_mg)
       endif
     endif
   end subroutine fld_get_diffcoef_central

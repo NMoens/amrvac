@@ -12,7 +12,7 @@ unit_density = 8.8837999999999995e-9
 unit_pressure = 128253.75816140750
 unit_temperature = 106459.89999999999
 unit_radflux = 487310493625.60626
-unit_opacity = 2.217e-2
+unit_opacity = 2.2179975435942370e-2
 unit_time = 1335.68
 unit_velocity = 3799580.6174531388
 
@@ -42,7 +42,7 @@ dy = y_rel[1] - y_rel[0]
 M_sun = 1.99e33
 M_star = 66.8*M_sun
 c = 2.99e10
-G = 6.67e-8
+G = 6.67259e-8
 kappa_0 = 0.34
 akram = 13.1351597305
 bkram = -4.5182188206
@@ -117,61 +117,50 @@ def Runge_Kutta():
         Gamma_rk.append(get_Gamma(p_rk[-1],E_rk[-1]))
         T_rk.append((E_rk[-1]/arad)**0.25)
 
-        # print(y_rk[i], rho_rk[i])
+
 
     return
 
-# for i in range(1,len(y_rk)):
-#
-#     dp = -rho_rk[i-1]*grav*(1-Gamma_rk[i-1])
-#     dE = -3*F_rk*kappa_rk[i-1]*rho_rk[i-1]/c
-#
-#     p_rk.append(p_rk[i-1]+dy*dp)
-#     E_rk.append(E_rk[i-1]+dy*dE)
-#
-#     T_rk.append((E_rk[i]/arad)**0.25)
-#     rho_rk.append(p_rk[i]/T_rk[i]*mp*mu/kb)
-#
-#     a2 = p[i]/rho[i]
-#     kappa_rk.append(kappa_0*(1.+10.e0**akram*rho_rk[i]*(a2/1.e12)**bkram))
-#     Gamma_rk.append(kappa_rk[i]*F_rk/(grav*c))
-#
-#     print(y_rk[i], rho_rk[i], T_rk[i])
-
-dEdy = (E_rk[1:] - E_rk[:-1])/(y_rk[1:] - y_rk[:-1])
-F_new = - c/(3*kappa_rk[1:]*rho_rk[1:])*dEdy
-
-
 Runge_Kutta()
 
-plt.figure()
-plt.plot(y_rk,(np.array(E_rk)/arad)**0.25,'-',label='outward RK')
-plt.plot(y_rel,(np.array(er_vac)/arad)**0.25,'-',label='initial conditions')
-plt.ylabel('radiation T')
-plt.legend()
+for i in range(len(y_rk)):
+    print(i,'\t',p_rk[i],'\t', E_rk[i],'\t', rho_rk[i])
 
-plt.figure()
-plt.plot(y_rk,p_rk,'-',label='outward RK')
-plt.plot(y_rel,p_vac,'-',label='initial conditions')
-plt.ylabel('gas p')
-plt.legend()
+print(y_rk[0],dy,p_rk[0],E_rk[0], F_rk)
 
-plt.figure()
-plt.plot(y_rk,rho_rk,'-',label='outward RK')
-plt.plot(y_rel,rho_vac,'-',label='initial conditions')
-plt.ylabel('gas rho')
-plt.legend()
-
-plt.figure()
-plt.plot(y_rk,kappa_rk,'-',label='outward RK')
-plt.ylabel('Opacity')
-plt.legend()
-
-
-plt.figure()
-plt.plot(y_rk[1:],F_new,'-',label='outward RK')
-plt.ylabel('Flux')
-plt.legend()
-
-
-plt.show()
+# dEdy = (E_rk[1:] - E_rk[:-1])/(y_rk[1:] - y_rk[:-1])
+# F_new = - c/(3*kappa_rk[1:]*rho_rk[1:])*dEdy
+#
+#
+#
+#
+# plt.figure()
+# plt.plot(y_rk,(np.array(E_rk)/arad)**0.25,'-',label='outward RK')
+# plt.plot(y_rel,(np.array(er_vac)/arad)**0.25,'-',label='initial conditions')
+# plt.ylabel('radiation T')
+# plt.legend()
+#
+# plt.figure()
+# plt.plot(y_rk,p_rk,'-',label='outward RK')
+# plt.plot(y_rel,p_vac,'-',label='initial conditions')
+# plt.ylabel('gas p')
+# plt.legend()
+#
+# plt.figure()
+# plt.plot(y_rk,rho_rk,'-',label='outward RK')
+# plt.plot(y_rel,rho_vac,'-',label='initial conditions')
+# plt.ylabel('gas rho')
+# plt.legend()
+#
+# plt.figure()
+# plt.plot(y_rk,kappa_rk,'-',label='outward RK')
+# plt.ylabel('Opacity')
+# plt.legend()
+#
+# plt.figure()
+# plt.plot(y_rk[1:],F_new,'-',label='outward RK')
+# plt.ylabel('Flux')
+# plt.legend()
+#
+#
+# plt.show()

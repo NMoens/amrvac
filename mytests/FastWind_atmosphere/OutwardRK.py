@@ -124,8 +124,8 @@ def Runge_Kutta():
 Runge_Kutta()
 
 for i in range(len(y_rk)):
-    print(i,'\t',p_rk[i],'\t', E_rk[i],'\t', rho_rk[i])
-
+    # print(i,'\t',p_rk[i],'\t', E_rk[i],'\t', rho_rk[i], '\t', kappa_rk[i])
+    print(kappa_rk[i]/unit_opacity)
 print(y_rk[0],dy,p_rk[0],E_rk[0], F_rk)
 
 # dEdy = (E_rk[1:] - E_rk[:-1])/(y_rk[1:] - y_rk[:-1])

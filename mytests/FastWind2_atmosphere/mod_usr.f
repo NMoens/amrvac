@@ -1,3 +1,4 @@
+
 !> This is a template for a new user problem
 module mod_usr
 
@@ -164,6 +165,14 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
     w(:,i,r_e) = Er_rk(i)
   enddo
 
+
+  where ((abs(x(ixmin1:ixmax1,ixmin2:ixmax2,&
+     1)) .lt. 1.d0).and. (x(ixmin1:ixmax1,ixmin2:ixmax2,&
+     2) .lt. 2.5d0).and. (x(ixmin1:ixmax1,ixmin2:ixmax2,2) .gt. 1.5d0))
+        w(ixmin1:ixmax1,ixmin2:ixmax2,rho_) = 1.5*w(ixmin1:ixmax1,&
+           ixmin2:ixmax2,rho_)
+  endwhere
+
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
      ixmax1,ixmax2)
 
@@ -205,12 +214,10 @@ subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
       w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,rho_)/w(ixGmin1:ixGmax1,&
          i-2,rho_) *(w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,&
          r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
-      ! do j = ixGmin1,ixGmax1
-      !   w(j,i,r_e) = min(w(j,i,r_e),w(j,i-1,r_e))
-      ! enddo
+      do j = ixGmin1,ixGmax1
+        w(j,i,r_e) = min(w(j,i,r_e),w(j,i-1,r_e))
+      enddo
     enddo
-
-    ! mg_val4 = sum(w(:,ixBmin2,r_e))/(ixGmax1 - ixGmin1)
 
   case default
     call mpistop('boundary not known')

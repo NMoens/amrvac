@@ -403,11 +403,6 @@ module mod_fld
           fld_kappa(ix^D) = fld_kappa0 &
           * (1.d0+10.d0**akram*w(ix^D,iw_rho)*unit_density &
           * (max(a2(ix^D),const_kB*5.9d4/(fld_mu*const_mp))/1.d12)**bkram)
-
-          !> Constant kappa
-          ! fld_kappa(ix^D) = fld_kappa0 &
-          ! * (1.d0+10.d0**akram*w(ixOmin2-1,ix2,iw_rho)*unit_density &
-          ! * (max(a2(ixOmin2-1,ix2),const_kB*5.9d4/(fld_mu*const_mp))/1.d12)**bkram)
         {enddo\ }
 
       case('opal')

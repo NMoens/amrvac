@@ -4,7 +4,7 @@
 
 &filelist
   base_filename='./output/const'
-  !restart_from_file = './output/const0010.dat'
+  restart_from_file = './output/const0012.dat'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
@@ -62,7 +62,7 @@
 
  &paramlist
   courantpar       = 0.1d0
-  !dtpar           = 1d-5
+  dtpar           = 1d-5
  /
 
  &rhd_list

@@ -1,3 +1,4 @@
+
 !> This is a template for a new user problem
 module mod_usr
 
@@ -161,6 +162,17 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
     w(:,i,r_e) = Er_rk(i)
   enddo
 
+
+  where ((abs(x(ix^S,1)) .lt. 1.d0)&
+    .and. (x(ix^S,2) .lt. 2.5d0)&
+    .and. (x(ix^S,2) .gt. 1.5d0))
+      if (x(ix^S,1) .lt. 0.d0) then
+        w(ix^S,rho_) = 1.5*w(ix^S,rho_)
+      else
+        w(ix^S,rho_) = 0.5*w(ix^S,rho_)
+      endif
+  endwhere
+
   call get_rad_extravars(w, x, ixG^L, ix^L)
 
 end subroutine initial_conditions
@@ -197,12 +209,10 @@ subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
       !> Conserve gradE/rho
       w(ixGmin1:ixGmax1,i,r_e) = w(ixGmin1:ixGmax1,i-1,rho_)/w(ixGmin1:ixGmax1,i-2,rho_) &
       *(w(ixGmin1:ixGmax1,i-1,r_e) - w(ixGmin1:ixGmax1,i-2,r_e)) + w(ixGmin1:ixGmax1,i-1,r_e)
-      ! do j = ixGmin1,ixGmax1
-      !   w(j,i,r_e) = min(w(j,i,r_e),w(j,i-1,r_e))
-      ! enddo
+      do j = ixGmin1,ixGmax1
+        w(j,i,r_e) = min(w(j,i,r_e),w(j,i-1,r_e))
+      enddo
     enddo
-
-    ! mg_val4 = sum(w(:,ixBmin2,r_e))/(ixGmax1 - ixGmin1)
 
   case default
     call mpistop('boundary not known')

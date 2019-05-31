@@ -81,7 +81,8 @@
 
  &fld_list
   fld_split = .false.
-  fld_opacity_law = 'fastwind'
+  fld_opacity_law = 'const'
+  fld_kappa0 = 0.5766233520621145
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Pomraning'

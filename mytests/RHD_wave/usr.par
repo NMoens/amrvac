@@ -12,16 +12,16 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat     = 1
-   ditsave_log     = 1
-   !dtsave_dat     = 0.2d0
-   !dtsave_log     = 0.2d0
+   !ditsave_dat     = 1
+   !ditsave_log     = 1
+   dtsave_dat     = 0.2d0
+   dtsave_log     = 0.2d0
 /
 
  &stoplist
    time_max = 2.d1
    dtmin = 1.0d-20
-   it_max = 20
+   !it_max = 20
 /
 
  &methodlist
@@ -37,7 +37,7 @@
 &boundlist
   !nghostcells  = 4
   typeboundary_min1 = 5*'cont'
-  typeboundary_max1 = 5*'cont'
+  typeboundary_max1 = 5*'symm'
   typeboundary_min2 = 5*'periodic'
   typeboundary_max2 = 5*'periodic'
   internalboundary = T
@@ -64,10 +64,10 @@
   rhd_energy = .true.
   rhd_gamma = 1.6666667d0
   rhd_radiation_formalism = 'fld'
-  rhd_radiation_force = .true.
-  rhd_energy_interact = .true.
-  rhd_radiation_diffusion = .true.
-  rhd_radiation_advection = .true.
+  rhd_radiation_force = .false.
+  rhd_energy_interact = .false.
+  rhd_radiation_diffusion = .false.
+  rhd_radiation_advection = .false.
  /
 
  &fld_list
@@ -75,6 +75,6 @@
   fld_opacity_law = 'const'
   fld_kappa0 = 0.4d0
   fld_diff_scheme = 'mg'
-  fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Diffusion'
+  fld_interaction_method = 'Newton'
+  fld_fluxlimiter = 'Pomraning'
   /

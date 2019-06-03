@@ -40,6 +40,7 @@ contains
 
   end subroutine usr_init
 
+
   subroutine initglobaldata_usr
     use mod_global_parameters
 
@@ -47,7 +48,7 @@ contains
     a0 = dsqrt(p0/rho0)
 
 
-    tau_wave = 1.d2
+    tau_wave = 1.d3
     wavelength = tau_wave/(rho0*0.4d0)
     frequency = 2.d0*dpi*a0/wavelength
 
@@ -72,7 +73,7 @@ contains
     Er0 = Er0/unit_pressure
 
     wavelength = wavelength/unit_length
-    frequency = frequency/unit_time
+    frequency = frequency*unit_time
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
@@ -83,6 +84,11 @@ contains
       print*, 'unit_opacity', unit_opacity
       print*, 'unit_time', unit_time
       print*, 'unit_velocity', unit_velocity
+      print*, '-----------------------------'
+      print*, 'angular frequency', frequency
+      print*, 'wavelength', wavelength
+      print*, 'opt tickness 1 wvl', tau_wave
+
     endif
 
   end subroutine initglobaldata_usr
@@ -110,36 +116,41 @@ contains
 
   end subroutine initial_conditions
 
-  !> internal boundary, user defined
-    !
-    !> This subroutine can be used to artificially overwrite ALL conservative
-    !> variables in a user-selected region of the mesh, and thereby act as
-    !> an internal boundary region. It is called just before external (ghost cell)
-    !> boundary regions will be set by the BC selection. Here, you could e.g.
-    !> want to introduce an extra variable (nwextra, to be distinguished from nwaux)
-    !> which can be used to identify the internal boundary region location.
-    !> Its effect should always be local as it acts on the mesh.
 
-    subroutine Initialize_Wave(level,qt,ixImin1,ixImin2,ixImax1,ixImax2,&
-       ixOmin1,ixOmin2,ixOmax1,ixOmax2,w,x)
-      use mod_global_parameters
-      integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-         ixOmin1,ixOmin2,ixOmax1,ixOmax2,level
-      double precision, intent(in)    :: qt
-      double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
-         1:nw)
-      double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-         1:ndim)
+  subroutine Initialize_Wave(level,qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+     ixOmin2,ixOmax1,ixOmax2,w,x)
+    use mod_global_parameters
+    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2,level
+    double precision, intent(in)    :: qt
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
 
-      where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .lt. one)
-        ! w(ixI^S,rho_) = rho0*(one + 0.1*dsin(2*dpi*frequency*global_time)*dsin(2*dpi*x(ixI^S,1)/wavelength))
-        w(ixImin1:ixImax1,ixImin2:ixImax2,&
-           e_) = eg0*(one + 0.1*dsin(2*dpi*frequency*global_time)*dsin(2*dpi*x(&
-           ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength))
-        ! w(ixI^S,r_e) = Er0*(one + 0.1*dsin(2*dpi*frequency*global_time)*dsin(2*dpi*x(ixI^S,1)/wavelength))
-      endwhere
+    double precision :: ampl
 
-    end subroutine Initialize_Wave
+    ampl = 1.d-5*p0
+
+    where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .lt. one)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho0 + &
+         ampl*(2*dpi/(wavelength*frequency))**2 &
+         *dsin(frequency*global_time)*dsin(2*dpi*x(ixImin1:ixImax1,&
+         ixImin2:ixImax2,1)/wavelength)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = &
+         ampl*2*dpi/(wavelength*frequency) &
+         *dcos(frequency*global_time)*dcos(2*dpi*x(ixImin1:ixImax1,&
+         ixImin2:ixImax2,1)/wavelength)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg0 + &
+         ampl*(2*dpi/(wavelength*frequency))**2 &
+         *((eg0+p0)/rho0)*dsin(frequency*global_time)*dsin(2*dpi*x(&
+         ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er0 + &
+         ampl*(2*dpi/(wavelength*frequency))**2 &
+         *(Er0/rho0)*dsin(frequency*global_time)*dsin(2*dpi*x(ixImin1:ixImax1,&
+         ixImin2:ixImax2,1)/wavelength)
+    endwhere
+
+  end subroutine Initialize_Wave
 
 
 end module mod_usr

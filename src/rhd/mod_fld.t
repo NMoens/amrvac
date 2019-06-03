@@ -75,6 +75,12 @@ module mod_fld
     logical :: diff_coef_filter = .false.
     integer :: size_D_filter = 1
 
+    !> Use or don't use lineforce opacities
+    logical :: Lineforce_opacities = .false.
+
+    !> Index for Flux weighted opacities
+    integer, allocatable, public :: i_opf(:)
+
 
     !> public methods
     !> these are called in mod_rhd_phys
@@ -105,7 +111,7 @@ module mod_fld
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
     fld_bisect_tol, fld_diff_testcase, fld_adi_tol, fld_max_fracdt,&
     fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
-    diff_coef_filter, size_D_filter
+    diff_coef_filter, size_D_filter, lineforce_opacities
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -148,6 +154,16 @@ module mod_fld
       cmp_f = 'F' // ind_1
       i_flux(idir) = var_set_extravar(cmp_f,cmp_f)
     enddo
+
+    !> Set lineforce opacities as variable
+    if (lineforce_opacities) then
+      allocate(i_opf(ndir))
+      do idir = 1,ndir
+        write(ind_1,'(I1)') idir
+        cmp_f = 'k' // ind_1
+        i_opf(idir) = var_set_extravar(cmp_f,cmp_f)
+      enddo
+    endif
 
     !> Introduce opacity, lambda and R as global variables
     i_op = var_set_extravar("Kappa", "Kappa")
@@ -263,7 +279,11 @@ module mod_fld
 
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux
-        radiation_force(ixO^S,idir) = w(ixO^S,i_op)*wCT(ixO^S,iw_rho)/fld_speedofligt_0*w(ixO^S, i_flux(idir))
+        if (lineforce_opacities) then
+          radiation_force(ixO^S,idir) = w(ixO^S,i_opf(idir))*wCT(ixO^S,iw_rho)/fld_speedofligt_0*w(ixO^S, i_flux(idir))
+        else
+          radiation_force(ixO^S,idir) = w(ixO^S,i_op)*wCT(ixO^S,iw_rho)/fld_speedofligt_0*w(ixO^S, i_flux(idir))
+        endif
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
@@ -359,8 +379,9 @@ module mod_fld
     double precision :: Temp(ixI^S), pth(ixI^S), a2(ixO^S)
     double precision :: rho0,Temp0,n,sigma_b
     double precision :: akram, bkram
+    double precision :: vth(ixO^S), gradv(ixI^S), eta(ixO^S), t(ixO^S)
 
-    integer :: i,j,ix^D
+    integer :: i,j,ix^D, idir
 
     select case (fld_opacity_law)
       case('const')
@@ -419,6 +440,44 @@ module mod_fld
 
       w(ixO^S, i_op) = fld_kappa(ixO^S)
   end subroutine fld_get_opacity
+
+  !> Set lineforce opacities
+  subroutine fld_get_lineopacity(w, x, ixI^L, ixO^L)
+    use mod_global_parameters
+    use mod_usr_methods
+    use mod_geometry
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(inout) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+
+    double precision :: vel(ixI^S), gradv(ixI^S), forceM(ixI^S)
+    integer :: ix^D, idir
+
+    double precision, parameter :: Qbar = 2000.d0
+    double precision, parameter :: alpha = 0.6d0
+
+    !> Set lineforce opacities
+    !> Stevens & Kallman 1990
+    !> Will this work on initialisation? F depends on kappa, kappa_f depends on F
+    if (fld_opacity_law .ne. 'thomson') &
+      call mpistop('When using line-opacities, you should use a thomson opacity law')
+
+    if (lineforce_opacities) then
+
+      !> Set t
+      do idir = 1,ndir
+        vel(ixI^S) = w(ixI^S,iw_mom(idir))/w(ixI^S,iw_rho)
+        call gradient(vel,ixI^L,ixO^L,idir,gradv)
+        forceM(ixI^S) = Qbar/(one-alpha) &
+        *(gradv(ixI^S)/(w(ixI^S,iw_rho)*fld_speedofligt_0*Qbar*w(ixI^S,i_op)))**alpha
+        w(ixO^S,i_opf(idir)) = w(ixO^S,i_op)*forceM(ixO^S)
+      enddo
+    else
+      call mpistop("Lineforce opacities are not calculated")
+    endif
+
+  end subroutine fld_get_lineopacity
 
   !> Calculate fld flux limiter
   !> This subroutine calculates flux limiter lambda using the prescription

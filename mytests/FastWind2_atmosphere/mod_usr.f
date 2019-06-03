@@ -169,8 +169,12 @@ subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
   where ((abs(x(ixmin1:ixmax1,ixmin2:ixmax2,&
      1)) .lt. 1.d0).and. (x(ixmin1:ixmax1,ixmin2:ixmax2,&
      2) .lt. 2.5d0).and. (x(ixmin1:ixmax1,ixmin2:ixmax2,2) .gt. 1.5d0))
+      ! if (x(ix^S,1) .lt. 0.d0) then
         w(ixmin1:ixmax1,ixmin2:ixmax2,rho_) = 1.5*w(ixmin1:ixmax1,&
            ixmin2:ixmax2,rho_)
+      ! else
+      !   w(ix^S,rho_) = 0.5*w(ix^S,rho_)
+      ! endif
   endwhere
 
   call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&

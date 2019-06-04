@@ -45,7 +45,7 @@ contains
     use mod_global_parameters
 
     p0 = eg0*(rhd_gamma - one)
-    a0 = dsqrt(p0/rho0)
+    a0 = dsqrt(rhd_gamma*p0/rho0)
 
 
     tau_wave = 1.d3
@@ -102,10 +102,10 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     ! Set initial values for w
-    w(ixI^S, rho_) = rho0 !*(one + 0.1*dcos(2*dpi*x(ixI^S,1)/wavelength))
+    w(ixI^S, rho_) = rho0 !*(one + 0.1*dsin(2*dpi*x(ixI^S,1)/wavelength))
     w(ixI^S, mom(:)) = zero
-    w(ixI^S, e_) = eg0 !*(one + 0.1*dcos(2*dpi*x(ixI^S,1)/wavelength))
-    w(ixI^S, r_e) = Er0 !*(one + 0.1*dcos(2*dpi*x(ixI^S,1)/wavelength))
+    w(ixI^S, e_) = eg0 !*(one + 0.1*dsin(2*dpi*x(ixI^S,1)/wavelength))
+    w(ixI^S, r_e) = Er0 !*(one + 0.1*dsin(2*dpi*x(ixI^S,1)/wavelength))
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
@@ -125,14 +125,36 @@ contains
 
     where (x(ixI^S,1) .lt. one)
       w(ixI^S,rho_) = rho0 + ampl*(2*dpi/(wavelength*frequency))**2 &
-      *dsin(frequency*global_time)*dsin(2*dpi*x(ixI^S,1)/wavelength)
-      w(ixI^S,mom(1)) = ampl*2*dpi/(wavelength*frequency) &
       *dcos(frequency*global_time)*dcos(2*dpi*x(ixI^S,1)/wavelength)
+
+      w(ixI^S,mom(1)) = ampl*2*dpi/(wavelength*frequency) &
+      *dsin(frequency*global_time)*dsin(2*dpi*x(ixI^S,1)/wavelength) &
+      ! + ampl*(2*dpi/(wavelength*frequency))**2 &
+      ! *dsin(frequency*global_time)*dsin(2*dpi*x(ixI^S,1)/wavelength) &
+      ! * ampl*2*dpi/(wavelength*frequency*rho0) &
+      ! *dcos(frequency*global_time)*dcos(2*dpi*x(ixI^S,1)/wavelength)
+
       w(ixI^S,e_) = eg0 + ampl*(2*dpi/(wavelength*frequency))**2 &
-      *((eg0+p0)/rho0)*dsin(frequency*global_time)*dsin(2*dpi*x(ixI^S,1)/wavelength)
+      *((eg0+p0)/rho0)*dcos(frequency*global_time)*dcos(2*dpi*x(ixI^S,1)/wavelength)
+
       w(ixI^S,r_e) = Er0 + ampl*(2*dpi/(wavelength*frequency))**2 &
-      *(Er0/rho0)*dsin(frequency*global_time)*dsin(2*dpi*x(ixI^S,1)/wavelength)
+      *(Er0/rho0)*dcos(frequency*global_time)*dcos(2*dpi*x(ixI^S,1)/wavelength)
     endwhere
+    ! 
+    ! where (x(ixI^S,1) .lt. one)
+    !   w(ixI^S,rho_) = rho0 + ampl*(2*dpi/(wavelength*frequency))**2 &
+    !   *dsin(2*dpi*x(ixI^S,1)/wavelength - frequency*global_time)
+    !
+    !   w(ixI^S,mom(1)) = ampl*2*dpi/(wavelength*frequency) &
+    !   *dsin(2*dpi*x(ixI^S,1)/wavelength - frequency*global_time)
+    !
+    !   w(ixI^S,e_) = eg0 - ampl*(2*dpi/(wavelength*frequency))**2 &
+    !   *((eg0+p0)/rho0)*dsin(2*dpi*x(ixI^S,1)/wavelength - frequency*global_time)
+    !
+    !   w(ixI^S,r_e) = Er0 + ampl*(2*dpi/(wavelength*frequency))**2 &
+    !   *(Er0/rho0)*dsin(2*dpi*x(ixI^S,1)/wavelength - frequency*global_time)
+    ! endwhere
+
 
   end subroutine Initialize_Wave
 

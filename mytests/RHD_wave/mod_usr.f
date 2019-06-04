@@ -45,7 +45,7 @@ contains
     use mod_global_parameters
 
     p0 = eg0*(rhd_gamma - one)
-    a0 = dsqrt(p0/rho0)
+    a0 = dsqrt(rhd_gamma*p0/rho0)
 
 
     tau_wave = 1.d3
@@ -106,10 +106,10 @@ contains
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
     ! Set initial values for w
-    w(ixImin1:ixImax1,ixImin2:ixImax2, rho_) = rho0 !*(one + 0.1*dcos(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength))
+    w(ixImin1:ixImax1,ixImin2:ixImax2, rho_) = rho0 !*(one + 0.1*dsin(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength))
     w(ixImin1:ixImax1,ixImin2:ixImax2, mom(:)) = zero
-    w(ixImin1:ixImax1,ixImin2:ixImax2, e_) = eg0 !*(one + 0.1*dcos(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength))
-    w(ixImin1:ixImax1,ixImin2:ixImax2, r_e) = Er0 !*(one + 0.1*dcos(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength))
+    w(ixImin1:ixImax1,ixImin2:ixImax2, e_) = eg0 !*(one + 0.1*dsin(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength))
+    w(ixImin1:ixImax1,ixImin2:ixImax2, r_e) = Er0 !*(one + 0.1*dsin(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength))
 
     call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
@@ -133,21 +133,22 @@ contains
 
     where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .lt. one)
       w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho0 + &
-         ampl*(2*dpi/(wavelength*frequency))**2 &
-         *dsin(frequency*global_time)*dsin(2*dpi*x(ixImin1:ixImax1,&
-         ixImin2:ixImax2,1)/wavelength)
+         ampl*(2*dpi/(wavelength*frequency))**2 *dsin(2*dpi*x(ixImin1:ixImax1,&
+         ixImin2:ixImax2,1)/wavelength - frequency*global_time)
+
       w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = &
-         ampl*2*dpi/(wavelength*frequency) &
-         *dcos(frequency*global_time)*dcos(2*dpi*x(ixImin1:ixImax1,&
-         ixImin2:ixImax2,1)/wavelength)
-      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg0 + &
+         ampl*2*dpi/(wavelength*frequency) *dsin(2*dpi*x(ixImin1:ixImax1,&
+         ixImin2:ixImax2,1)/wavelength - frequency*global_time)
+
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg0 - &
          ampl*(2*dpi/(wavelength*frequency))**2 &
-         *((eg0+p0)/rho0)*dsin(frequency*global_time)*dsin(2*dpi*x(&
-         ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength)
+         *((eg0+p0)/rho0)*dsin(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1)/wavelength - frequency*global_time)
+
       w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er0 + &
          ampl*(2*dpi/(wavelength*frequency))**2 &
-         *(Er0/rho0)*dsin(frequency*global_time)*dsin(2*dpi*x(ixImin1:ixImax1,&
-         ixImin2:ixImax2,1)/wavelength)
+         *(Er0/rho0)*dsin(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1)/wavelength - frequency*global_time)
     endwhere
 
   end subroutine Initialize_Wave

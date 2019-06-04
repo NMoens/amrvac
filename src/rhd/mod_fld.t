@@ -155,6 +155,14 @@ module mod_fld
       i_flux(idir) = var_set_extravar(cmp_f,cmp_f)
     enddo
 
+    ! !> Set radiative flux as variable
+    ! allocate(i_flux(ndir))
+    ! do idir = 1,ndir
+    !   write(ind_1,'(I1)') idir
+    !   cmp_f = 'F' // ind_1
+    !   i_flux(idir) = var_set_fluxvar(cmp_f,cmp_f)
+    ! enddo
+
     !> Set lineforce opacities as variable
     if (lineforce_opacities) then
       allocate(i_opf(ndir))

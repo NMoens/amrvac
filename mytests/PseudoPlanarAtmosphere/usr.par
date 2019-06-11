@@ -80,10 +80,11 @@
 
  &fld_list
   fld_split = .false.
-  fld_opacity_law = 'fastwind'
+  fld_opacity_law = 'const'
+  fld_kappa0 = 0.34d0
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
-  diff_coef_filter = .true.
-  size_D_filter = 1
+  !diff_coef_filter = .true.
+  !size_D_filter = 1
   /

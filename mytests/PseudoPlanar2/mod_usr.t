@@ -163,17 +163,6 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
     w(:,i,r_e) = Er_rk(i)
   enddo
 
-
-  ! where ((abs(x(ix^S,1)) .lt. 1.d0)&
-  !   .and. (x(ix^S,2) .lt. 2.5d0)&
-  !   .and. (x(ix^S,2) .gt. 1.5d0))
-  !     ! if (x(ix^S,1) .lt. 0.d0) then
-  !       w(ix^S,rho_) = 1.5*w(ix^S,rho_)
-  !     ! else
-  !     !   w(ix^S,rho_) = 0.5*w(ix^S,rho_)
-  !     ! endif
-  ! endwhere
-
   call get_rad_extravars(w, x, ixG^L, ix^L)
 
 end subroutine initial_conditions

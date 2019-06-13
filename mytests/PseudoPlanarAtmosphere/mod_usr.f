@@ -31,7 +31,6 @@ subroutine usr_init()
   use mod_constants
 
   call set_coordinate_system("Cartesian_2D")
-
   call initglobaldata_usr
 
   ! Initialize units
@@ -248,15 +247,15 @@ subroutine mg_boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
       ! mg%bc(iB, mg_iphi)%bc_value = grad4 !min(grad4,zero)
       ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
-      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
-      if (sum(w(ixOmin1:ixOmax1,ixOmax2,r_e)) .le. sum(w(ixOmin1:ixOmax1,&
-         ixOmax2+1, r_e))) then
-         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-         mg%bc(iB, mg_iphi)%bc_value = zero
-      else
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-      endif
+      ! if (sum(w(ixOmin1:ixOmax1,ixOmax2,r_e)) .le. &
+      !    sum(w(ixOmin1:ixOmax1,ixOmax2+1, r_e))) then
+      !    mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      !    mg%bc(iB, mg_iphi)%bc_value = zero
+      ! else
+      !   mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+      ! endif
 
     case default
       print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
@@ -279,7 +278,7 @@ subroutine set_gravitation_field(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
 
   double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
 
-  radius(ixImin1:ixImax1,ixImin2:ixImax2) = rstar+x(ixImin1:ixImax1,&
+  radius(ixImin1:ixImax1,ixImin2:ixImax2) = rstar +x(ixImin1:ixImax1,&
      ixImin2:ixImax2,2)*unit_length
 
   gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,1) = zero
@@ -480,50 +479,51 @@ subroutine PseudoPlanar(qdt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
   rdir = 2
   pdir = 1
 
-  radius(ixImin1:ixImax1,ixImin2:ixImax2) = &
-     rstar/unit_length+x(ixImin1:ixImax1,ixImin2:ixImax2,2)
+  radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
+     rstar/unit_length+x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2)
 
   !> Correction for spherical fluxes:
   !> drho/dt = -2 rho v_r/r
-  w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-     rho_) - qdt*two*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-     mom(rdir))/radius(ixImin1:ixImax1,ixImin2:ixImax2)
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+     rho_) - qdt*two*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+     mom(rdir))/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
   !> dm_r/dt = m_phi**2/r
   !> dm_phi/dt = - m_phi m_r/r
-  w(ixImin1:ixImax1,ixImin2:ixImax2,mom(rdir)) = w(ixImin1:ixImax1,&
-     ixImin2:ixImax2,mom(rdir)) + qdt*(wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-     mom(pdir)))**two/(radius(ixImin1:ixImax1,&
-     ixImin2:ixImax2)*wCT(ixImin1:ixImax1,ixImin2:ixImax2,rho_))
-  w(ixImin1:ixImax1,ixImin2:ixImax2,mom(pdir)) = w(ixImin1:ixImax1,&
-     ixImin2:ixImax2,mom(pdir)) - qdt*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-     mom(rdir))*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-     mom(pdir))/(radius(ixImin1:ixImax1,ixImin2:ixImax2)*wCT(ixImin1:ixImax1,&
-     ixImin2:ixImax2,rho_))
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(rdir)) = w(ixOmin1:ixOmax1,&
+     ixOmin2:ixOmax2,mom(rdir)) + qdt*(wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+     mom(pdir)))**two/(radius(ixOmin1:ixOmax1,&
+     ixOmin2:ixOmax2)*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(pdir)) = w(ixOmin1:ixOmax1,&
+     ixOmin2:ixOmax2,mom(pdir)) - qdt*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+     mom(rdir))*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+     mom(pdir))/(radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)*wCT(ixOmin1:ixOmax1,&
+     ixOmin2:ixOmax2,rho_))
 
   !> de/dt = -2 (e+p)v_r/r
   call phys_get_pthermal(wCT,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2,pth)
-  w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-     e_) - qdt*two*(wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-     e_)+pth(ixImin1:ixImax1,ixImin2:ixImax2))*wCT(ixImin1:ixImax1,&
-     ixImin2:ixImax2,mom(rdir))/(wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-     rho_)*radius(ixImin1:ixImax1,ixImin2:ixImax2))
+  w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+     e_) - qdt*two*(wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+     e_)+pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2))*wCT(ixOmin1:ixOmax1,&
+     ixOmin2:ixOmax2,mom(rdir))/(wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+     rho_)*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
 
   !> dEr/dt = -2 (E v_r + F_r)/r
   if (rhd_radiation_diffusion) then
     call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       r_e) - qdt*two*(wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-       e_)*wCT(ixImin1:ixImax1,ixImin2:ixImax2,mom(rdir))/wCT(ixImin1:ixImax1,&
-       ixImin2:ixImax2,rho_) + w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       i_flux(rdir)))/radius(ixImin1:ixImax1,ixImin2:ixImax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       r_e) - qdt*two*(wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       r_e)*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(rdir))/wCT(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rho_) + w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       i_flux(rdir)))/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
   else
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       r_e) - qdt*two*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-       e_)*wCT(ixImin1:ixImax1,ixImin2:ixImax2,mom(rdir))/(wCT(ixImin1:ixImax1,&
-       ixImin2:ixImax2,rho_)*radius(ixImin1:ixImax1,ixImin2:ixImax2))
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       r_e) - qdt*two*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       r_e)*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       mom(rdir))/(wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rho_)*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
   endif
 
 end subroutine PseudoPlanar

@@ -34,7 +34,6 @@ subroutine usr_init()
 
   call initglobaldata_usr
 
-
   ! Initialize units
   usr_set_parameters => initglobaldata_usr
 
@@ -44,7 +43,6 @@ subroutine usr_init()
   ! Routine for setting special boundary conditions
   usr_special_bc => boundary_conditions
   usr_special_mg_bc => mg_boundary_conditions
-
 
   ! Graviatational field
   usr_gravity => set_gravitation_field

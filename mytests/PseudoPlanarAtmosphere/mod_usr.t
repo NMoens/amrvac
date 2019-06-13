@@ -31,7 +31,6 @@ subroutine usr_init()
   use mod_constants
 
   call set_coordinate_system("Cartesian_2D")
-
   call initglobaldata_usr
 
   ! Initialize units
@@ -236,15 +235,15 @@ subroutine mg_boundary_conditions(qt,ixI^L,ixO^L,iB,w,x)
       ! mg%bc(iB, mg_iphi)%bc_value = grad4 !min(grad4,zero)
       ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
-      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
-      if (sum(w(ixOmin1:ixOmax1,ixOmax2,r_e)) .le. &
-         sum(w(ixOmin1:ixOmax1,ixOmax2+1, r_e))) then
-         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-         mg%bc(iB, mg_iphi)%bc_value = zero
-      else
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-      endif
+      ! if (sum(w(ixOmin1:ixOmax1,ixOmax2,r_e)) .le. &
+      !    sum(w(ixOmin1:ixOmax1,ixOmax2+1, r_e))) then
+      !    mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      !    mg%bc(iB, mg_iphi)%bc_value = zero
+      ! else
+      !   mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+      ! endif
 
     case default
       print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
@@ -264,7 +263,7 @@ subroutine set_gravitation_field(ixI^L,ixO^L,wCT,x,gravity_field)
 
   double precision :: radius(ixI^S)
 
-  radius(ixI^S) = rstar+x(ixI^S,2)*unit_length
+  radius(ixI^S) = rstar +x(ixI^S,2)*unit_length
 
   gravity_field(ixI^S,1) = zero
   gravity_field(ixI^S,2) = -const_G*mstar/(radius(ixI^S))**2*(unit_time**2/unit_length)
@@ -435,27 +434,27 @@ subroutine PseudoPlanar(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
   rdir = 2
   pdir = 1
 
-  radius(ixI^S) = rstar/unit_length+x(ixI^S,2)
+  radius(ixO^S) = rstar/unit_length+x(ixO^S,2)
 
   !> Correction for spherical fluxes:
   !> drho/dt = -2 rho v_r/r
-  w(ixI^S,rho_) = w(ixI^S,rho_) - qdt*two*wCT(ixI^S,mom(rdir))/radius(ixI^S)
+  w(ixO^S,rho_) = w(ixO^S,rho_) - qdt*two*wCT(ixO^S,mom(rdir))/radius(ixO^S)
 
   !> dm_r/dt = m_phi**2/r
   !> dm_phi/dt = - m_phi m_r/r
-  w(ixI^S,mom(rdir)) = w(ixI^S,mom(rdir)) + qdt*(wCT(ixI^S,mom(pdir)))**two/(radius(ixI^S)*wCT(ixI^S,rho_))
-  w(ixI^S,mom(pdir)) = w(ixI^S,mom(pdir)) - qdt*wCT(ixI^S,mom(rdir))*wCT(ixI^S,mom(pdir))/(radius(ixI^S)*wCT(ixI^S,rho_))
+  w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) + qdt*(wCT(ixO^S,mom(pdir)))**two/(radius(ixO^S)*wCT(ixO^S,rho_))
+  w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*wCT(ixO^S,mom(rdir))*wCT(ixO^S,mom(pdir))/(radius(ixO^S)*wCT(ixO^S,rho_))
 
   !> de/dt = -2 (e+p)v_r/r
   call phys_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
-  w(ixI^S,e_) = w(ixI^S,e_) - qdt*two*(wCT(ixI^S,e_)+pth(ixI^S))*wCT(ixI^S,mom(rdir))/(wCT(ixI^S,rho_)*radius(ixI^S))
+  w(ixO^S,e_) = w(ixO^S,e_) - qdt*two*(wCT(ixO^S,e_)+pth(ixO^S))*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))
 
   !> dEr/dt = -2 (E v_r + F_r)/r
   if (rhd_radiation_diffusion) then
     call get_rad_extravars(w, x, ixI^L, ixO^L)
-    w(ixI^S,r_e) = w(ixI^S,r_e) - qdt*two*(wCT(ixI^S,e_)*wCT(ixI^S,mom(rdir))/wCT(ixI^S,rho_) + w(ixI^S,i_flux(rdir)))/radius(ixI^S)
+    w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*(wCT(ixO^S,r_e)*wCT(ixO^S,mom(rdir))/wCT(ixO^S,rho_) + w(ixO^S,i_flux(rdir)))/radius(ixO^S)
   else
-    w(ixI^S,r_e) = w(ixI^S,r_e) - qdt*two*wCT(ixI^S,e_)*wCT(ixI^S,mom(rdir))/(wCT(ixI^S,rho_)*radius(ixI^S))
+    w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*wCT(ixO^S,r_e)*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))
   endif
 
 end subroutine PseudoPlanar

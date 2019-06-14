@@ -75,9 +75,9 @@ contains
     call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0)
 
     R_b = R_star
-    R_0 = 2.d0*R_star
+    R_0 = (1.d0+2.d0)*R_star
 
-    Gamma_b = 0.75d0
+    Gamma_b = 0.95d0
 
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
@@ -106,8 +106,6 @@ contains
     unit_time=unit_length/unit_velocity
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
-
-
 
     if (mype .eq. 0) then
       print*, M_star, R_star, Gamma_0, M_dot_ratio, M_dot, L_0
@@ -266,7 +264,6 @@ contains
 
          print*,it, a(10), b(10), c(10), w(10,i,r_e), w(10,nghostcells+1,r_e)
       enddo
-
 
     case(4)
       do i = ixBmin2,ixBmax2
@@ -437,11 +434,18 @@ contains
         x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
     double precision, intent(out):: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
-    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_0
+    double precision :: new_x(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
-    where (x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2) .lt. R_0)
-      kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b
-    endwhere
+    new_x(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       2) - R_0
+    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b + &
+       (kappa_0-kappa_b)*half*(one+erf(new_x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)))
+
+    ! kappa(ixO^S) = kappa_0
+    ! where (x(ixO^S,2) .lt. R_0)
+    !   kappa(ixO^S) = kappa_b
+    ! endwhere
 
   end subroutine Opacity_stepfunction
 
@@ -489,6 +493,9 @@ contains
        ixImin2:ixImax2))**2*(unit_time**2/unit_length)
     big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = g_rad(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,2)/g_grav(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+
+    print*, w(10,1:7,r_e)
+    print*, w(10,1:7,i_flux(2))
 
     call rhd_get_tgas(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
        ixOmax1,ixOmax2, Tgas)

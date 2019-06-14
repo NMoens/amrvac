@@ -28,7 +28,6 @@ double precision :: pg0,tg0,er0,rho0,fr0,pr0,gamma0,gammab,tr0,tau0,mc0,y0,kap0,
 double precision :: mu,mstar,lstar,g,rstar,dy,teff,yhe,dm,tr_dum,vesc
 double precision :: rhob,sigma_b,n,afw,bfw,tlim,hp,hpl,mdot,vinf,dy_vac,tau_max,mm
 integer :: ny,ny_vac
-character(8) :: kap_law
 
 !The below just for odeint routines
 INTEGER :: KMAX,KOUNT

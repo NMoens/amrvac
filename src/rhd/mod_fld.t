@@ -281,10 +281,6 @@ module mod_fld
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
 
-      !> Add momentum sourceterms
-      jx^L=ixO^L+kr(idir,^D);
-
-
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux
         if (lineforce_opacities) then
@@ -296,8 +292,7 @@ module mod_fld
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * radiation_force(ixO^S,idir)
-            ! + qdt * half*(radiation_force(ixO^S,idir) + radiation_force(jx^S,idir))
-            !> NOT SURE ON HOW TO AVERAGE OVER LEFTHANDSIDE AND RIGHTHANDSIDE FLUX EDGE
+
       enddo
     end if
   end subroutine get_fld_rad_force
@@ -620,15 +615,7 @@ module mod_fld
       rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
 
-    ! if (fld_fluxlimiter .eq. 'Diffusion') then !!> CERTAINLY NOT>> LOOK AT SIGN OF FLUX
-    ! {do ix^D=ixImin^D,ixImax^D\ }
-    !   do idir = 1,ndir
-    !     w(ix^D,i_flux(idir)) = min(rad_flux(ix^D,idir),fld_speedofligt_0*w(ix^D,iw_r_e))
-    !   enddo
-    ! {enddo\}
-    ! else
       w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
-    ! endif
   end subroutine fld_get_radflux
 
   !> Calculate Eddington-tensor

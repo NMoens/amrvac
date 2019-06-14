@@ -31,6 +31,9 @@ contains
     ! A routine for initial conditions is always required
     usr_init_one_grid => initial_conditions
 
+    ! Set boundary conditions
+    usr_special_bc => boundary_conditions
+
     ! Keep the radiative energy constant with internal bound
     usr_internal_bc => constant_var
 
@@ -79,8 +82,33 @@ contains
 
   !==========================================================================================
 
-    ! Extra routines can be placed here
-    ! ...
+  subroutine boundary_conditions(qt,ixG^L,ixB^L,iB,w,x)
+    use mod_global_parameters
+    integer, intent(in)             :: ixG^L, ixB^L, iB
+    double precision, intent(in)    :: qt, x(ixG^S,1:ndim)
+    double precision, intent(inout) :: w(ixG^S,1:nw)
+
+    select case (iB)
+    case(1)
+      ! Set initial values for w
+      w(ixB^S, rho_) = one
+      w(ixB^S, mom(1)) = zero
+      w(ixB^S, mom(2)) = zero
+      w(ixB^S, e_) = one
+      w(ixB^S,r_e) = gradE*x(ixB^S,1)
+    case(2)
+      ! Set initial values for w
+      w(ixB^S, rho_) = one
+      w(ixB^S, mom(1)) = zero
+      w(ixB^S, mom(2)) = zero
+      w(ixB^S, e_) = one
+      w(ixB^S,r_e) = gradE*x(ixB^S,1)
+
+
+    case default
+      call mpistop('boundary not known')
+    end select
+  end subroutine boundary_conditions
 
   !==========================================================================================
 

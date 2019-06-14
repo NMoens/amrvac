@@ -31,6 +31,9 @@ contains
     ! A routine for initial conditions is always required
     usr_init_one_grid => initial_conditions
 
+    ! Set boundary conditions
+    usr_special_bc => boundary_conditions
+
     ! Keep the radiative energy constant with internal bound
     usr_internal_bc => constant_var
 
@@ -87,8 +90,38 @@ contains
 
   !==========================================================================================
 
-    ! Extra routines can be placed here
-    ! ...
+  subroutine boundary_conditions(qt,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixBmin1,&
+     ixBmin2,ixBmax1,ixBmax2,iB,w,x)
+    use mod_global_parameters
+    integer, intent(in)             :: ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
+        ixBmin1,ixBmin2,ixBmax1,ixBmax2, iB
+    double precision, intent(in)    :: qt, x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+       1:ndim)
+    double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:nw)
+
+    select case (iB)
+    case(1)
+      ! Set initial values for w
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, rho_) = one
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, mom(1)) = zero
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, mom(2)) = zero
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, e_) = one
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = gradE*x(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2,1)
+    case(2)
+      ! Set initial values for w
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, rho_) = one
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, mom(1)) = zero
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, mom(2)) = zero
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, e_) = one
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = gradE*x(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2,1)
+
+
+    case default
+      call mpistop('boundary not known')
+    end select
+  end subroutine boundary_conditions
 
   !==========================================================================================
 

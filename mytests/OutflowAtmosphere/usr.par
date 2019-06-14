@@ -7,6 +7,7 @@
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
+  nwauxio = 3
 /
 
  &savelist
@@ -69,11 +70,11 @@
   rhd_gamma = 1.6666667d0
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .true.
-  rhd_energy_interact = .false.
-  rhd_radiation_diffusion = .false.
-  rhd_radiation_advection = .false.
-  !radio_acoustic_filter = .true.
-  !size_ra_filter = 2
+  rhd_energy_interact = .true.
+  rhd_radiation_diffusion = .true.
+  rhd_radiation_advection = .true.
+  radio_acoustic_filter = .false.
+  size_ra_filter = 2
  /
 
  &fld_list

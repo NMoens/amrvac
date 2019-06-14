@@ -58,6 +58,10 @@ contains
     ! Special Opacity
     usr_special_opacity => Opacity_stepfunction
 
+    ! Output routines
+    usr_aux_output    => specialvar_output
+    usr_add_aux_names => specialvarnames_output
+
     ! Active the physics module
     call rhd_activate()
 
@@ -73,7 +77,7 @@ contains
     R_b = R_star
     R_0 = 2.d0*R_star
 
-    Gamma_b = 0.95d0
+    Gamma_b = 0.75d0
 
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
@@ -120,8 +124,8 @@ contains
     !> Make all parameters dimensionless
     M_star = M_star/unit_density*unit_length**3.d0
     R_star = R_star/unit_length
-    M_dot = M_dot/unit_density*unit_length**3.d0*unit_time
-    L_0 = L_0/unit_pressure*unit_length**3.d0*unit_time
+    M_dot = M_dot/(unit_density*unit_length**3.d0)*unit_time
+    L_0 = L_0/(unit_pressure*unit_length**3.d0)*unit_time
     R_b = R_b/unit_length
     R_0 = R_0/unit_length
     kappa_0 = kappa_0/unit_opacity
@@ -154,7 +158,7 @@ contains
     READ(1,*)
     READ(1,*) dum, M_dot
     CLOSE(1)
-    
+
     M_star = M_star*M_sun
     L_0 = L_0*L_sun
     R_star = R_star*R_sun
@@ -232,9 +236,9 @@ contains
 
         a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
         b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
-        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i,rho_)*kappa_b)
+        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
         c(ixImin1:ixImax1) =fld_speedofligt_0 &
-        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i,rho_)*kappa_b)
+        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
         d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
         w(ixImin1:ixImax1,i,r_e) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
 
@@ -243,7 +247,9 @@ contains
         w(ixImin1:ixImax1,i,e_) = Temp(ixImin1:ixImax1,i)/(rhd_gamma - one)&
          + half*w(ixImin1:ixImax1,i,mom(2))**2.d0/w(ixImin1:ixImax1,i,rho_)
 
+         print*,it, a(10), b(10), c(10), w(10,i,r_e), w(10,nghostcells+1,r_e)
       enddo
+
 
     case(4)
       do i = ixBmin2,ixBmax2
@@ -268,12 +274,33 @@ contains
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
     double precision, intent(in)    :: w(ixI^S,1:nw)
 
+    double precision :: a(ixImin1:ixImax1),b(ixImin1:ixImax1),c(ixImin1:ixImax1),d(ixImin1:ixImax1)
+    double precision :: mean_RE(ixImin1:ixImax1)
+    integer :: i
+
     select case (iB)
       case (3)
+
+        i = nghostcells
+
+        ! a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
+        ! b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
+        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i,rho_)*kappa_b)
+        ! c(ixImin1:ixImax1) =fld_speedofligt_0 &
+        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i,rho_)*kappa_b)
+        ! d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
+        ! mean_RE(ixImin1:ixImax1) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
+        ! print*, sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
+
+
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-        mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells) !7.6447315544263788
+        mg%bc(iB, mg_iphi)%bc_value = Er_arr(i) !sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
+
+
+
+
       case (4)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
       case default
         print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
         error stop "You have to set a user-defined boundary method"
@@ -292,7 +319,7 @@ contains
     double precision :: mass
 
     radius(ixI^S) = x(ixI^S,2)*unit_length
-    mass = M_star*unit_density/unit_length**3.d0
+    mass = M_star*(unit_density/unit_length**3.d0)
 
     gravity_field(ixI^S,1) = zero
     gravity_field(ixI^S,2) = -const_G*mass/(radius(ixI^S))**2*(unit_time**2/unit_length)
@@ -309,6 +336,7 @@ contains
     double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
+    double precision :: wCCT(ixI^S,1:nw)
     double precision :: pth(ixI^S)
     double precision :: radius(ixI^S)
     integer :: rdir, pdir
@@ -333,8 +361,9 @@ contains
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
-      call get_rad_extravars(w, x, ixI^L, ixO^L)
-      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*(wCT(ixO^S,r_e)*wCT(ixO^S,mom(rdir))/wCT(ixO^S,rho_) + w(ixO^S,i_flux(rdir)))/radius(ixO^S)
+      wCCT = wCT
+      call get_rad_extravars(wCCT, x, ixI^L, ixO^L)
+      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*(wCT(ixO^S,r_e)*wCT(ixO^S,mom(rdir))/wCT(ixO^S,rho_) + wCCT(ixO^S,i_flux(rdir)))/radius(ixO^S)
     else
       w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*wCT(ixO^S,r_e)*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))
     endif
@@ -354,5 +383,52 @@ contains
     endwhere
 
   end subroutine Opacity_stepfunction
+
+  subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
+    ! this subroutine can be used in convert, to add auxiliary variables to the
+    ! converted output file, for further analysis using tecplot, paraview, ....
+    ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
+    !
+    ! the array normconv can be filled in the (nw+1:nw+nwauxio) range with
+    ! corresponding normalization values (default value 1)
+    use mod_global_parameters
+    use mod_physics
+    use mod_fld
+
+    integer, intent(in)                :: ixI^L,ixO^L
+    double precision, intent(in)       :: x(ixI^S,1:ndim)
+    double precision                   :: w(ixI^S,nw+nwauxio)
+    double precision                   :: normconv(0:nw+nwauxio)
+    double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S)
+    double precision                   :: g_grav(ixI^S)
+    double precision                   :: Tgas(ixI^S),Trad(ixI^S)
+    integer                            :: idim
+    double precision :: radius(ixI^S)
+    double precision :: mass
+
+    radius(ixI^S) = x(ixI^S,2)*unit_length
+    mass = M_star*(unit_density/unit_length**3.d0)
+
+    call get_rad_extravars(w, x, ixI^L, ixO^L)
+
+    g_rad(ixO^S,2) = w(ixO^S,i_op)*w(ixO^S,i_flux(2))/fld_speedofligt_0
+    g_grav(ixI^S) = const_G*mass/(radius(ixI^S))**2*(unit_time**2/unit_length)
+    big_gamma(ixO^S) = g_rad(ixO^S,2)/g_grav(ixO^S)
+
+    call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
+    call rhd_get_trad(w, x, ixI^L, ixO^L, Trad)
+
+    w(ixO^S,nw+1)=Tgas(ixO^S)*unit_temperature
+    w(ixO^S,nw+2)=Trad(ixO^S)*unit_temperature
+    w(ixO^S,nw+3)=big_gamma(ixO^S)
+  end subroutine specialvar_output
+
+  subroutine specialvarnames_output(varnames)
+    ! newly added variables need to be concatenated with the w_names/primnames string
+    use mod_global_parameters
+    character(len=*) :: varnames
+
+    varnames = 'Tgas Trad Gamma'
+  end subroutine specialvarnames_output
 
 end module mod_usr

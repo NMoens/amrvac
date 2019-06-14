@@ -284,9 +284,9 @@ module mod_fld
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux
         if (lineforce_opacities) then
-          radiation_force(ixO^S,idir) = w(ixO^S,i_opf(idir))*wCT(ixO^S,iw_rho)/fld_speedofligt_0*w(ixO^S, i_flux(idir))
+          radiation_force(ixO^S,idir) = w(ixO^S,i_opf(idir))*wCT(ixO^S,iw_rho)/fld_speedofligt_0*wCT(ixO^S, i_flux(idir))
         else
-          radiation_force(ixO^S,idir) = w(ixO^S,i_op)*wCT(ixO^S,iw_rho)/fld_speedofligt_0*w(ixO^S, i_flux(idir))
+          radiation_force(ixO^S,idir) = w(ixO^S,i_op)*wCT(ixO^S,iw_rho)/fld_speedofligt_0*wCT(ixO^S, i_flux(idir))
         endif
 
         !> Momentum equation source term

@@ -262,7 +262,7 @@ contains
            i)/(rhd_gamma - one)+ half*w(ixImin1:ixImax1,i,&
            mom(2))**2.d0/w(ixImin1:ixImax1,i,rho_)
 
-         print*,it, a(10), b(10), c(10), w(10,i,r_e), w(10,nghostcells+1,r_e)
+         ! print*,it, a(10), b(10), c(10), w(10,i,r_e), w(10,nghostcells+1,r_e)
       enddo
 
     case(4)
@@ -311,15 +311,11 @@ contains
         ! mean_RE(ixImin1:ixImax1) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
         ! print*, sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
 
-
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
         mg%bc(iB, mg_iphi)%bc_value = Er_arr(i) !sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
 
-
-
-
       case (4)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
       case default
         print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
         error stop "You have to set a user-defined boundary method"
@@ -494,8 +490,8 @@ contains
     big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = g_rad(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,2)/g_grav(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
-    print*, w(10,1:7,r_e)
-    print*, w(10,1:7,i_flux(2))
+    ! print*, w(10,1:7,r_e)
+    ! print*, w(10,1:7,i_flux(2))
 
     call rhd_get_tgas(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
        ixOmax1,ixOmax2, Tgas)

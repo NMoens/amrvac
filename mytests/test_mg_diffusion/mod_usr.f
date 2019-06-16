@@ -84,7 +84,7 @@ contains
       if (fld_diff_scheme .eq. 'mg') then
         call fld_get_diffcoef_central(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
             ixmin1,ixmin2,ixmax1,ixmax2)
-        call set_mg_bounds(1.d0,1.d0)
+        ! call set_mg_bounds(w, x, ixG^L, ix^L)
       endif
 
       print*, mype, npe

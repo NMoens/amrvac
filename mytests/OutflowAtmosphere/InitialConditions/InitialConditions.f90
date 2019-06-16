@@ -167,7 +167,7 @@ enddo
 close(1)
 
 ny_vac = 256+2*2
-dy_vac = (15.d0-1.d0)/ny_vac
+dy_vac = (7.d0-1.d0)/ny_vac
 
 !Finally interpolate structure upon radially uniform amrvac grid
 allocate(rho_vac(ny_vac),v_vac(ny_vac),er_vac(ny_vac),y_vac(ny_vac))

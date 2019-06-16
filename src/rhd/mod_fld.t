@@ -714,7 +714,7 @@ module mod_fld
     double precision             :: max_res
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-5)
+    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
   end subroutine Diffuse_E_rad_mg

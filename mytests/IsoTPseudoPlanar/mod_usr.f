@@ -28,6 +28,10 @@ contains
     ! Pseudo planar correction
     usr_source => PseudoPlanar
 
+    ! Output routines
+    usr_aux_output    => specialvar_output
+    usr_add_aux_names => specialvarnames_output
+
     ! Choose independent normalization units if using dimensionless variables.
     unit_length        = 1.d9 ! cm
     unit_temperature   = 1.d6 ! K
@@ -114,5 +118,37 @@ contains
        ixImin2:ixImax2,rho_))
   end subroutine PseudoPlanar
 
+  subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,w,x,normconv)
+    ! this subroutine can be used in convert, to add auxiliary variables to the
+    ! converted output file, for further analysis using tecplot, paraview, ....
+    ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
+    !
+    ! the array normconv can be filled in the (nw+1:nw+nwauxio) range with
+    ! corresponding normalization values (default value 1)
+    use mod_global_parameters
+    use mod_physics
+    use mod_fld
+
+    integer, intent(in)                :: ixImin1,ixImin2,ixImax1,ixImax2,&
+       ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)       :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
+    double precision                   :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       nw+nwauxio)
+    double precision                   :: normconv(0:nw+nwauxio)
+
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1) = x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,1)
+
+  end subroutine specialvar_output
+
+  subroutine specialvarnames_output(varnames)
+    ! newly added variables need to be concatenated with the w_names/primnames string
+    use mod_global_parameters
+    character(len=*) :: varnames
+
+    varnames = 'radius'
+  end subroutine specialvarnames_output
 
 end module mod_usr

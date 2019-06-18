@@ -13,8 +13,8 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat     = 100
-   ditsave_log     = 100
+   ditsave_dat     = 1
+   ditsave_log     = 1
    !dtsave_dat     = 0.5d-2
    !dtsave_log     = 5.d-2
 /
@@ -22,7 +22,7 @@
  &stoplist
    time_max = 1.d-1
    dtmin = 1.0d-20
-   it_max = 1000
+   it_max = 20
 /
 
  &methodlist
@@ -60,7 +60,7 @@
 
  &paramlist
   courantpar       = 0.1d0
-  !dtpar           = 1d-5
+  dtpar           = 1d-7
  /
 
  &rhd_list
@@ -73,7 +73,7 @@
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
-  radio_acoustic_filter = .false.
+  radio_acoustic_filter = .true.
   size_ra_filter = 2
  /
 
@@ -83,8 +83,7 @@
   !fld_kappa0 = 0.34d0
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Diffusion'
-  fld_diff_testcase = .true.
+  fld_fluxlimiter = 'Pomraning'
   !diff_coef_filter = .true.
   !size_D_filter = 1
   /

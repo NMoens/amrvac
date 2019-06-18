@@ -371,13 +371,13 @@ contains
 
     double precision :: new_x(ixO^S)
 
-    new_x(ixO^S) = x(ixO^S,2) - R_0
-    kappa(ixO^S) = kappa_b + (kappa_0-kappa_b)*half*(one+erf(new_x(ixO^S)))
+    ! new_x(ixO^S) = x(ixO^S,2) - R_0
+    ! kappa(ixO^S) = kappa_b + (kappa_0-kappa_b)*half*(one+erf(new_x(ixO^S)))
 
-    ! kappa(ixO^S) = kappa_0
-    ! where (x(ixO^S,2) .lt. R_0)
-    !   kappa(ixO^S) = kappa_b
-    ! endwhere
+    kappa(ixO^S) = kappa_0
+    where (x(ixO^S,2) .lt. R_0)
+      kappa(ixO^S) = kappa_b
+    endwhere
 
   end subroutine Opacity_stepfunction
 
@@ -421,6 +421,7 @@ contains
     w(ixO^S,nw+1)=Tgas(ixO^S)*unit_temperature
     w(ixO^S,nw+2)=Trad(ixO^S)*unit_temperature
     w(ixO^S,nw+3)=big_gamma(ixO^S)
+    w(ixO^S,nw+4)=4*dpi*w(ixO^S,mom(2))*radius(ixI^S)*unit_density*unit_velocity
   end subroutine specialvar_output
 
   subroutine specialvarnames_output(varnames)
@@ -428,7 +429,7 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'Tgas Trad Gamma'
+    varnames = 'Tgas Trad Gamma Mdot'
   end subroutine specialvarnames_output
 
 end module mod_usr

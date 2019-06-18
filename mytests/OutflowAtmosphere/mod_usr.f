@@ -432,16 +432,13 @@ contains
 
     double precision :: new_x(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
-    new_x(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       2) - R_0
-    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b + &
-       (kappa_0-kappa_b)*half*(one+erf(new_x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)))
+    ! new_x(ixO^S) = x(ixO^S,2) - R_0
+    ! kappa(ixO^S) = kappa_b + (kappa_0-kappa_b)*half*(one+erf(new_x(ixO^S)))
 
-    ! kappa(ixO^S) = kappa_0
-    ! where (x(ixO^S,2) .lt. R_0)
-    !   kappa(ixO^S) = kappa_b
-    ! endwhere
+    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_0
+    where (x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2) .lt. R_0)
+      kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b
+    endwhere
 
   end subroutine Opacity_stepfunction
 

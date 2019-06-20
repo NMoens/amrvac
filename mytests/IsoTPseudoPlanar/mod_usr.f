@@ -93,11 +93,18 @@ contains
        1:nw), x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-    double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2),v(ixImin1:ixImax1,&
+       ixImin2:ixImax2,2)
     integer :: rdir, pdir
 
     rdir = 1
     pdir = 2
+
+    v(ixImin1:ixImax1,ixImin2:ixImax2,1) = wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
+       mom(1))/wCT(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
+    v(ixImin1:ixImax1,ixImin2:ixImax2,2) = wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
+       mom(2))/wCT(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
+
 
     !> Correction for spherical fluxes:
     !> drho/dt = -2 rho v_r/r
@@ -105,17 +112,24 @@ contains
        ixImin2:ixImax2,rho_) - qdt*two*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
        mom(rdir))/x(ixImin1:ixImax1,ixImin2:ixImax2,rdir)
 
-    !> dm_r/dt = m_phi**2/r
-    !> dm_phi/dt = - m_phi m_r/r
+    ! !> dm_r/dt = m_phi**2/r
+    ! !> dm_phi/dt = - m_phi m_r/r
+    ! w(ixI^S,mom(rdir)) = w(ixI^S,mom(rdir)) + qdt*(wCT(ixI^S,mom(pdir)))**two/(x(ixI^S,rdir)*wCT(ixI^S,rho_))
+    ! w(ixI^S,mom(pdir)) = w(ixI^S,mom(pdir)) - qdt*wCT(ixI^S,mom(rdir))*wCT(ixI^S,mom(pdir))/(x(ixI^S,rdir)*wCT(ixI^S,rho_))
+
+    !> dm_r/dt = +rho*v_p**2/r -rho*v_p**2/r
+    !> dm_phi/dt = - 3*rho*v_p m_r/r
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(rdir)) = w(ixImin1:ixImax1,&
-       ixImin2:ixImax2,mom(rdir)) + qdt*(wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-       mom(pdir)))**two/(x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       rdir)*wCT(ixImin1:ixImax1,ixImin2:ixImax2,rho_))
+       ixImin2:ixImax2,mom(rdir)) + qdt*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
+       rho_)*v(ixImin1:ixImax1,ixImin2:ixImax2,pdir)**two/x(ixImin1:ixImax1,&
+       ixImin2:ixImax2,rdir) - qdt*2*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
+       rho_)*v(ixImin1:ixImax1,ixImin2:ixImax2,rdir)**two/x(ixImin1:ixImax1,&
+       ixImin2:ixImax2,rdir)
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(pdir)) = w(ixImin1:ixImax1,&
-       ixImin2:ixImax2,mom(pdir)) - qdt*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-       mom(rdir))*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-       mom(pdir))/(x(ixImin1:ixImax1,ixImin2:ixImax2,rdir)*wCT(ixImin1:ixImax1,&
-       ixImin2:ixImax2,rho_))
+       ixImin2:ixImax2,mom(pdir)) - qdt*3*v(ixImin1:ixImax1,ixImin2:ixImax2,&
+       rdir)*v(ixImin1:ixImax1,ixImin2:ixImax2,pdir)*wCT(ixImin1:ixImax1,&
+       ixImin2:ixImax2,rho_)/x(ixImin1:ixImax1,ixImin2:ixImax2,rdir)
+
   end subroutine PseudoPlanar
 
   subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&

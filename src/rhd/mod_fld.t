@@ -763,6 +763,11 @@ module mod_fld
         call fld_smooth_diffcoef(w, ixI^L, ixO^L)
       endif
     endif
+
+    !> CHEATY
+    w(:,ixOmax2,i_diff_mg) = w(:,ixOmax2-2,i_diff_mg)
+    w(:,ixOmax2-1,i_diff_mg) = w(:,ixOmax2-2,i_diff_mg)
+
   end subroutine fld_get_diffcoef_central
 
   !> Use running average on Diffusion coefficient
@@ -1388,6 +1393,7 @@ module mod_fld
       enddo
     enddo
 
+    !> VARIABLE NAMES DIV ARE ACTUALLY GRAD
     {^IFONED
     divvP(ixO^S) = div_v(ixO^S,1,1)*w(ixO^S,i_edd(1,1))  &
     }
@@ -1425,6 +1431,8 @@ module mod_fld
     a2(ixO^S) = fld_speedofligt_0*w(ixO^S,i_op)*w(ixO^S,iw_rho)*dt
     a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
 
+    w(ixO^S,i_test) = a2(ixO^S)
+
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
@@ -1446,12 +1454,19 @@ module mod_fld
     !> Update gas-energy in w
     w(ixO^S,iw_e) = e_gas(ixO^S)
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! IS THIS NECESARY?!?!?
+
     !> Calculate new radiation energy
     !> Get temperature
     call phys_get_tgas(w,x,ixI^L,ixO^L,temperature)
 
     !> Update a1
     a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     !> advance E_rad
     E_rad(ixO^S) = (a1*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2 + a3)

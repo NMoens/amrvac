@@ -6,8 +6,8 @@
   base_filename='./output/const'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
-  saveprim         = F
-  nwauxio = 3
+  saveprim         = T
+  nwauxio = 4
 /
 
  &savelist
@@ -22,7 +22,7 @@
  &stoplist
    time_max = 1.d-1
    dtmin = 1.0d-20
-   it_max = 20
+   it_max = 10
 /
 
  &methodlist
@@ -39,8 +39,8 @@
   nghostcells  = 2
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 5*'cont'
-  typeboundary_max2 = 'cont',3*'noinflow','cont'
+  typeboundary_min2 = 3*'special',2*'special'
+  typeboundary_max2 = 5*'cont'
   internalboundary = F
 /
 
@@ -59,8 +59,8 @@
  /
 
  &paramlist
-  courantpar       = 0.1d0
-  dtpar           = 1d-7
+  courantpar       = 1.d0
+  !dtpar           = 1d-7
  /
 
  &rhd_list
@@ -69,11 +69,11 @@
   rhd_energy = .true.
   rhd_gamma = 1.6666667d0
   rhd_radiation_formalism = 'fld'
-  rhd_radiation_force = .true.
-  rhd_energy_interact = .true.
-  rhd_radiation_diffusion = .true.
-  rhd_radiation_advection = .true.
-  radio_acoustic_filter = .true.
+  rhd_radiation_force = .false.
+  rhd_energy_interact = .false.
+  rhd_radiation_diffusion = .false.
+  rhd_radiation_advection = .false.
+  radio_acoustic_filter = .false.
   size_ra_filter = 2
  /
 
@@ -82,8 +82,8 @@
   fld_opacity_law = 'special'
   !fld_kappa0 = 0.34d0
   fld_diff_scheme = 'mg'
-  fld_interaction_method = 'Halley'
+  fld_interaction_method = 'Newton'
   fld_fluxlimiter = 'Pomraning'
-  !diff_coef_filter = .true.
-  !size_D_filter = 1
+  diff_coef_filter = .false.
+  size_D_filter = 1
   /

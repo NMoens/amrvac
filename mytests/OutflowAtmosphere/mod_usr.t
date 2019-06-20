@@ -77,7 +77,7 @@ contains
     R_b = R_star
     R_0 = (1.d0+2.d0)*R_star
 
-    Gamma_b = 0.95d0
+    Gamma_b = 0.5d0
 
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
@@ -95,7 +95,7 @@ contains
     ! Choose independent normalization units if using dimensionless variables.
     unit_length  = R_star !r_arr(nghostcells) ! cm
     unit_temperature   = T_arr(nghostcells)
-    unit_numberdensity = rho_arr(nghostcells)/((1.d0+4.d0*He_abundance)*mp_cgs)
+    unit_numberdensity = rho_arr(nghostcells+1)/((1.d0+4.d0*He_abundance)*mp_cgs)
 
     !> Remaining units
     unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
@@ -106,8 +106,12 @@ contains
     unit_opacity = one/(unit_density*unit_length)
 
     if (mype .eq. 0) then
-      print*, M_star, R_star, Gamma_0, M_dot_ratio, M_dot, L_0
-      print*, R_b, R_0, kappa_b, kappa_0
+      print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
+      print*, 'R_b ', 'R_0 ',  'Gamma_b ', 'Gamma_0 ', 'kappa_b ', 'kappa_0'
+      print*, M_star, R_star,M_dot_ratio, M_dot, L_0
+      print*, R_b, R_0,  Gamma_b, Gamma_0, kappa_b, kappa_0
+
+      print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2), L_0/(4*dpi*R_0**2)/unit_radflux
 
       print*, 'unit_length', unit_length
       print*, 'unit_density', unit_density
@@ -120,7 +124,7 @@ contains
     endif
 
     !> Make all parameters dimensionless
-    M_star = M_star/unit_density*unit_length**3.d0
+    M_star = M_star/(unit_density*unit_length**3.d0)
     R_star = R_star/unit_length
     M_dot = M_dot/(unit_density*unit_length**3.d0)*unit_time
     L_0 = L_0/(unit_pressure*unit_length**3.d0)*unit_time
@@ -137,6 +141,13 @@ contains
     Er_arr = Er_arr/unit_pressure
     T_arr = T_arr/unit_temperature
     p_arr = p_arr/unit_pressure
+
+    if (mype .eq. 0) then
+      print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
+      print*, 'R_b ', 'R_0 ',  'Gamma_b ', 'Gamma_0 ', 'kappa_b ', 'kappa_0'
+      print*, M_star, R_star,M_dot_ratio, M_dot, L_0
+      print*, R_b, R_0,  Gamma_b, Gamma_0, kappa_b, kappa_0
+    endif
 
   end subroutine initglobaldata_usr
 
@@ -160,7 +171,7 @@ contains
     M_star = M_star*M_sun
     L_0 = L_0*L_sun
     R_star = R_star*R_sun
-    M_dot = M_dot*M_star/year
+    M_dot = M_dot*M_sun/year
 
   end subroutine ReadInParams
 
@@ -230,22 +241,31 @@ contains
     case(3)
       do i = ixBmax2,ixBmin2,-1
         w(ixImin1:ixImax1,i,rho_) = rho_arr(i)
-        w(ixImin1:ixImax1,i,mom(:)) = w(ixImin1:ixImax1,i+1,mom(:))
+        w(ixImin1:ixImax1,i,mom(1)) = w(ixImin1:ixImax1,i+1,mom(1))
+        w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i+1,mom(2)) &
+        *(x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2
 
-        a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
-        b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
-        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
-        c(ixImin1:ixImax1) =fld_speedofligt_0 &
-        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
-        d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
-        w(ixImin1:ixImax1,i,r_e) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
+        ! a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
+        ! b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
+        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
+        ! c(ixImin1:ixImax1) =fld_speedofligt_0 &
+        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
+        ! d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
+        ! w(ixImin1:ixImax1,i,r_e) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
+
+        w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
 
         Temp(ixImin1:ixImax1,i) = (w(ixImin1:ixImax1,i,r_e)/const_rad_a)**0.25d0
         Temp(ixImin1:ixImax1,i) = const_kb/(fld_mu*const_mp)*Temp(ixImin1:ixImax1,i)*w(ixImin1:ixImax1,i,rho_)
         w(ixImin1:ixImax1,i,e_) = Temp(ixImin1:ixImax1,i)/(rhd_gamma - one)&
          + half*w(ixImin1:ixImax1,i,mom(2))**2.d0/w(ixImin1:ixImax1,i,rho_)
 
-         ! print*,it, a(10), b(10), c(10), w(10,i,r_e), w(10,nghostcells+1,r_e)
+         if (i .eq. nghostcells) then
+           print*, w(10,nghostcells,mom(2)),w(10,nghostcells,rho_)
+           ! print*,it,a(10),b(10),c(10),d(10),w(10,nghostcells,r_e)
+           print*, w(10,nghostcells+1,r_e)
+         endif
+
       enddo
 
     case(4)
@@ -278,22 +298,22 @@ contains
     select case (iB)
       case (3)
 
-        i = nghostcells
-
+        ! i = nghostcells
+        !
         ! a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
         ! b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
-        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i,rho_)*kappa_b)
+        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i+1,rho_)*kappa_b)
         ! c(ixImin1:ixImax1) =fld_speedofligt_0 &
-        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i,rho_)*kappa_b)
+        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i+1,rho_)*kappa_b)
         ! d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
         ! mean_RE(ixImin1:ixImax1) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
         ! print*, sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
 
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-        mg%bc(iB, mg_iphi)%bc_value = Er_arr(i) !sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
+        mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells)! sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
 
       case (4)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
       case default
         print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
         error stop "You have to set a user-defined boundary method"
@@ -312,10 +332,10 @@ contains
     double precision :: mass
 
     radius(ixI^S) = x(ixI^S,2)*unit_length
-    mass = M_star*(unit_density/unit_length**3.d0)
+    mass = M_star*(unit_density*unit_length**3.d0)
 
     gravity_field(ixI^S,1) = zero
-    gravity_field(ixI^S,2) = -const_G*mass/(radius(ixI^S))**2*(unit_time**2/unit_length)
+    gravity_field(ixI^S,2) = -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
   end subroutine set_gravitation_field
 
   !> Calculate w(iw)=w(iw)+qdt*SOURCE[wCT,qtC,x] within ixO for all indices
@@ -330,12 +350,15 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: wCCT(ixI^S,1:nw)
-    double precision :: pth(ixI^S)
+    double precision :: pth(ixI^S),v(ixI^S,2)
     double precision :: radius(ixI^S)
     integer :: rdir, pdir
 
     rdir = 2
     pdir = 1
+
+    v(ixI^S,1) = wCT(ixI^S,mom(1))/wCT(ixI^S,rho_)
+    v(ixI^S,2) = wCT(ixI^S,mom(2))/wCT(ixI^S,rho_)
 
     radius(ixO^S) = x(ixO^S,2)
 
@@ -343,10 +366,12 @@ contains
     !> drho/dt = -2 rho v_r/r
     w(ixO^S,rho_) = w(ixO^S,rho_) - qdt*two*wCT(ixO^S,mom(rdir))/radius(ixO^S)
 
-    !> dm_r/dt = m_phi**2/r
-    !> dm_phi/dt = - m_phi m_r/r
-    w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) + qdt*(wCT(ixO^S,mom(pdir)))**two/(radius(ixO^S)*wCT(ixO^S,rho_))
-    w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*wCT(ixO^S,mom(rdir))*wCT(ixO^S,mom(pdir))/(radius(ixO^S)*wCT(ixO^S,rho_))
+    !> dm_r/dt = +rho*v_p**2/r -rho*v_p**2/r
+    !> dm_phi/dt = - 3*rho*v_p m_r/r
+    w(ixI^S,mom(rdir)) = w(ixI^S,mom(rdir)) + qdt*wCT(ixI^S,rho_)*v(ixI^S,pdir)**two/x(ixI^S,rdir) &
+                                            - qdt*2*wCT(ixI^S,rho_)*v(ixI^S,rdir)**two/x(ixI^S,rdir)
+    w(ixI^S,mom(pdir)) = w(ixI^S,mom(pdir)) - qdt*3*v(ixI^S,rdir)*v(ixI^S,pdir)*wCT(ixI^S,rho_)/x(ixI^S,rdir)
+
 
     !> de/dt = -2 (e+p)v_r/r
     call phys_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
@@ -371,13 +396,13 @@ contains
 
     double precision :: new_x(ixO^S)
 
-    ! new_x(ixO^S) = x(ixO^S,2) - R_0
-    ! kappa(ixO^S) = kappa_b + (kappa_0-kappa_b)*half*(one+erf(new_x(ixO^S)))
+    new_x(ixO^S) = x(ixO^S,2) - R_0
+    kappa(ixO^S) = kappa_b + (kappa_0-kappa_b)*half*(one+erf(new_x(ixO^S)))
 
-    kappa(ixO^S) = kappa_0
-    where (x(ixO^S,2) .lt. R_0)
-      kappa(ixO^S) = kappa_b
-    endwhere
+    ! kappa(ixO^S) = kappa_0
+    ! where (x(ixO^S,2) .lt. R_0)
+    !   kappa(ixO^S) = kappa_b
+    ! endwhere
 
   end subroutine Opacity_stepfunction
 
@@ -396,7 +421,7 @@ contains
     double precision, intent(in)       :: x(ixI^S,1:ndim)
     double precision                   :: w(ixI^S,nw+nwauxio)
     double precision                   :: normconv(0:nw+nwauxio)
-    double precision                   :: g_rad(ixI^S,1:ndim), big_gamma(ixI^S)
+    double precision                   :: g_rad(ixI^S), big_gamma(ixI^S)
     double precision                   :: g_grav(ixI^S)
     double precision                   :: Tgas(ixI^S),Trad(ixI^S)
     integer                            :: idim
@@ -404,24 +429,22 @@ contains
     double precision :: mass
 
     radius(ixI^S) = x(ixI^S,2)*unit_length
-    mass = M_star*(unit_density/unit_length**3.d0)
+    mass = M_star*(unit_density*unit_length**3.d0)
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
-    g_rad(ixO^S,2) = w(ixO^S,i_op)*w(ixO^S,i_flux(2))/fld_speedofligt_0
-    g_grav(ixI^S) = const_G*mass/(radius(ixI^S))**2*(unit_time**2/unit_length)
-    big_gamma(ixO^S) = g_rad(ixO^S,2)/g_grav(ixO^S)
-
-    ! print*, w(10,1:7,r_e)
-    ! print*, w(10,1:7,i_flux(2))
+    g_rad(ixO^S) = w(ixO^S,i_op)*w(ixO^S,i_flux(2))/fld_speedofligt_0
+    g_grav(ixI^S) = const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
+    big_gamma(ixO^S) = g_rad(ixO^S)/g_grav(ixO^S)
 
     call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
     call rhd_get_trad(w, x, ixI^L, ixO^L, Trad)
 
-    w(ixO^S,nw+1)=Tgas(ixO^S)*unit_temperature
-    w(ixO^S,nw+2)=Trad(ixO^S)*unit_temperature
-    w(ixO^S,nw+3)=big_gamma(ixO^S)
-    w(ixO^S,nw+4)=4*dpi*w(ixO^S,mom(2))*radius(ixI^S)*unit_density*unit_velocity
+    w(ixO^S,nw+1) = Tgas(ixO^S)*unit_temperature
+    w(ixO^S,nw+2) = Trad(ixO^S)*unit_temperature
+    w(ixO^S,nw+3) = big_gamma(ixO^S)
+    w(ixO^S,nw+4) = 4*dpi*w(ixO^S,mom(2))*radius(ixI^S)**2 &
+    *unit_density*unit_velocity/M_sun*year
   end subroutine specialvar_output
 
   subroutine specialvarnames_output(varnames)

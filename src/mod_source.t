@@ -45,7 +45,9 @@ contains
 
     if (physics_type .eq. 'rhd') then
       if (.not. prior .and. associated(phys_global_source)) then
+      ! if (associated(phys_global_source)) then
          call phys_global_source(dt, qt, src_active)
+         print*, 'Doing diffusion stuff #############################################'
       end if
     endif
 

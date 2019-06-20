@@ -1044,15 +1044,16 @@ contains
     select case(rhd_radiation_formalism)
     case('fld')
       !> diffusion
-      ! print*, 'Doing diffusion stuff'
+      print*, it, 'Doing diffusion stuff'
       if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCCT,w,x,&
         rhd_energy,qsourcesplit,active)
+        ! call phys_global_source(dt, global_time, active)
       !> photon tiring, heating and cooling
-      ! print*, 'Doing bisection stuff'
+      print*, it, 'Doing bisection stuff'
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCCT,w,x,&
         rhd_energy,qsourcesplit,active)
       !> radiation force
-      ! print*, 'Doing radforce stuff'
+      print*, it, 'Doing radforce stuff'
       if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCCT,w,x,&
         rhd_energy,qsourcesplit,active)
     case default
@@ -1060,7 +1061,7 @@ contains
     end select
 
     call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
-    w(ixI^S,i_test) = cmax(ixI^S)
+    !w(ixI^S,i_test) = cmax(ixI^S)
 
 
   end subroutine rhd_add_radiation_source

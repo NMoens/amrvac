@@ -84,20 +84,31 @@ contains
     double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    double precision :: pth(ixI^S)
+    double precision :: pth(ixI^S),v(ixI^S,2)
     integer :: rdir, pdir
 
     rdir = 1
     pdir = 2
 
+    v(ixI^S,1) = wCT(ixI^S,mom(1))/wCT(ixI^S,rho_)
+    v(ixI^S,2) = wCT(ixI^S,mom(2))/wCT(ixI^S,rho_)
+
+
     !> Correction for spherical fluxes:
     !> drho/dt = -2 rho v_r/r
     w(ixI^S,rho_) = w(ixI^S,rho_) - qdt*two*wCT(ixI^S,mom(rdir))/x(ixI^S,rdir)
 
-    !> dm_r/dt = m_phi**2/r
-    !> dm_phi/dt = - m_phi m_r/r
-    w(ixI^S,mom(rdir)) = w(ixI^S,mom(rdir)) + qdt*(wCT(ixI^S,mom(pdir)))**two/(x(ixI^S,rdir)*wCT(ixI^S,rho_))
-    w(ixI^S,mom(pdir)) = w(ixI^S,mom(pdir)) - qdt*wCT(ixI^S,mom(rdir))*wCT(ixI^S,mom(pdir))/(x(ixI^S,rdir)*wCT(ixI^S,rho_))
+    ! !> dm_r/dt = m_phi**2/r
+    ! !> dm_phi/dt = - m_phi m_r/r
+    ! w(ixI^S,mom(rdir)) = w(ixI^S,mom(rdir)) + qdt*(wCT(ixI^S,mom(pdir)))**two/(x(ixI^S,rdir)*wCT(ixI^S,rho_))
+    ! w(ixI^S,mom(pdir)) = w(ixI^S,mom(pdir)) - qdt*wCT(ixI^S,mom(rdir))*wCT(ixI^S,mom(pdir))/(x(ixI^S,rdir)*wCT(ixI^S,rho_))
+
+    !> dm_r/dt = +rho*v_p**2/r -rho*v_p**2/r
+    !> dm_phi/dt = - 3*rho*v_p m_r/r
+    w(ixI^S,mom(rdir)) = w(ixI^S,mom(rdir)) + qdt*wCT(ixI^S,rho_)*v(ixI^S,pdir)**two/x(ixI^S,rdir) &
+                                            - qdt*2*wCT(ixI^S,rho_)*v(ixI^S,rdir)**two/x(ixI^S,rdir)
+    w(ixI^S,mom(pdir)) = w(ixI^S,mom(pdir)) - qdt*3*v(ixI^S,rdir)*v(ixI^S,pdir)*wCT(ixI^S,rho_)/x(ixI^S,rdir)
+
   end subroutine PseudoPlanar
 
   subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)

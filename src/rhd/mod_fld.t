@@ -199,9 +199,10 @@ module mod_fld
 
         use_multigrid = .true.
 
-        !if (rhd_radiation_diffusion) then
+        if (rhd_radiation_diffusion) then
           phys_global_source => Diffuse_E_rad_mg
-        !endif
+        endif
+
         mg_after_new_tree => set_mg_diffcoef
 
         mg%n_extra_vars = 1
@@ -283,17 +284,29 @@ module mod_fld
 
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux
-        if (lineforce_opacities) then
-          radiation_force(ixO^S,idir) = w(ixO^S,i_opf(idir))*wCT(ixO^S,iw_rho)/fld_speedofligt_0*wCT(ixO^S, i_flux(idir))
-        else
-          radiation_force(ixO^S,idir) = w(ixO^S,i_op)*wCT(ixO^S,iw_rho)/fld_speedofligt_0*wCT(ixO^S, i_flux(idir))
-        endif
+        ! if (lineforce_opacities) then
+        !   radiation_force(ixO^S,idir) = wCT(ixO^S,i_opf(idir))*wCT(ixO^S,iw_rho)/fld_speedofligt_0*wCT(ixO^S, i_flux(idir))
+        ! else
+        radiation_force(ixO^S,idir) = wCT(ixO^S,iw_rho)*wCT(ixO^S,i_op)*wCT(ixO^S, i_flux(idir))/fld_speedofligt_0
+        !
+        ! if (idir == 2) print*, radiation_force(nghostcells+2,nghostcells+2,2), wCT(nghostcells+2,nghostcells+2,iw_rho) &
+        ! , wCT(nghostcells+2,nghostcells+2,i_op), wCT(nghostcells+2,nghostcells+2, i_flux(idir))
+        ! endif
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * radiation_force(ixO^S,idir)
 
+        !> CHEATY BIT:
+        ! w(:,ixOmin2,iw_mom(idir)) = w(:,ixOmin2+1,iw_mom(idir))
+
+
       enddo
+
+      !
+      ! print*, 'radiation_force'
+      ! print*, qdt * radiation_force(nghostcells+1,:,2)
+
     end if
   end subroutine get_fld_rad_force
 
@@ -525,7 +538,6 @@ module mod_fld
       fld_R(ixI^S) = dsqrt(normgrad2(ixI^S))/(w(ixI^S,i_op)*w(ixI^S,iw_rho)*w(ixI^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
-      !> Levermore and Pomraning: lambda = (2 + R)/(6 + 3R + R^2)
       fld_lambda(ixI^S) = one/fld_R(ixI^S)
 
       w(ixI^S,i_lambda) = fld_lambda(ixI^S)
@@ -550,6 +562,27 @@ module mod_fld
 
       w(ixI^S,i_lambda) = fld_lambda(ixI^S)
       w(ixI^S,i_fld_R) = fld_R(ixI^S)
+
+    case('Pomraning2')
+      !> Calculate R everywhere
+      !> |grad E|/(rho kappa E)
+      normgrad2(ixI^S) = zero
+      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      do idir = 1,ndir
+        !> gradient or gradientS ?!?!?!?!?!?
+        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
+      end do
+
+      fld_R(ixI^S) = dsqrt(normgrad2(ixI^S))/(w(ixI^S,i_op)*w(ixI^S,iw_rho)*w(ixI^S,iw_r_e))
+
+      !> Calculate the flux limiter, lambda
+      !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
+      fld_lambda(ixI^S) = one/fld_R(ixI^S)*(one/dtanh(fld_R(ixI^S)) - one/fld_R(ixI^S))
+
+      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
+      w(ixI^S,i_fld_R) = fld_R(ixI^S)
+
 
     case('Minerbo')
       !> Calculate R everywhere
@@ -615,7 +648,15 @@ module mod_fld
       rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
 
-      w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
+    w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
+    !
+    ! do idir = ixOmin2,ixOmax2
+    !   print*, idir, w(nghostcells+1,idir,i_lambda) ,w(nghostcells+1, idir,i_op) ,w(nghostcells+1, idir,iw_rho) &
+    !   , grad_r_e(nghostcells+1,idir)/w(nghostcells+1, idir,iw_rho)
+    ! enddo
+    !
+    ! stop
+
   end subroutine fld_get_radflux
 
   !> Calculate Eddington-tensor
@@ -1431,13 +1472,21 @@ module mod_fld
     a2(ixO^S) = fld_speedofligt_0*w(ixO^S,i_op)*w(ixO^S,iw_rho)*dt
     a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
 
-    w(ixO^S,i_test) = a2(ixO^S)
+    a3 = zero
+
+
+    ! w(ixO^S,i_test) = a3(ixO^S)
 
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
+    print*,it, '#############', 'Before E interact'
+    do i = ixImin2,10
+      print*, w(nghostcells+1,i,iw_r_e),w(nghostcells+1,i,iw_e),c0(nghostcells+1,i),c1(nghostcells+1,i)
+    enddo
 
-    !> Loop over every cell for bisection method
+
+    !> Loop over every cell for rootfinding method
     {do ix^D=ixOmin^D,ixOmax^D\ }
       select case(fld_interaction_method)
       case('Bisect')
@@ -1457,14 +1506,11 @@ module mod_fld
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! IS THIS NECESARY?!?!?
-
     !> Calculate new radiation energy
     !> Get temperature
     call phys_get_tgas(w,x,ixI^L,ixO^L,temperature)
-
     !> Update a1
     a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
-
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -1473,6 +1519,14 @@ module mod_fld
 
     !> Update rad-energy in w
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
+
+    print*,it, '#############', 'After E interact'
+    do i = ixImin2,10
+      print*, w(nghostcells+1,i,iw_r_e),w(nghostcells+1,i,iw_e),c0(nghostcells+1,i),c1(nghostcells+1,i)
+    enddo
+
+
+
   end subroutine Energy_interaction
 
   !> Find the root of the 4th degree polynomial using the bisection method

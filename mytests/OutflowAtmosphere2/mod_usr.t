@@ -7,9 +7,9 @@ module mod_usr
 
   implicit none
 
-  double precision, parameter :: M_sun = 1.99d33
-  double precision, parameter :: R_sun = 6.96d10
-  double precision, parameter :: L_sun = 3.9d33
+  double precision, parameter :: M_sun = 1.9891000d33
+  double precision, parameter :: R_sun = 6.9599000d10
+  double precision, parameter :: L_sun = 3.8268000d33
   double precision, parameter :: year = 365.25*24*60*60
 
   double precision, allocatable :: r_arr(:)
@@ -29,6 +29,8 @@ module mod_usr
   double precision :: M_dot
   double precision :: M_dot_max
   double precision :: rho_b
+  double precision :: v_esc, v_inf, v_0, bb
+  double precision :: lambda_0
 
 contains
 
@@ -48,6 +50,9 @@ contains
     ! Boundary conditions
     usr_special_bc => boundary_conditions
     usr_special_mg_bc => mg_boundary_conditions
+
+    ! Reset gas energy to radiation temperature
+    usr_internal_bc => set_gas_energy
 
     ! PseudoPlanar correction
     usr_source => PseudoPlanar
@@ -74,10 +79,18 @@ contains
     !> Set stellar mass and radius
     call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0)
 
-    R_b = R_star
-    R_0 = (1.d0+2.d0)*R_star
+    R_b = xprobmin2*R_star
+    R_0 = (xprobmin2+0.1d0)*R_star
 
-    Gamma_b = 2.d0
+    v_esc = dsqrt(2*const_G*M_star/R_star)
+    v_inf = dsqrt(Gamma_0 - one)*v_esc
+    v_0 = 1.d5
+
+    bb = one - (v_0/v_inf)**two
+
+    Gamma_b = 0.9d0
+
+    rho_b = M_dot/(4*dpi*R_star**2*v_0)
 
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
@@ -90,17 +103,19 @@ contains
     allocate(T_arr(domain_nx2+2*nghostcells))
     allocate(p_arr(domain_nx2+2*nghostcells))
 
-    call ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
+    ! call ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
+    call GetArrays(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length  = R_star !r_arr(nghostcells) ! cm
-    unit_temperature   = T_arr(nghostcells)
-    unit_numberdensity = rho_arr(nghostcells+1)/((1.d0+4.d0*He_abundance)*mp_cgs)
+    unit_velocity   = v_0
+    unit_numberdensity = rho_b/((1.d0+4.d0*He_abundance)*mp_cgs)
 
     !> Remaining units
     unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
     unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*kB_cgs*unit_temperature
     unit_velocity=dsqrt(unit_pressure/unit_density)
+    unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*kB_cgs)
     unit_time=unit_length/unit_velocity
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
@@ -149,7 +164,6 @@ contains
       print*, R_b, R_0,  Gamma_b, Gamma_0, kappa_b, kappa_0
 
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_b**2)
-
     endif
 
   end subroutine initglobaldata_usr
@@ -178,12 +192,13 @@ contains
 
   end subroutine ReadInParams
 
-  subroutine ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr,p_arr)
+  subroutine GetArrays(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr,p_arr)
     use mod_global_parameters
     ! use mod_constants
     ! use mod_fld
 
-    integer :: line
+    integer :: i
+    double precision :: dr
     double precision, intent(out) :: r_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: rho_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: v_arr(domain_nx2+2*nghostcells)
@@ -194,18 +209,32 @@ contains
     double precision, intent(out) :: T_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: p_arr(domain_nx2+2*nghostcells)
 
-    OPEN(2,FILE='InitialConditions/init_struc_amrvac')
-    READ(2,*)
-    READ(2,*)
-    do line = 1,domain_nx2+2*nghostcells
-      READ(2,*) i_arr(line), r_arr(line), v_arr(line), rho_arr(line), Er_arr(line)
+    dr = (xprobmax2-xprobmin2)*R_star/domain_nx2
+    do i = 1,domain_nx2+2*nghostcells
+      r_arr(i) = R_b+(i-1-nghostcells)*dr
     enddo
-    CLOSE(2)
+
+    v_arr = v_inf*(one - bb*R_star/r_arr)**half
+    rho_arr = M_dot/(4*dpi*r_arr**2*v_arr)
+
+    Er_arr(domain_nx2+2*nghostcells) = M_dot*Gamma_0*const_G*M_star/(4*dpi*v_inf)&
+    *(one/r_arr(domain_nx2+2*nghostcells))**3.d0
+
+    do i = domain_nx2+2*nghostcells-1,1,-1
+      Er_arr(i) = Er_arr(i+1)+(3*Gamma_0*const_G*M_star*(rho_arr(i)/r_arr(i)**2 + rho_arr(i+1)/r_arr(i+1)**2))*half*dr
+    enddo
 
     T_arr = (Er_arr/const_rad_a)**0.25d0
     p_arr = const_kb/(fld_mu*const_mp)*T_arr*rho_arr
     e_arr = p_arr/(rhd_gamma - one) + half*rho_arr*v_arr**2.d0
-  end subroutine ReadInTable
+
+    ! do i = domain_nx2+2*nghostcells-1,1,-1
+    !   print*, i, r_arr(i)/R_star, T_arr(i), rho_arr(i)/rho_b, Er_arr(i), v_arr(i)/1.d5
+    ! enddo
+    !
+    ! stop
+
+  end subroutine GetArrays
 
   !> A routine for specifying initial conditions
   subroutine initial_conditions(ixI^L, ixO^L, w, x)
@@ -225,44 +254,77 @@ contains
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
+    ! do i = ixImin2,ixImax2
+    !   print*,i, w(nghostcells+1, i,i_flux(2))/(L_0/(4*dpi*x(nghostcells+1, i,2))), &
+    !   x(nghostcells+1,i,2)/R_star, w(nghostcells+1, i,r_e)*unit_pressure
+    ! enddo
+    !
+    ! do i = ixImin2,30
+    !   print*,i,Er_arr(i)/(const_rad_a*(unit_temperature**4/unit_pressure)*T_arr(i)**4)
+    ! enddo
+    !
+    ! stop
+
   end subroutine initial_conditions
 
   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
     use mod_global_parameters
     use mod_fld
+
     integer, intent(in)             :: ixI^L, ixB^L, iB
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: a(ixImin1:ixImax1),b(ixImin1:ixImax1),c(ixImin1:ixImax1),d(ixImin1:ixImax1)
-    double precision :: Temp(ixI^S)
+    double precision :: Temp(ixI^S), Press(ixI^S)
 
     integer :: i,j
 
     select case (iB)
 
     case(3)
+
+      ! print*,it, '#############', 'Before bound'
+      ! do i = ixImin2,10
+      !   print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+      ! enddo
+
+
       do i = ixBmax2,ixBmin2,-1
         w(ixImin1:ixImax1,i,rho_) = rho_arr(i)
         w(ixImin1:ixImax1,i,mom(1)) = w(ixImin1:ixImax1,i+1,mom(1))
-        w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i+1,mom(2)) &
-        *(x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2
+        w(ixImin1:ixImax1,i,mom(2)) = rho_arr(i)*v_arr(i) !w(ixImin1:ixImax1,i+1,mom(2)) &
+        ! *(x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2
 
-        ! a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
-        ! b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
-        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
-        ! c(ixImin1:ixImax1) =fld_speedofligt_0 &
-        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
-        ! d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
-        ! w(ixImin1:ixImax1,i,r_e) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
+        a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
+        b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
+        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
+        c(ixImin1:ixImax1) =fld_speedofligt_0 &
+        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
+        d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
+        w(ixImin1:ixImax1,i,r_e) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
+        w(ixImin1:ixImax1,i,r_e) = max(w(ixImin1:ixImax1,i,r_e),half*Er_arr(i))
+        ! w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
 
-        w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
+        ! Temp(ixImin1:ixImax1,i) = (w(ixImin1:ixImax1,i,r_e)/const_rad_a)**0.25d0
+        ! Press(ixImin1:ixImax1,i) = const_kb/(fld_mu*const_mp)*Temp(ixImin1:ixImax1,i)*w(ixImin1:ixImax1,i,rho_) &
+        ! *unit_temperature*unit_density/unit_pressure
+        ! w(ixImin1:ixImax1,i,e_) = Press(ixImin1:ixImax1,i)/(rhd_gamma - one) &
+        ! + half*(w(ixImin1:ixImax1,i,mom(1))**2.d0+w(ixImin1:ixImax1,i,mom(2))**2.d0)/w(ixImin1:ixImax1,i,rho_)
 
-        Temp(ixImin1:ixImax1,i) = (w(ixImin1:ixImax1,i,r_e)/const_rad_a)**0.25d0
-        Temp(ixImin1:ixImax1,i) = const_kb/(fld_mu*const_mp)*Temp(ixImin1:ixImax1,i)*w(ixImin1:ixImax1,i,rho_)
-        w(ixImin1:ixImax1,i,e_) = Temp(ixImin1:ixImax1,i)/(rhd_gamma - one)&
-         + half*w(ixImin1:ixImax1,i,mom(2))**2.d0/w(ixImin1:ixImax1,i,rho_)
+        ! w(ixImin1:ixImax1,i,e_) = e_arr(i)
+
+        w(ixImin1:ixImax1,i,e_) = w(ixImin1:ixImax1,i+1,e_)
+
+
+
+
       enddo
+
+      ! print*,it, '#############', 'After bound'
+      ! do i = ixImin2,10
+      !   print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+      ! enddo
 
     case(4)
       do i = ixBmin2,ixBmax2
@@ -279,6 +341,7 @@ contains
     end select
   end subroutine boundary_conditions
 
+
   subroutine mg_boundary_conditions(qt,ixI^L,ixO^L,iB,w,x)
 
     use mod_global_parameters
@@ -294,8 +357,8 @@ contains
     select case (iB)
       case (3)
 
-        ! i = nghostcells
-        !
+        i = nghostcells
+
         ! a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
         ! b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
         ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i+1,rho_)*kappa_b)
@@ -305,7 +368,7 @@ contains
         ! mean_RE(ixImin1:ixImax1) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
 
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        ! mg%bc(iB, mg_iphi)%bc_value = !Er_arr(nghostcells)! sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
+        ! mg%bc(iB, mg_iphi)%bc_value = sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
 
       case (4)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
@@ -314,6 +377,49 @@ contains
         error stop "You have to set a user-defined boundary method"
     end select
   end subroutine mg_boundary_conditions
+
+
+
+
+  !> internal boundary, user defined
+  !
+  !> This subroutine can be used to artificially overwrite ALL conservative
+  !> variables in a user-selected region of the mesh, and thereby act as
+  !> an internal boundary region. It is called just before external (ghost cell)
+  !> boundary regions will be set by the BC selection. Here, you could e.g.
+  !> want to introduce an extra variable (nwextra, to be distinguished from nwaux)
+  !> which can be used to identify the internal boundary region location.
+  !> Its effect should always be local as it acts on the mesh.
+  subroutine set_gas_energy(level,qt,ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+    use mod_physics
+    integer, intent(in)             :: ixI^L,ixO^L,level
+    double precision, intent(in)    :: qt
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision, intent(in)    :: x(ixI^S,1:ndim)
+
+    double precision :: Trad(ixI^S),pgas(ixI^S)
+    integer :: i
+
+    print*,it, '#############', 'Before bound'
+    do i = ixImin2,10
+      print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+    enddo
+
+    call phys_get_trad(w,x,ixI^L,ixO^L,Trad)
+    pgas(ixI^S) = const_kB/(fld_mu*const_mp)*Trad(ixI^S)*w(ixI^S,rho_) &
+    *unit_temperature*unit_density/unit_pressure
+
+    w(ixI^S,e_) = pgas(ixI^S)/(rhd_gamma - 1) &
+    + half*(w(ixI^S,mom(1))**2+w(ixI^S,mom(1))**2)/w(ixI^S,rho_)
+
+    print*,it, '#############', 'After bound'
+    do i = ixImin2,10
+      print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+    enddo
+
+  end subroutine set_gas_energy
+
 
   !> Calculate gravitational acceleration in each dimension
   subroutine set_gravitation_field(ixI^L,ixO^L,wCT,x,gravity_field)
@@ -331,6 +437,7 @@ contains
 
     gravity_field(ixI^S,1) = zero
     gravity_field(ixI^S,2) = -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
+
   end subroutine set_gravitation_field
 
   !> Calculate w(iw)=w(iw)+qdt*SOURCE[wCT,qtC,x] within ixO for all indices
@@ -393,7 +500,7 @@ contains
 
     double precision :: new_x(ixO^S)
 
-    new_x(ixO^S) = x(ixO^S,2) - R_0
+    new_x(ixO^S) = (x(ixO^S,2) - R_0)*2d1
     kappa(ixO^S) = kappa_b + (kappa_0-kappa_b)*half*(one+erf(new_x(ixO^S)))
 
     ! kappa(ixO^S) = kappa_0
@@ -442,6 +549,9 @@ contains
     w(ixO^S,nw+3) = big_gamma(ixO^S)
     w(ixO^S,nw+4) = 4*dpi*w(ixO^S,mom(2))*radius(ixI^S)**2 &
     *unit_density*unit_velocity/M_sun*year
+    w(ixO^S,nw+5) = w(ixO^S,i_flux(2)) + w(ixO^S,r_e)*w(ixO^S,mom(2))/w(ixO^S,rho_)
+
+
   end subroutine specialvar_output
 
   subroutine specialvarnames_output(varnames)
@@ -449,7 +559,7 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'Tgas Trad Gamma Mdot'
+    varnames = 'Tgas Trad Gamma Mdot Ftot'
   end subroutine specialvarnames_output
 
 end module mod_usr

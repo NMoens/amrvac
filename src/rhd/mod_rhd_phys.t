@@ -964,6 +964,10 @@ contains
     use mod_gravity, only: gravity_add_source, grav_split
     use mod_dust, only: dust_small_to_zero, set_dusttozero
 
+
+    use mod_fld
+
+
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: qdt
     double precision, intent(in)    :: wCT(ixI^S, 1:nw), x(ixI^S, 1:ndim)
@@ -974,7 +978,21 @@ contains
     double precision :: gravity_field(ixI^S, 1:ndim)
     integer :: idust, idim
 
+
+    integer :: i
+
+
+    ! print*, 'Iteration', it, '#####################', qsourcesplit,active
+    ! print*, 'BEFORE ADDING SOURCE', active
+    ! do i = ixImin2,30
+    !   print*, w(nghostcells+1,i,rho_),w(nghostcells+1,i,mom(2)), w(nghostcells+1,i,i_flux(2)), w(nghostcells+1,i,i_op)
+    ! enddo
     call rhd_add_radiation_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
+    ! print*, 'AFTER ADDING SOURCE', active
+    ! do i = ixImin2,30
+    !   print*, w(nghostcells+1,i,rho_),w(nghostcells+1,i,mom(2)), w(nghostcells+1,i,i_flux(2)), w(nghostcells+1,i,i_op)
+    ! enddo
+
 
     if(rhd_dust) then
       call dust_add_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
@@ -1028,6 +1046,7 @@ contains
     double precision :: wCCT(ixI^S,1:nw)
     double precision :: cmax(ixI^S)
 
+
     !> Maybe this WCCT stuff is unnescecary, I just put it here
     !> because i want e.g. original fluxes for my radiation force
     !> sourceterms should be  w = w + dt WCT, so F should be wCT-F, not w-F
@@ -1044,24 +1063,25 @@ contains
     select case(rhd_radiation_formalism)
     case('fld')
       !> diffusion
-      print*, it, 'Doing diffusion stuff'
+      ! print*, it, 'Doing diffusion stuff'
       if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCCT,w,x,&
         rhd_energy,qsourcesplit,active)
         ! call phys_global_source(dt, global_time, active)
       !> photon tiring, heating and cooling
-      print*, it, 'Doing bisection stuff'
+      ! print*, it, 'Doing bisection stuff'
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCCT,w,x,&
         rhd_energy,qsourcesplit,active)
       !> radiation force
-      print*, it, 'Doing radforce stuff'
+      ! print*, it, 'Doing radforce stuff'
       if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCCT,w,x,&
         rhd_energy,qsourcesplit,active)
     case default
       call mpistop('Radiation formalism unknown')
     end select
 
+
     call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
-    !w(ixI^S,i_test) = cmax(ixI^S)
+    w(ixI^S,i_test) = cmax(ixI^S)
 
 
   end subroutine rhd_add_radiation_source

@@ -24,6 +24,8 @@ contains
     ! add thermal conduction
     if(associated(phys_thermal_conduction)) call phys_thermal_conduction()
 
+
+
     src_active = .false.
 
     if ((.not.prior).and.&
@@ -43,9 +45,9 @@ contains
     end do
     !$OMP END PARALLEL DO
 
+    ! Radiation diffusion
     if (physics_type .eq. 'rhd') then
       if (.not. prior .and. associated(phys_global_source)) then
-      ! if (associated(phys_global_source)) then
          call phys_global_source(dt, qt, src_active)
          print*, 'Doing diffusion stuff #############################################'
       end if

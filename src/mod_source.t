@@ -24,7 +24,14 @@ contains
     ! add thermal conduction
     if(associated(phys_thermal_conduction)) call phys_thermal_conduction()
 
-
+    ! Radiation diffusion
+    if (physics_type .eq. 'rhd') then
+      if (.not. prior .and. associated(phys_global_source)) then
+         print*, 'Abt to do diffusion stuff #############################################'
+         call phys_global_source(dt, qt, src_active)
+         print*, 'Done doing diffusion stuff #############################################'
+      end if
+    endif
 
     src_active = .false.
 
@@ -45,13 +52,13 @@ contains
     end do
     !$OMP END PARALLEL DO
 
-    ! Radiation diffusion
-    if (physics_type .eq. 'rhd') then
-      if (.not. prior .and. associated(phys_global_source)) then
-         call phys_global_source(dt, qt, src_active)
-         print*, 'Doing diffusion stuff #############################################'
-      end if
-    endif
+    ! ! Radiation diffusion
+    ! if (physics_type .eq. 'rhd') then
+    !   if (.not. prior .and. associated(phys_global_source)) then
+    !      call phys_global_source(dt, qt, src_active)
+    !      print*, 'Doing diffusion stuff #############################################'
+    !   end if
+    ! endif
 
     if (src_active) then
        call getbc(qt,0.d0,ps,0,nwflux+nwaux, phys_req_diagonal)

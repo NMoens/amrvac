@@ -242,15 +242,38 @@ contains
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
-    integer :: i
+    integer :: i,j,b
+    integer :: NumberOfBlocks
+    double precision :: x_perc
 
-    do i = ixImin1,ixImax1
-      w(i,:,rho_) = rho_arr(:)
-      w(i,:,mom(1)) = zero
-      w(i,:,mom(2)) = rho_arr(:)*v_arr(:)
-      w(i,:,e_) = e_arr(:)
-      w(i,:,r_e) = Er_arr(:)
+    NumberOfBlocks = domain_nx2/block_nx2
+
+    x_perc = x(nghostcells,ixOmin2,2)/(xprobmax2-xprobmin2)-1
+    b = floor(x_perc*NumberOfBlocks)
+
+    ! print*, 'block number', b, 'x_perc', x_perc
+
+    do i = ixImin2,ixImax2
+      j = i + b*block_nx2
+      ! if (b .ne. 0) j = j-nghostcells
+
+      w(:,i,rho_) = rho_arr(j)
+      w(:,i,mom(1)) = zero
+      w(:,i,mom(2)) = rho_arr(j)*v_arr(j)
+      w(:,i,e_) = e_arr(j)
+      w(:,i,r_e) = Er_arr(j)
+      ! print*, b,j,i,r_arr(j),v_arr(j),rho_arr(j)
     enddo
+
+    ! stop
+
+    ! do i = ixImin1,ixImax1
+    !   w(i,:,rho_) = rho_arr(:)
+    !   w(i,:,mom(1)) = zero
+    !   w(i,:,mom(2)) = rho_arr(:)*v_arr(:)
+    !   w(i,:,e_) = e_arr(:)
+    !   w(i,:,r_e) = Er_arr(:)
+    ! enddo
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
@@ -284,10 +307,12 @@ contains
 
     case(3)
 
-      ! print*,it, '#############', 'Before bound'
-      ! do i = ixImin2,10
-      !   print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
-      ! enddo
+      if (mype .eq. 0) then
+      print*,it, '#############', 'Before bound'
+      do i = ixImin2,ixImax2
+        print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+      enddo
+      endif
 
 
       do i = ixBmax2,ixBmin2,-1
@@ -316,15 +341,14 @@ contains
 
         w(ixImin1:ixImax1,i,e_) = w(ixImin1:ixImax1,i+1,e_)
 
-
-
-
       enddo
 
-      ! print*,it, '#############', 'After bound'
-      ! do i = ixImin2,10
-      !   print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
-      ! enddo
+      if (mype .eq. 0) then
+      print*,it, '#############', 'After bound'
+      do i = ixImin2,ixImax2
+        print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+      enddo
+      endif
 
     case(4)
       do i = ixBmin2,ixBmax2
@@ -372,13 +396,12 @@ contains
 
       case (4)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
       case default
         print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
         error stop "You have to set a user-defined boundary method"
     end select
   end subroutine mg_boundary_conditions
-
-
 
 
   !> internal boundary, user defined
@@ -401,22 +424,26 @@ contains
     double precision :: Trad(ixI^S),pgas(ixI^S)
     integer :: i
 
-    print*,it, '#############', 'Before bound'
-    do i = ixImin2,10
-      print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+    if (mype .eq. 0) then
+    print*,it, '#############', 'Before internal bound'
+    do i = ixImin2,ixImax2
+      print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
     enddo
+    endif
 
     call phys_get_trad(w,x,ixI^L,ixO^L,Trad)
     pgas(ixI^S) = const_kB/(fld_mu*const_mp)*Trad(ixI^S)*w(ixI^S,rho_) &
     *unit_temperature*unit_density/unit_pressure
 
     w(ixI^S,e_) = pgas(ixI^S)/(rhd_gamma - 1) &
-    + half*(w(ixI^S,mom(1))**2+w(ixI^S,mom(1))**2)/w(ixI^S,rho_)
+    + half*(w(ixI^S,mom(1))**2+w(ixI^S,mom(2))**2)/w(ixI^S,rho_)
 
-    print*,it, '#############', 'After bound'
-    do i = ixImin2,10
-      print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+    if (mype .eq. 0) then
+    print*,it, '#############', 'After internal bound'
+    do i = ixImin2,ixImax2
+      print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
     enddo
+    endif
 
   end subroutine set_gas_energy
 

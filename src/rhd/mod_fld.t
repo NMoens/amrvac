@@ -754,8 +754,14 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res
 
+
+    print*, mg%bc(1, mg_iphi)%bc_type, mg%bc(1, mg_iphi)%bc_value
+    print*, mg%bc(2, mg_iphi)%bc_type, mg%bc(2, mg_iphi)%bc_value
+    print*, mg%bc(3, mg_iphi)%bc_type, mg%bc(3, mg_iphi)%bc_value
+    print*, mg%bc(4, mg_iphi)%bc_type, mg%bc(4, mg_iphi)%bc_value
+
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
+    call diffusion_solve_vcoeff(mg, qdt, 1, 1.d-4)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
   end subroutine Diffuse_E_rad_mg
@@ -773,7 +779,8 @@ module mod_fld
     integer :: idir,i,j, ix^D
 
     if (fld_diff_testcase) then
-      w(ixI^S,i_diff_mg) = one/(unit_length*unit_velocity)
+      w(ixI^S,i_diff_mg) = fld_speedofligt_0*w(nghostcells+1,nghostcells+1,i_lambda) &
+      /(w(nghostcells+1,nghostcells+1,i_op)*w(nghostcells+1,nghostcells+1,iw_rho))
     else
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
@@ -806,8 +813,8 @@ module mod_fld
     endif
 
     !> CHEATY
-    w(:,ixOmax2,i_diff_mg) = w(:,ixOmax2-2,i_diff_mg)
-    w(:,ixOmax2-1,i_diff_mg) = w(:,ixOmax2-2,i_diff_mg)
+    ! w(:,ixOmax2,i_diff_mg) = w(:,ixOmax2-2,i_diff_mg)
+    ! w(:,ixOmax2-1,i_diff_mg) = w(:,ixOmax2-2,i_diff_mg)
 
   end subroutine fld_get_diffcoef_central
 

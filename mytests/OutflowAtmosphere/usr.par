@@ -22,7 +22,7 @@
  &stoplist
    time_max = 1.d-1
    dtmin = 1.0d-20
-   it_max = 10
+   it_max = 1
 /
 
  &methodlist
@@ -48,8 +48,8 @@
    refine_max_level   = 1
    domain_nx1         = 256
    domain_nx2         = 256
-   block_nx1          = 256
-   block_nx2          = 256
+   block_nx1          = 32
+   block_nx2          = 32
    xprobmin1       = -3.d0
    xprobmax1       = 3.d0
    xprobmin2       = 1.d0

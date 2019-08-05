@@ -21,16 +21,14 @@ module mod_usr
   double precision, allocatable :: p_arr(:)
 
   double precision :: M_dot_ratio
-  double precision :: Gamma_b, Gamma_0
-  double precision :: kappa_b, kappa_0
+  double precision :: Gamma_0
+  double precision :: kappa_0
   double precision :: L_0
   double precision :: M_star
-  double precision :: R_star, R_0, R_b
+  double precision :: R_star
   double precision :: M_dot
-  double precision :: M_dot_max
-  double precision :: rho_b
-  double precision :: v_esc, v_inf, v_0, bb
-  double precision :: lambda_0
+  double precision :: sp_sos
+  double precision :: sp_rho
 
 contains
 
@@ -76,24 +74,12 @@ contains
   subroutine initglobaldata_usr
     use mod_global_parameters
 
+    integer :: i
+
     !> Set stellar mass and radius
-    call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0)
-
-    R_b = xprobmin2*R_star
-    R_0 = (xprobmin2+0.1d0)*R_star
-
-    v_esc = dsqrt(2*const_G*M_star/R_star)
-    v_inf = dsqrt(Gamma_0 - one)*v_esc
-    v_0 = 1.d5
-
-    bb = one - (v_0/v_inf)**two
-
-    Gamma_b = 0.9d0
-
-    rho_b = M_dot/(4*dpi*R_star**2*v_0)
+    call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,sp_sos)
 
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
-    kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
 
     allocate(r_arr(domain_nx2+2*nghostcells))
     allocate(rho_arr(domain_nx2+2*nghostcells))
@@ -104,12 +90,14 @@ contains
     allocate(p_arr(domain_nx2+2*nghostcells))
 
     ! call ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
-    call GetArrays(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
+    call ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
+
+    sp_rho = M_dot/(4*dpi*R_star**2*sp_sos)
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length  = R_star !r_arr(nghostcells) ! cm
-    unit_velocity   = v_0
-    unit_numberdensity = rho_b/((1.d0+4.d0*He_abundance)*mp_cgs)
+    unit_velocity   = sp_sos
+    unit_numberdensity = sp_rho/((1.d0+4.d0*He_abundance)*mp_cgs)
 
     !> Remaining units
     unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
@@ -122,11 +110,11 @@ contains
 
     if (mype .eq. 0) then
       print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
-      print*, 'R_b ', 'R_0 ',  'Gamma_b ', 'Gamma_0 ', 'kappa_b ', 'kappa_0'
+      print*, 'Gamma_0 ', 'kappa_0'
       print*, M_star, R_star,M_dot_ratio, M_dot, L_0
-      print*, R_b, R_0,  Gamma_b, Gamma_0, kappa_b, kappa_0
+      print*, Gamma_0, kappa_0
 
-      print*, 'Flux at boundary: ', L_0/(4*dpi*R_b**2)
+      print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
 
       print*, 'unit_length', unit_length
       print*, 'unit_density', unit_density
@@ -143,10 +131,7 @@ contains
     R_star = R_star/unit_length
     M_dot = M_dot/(unit_density*unit_length**3.d0)*unit_time
     L_0 = L_0/(unit_pressure*unit_length**3.d0)*unit_time
-    R_b = R_b/unit_length
-    R_0 = R_0/unit_length
     kappa_0 = kappa_0/unit_opacity
-    kappa_b = kappa_b/unit_opacity
 
     !> Make initial profiles dimensionless
     r_arr = r_arr/unit_length
@@ -157,25 +142,35 @@ contains
     T_arr = T_arr/unit_temperature
     p_arr = p_arr/unit_pressure
 
+
+    if (mype .eq. 0) then
+      do i = 1,domain_nx2+2*nghostcells
+        print*, r_arr(i), rho_arr(i), v_arr(i), e_arr(i), Er_arr(i)
+      enddo
+    endif
+
+    stop
+
     if (mype .eq. 0) then
       print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
-      print*, 'R_b ', 'R_0 ',  'Gamma_b ', 'Gamma_0 ', 'kappa_b ', 'kappa_0'
+      print*, 'Gamma_0 ', 'kappa_0'
       print*, M_star, R_star,M_dot_ratio, M_dot, L_0
-      print*, R_b, R_0,  Gamma_b, Gamma_0, kappa_b, kappa_0
+      print*, Gamma_0, kappa_0
 
-      print*, 'Flux at boundary: ', L_0/(4*dpi*R_b**2)
+      print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
     endif
 
   end subroutine initglobaldata_usr
 
-  subroutine ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0)
+  subroutine ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,sp_sos)
     use mod_global_parameters
     double precision, intent(out) :: M_star,R_star,Gamma_0
     double precision, intent(out) :: M_dot_ratio,M_dot,L_0
+    double precision, intent(out) :: sp_sos
     character :: dum
     integer :: line
 
-    OPEN(1,FILE='InitialConditions/init_params_amrvac')
+    OPEN(1,FILE='InputLuka/params.txt')
     READ(1,*) dum, Gamma_0
     READ(1,*) dum, M_dot_ratio
     READ(1,*) dum, M_star
@@ -183,6 +178,7 @@ contains
     READ(1,*) dum, R_star
     READ(1,*)
     READ(1,*) dum, M_dot
+    READ(1,*) dum, sp_sos
     CLOSE(1)
 
     M_star = M_star*M_sun
@@ -192,7 +188,7 @@ contains
 
   end subroutine ReadInParams
 
-  subroutine GetArrays(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr,p_arr)
+  subroutine ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr,p_arr)
     use mod_global_parameters
     ! use mod_constants
     ! use mod_fld
@@ -209,32 +205,17 @@ contains
     double precision, intent(out) :: T_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: p_arr(domain_nx2+2*nghostcells)
 
-    dr = (xprobmax2-xprobmin2)*R_star/domain_nx2
+    OPEN(1,FILE='InputLuka/structure_amrvac.txt')
     do i = 1,domain_nx2+2*nghostcells
-      r_arr(i) = R_b+(i-1-nghostcells)*dr
+      READ(1,*) r_arr(i),v_arr(i),rho_arr(i),Er_arr(i)
     enddo
-
-    v_arr = v_inf*(one - bb*R_star/r_arr)**half
-    rho_arr = M_dot/(4*dpi*r_arr**2*v_arr)
-
-    Er_arr(domain_nx2+2*nghostcells) = M_dot*Gamma_0*const_G*M_star/(4*dpi*v_inf)&
-    *(one/r_arr(domain_nx2+2*nghostcells))**3.d0
-
-    do i = domain_nx2+2*nghostcells-1,1,-1
-      Er_arr(i) = Er_arr(i+1)+(3*Gamma_0*const_G*M_star*(rho_arr(i)/r_arr(i)**2 + rho_arr(i+1)/r_arr(i+1)**2))*half*dr
-    enddo
+    CLOSE(1)
 
     T_arr = (Er_arr/const_rad_a)**0.25d0
     p_arr = const_kb/(fld_mu*const_mp)*T_arr*rho_arr
     e_arr = p_arr/(rhd_gamma - one) + half*rho_arr*v_arr**2.d0
 
-    ! do i = domain_nx2+2*nghostcells-1,1,-1
-    !   print*, i, r_arr(i)/R_star, T_arr(i), rho_arr(i)/rho_b, Er_arr(i), v_arr(i)/1.d5
-    ! enddo
-    !
-    ! stop
-
-  end subroutine GetArrays
+  end subroutine ReadInTable
 
   !> A routine for specifying initial conditions
   subroutine initial_conditions(ixI^L, ixO^L, w, x)
@@ -302,9 +283,9 @@ contains
 
         a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
         b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
-        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
+        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_0)
         c(ixImin1:ixImax1) =fld_speedofligt_0 &
-        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_b)
+        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_0)
         d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
         w(ixImin1:ixImax1,i,r_e) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
         w(ixImin1:ixImax1,i,r_e) = max(w(ixImin1:ixImax1,i,r_e),half*Er_arr(i))
@@ -364,9 +345,9 @@ contains
 
         ! a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
         ! b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
-        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i+1,rho_)*kappa_b)
+        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i+1,rho_)*kappa_0)
         ! c(ixImin1:ixImax1) =fld_speedofligt_0 &
-        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i+1,rho_)*kappa_b)
+        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i+1,rho_)*kappa_0)
         ! d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
         ! mean_RE(ixImin1:ixImax1) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
 
@@ -504,15 +485,7 @@ contains
     double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(out):: kappa(ixO^S)
 
-    double precision :: new_x(ixO^S)
-
-    new_x(ixO^S) = (x(ixO^S,2) - R_0)*2d1
-    kappa(ixO^S) = kappa_b + (kappa_0-kappa_b)*half*(one+erf(new_x(ixO^S)))
-
-    ! kappa(ixO^S) = kappa_0
-    ! where (x(ixO^S,2) .lt. R_0)
-    !   kappa(ixO^S) = kappa_b
-    ! endwhere
+    kappa(ixO^S) = kappa_0
 
   end subroutine Opacity_stepfunction
 

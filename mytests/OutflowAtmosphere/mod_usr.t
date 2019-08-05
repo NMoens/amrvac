@@ -213,15 +213,36 @@ contains
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
-    integer :: i
+    integer :: i,j,b
+    integer :: NumberOfBlocks
+    double precision :: x_perc
 
-    do i = ixImin1,ixImax1
-      w(i,:,rho_) = rho_arr(:)
-      w(i,:,mom(1)) = zero
-      w(i,:,mom(2)) = rho_arr(:)*v_arr(:)
-      w(i,:,e_) = e_arr(:)
-      w(i,:,r_e) = Er_arr(:)
+    NumberOfBlocks = domain_nx2/block_nx2
+
+    x_perc = (x(nghostcells,ixOmin2,2)-xprobmin2)/(xprobmax2-xprobmin2)
+    b = floor(x_perc*NumberOfBlocks)
+
+    print*, 'block number', b, 'x_perc', x_perc
+
+    do i = ixImin2,ixImax2
+      j = i + b*block_nx2
+      ! if (b .ne. 0) j = j-nghostcells
+
+      w(:,i,rho_) = rho_arr(j)
+      w(:,i,mom(1)) = zero
+      w(:,i,mom(2)) = rho_arr(j)*v_arr(j)
+      w(:,i,e_) = e_arr(j)
+      w(:,i,r_e) = Er_arr(j)
+      ! print*, b,j,i,r_arr(j),v_arr(j),rho_arr(j)
     enddo
+
+    ! do i = ixImin1,ixImax1
+    !   w(i,:,rho_) = rho_arr(:)
+    !   w(i,:,mom(1)) = zero
+    !   w(i,:,mom(2)) = rho_arr(:)*v_arr(:)
+    !   w(i,:,e_) = e_arr(:)
+    !   w(i,:,r_e) = Er_arr(:)
+    ! enddo
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 

@@ -50,7 +50,7 @@ contains
     usr_special_mg_bc => mg_boundary_conditions
 
     ! Reset gas energy to radiation temperature
-    usr_internal_bc => set_gas_energy
+    !usr_internal_bc => set_gas_energy
 
     ! PseudoPlanar correction
     usr_source => PseudoPlanar
@@ -77,7 +77,7 @@ contains
     integer :: i
 
     !> Set stellar mass and radius
-    call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,sp_sos)
+    call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,sp_rho,sp_sos)
 
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
 
@@ -143,13 +143,13 @@ contains
     p_arr = p_arr/unit_pressure
 
 
-    if (mype .eq. 0) then
-      do i = 1,domain_nx2+2*nghostcells
-        print*, r_arr(i), rho_arr(i), v_arr(i), e_arr(i), Er_arr(i)
-      enddo
-    endif
-
-    stop
+    ! if (mype .eq. 0) then
+    !   do i = 1,domain_nx2+2*nghostcells
+    !     print*, r_arr(i), rho_arr(i), v_arr(i), e_arr(i), Er_arr(i)
+    !   enddo
+    ! endif
+    !
+    ! stop
 
     if (mype .eq. 0) then
       print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
@@ -162,11 +162,11 @@ contains
 
   end subroutine initglobaldata_usr
 
-  subroutine ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,sp_sos)
+  subroutine ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,sp_rho,sp_sos)
     use mod_global_parameters
     double precision, intent(out) :: M_star,R_star,Gamma_0
     double precision, intent(out) :: M_dot_ratio,M_dot,L_0
-    double precision, intent(out) :: sp_sos
+    double precision, intent(out) :: sp_sos,sp_rho
     character :: dum
     integer :: line
 
@@ -178,6 +178,7 @@ contains
     READ(1,*) dum, R_star
     READ(1,*)
     READ(1,*) dum, M_dot
+    READ(1,*) dum, sp_rho
     READ(1,*) dum, sp_sos
     CLOSE(1)
 

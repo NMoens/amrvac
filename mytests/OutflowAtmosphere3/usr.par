@@ -22,7 +22,7 @@
  &stoplist
    time_max = 1.d-1
    dtmin = 1.0d-20
-   it_max = 2
+   it_max = 5
 /
 
  &methodlist

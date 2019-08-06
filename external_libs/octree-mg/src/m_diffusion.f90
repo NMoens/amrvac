@@ -68,7 +68,7 @@ contains
     real(dp), intent(in)      :: dt
     integer, intent(in)       :: order
     real(dp), intent(in)      :: max_res
-    integer, parameter        :: max_its = 1000
+    integer, parameter        :: max_its = 30
     integer                   :: n
     real(dp)                  :: res
 

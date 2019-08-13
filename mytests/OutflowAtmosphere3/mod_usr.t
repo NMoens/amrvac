@@ -29,6 +29,8 @@ module mod_usr
   double precision :: M_dot
   double precision :: sp_sos
   double precision :: sp_rho
+  double precision :: sp_T
+  double precision :: sp_p
 
 contains
 
@@ -48,9 +50,6 @@ contains
     ! Boundary conditions
     usr_special_bc => boundary_conditions
     usr_special_mg_bc => mg_boundary_conditions
-
-    ! Reset gas energy to radiation temperature
-    !usr_internal_bc => set_gas_energy
 
     ! PseudoPlanar correction
     usr_source => PseudoPlanar
@@ -73,6 +72,7 @@ contains
 
   subroutine initglobaldata_usr
     use mod_global_parameters
+    use mod_fld
 
     integer :: i
 
@@ -93,18 +93,27 @@ contains
     call ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
 
     sp_rho = M_dot/(4*dpi*R_star**2*sp_sos)
+    sp_T = fld_mu*mp_cgs/kB_cgs*sp_sos**2
+    sp_p = sp_sos**2*sp_rho
+
+    print*, 'soundspeed at sonic point', sp_sos
+    print*, 'density at sonic point', sp_rho
+    print*, 'pressure at sonic point', sp_p
+    print*, 'Temperature at sonic point', sp_T
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length  = R_star !r_arr(nghostcells) ! cm
-    unit_velocity   = sp_sos
+    ! unit_velocity   = sp_sos
     unit_numberdensity = sp_rho/((1.d0+4.d0*He_abundance)*mp_cgs)
+    unit_temperature = sp_T
 
     !> Remaining units
     unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
     unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*kB_cgs*unit_temperature
     unit_velocity=dsqrt(unit_pressure/unit_density)
-    unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*kB_cgs)
+    ! unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*kB_cgs)
     unit_time=unit_length/unit_velocity
+
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
 
@@ -126,12 +135,18 @@ contains
       print*, 'unit_velocity', unit_velocity
     endif
 
+
     !> Make all parameters dimensionless
     M_star = M_star/(unit_density*unit_length**3.d0)
     R_star = R_star/unit_length
     M_dot = M_dot/(unit_density*unit_length**3.d0)*unit_time
     L_0 = L_0/(unit_pressure*unit_length**3.d0)*unit_time
     kappa_0 = kappa_0/unit_opacity
+    sp_sos = sp_sos/unit_velocity
+    sp_rho = sp_rho/unit_density
+    sp_T = sp_T/unit_temperature
+    sp_p = sp_p/unit_temperature
+
 
     !> Make initial profiles dimensionless
     r_arr = r_arr/unit_length
@@ -141,15 +156,6 @@ contains
     Er_arr = Er_arr/unit_pressure
     T_arr = T_arr/unit_temperature
     p_arr = p_arr/unit_pressure
-
-
-    ! if (mype .eq. 0) then
-    !   do i = 1,domain_nx2+2*nghostcells
-    !     print*, r_arr(i), rho_arr(i), v_arr(i), e_arr(i), Er_arr(i)
-    !   enddo
-    ! endif
-    !
-    ! stop
 
     if (mype .eq. 0) then
       print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
@@ -214,7 +220,11 @@ contains
 
     T_arr = (Er_arr/const_rad_a)**0.25d0
     p_arr = const_kb/(fld_mu*const_mp)*T_arr*rho_arr
-    e_arr = p_arr/(rhd_gamma - one) + half*rho_arr*v_arr**2.d0
+    e_arr = p_arr/(rhd_gamma - one) + half*rho_arr*v_arr**2
+
+    do i = 1,domain_nx2+2*nghostcells
+      print*, i, Er_arr(i), const_rad_a*(mp_cgs*fld_mu/kb_cgs*p_arr(i)/rho_arr(i))**4
+    enddo
 
   end subroutine ReadInTable
 
@@ -233,18 +243,14 @@ contains
     x_perc = (x(nghostcells,ixOmin2,2)-xprobmin2)/(xprobmax2-xprobmin2)
     b = floor(x_perc*NumberOfBlocks)
 
-    ! print*, 'block number', b, 'x_perc', x_perc
-
     do i = ixImin2,ixImax2
       j = i + b*block_nx2
-      ! if (b .ne. 0) j = j-nghostcells
 
       w(:,i,rho_) = rho_arr(j)
       w(:,i,mom(1)) = zero
       w(:,i,mom(2)) = rho_arr(j)*v_arr(j)
       w(:,i,e_) = e_arr(j)
       w(:,i,r_e) = Er_arr(j)
-      ! print*, b,j,i,r_arr(j),v_arr(j),rho_arr(j)
     enddo
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
@@ -254,6 +260,7 @@ contains
   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
     use mod_global_parameters
     use mod_fld
+
 
     integer, intent(in)             :: ixI^L, ixB^L, iB
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
@@ -268,46 +275,23 @@ contains
 
     case(3)
 
-      if (mype .eq. 0) then
-      print*,it, '#############', 'Before bound'
-      do i = ixImin2,ixImax2
-        print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
-      enddo
-      endif
-
-
+      !++++++++++++++++++++++++++++++++++++++++++++
       do i = ixBmax2,ixBmin2,-1
-        w(ixImin1:ixImax1,i,rho_) = rho_arr(i)
+        w(ixImin1:ixImax1,i,rho_) = x(ixImin1:ixImax1,nghostcells+1,2)**2/x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,nghostcells+1,mom(2))/sp_sos
         w(ixImin1:ixImax1,i,mom(1)) = w(ixImin1:ixImax1,i+1,mom(1))
-        w(ixImin1:ixImax1,i,mom(2)) = rho_arr(i)*v_arr(i) !w(ixImin1:ixImax1,i+1,mom(2)) &
-        ! *(x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2
-
-        a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
-        b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
-        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_0)
-        c(ixImin1:ixImax1) =fld_speedofligt_0 &
-        /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*rho_arr(i)*kappa_0)
-        d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
-        w(ixImin1:ixImax1,i,r_e) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
-        w(ixImin1:ixImax1,i,r_e) = max(w(ixImin1:ixImax1,i,r_e),half*Er_arr(i))
-        ! w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
-
-        ! Temp(ixImin1:ixImax1,i) = (w(ixImin1:ixImax1,i,r_e)/const_rad_a)**0.25d0
-        ! Press(ixImin1:ixImax1,i) = const_kb/(fld_mu*const_mp)*Temp(ixImin1:ixImax1,i)*w(ixImin1:ixImax1,i,rho_) &
-        ! *unit_temperature*unit_density/unit_pressure
-        ! w(ixImin1:ixImax1,i,e_) = Press(ixImin1:ixImax1,i)/(rhd_gamma - one) &
-        ! + half*(w(ixImin1:ixImax1,i,mom(1))**2.d0+w(ixImin1:ixImax1,i,mom(2))**2.d0)/w(ixImin1:ixImax1,i,rho_)
-
-        ! w(ixImin1:ixImax1,i,e_) = e_arr(i)
-
-        w(ixImin1:ixImax1,i,e_) = w(ixImin1:ixImax1,i+1,e_)
-
+        w(ixImin1:ixImax1,i,mom(2)) = x(ixImin1:ixImax1,i+1,2)**2/x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,i+1,mom(2))
+        w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma-one) + half*(w(ixImin1:ixImax1,i,mom(1))**2 &
+        + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
+        w(ixImin1:ixImax1,i,r_e) = const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
       enddo
 
+      !++++++++++++++++++++++++++++++++++++++++++++
       if (mype .eq. 0) then
       print*,it, '#############', 'After bound'
       do i = ixImin2,ixImax2
-        print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+        ! print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
+        print*, w(nghostcells+1,i,e_),(w(nghostcells+2,i,mom(1))**2 + w(nghostcells+2,i,mom(2))**2)*half/w(nghostcells+1,i,rho_), &
+        w(nghostcells+1,i,e_)-(w(nghostcells+2,i,mom(1))**2 + w(nghostcells+2,i,mom(2))**2)*half/w(nghostcells+1,i,rho_)
       enddo
       endif
 
@@ -335,78 +319,20 @@ contains
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
     double precision, intent(in)    :: w(ixI^S,1:nw)
 
-    double precision :: a(ixImin1:ixImax1),b(ixImin1:ixImax1),c(ixImin1:ixImax1),d(ixImin1:ixImax1)
-    double precision :: mean_RE(ixImin1:ixImax1)
     integer :: i
 
     select case (iB)
       case (3)
-
-        i = nghostcells
-
-        ! a(ixImin1:ixImax1) = L_0/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2)
-        ! b(ixImin1:ixImax1) = w(ixImin1:ixImax1,i+1,r_e)*fld_speedofligt_0 &
-        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i+1,rho_)*kappa_0)
-        ! c(ixImin1:ixImax1) =fld_speedofligt_0 &
-        ! /(3.d0*(x(ixImin1:ixImax1,i+1,2)-x(ixImin1:ixImax1,i,2))*w(ixImin1:ixImax1,i+1,rho_)*kappa_0)
-        ! d(ixImin1:ixImax1) = 4.d0/3.d0*abs(w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))
-        ! mean_RE(ixImin1:ixImax1) = (a(ixImin1:ixImax1) + b(ixImin1:ixImax1))/(c(ixImin1:ixImax1) + d(ixImin1:ixImax1))
-
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        ! mg%bc(iB, mg_iphi)%bc_value = sum(mean_RE(ixOmin1:ixOmax1))/(ixOmax1-ixOmin1)
-
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmin2-1,r_e))/(ixImax1-ixImin1)!const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
       case (4)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmax2+1,r_e))/(ixImax1-ixImin1)
       case default
-        print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
+        print *, "Not a standard: ", trim(typeboundary(r_e, iB))
         error stop "You have to set a user-defined boundary method"
     end select
   end subroutine mg_boundary_conditions
-
-
-  !> internal boundary, user defined
-  !
-  !> This subroutine can be used to artificially overwrite ALL conservative
-  !> variables in a user-selected region of the mesh, and thereby act as
-  !> an internal boundary region. It is called just before external (ghost cell)
-  !> boundary regions will be set by the BC selection. Here, you could e.g.
-  !> want to introduce an extra variable (nwextra, to be distinguished from nwaux)
-  !> which can be used to identify the internal boundary region location.
-  !> Its effect should always be local as it acts on the mesh.
-  subroutine set_gas_energy(level,qt,ixI^L,ixO^L,w,x)
-    use mod_global_parameters
-    use mod_physics
-    integer, intent(in)             :: ixI^L,ixO^L,level
-    double precision, intent(in)    :: qt
-    double precision, intent(inout) :: w(ixI^S,1:nw)
-    double precision, intent(in)    :: x(ixI^S,1:ndim)
-
-    double precision :: Trad(ixI^S),pgas(ixI^S)
-    integer :: i
-
-    if (mype .eq. 0) then
-    print*,it, '#############', 'Before internal bound'
-    do i = ixImin2,ixImax2
-      print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
-    enddo
-    endif
-
-    call phys_get_trad(w,x,ixI^L,ixO^L,Trad)
-    pgas(ixI^S) = const_kB/(fld_mu*const_mp)*Trad(ixI^S)*w(ixI^S,rho_) &
-    *unit_temperature*unit_density/unit_pressure
-
-    w(ixI^S,e_) = pgas(ixI^S)/(rhd_gamma - 1) &
-    + half*(w(ixI^S,mom(1))**2+w(ixI^S,mom(2))**2)/w(ixI^S,rho_)
-
-    if (mype .eq. 0) then
-    print*,it, '#############', 'After internal bound'
-    do i = ixImin2,ixImax2
-      print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
-    enddo
-    endif
-
-  end subroutine set_gas_energy
 
 
   !> Calculate gravitational acceleration in each dimension

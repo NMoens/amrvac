@@ -25,7 +25,7 @@ module mod_fld
 
     !> Tolerance for bisection method for Energy sourceterms
     !> This is a percentage of the minimum of gas- and radiation energy
-    double precision, public :: fld_bisect_tol = 1.d-5
+    double precision, public :: fld_bisect_tol = 1.d-4
 
     !> Tolerance for adi method for radiative Energy diffusion
     double precision, public :: fld_adi_tol = 1.d-2
@@ -81,6 +81,7 @@ module mod_fld
     !> Index for Flux weighted opacities
     integer, allocatable, public :: i_opf(:)
 
+    logical :: pseudo_planar = .false.
 
     !> public methods
     !> these are called in mod_rhd_phys
@@ -111,7 +112,7 @@ module mod_fld
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
     fld_bisect_tol, fld_diff_testcase, fld_adi_tol, fld_max_fracdt,&
     fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
-    diff_coef_filter, size_D_filter, lineforce_opacities
+    diff_coef_filter, size_D_filter, lineforce_opacities, pseudo_planar
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -761,7 +762,7 @@ module mod_fld
     print*, mg%bc(4, mg_iphi)%bc_type, mg%bc(4, mg_iphi)%bc_value
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
+    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-3)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
   end subroutine Diffuse_E_rad_mg
@@ -795,16 +796,16 @@ module mod_fld
         w(ixImax1-nghostcells+1:ixImin1,i,i_diff_mg) = w(ixImax1-nghostcells,i,i_diff_mg)
       enddo
 
-      !> Check if energy doesn't go faster than speed of light
-      !for simplicity, only in direction 2
-      rad_e(ixI^S) = w(ixI^S,iw_r_e)
-      call gradient(rad_e,ixI^L,ixO^L,2,grad_r_e)
-      max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
-
-      {do ix^D = ixOmin^D,ixOmax^D\}
-          ! call mpistop('You have reached maximal D, the D is too big')
-          w(i,j,i_diff_mg) = min(w(i,j,i_diff_mg), max_D(i,j))
-      {enddo\}
+      ! !> Check if energy doesn't go faster than speed of light
+      ! !for simplicity, only in direction 2
+      ! rad_e(ixI^S) = w(ixI^S,iw_r_e)
+      ! call gradient(rad_e,ixI^L,ixO^L,2,grad_r_e)
+      ! max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
+      !
+      ! {do ix^D = ixOmin^D,ixOmax^D\}
+      !     ! call mpistop('You have reached maximal D, the D is too big')
+      !     w(i,j,i_diff_mg) = min(w(i,j,i_diff_mg), max_D(i,j))
+      ! {enddo\}
 
       if (diff_coef_filter) then
         !call mpistop('Hold your bloody horses, not implemented yet ')
@@ -829,7 +830,7 @@ module mod_fld
     integer :: ix^D, filter, idim
 
     if (size_D_filter .lt. 1) call mpistop("D filter of size < 1 makes no sense")
-    if (size_D_filter .gt. nghostcells) call mpistop("D filter of size < nghostcells makes no sense")
+    if (size_D_filter .gt. nghostcells) call mpistop("D filter of size > nghostcells makes no sense")
 
     tmp_D(ixI^S) = w(ixI^S,i_diff_mg)
     filtered_D(ixI^S) = zero
@@ -1432,9 +1433,9 @@ module mod_fld
     integer :: i,j,idir,ix^D
 
     !> calculate tensor div_v
-    do i = 1,ndim
+    do i = 1,ndir
       do j = 1,ndim
-        vel(ixI^S) = w(ixI^S,iw_mom(j))
+        vel(ixI^S) = w(ixI^S,iw_mom(j))/w(ixI^S,iw_rho)
         !> gradient or gradientS ?!?!?!?!?!?
         call gradient(vel,ixI^L,ixO^L,i,grad_v)
         div_v(ixO^S,i,j) = grad_v(ixO^S)
@@ -1448,6 +1449,11 @@ module mod_fld
 
     {^IFTWOD
     !>eq 34 Turner and stone (Only 2D)
+    if (pseudo_planar) then
+      do j = 1,ndim
+        div_v(ixO^S,1,j) = div_v(ixO^S,1,j)/x(ixO^S,2)
+      enddo
+    endif
     divvP(ixO^S) = div_v(ixO^S,1,1)*w(ixO^S,i_edd(1,1))  &
                  + div_v(ixO^S,1,2)*w(ixO^S,i_edd(1,2))  &
                  + div_v(ixO^S,2,1)*w(ixO^S,i_edd(2,1))  &
@@ -1495,6 +1501,7 @@ module mod_fld
 
     !> Loop over every cell for rootfinding method
     {do ix^D=ixOmin^D,ixOmax^D\ }
+      print*, ix^D
       select case(fld_interaction_method)
       case('Bisect')
         call Bisection_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))

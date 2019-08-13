@@ -3,15 +3,15 @@ import matplotlib.pyplot as plt
 import os
 from scipy import interpolate
 
-rsun = 6.96e10
-msun = 1.99e33
+rsun = 6.9599000e10
+msun = 1.9891000e33
 
 strc = os.getcwd() + '/struct.txt'
 i, r, v, rho, er = np.loadtxt(strc,skiprows = 2, unpack=True)
 
 Mdot = 4*np.pi*r**2*rho*v
 
-n_cells = 256
+n_cells = 64
 n_gh = 2
 R_min = 1.*rsun
 R_max = 7.*rsun
@@ -19,7 +19,10 @@ R_max = 7.*rsun
 inew = range(n_cells+2*n_gh)
 
 dx = (R_max - R_min)/(n_cells)
-my_amrvac_grid = np.linspace(R_min - n_gh*dx,R_max + n_gh*dx,n_cells+2*n_gh)
+my_amrvac_grid = np.linspace(R_min - (n_gh-0.5)*dx,R_max + (n_gh-0.5)*dx,n_cells+2*n_gh)
+
+print(my_amrvac_grid/rsun)
+
 
 spl_v = interpolate.splrep(r, v, s=0)
 vnew = interpolate.splev(my_amrvac_grid, spl_v, der=0)

@@ -1,9 +1,9 @@
 gamma0         1.26500000E+00
-TiringParaM    1.38264343E+21
+TiringParaM    2.21026995E-02
 mass           1.00000000E+01
 lum            1.92015558E+05
 rstar          1.00000000E+00
 r_core=rc/rsun ????
-MassLossRate=  2.10126070E-05
-rho0=          4.26875892E-09
-sonic_sos      5.10269095E+06
+MassLossRate=  1.35118293E-05
+rho0=          2.76274123E-09
+sp_sos=        5.06984750E+06

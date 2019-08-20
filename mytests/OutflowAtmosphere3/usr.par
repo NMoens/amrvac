@@ -6,7 +6,7 @@
   base_filename='./output/const'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
-  saveprim         = F
+  saveprim         = T
   nwauxio = 5
 /
 
@@ -27,12 +27,12 @@
 
  &methodlist
    time_integrator = 'onestep'
-   flux_scheme     = 20*'hll' !'tvdlf'/'hll'
-   limiter         = 20*'koren' !'minmod'/'koren'
-   source_split_usr = .true.
+   flux_scheme     = 20*'tvdlf' !'tvdlf'/'hll'
+   limiter         = 20*'minmod' !'minmod'/'koren'
+   source_split_usr = .false.
    typesourcesplit = 'sf'
    check_small_values = .true.
-   small_values_method = 'error'
+   small_values_method = 'replace'
    small_pressure = 1.d-8
    small_density = 1.d-8
 /
@@ -61,7 +61,7 @@
  /
 
  &paramlist
-  courantpar       = 0.3d0
+  courantpar       = 0.3d-2
   !dtpar           = 1d-10
  /
 
@@ -73,17 +73,14 @@
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .true.
   rhd_energy_interact = .true.
-  rhd_radiation_diffusion = .true.
+  rhd_radiation_diffusion = .false.
   rhd_radiation_advection = .true.
-  radio_acoustic_filter = .false.
-  size_ra_filter = 2
  /
 
  &fld_list
-  fld_split = .true.
+  fld_split = .false.
   fld_opacity_law = 'special'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
-  pseudo_planar = .true.
   /

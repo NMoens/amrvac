@@ -127,29 +127,26 @@ contains
     double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
        1:ndim)
 
-    double precision :: ampl
+    double precision :: ampl, a2
 
     ampl = 1.d-5*p0
+    a2 = p0/rho0
 
     where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .lt. one)
       w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho0 + &
-         ampl*(2*dpi/(wavelength*frequency))**2 *dsin(2*dpi*x(ixImin1:ixImax1,&
-         ixImin2:ixImax2,1)/wavelength - frequency*global_time)
+         ampl*dsin(frequency*global_time)*dcos(2*dpi*x(ixImin1:ixImax1,&
+         ixImin2:ixImax2,1)/wavelength)
 
       w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = &
-         ampl*2*dpi/(wavelength*frequency) *dsin(2*dpi*x(ixImin1:ixImax1,&
-         ixImin2:ixImax2,1)/wavelength - frequency*global_time)
+         ampl**2/(rho0*a2**(3.d0/2.d0))*dsin(frequency*global_time)*dcos(&
+         2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength)
 
-      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg0 - &
-         ampl*(2*dpi/(wavelength*frequency))**2 &
-         *((eg0+p0)/rho0)*dsin(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,&
-         1)/wavelength - frequency*global_time)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg0
 
-      w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er0 + &
-         ampl*(2*dpi/(wavelength*frequency))**2 &
-         *(Er0/rho0)*dsin(2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,&
-         1)/wavelength - frequency*global_time)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er0
     endwhere
+
+
 
   end subroutine Initialize_Wave
 

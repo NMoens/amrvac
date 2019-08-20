@@ -81,8 +81,6 @@ module mod_fld
     !> Index for Flux weighted opacities
     integer, allocatable, public :: i_opf(:)
 
-    logical :: pseudo_planar = .false.
-
     !> public methods
     !> these are called in mod_rhd_phys
     public :: get_fld_rad_force
@@ -112,7 +110,7 @@ module mod_fld
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
     fld_bisect_tol, fld_diff_testcase, fld_adi_tol, fld_max_fracdt,&
     fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
-    diff_coef_filter, size_D_filter, lineforce_opacities, pseudo_planar
+    diff_coef_filter, size_D_filter, lineforce_opacities
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -156,13 +154,6 @@ module mod_fld
       i_flux(idir) = var_set_extravar(cmp_f,cmp_f)
     enddo
 
-    ! !> Set radiative flux as variable
-    ! allocate(i_flux(ndir))
-    ! do idir = 1,ndir
-    !   write(ind_1,'(I1)') idir
-    !   cmp_f = 'F' // ind_1
-    !   i_flux(idir) = var_set_fluxvar(cmp_f,cmp_f)
-    ! enddo
 
     !> Set lineforce opacities as variable
     if (lineforce_opacities) then
@@ -303,11 +294,6 @@ module mod_fld
 
 
       enddo
-
-      !
-      ! print*, 'radiation_force'
-      ! print*, qdt * radiation_force(nghostcells+1,:,2)
-
     end if
   end subroutine get_fld_rad_force
 
@@ -435,12 +421,12 @@ module mod_fld
 
         {do ix^D=ixOmin^D,ixOmax^D\ }
           !> Hard limit on kappa
-          ! fld_kappa(ix^D) = min(fld_kappa(ix^D),2.3d0*fld_kappa0)
+          fld_kappa(ix^D) = min(fld_kappa(ix^D),2.3d0*fld_kappa0)
 
           !> Limit kappa through T
-          fld_kappa(ix^D) = fld_kappa0 &
-          * (1.d0+10.d0**akram*w(ix^D,iw_rho)*unit_density &
-          * (max(a2(ix^D),const_kB*5.9d4/(fld_mu*const_mp))/1.d12)**bkram)
+          ! fld_kappa(ix^D) = fld_kappa0 &
+          ! * (1.d0+10.d0**akram*w(ix^D,iw_rho)*unit_density &
+          ! * (max(a2(ix^D),const_kB*5.9d4/(fld_mu*const_mp))/1.d12)**bkram)
         {enddo\ }
 
       case('opal')
@@ -650,12 +636,13 @@ module mod_fld
     end do
 
     w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
-    !
-    ! do idir = ixOmin2,ixOmax2
-    !   print*, idir, w(nghostcells+1,idir,i_lambda) ,w(nghostcells+1, idir,i_op) ,w(nghostcells+1, idir,iw_rho) &
-    !   , grad_r_e(nghostcells+1,idir)/w(nghostcells+1, idir,iw_rho)
-    ! enddo
-    !
+
+
+    !>Cheaty bit:
+    w(:,ixOmin2+1,i_flux(2)) = (x(:,ixOmin2+2,2)/x(:,ixOmin2+1,2))**2*w(:,ixOmin2+2,i_flux(2))
+
+
+
     ! stop
 
   end subroutine fld_get_radflux
@@ -755,14 +742,8 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res
 
-
-    print*, mg%bc(1, mg_iphi)%bc_type, mg%bc(1, mg_iphi)%bc_value
-    print*, mg%bc(2, mg_iphi)%bc_type, mg%bc(2, mg_iphi)%bc_value
-    print*, mg%bc(3, mg_iphi)%bc_type, mg%bc(3, mg_iphi)%bc_value
-    print*, mg%bc(4, mg_iphi)%bc_type, mg%bc(4, mg_iphi)%bc_value
-
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-3)
+    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
   end subroutine Diffuse_E_rad_mg
@@ -780,8 +761,13 @@ module mod_fld
     integer :: idir,i,j, ix^D
 
     if (fld_diff_testcase) then
-      w(ixI^S,i_diff_mg) = fld_speedofligt_0*w(nghostcells+1,nghostcells+1,i_lambda) &
-      /(w(nghostcells+1,nghostcells+1,i_op)*w(nghostcells+1,nghostcells+1,iw_rho))
+
+      w(ixO^S,i_diff_mg) = 1.d8
+
+      ! w(ixO^S,i_diff_mg) = 1.d0/(1.d-3*fld_speedofligt_0*0.33333333d0/(w(ixO^S,i_op)*w(ixO^S,iw_rho)))
+      !
+      ! w(ixO^S,i_test) = fld_speedofligt_0*0.33333333d0/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
+
     else
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
@@ -812,6 +798,7 @@ module mod_fld
         call fld_smooth_diffcoef(w, ixI^L, ixO^L)
       endif
     endif
+
 
     !> CHEATY
     ! w(:,ixOmax2,i_diff_mg) = w(:,ixOmax2-2,i_diff_mg)
@@ -855,7 +842,7 @@ module mod_fld
 
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
-    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
+    call mg_copy_to_tree(i_diff_mg, mg_iveps, .false., .false.)
   end subroutine set_mg_diffcoef
 
   !> Sets boundary conditions for multigrid, based on hydro-bounds
@@ -1417,7 +1404,7 @@ module mod_fld
   subroutine Energy_interaction(w, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
-    use mod_physics, only: phys_get_tgas
+    use mod_physics
 
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
@@ -1432,28 +1419,26 @@ module mod_fld
 
     integer :: i,j,idir,ix^D
 
+    double precision ::     rhd_gamma = 5.d0/3.d0
+
+    if (it == 0) print*, "ATETNTION RHD_GAMMA FAKE"
+
     !> calculate tensor div_v
     do i = 1,ndir
       do j = 1,ndim
         vel(ixI^S) = w(ixI^S,iw_mom(j))/w(ixI^S,iw_rho)
-        !> gradient or gradientS ?!?!?!?!?!?
         call gradient(vel,ixI^L,ixO^L,i,grad_v)
         div_v(ixO^S,i,j) = grad_v(ixO^S)
       enddo
     enddo
 
-    !> VARIABLE NAMES DIV ARE ACTUALLY GRAD
+    !> VARIABLE NAMES DIV ARE ACTUALLY GRADIENTS
     {^IFONED
     divvP(ixO^S) = div_v(ixO^S,1,1)*w(ixO^S,i_edd(1,1))  &
     }
 
     {^IFTWOD
     !>eq 34 Turner and stone (Only 2D)
-    if (pseudo_planar) then
-      do j = 1,ndim
-        div_v(ixO^S,1,j) = div_v(ixO^S,1,j)/x(ixO^S,2)
-      enddo
-    endif
     divvP(ixO^S) = div_v(ixO^S,1,1)*w(ixO^S,i_edd(1,1))  &
                  + div_v(ixO^S,1,2)*w(ixO^S,i_edd(1,2))  &
                  + div_v(ixO^S,2,1)*w(ixO^S,i_edd(2,1))  &
@@ -1481,27 +1466,18 @@ module mod_fld
     E_rad(ixO^S) = w(ixO^S,iw_r_e)
 
     !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
+    a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*((rhd_gamma-one)/w(ixO^S,iw_rho))**4.d0*dt
+    ! a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
     a2(ixO^S) = fld_speedofligt_0*w(ixO^S,i_op)*w(ixO^S,iw_rho)*dt
     a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
-
-    a3 = zero
-
 
     ! w(ixO^S,i_test) = a3(ixO^S)
 
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
-    print*,it, '#############', 'Before E interact'
-    do i = ixImin2,10
-      print*, w(nghostcells+1,i,iw_r_e),w(nghostcells+1,i,iw_e),c0(nghostcells+1,i),c1(nghostcells+1,i)
-    enddo
-
-
     !> Loop over every cell for rootfinding method
     {do ix^D=ixOmin^D,ixOmax^D\ }
-      print*, ix^D
       select case(fld_interaction_method)
       case('Bisect')
         call Bisection_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
@@ -1517,29 +1493,23 @@ module mod_fld
     !> Update gas-energy in w
     w(ixO^S,iw_e) = e_gas(ixO^S)
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! IS THIS NECESARY?!?!?
-    !> Calculate new radiation energy
-    !> Get temperature
-    call phys_get_tgas(w,x,ixI^L,ixO^L,temperature)
-    !> Update a1
-    a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! ! IS THIS NECESARY?!?!?
+    ! !> Calculate new radiation energy
+    ! !> Get temperature
+    ! call phys_get_tgas(w,x,ixI^L,ixO^L,temperature)
+    ! !> Update a1
+    !     a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*((rhd_gamma-one)/w(ixO^S,iw_rho))**4.d0*dt
+    !  ! a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     !> advance E_rad
     E_rad(ixO^S) = (a1*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2 + a3)
 
     !> Update rad-energy in w
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
-
-    print*,it, '#############', 'After E interact'
-    do i = ixImin2,10
-      print*, w(nghostcells+1,i,iw_r_e),w(nghostcells+1,i,iw_e),c0(nghostcells+1,i),c1(nghostcells+1,i)
-    enddo
-
-
 
   end subroutine Energy_interaction
 

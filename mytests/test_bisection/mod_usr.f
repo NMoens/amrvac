@@ -134,11 +134,11 @@ end subroutine initglobaldata_usr
 
     w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = 1.d-7
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = zero
-    !w(ixI^S,r_e) = 1d12
+    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = 1d12
 
     ! print*, w(3,3,e_)
 
-    if (it .eq. 0) open(1,file='newton_13')
+    if (it .eq. 0) open(1,file='Halley_updated')
     write(1,*) global_time*unit_time, e_eq*unit_pressure, w(3,3,&
        r_e)*unit_pressure, w(3,3,e_)*unit_pressure
     if (global_time .ge. time_max - dt) close(1)

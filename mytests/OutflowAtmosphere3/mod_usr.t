@@ -267,7 +267,7 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: a(ixImin1:ixImax1),b(ixImin1:ixImax1),c(ixImin1:ixImax1),d(ixImin1:ixImax1)
-    double precision :: Temp(ixI^S), Press(ixI^S)
+    double precision :: Temp(ixI^S), Press(ixI^S), kbTmu(ixI^S)
 
     integer :: i,j
 
@@ -276,24 +276,29 @@ contains
     case(3)
 
       !++++++++++++++++++++++++++++++++++++++++++++
-      do i = ixBmax2,ixBmin2,-1
+      i = ixBmax2
         w(ixImin1:ixImax1,i,rho_) = x(ixImin1:ixImax1,nghostcells+1,2)**2/x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,nghostcells+1,mom(2))/sp_sos
         w(ixImin1:ixImax1,i,mom(1)) = w(ixImin1:ixImax1,i+1,mom(1))
         w(ixImin1:ixImax1,i,mom(2)) = x(ixImin1:ixImax1,i+1,2)**2/x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,i+1,mom(2))
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma-one) + half*(w(ixImin1:ixImax1,i,mom(1))**2 &
         + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
         w(ixImin1:ixImax1,i,r_e) = const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
-      enddo
+
 
       !++++++++++++++++++++++++++++++++++++++++++++
-      if (mype .eq. 0) then
-      print*,it, '#############', 'After bound'
-      do i = ixImin2,ixImax2
-        ! print*, w(nghostcells+1,i,r_e),w(nghostcells+1,i,i_diff_mg),w(nghostcells+1,i,e_),w(nghostcells+1,i,rho_)
-        print*, w(nghostcells+1,i,e_),(w(nghostcells+2,i,mom(1))**2 + w(nghostcells+2,i,mom(2))**2)*half/w(nghostcells+1,i,rho_), &
-        w(nghostcells+1,i,e_)-(w(nghostcells+2,i,mom(1))**2 + w(nghostcells+2,i,mom(2))**2)*half/w(nghostcells+1,i,rho_)
+
+      do i = ixBmax2 -1, ixBmin2, -1
+        w(ixImin1:ixImax1,i,rho_) = w(ixImin1:ixImax1,i+1,rho_) - 2*w(ixImin1:ixImax1,i+2,rho_)
+        w(ixImin1:ixImax1,i,mom(1)) = w(ixImin1:ixImax1,i+1,mom(1))
+        w(ixImin1:ixImax1,i,mom(2)) = x(ixImin1:ixImax1,i+1,2)**2/x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,i+1,mom(2))
+        do j = ixImin1,ixImax1
+          w(j,i,r_e) = max(w(j,i+1,r_e) -2*w(j,i+2,r_e),w(j,i+1,r_e))
+        enddo
+        kbTmu(ixImin1:ixImax1,i) = (const_rad_a/(w(ixImin1:ixImax1,i,r_e)*unit_pressure))**0.25*const_kB/(fld_mu*const_mp)
+        kbTmu(ixImin1:ixImax1,i) = kbTmu(ixImin1:ixImax1,i)/unit_velocity**2
+        w(ixImin1:ixImax1,i,e_) = kbTmu(ixImin1:ixImax1,i)*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma-one) &
+        + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
       enddo
-      endif
 
     case(4)
       do i = ixBmin2,ixBmax2

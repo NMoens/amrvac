@@ -31,7 +31,7 @@ plt.loglog(t,e_g,'r1')
 t, e_eq, e_r, e_g = ReadE('/halley_1')
 plt.loglog(t,e_g,'b2')
 
-t, e_eq, e_r, e_g = ReadE('/halley_2')
+t, e_eq, e_r, e_g = ReadE('/Halley_updated')
 plt.loglog(t,e_g,'y3')
 
 plt.loglog(t,e_eq,'k--', label='equilibrium level')

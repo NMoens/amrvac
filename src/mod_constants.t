@@ -26,16 +26,16 @@ module mod_constants
   double precision, parameter :: dpi=3.141592653589793238462643383279502884197169399375105d0
 
   !> Proton mass in cgs
-  double precision, parameter :: mp_cgs = 1.672621777d-24 ! g
+  double precision, parameter :: mp_cgs = 1.6737236d-24 ! g
 
   !> Hydrogen mass in cgs
-  double precision, parameter :: mH_cgs = 1.6733D-24 ! g
+  double precision, parameter :: mH_cgs = 1.6737236D-24 ! g
 
   !> Boltzmann constant in cgs
-  double precision, parameter :: kB_cgs = 1.3806488d-16 ! erg K^-1
+  double precision, parameter :: kB_cgs = 1.380648520d-16 ! erg K^-1
 
   !> Proton mass in SI
-  double precision, parameter :: mp_SI = 1.672621777d-27 ! kg
+  double precision, parameter :: mp_SI = 1.6737236d-27 ! kg
 
   !> Boltzmann constant in SI
   double precision, parameter :: kB_SI = 1.3806488d-23 ! J K^-1
@@ -45,15 +45,15 @@ module mod_constants
 
   double precision, PARAMETER :: const_c     = 2.99792458d10   ! cm s^-1           ; Speed of light
   double precision, PARAMETER :: const_me    = 9.1093897d-28   ! g                 ; Electron mass
-  double precision, PARAMETER :: const_mp    = 1.672621777d-24 ! g                 ; Proton mass
+  double precision, PARAMETER :: const_mp    = 1.6737236d-24 ! g                 ; Proton mass
   double precision, PARAMETER :: const_e     = 4.8032068d-10   ! g^1/2 cm^3/2 s^-1 ; Electron charge
   double precision, PARAMETER :: const_MSun  = 1.98892d33      ! g                 ; Solar mass
-  double precision, PARAMETER :: const_kB    = 1.3806488d-16   ! erg K^-1          ; Boltzmann constant
+  double precision, PARAMETER :: const_kB    = 1.380648520d-16   ! erg K^-1          ; Boltzmann constant
   double precision, PARAMETER :: const_h     = 6.6260755d-27   ! erg s             ; Planck constant
   !> NICOLAS MOENS
-  double precision, PARAMETER :: const_sigma = 5.67051d-5      !erg cm^-2 K^-4 s^-1; Stefan-Boltzman constant
-  double precision, PARAMETER :: const_G     = 6.67259d-8      !cm^3 g^-1 s^-2     ; Cavendish gravitational constant
-  double precision, PARAMETER :: const_rad_a    = 7.5646e-15   !erg cm^-3 K^-4
+  double precision, PARAMETER :: const_sigma = 5.670367d-5      !erg cm^-2 K^-4 s^-1; Stefan-Boltzman constant
+  double precision, PARAMETER :: const_G     = 6.67191d-8      !cm^3 g^-1 s^-2     ; Cavendish gravitational constant
+  double precision, PARAMETER :: const_rad_a    = 7.5657e-15   !erg cm^-3 K^-4
 
 
   ! Conversion factors:

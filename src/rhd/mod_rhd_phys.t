@@ -44,7 +44,7 @@ module mod_rhd_phys
   integer, public, protected              :: p_
 
   !> The adiabatic index
-  double precision, public                :: rhd_gamma = 5.d0/3.0d0
+  double precision, public, protected     :: rhd_gamma = 5.d0/3.0d0
 
   !> The adiabatic constant
   double precision, public                :: rhd_adiab = 1.0d0
@@ -977,22 +977,9 @@ contains
 
     double precision :: gravity_field(ixI^S, 1:ndim)
     integer :: idust, idim
-
-
     integer :: i
 
-
-    ! print*, 'Iteration', it, '#####################', qsourcesplit,active
-    ! print*, 'BEFORE ADDING SOURCE', active
-    ! do i = ixImin2,30
-    !   print*, w(nghostcells+1,i,rho_),w(nghostcells+1,i,mom(2)), w(nghostcells+1,i,i_flux(2)), w(nghostcells+1,i,i_op)
-    ! enddo
     call rhd_add_radiation_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
-    ! print*, 'AFTER ADDING SOURCE', active
-    ! do i = ixImin2,30
-    !   print*, w(nghostcells+1,i,rho_),w(nghostcells+1,i,mom(2)), w(nghostcells+1,i,i_flux(2)), w(nghostcells+1,i,i_op)
-    ! enddo
-
 
     if(rhd_dust) then
       call dust_add_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
@@ -1081,7 +1068,7 @@ contains
 
 
     call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
-    w(ixI^S,i_test) = cmax(ixI^S)
+    ! w(ixI^S,i_test) = cmax(ixI^S)
 
 
   end subroutine rhd_add_radiation_source

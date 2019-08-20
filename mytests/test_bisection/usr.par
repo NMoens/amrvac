@@ -78,5 +78,5 @@
   fld_kappa0 = 0.34d0
   fld_split = .false.
   fld_opacity_law = 'const'
-  fld_interaction_method = 'Newton'
+  fld_interaction_method = 'Halley'
  /

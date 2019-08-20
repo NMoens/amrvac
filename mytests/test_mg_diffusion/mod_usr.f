@@ -21,9 +21,9 @@ contains
     call set_coordinate_system("Cartesian_2D")
 
 
-    unit_velocity = one
-    unit_numberdensity = one/((1.d0+4.d0*He_abundance)*mp_cgs)
-    unit_length = one
+    unit_velocity = 1.d5
+    unit_numberdensity = 1.d-8/((1.d0+4.d0*He_abundance)*mp_cgs)
+    unit_length = 1.d11
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -79,6 +79,8 @@ contains
       call fld_get_fluxlimiter(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
          ixmin2,ixmax1,ixmax2)
       call fld_get_radflux(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
+         ixmin2,ixmax1,ixmax2)
+      call fld_get_eddington(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
          ixmin2,ixmax1,ixmax2)
 
       if (fld_diff_scheme .eq. 'mg') then

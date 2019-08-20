@@ -284,6 +284,7 @@ subroutine mg_boundary_conditions(qt,ixI^L,ixO^L,iB,w,x)
       ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      mg%bc(iB, mg_iphi)%bc_value = zero  
 
       ! if (sum(w(ixOmin1:ixOmax1,ixOmax2,r_e)) .le. &
       !    sum(w(ixOmin1:ixOmax1,ixOmax2+1, r_e))) then

@@ -27,12 +27,11 @@
 
  &methodlist
    time_integrator = 'onestep'
-   flux_scheme     = 20*'tvdlf' !'tvdlf'/'hll'
+   flux_scheme     = 20*'hll' !'tvdlf'/'hll'
    limiter         = 20*'minmod' !'minmod'/'koren'
    source_split_usr = .false.
    typesourcesplit = 'sf'
-   check_small_values = .true.
-   small_values_method = 'replace'
+   small_values_method = 'error'
    small_pressure = 1.d-8
    small_density = 1.d-8
 /
@@ -61,7 +60,7 @@
  /
 
  &paramlist
-  courantpar       = 0.3d-2
+  courantpar       = 0.3d0
   !dtpar           = 1d-10
  /
 

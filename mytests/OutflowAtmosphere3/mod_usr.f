@@ -101,10 +101,10 @@ contains
     print*, 'density at sonic point', sp_rho
     print*, 'pressure at sonic point', sp_p
     print*, 'Temperature at sonic point', sp_T
+    print*, 'cgs opacity', kappa_0
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length  = R_star !r_arr(nghostcells) ! cm
-    ! unit_velocity   = sp_sos
     unit_numberdensity = sp_rho/((1.d0+4.d0*He_abundance)*mp_cgs)
     unit_temperature = sp_T
 
@@ -113,7 +113,6 @@ contains
     unit_pressure=(2.d0+3.d0*He_abundance)&
        *unit_numberdensity*kB_cgs*unit_temperature
     unit_velocity=dsqrt(unit_pressure/unit_density)
-    ! unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*kB_cgs)
     unit_time=unit_length/unit_velocity
 
     unit_radflux = unit_velocity*unit_pressure
@@ -222,11 +221,13 @@ contains
     CLOSE(1)
 
     T_arr = (Er_arr/const_rad_a)**0.25d0
-    p_arr = const_kb/(fld_mu*const_mp)*T_arr*rho_arr
+    p_arr = kb_cgs/(fld_mu*mp_cgs)*T_arr*rho_arr
     e_arr = p_arr/(rhd_gamma - one) + half*rho_arr*v_arr**2
 
     do i = 1,domain_nx2+2*nghostcells
-      print*, i, Er_arr(i), const_rad_a*(mp_cgs*fld_mu/kb_cgs*p_arr(i)/rho_arr(i))**4
+      ! print*, i, p_arr(i), (rhd_gamma - one)*(e_arr(i) - half*rho_arr(i)*v_arr(i)**2) &
+      ! ,(p_arr(i) - (rhd_gamma - one)*(e_arr(i) - half*rho_arr(i)*v_arr(i)**2))/p_arr(i)
+      print*, Er_arr(i), const_rad_a*T_arr(i)**4
     enddo
 
   end subroutine ReadInTable
@@ -315,14 +316,22 @@ contains
         do j = ixImin1,ixImax1
           w(j,i,r_e) = max(w(j,i+1,r_e) -2*w(j,i+2,r_e),w(j,i+1,r_e))
         enddo
-        kbTmu(ixImin1:ixImax1,i) = (const_rad_a/(w(ixImin1:ixImax1,i,&
-           r_e)*unit_pressure))**0.25*const_kB/(fld_mu*const_mp)
+        kbTmu(ixImin1:ixImax1,i) = (w(ixImin1:ixImax1,i,&
+           r_e)*unit_pressure/const_rad_a)**0.25*const_kB/(fld_mu*const_mp)
         kbTmu(ixImin1:ixImax1,i) = kbTmu(ixImin1:ixImax1,i)/unit_velocity**2
         w(ixImin1:ixImax1,i,e_) = kbTmu(ixImin1:ixImax1,i)*w(ixImin1:ixImax1,i,&
            rho_)/(rhd_gamma-one) + half*(w(ixImin1:ixImax1,i,&
            mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,&
            rho_)
       enddo
+
+
+      ! if (mype == 0) then
+      !   do i = 1,10
+      !     print*, w(5,i,rho_), kbTmu(5,i), w(5,i,e_), w(5,i,r_e)
+      !   enddo
+      ! endif
+
 
     case(4)
       do i = ixBmin2,ixBmax2

@@ -263,6 +263,7 @@ module mod_fld
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: qdt, x(ixI^S,1:ndim)
     double precision, intent(in)    :: wCT(ixI^S,1:nw)
+    double precision                :: wCCT(ixI^S,1:nw)
     double precision, intent(inout) :: w(ixI^S,1:nw)
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
@@ -274,27 +275,32 @@ module mod_fld
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
 
+      wCCT = wCT
+      call fld_get_radflux(wCCT, x, ixI^L, ixO^L)
+
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux
-        ! if (lineforce_opacities) then
-        !   radiation_force(ixO^S,idir) = wCT(ixO^S,i_opf(idir))*wCT(ixO^S,iw_rho)/fld_speedofligt_0*wCT(ixO^S, i_flux(idir))
-        ! else
-        radiation_force(ixO^S,idir) = wCT(ixO^S,iw_rho)*wCT(ixO^S,i_op)*wCT(ixO^S, i_flux(idir))/fld_speedofligt_0
-        !
-        ! if (idir == 2) print*, radiation_force(nghostcells+2,nghostcells+2,2), wCT(nghostcells+2,nghostcells+2,iw_rho) &
-        ! , wCT(nghostcells+2,nghostcells+2,i_op), wCT(nghostcells+2,nghostcells+2, i_flux(idir))
-        ! endif
+        radiation_force(ixO^S,idir) = wCT(ixO^S,iw_rho)*wCT(ixO^S,i_op)*wCCT(ixO^S, i_flux(idir))/fld_speedofligt_0
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * radiation_force(ixO^S,idir)
-
-        !> CHEATY BIT:
-        ! w(:,ixOmin2,iw_mom(idir)) = w(:,ixOmin2+1,iw_mom(idir))
-
-
+        !if (.not. block%e_is_internal) then
+          !> Energy equation source term (kinetic energy)
+          w(ixO^S,iw_e) = w(ixO^S,iw_e) &
+              + qdt * radiation_force(ixO^S,idir) * wCT(ixO^S,iw_mom(idir))/wCT(ixO^S,iw_rho)
+        !endif
       enddo
+
+      if (mype == 0) then
+        do i = 1,10
+          print*, w(5,i,iw_e), w(5,i,iw_e)-half*(w(5,i, iw_mom(2))**2)/w(5,i, iw_rho) , qdt * radiation_force(5,i,2)
+        enddo
+      endif
     end if
+
+
+
   end subroutine get_fld_rad_force
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
@@ -639,8 +645,9 @@ module mod_fld
 
 
     !>Cheaty bit:
-    w(:,ixOmin2+1,i_flux(2)) = (x(:,ixOmin2+2,2)/x(:,ixOmin2+1,2))**2*w(:,ixOmin2+2,i_flux(2))
-
+    if (x(3,3,2) .lt. 1.5) then
+      w(:,ixOmin2+1,i_flux(2)) = (x(:,ixOmin2+2,2)/x(:,ixOmin2+1,2))**2*w(:,ixOmin2+2,i_flux(2))
+    endif
 
 
     ! stop
@@ -1459,21 +1466,16 @@ module mod_fld
 
     divvP(ixO^S) = divvP(ixO^S)*w(ixO^S,iw_r_e)
 
-    !> Get temperature
-    call phys_get_tgas(w,x,ixI^L,ixO^L,temperature)
-
-    e_gas(ixO^S) = w(ixO^S,iw_e)
+    !> e_gas is the INTERNAL ENERGY without KINETIC ENERGY
+    e_gas(ixO^S) = w(ixO^S,iw_e) - half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
     E_rad(ixO^S) = w(ixO^S,iw_r_e)
 
     !> Calculate coefficients for polynomial
     a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*((rhd_gamma-one)/w(ixO^S,iw_rho))**4.d0*dt
-    ! a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
     a2(ixO^S) = fld_speedofligt_0*w(ixO^S,i_op)*w(ixO^S,iw_rho)*dt
     a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
 
-    ! w(ixO^S,i_test) = a3(ixO^S)
-
-    c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
+    c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) - a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
     !> Loop over every cell for rootfinding method
@@ -1490,23 +1492,11 @@ module mod_fld
       end select
     {enddo\}
 
-    !> Update gas-energy in w
-    w(ixO^S,iw_e) = e_gas(ixO^S)
-
-    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! ! IS THIS NECESARY?!?!?
-    ! !> Calculate new radiation energy
-    ! !> Get temperature
-    ! call phys_get_tgas(w,x,ixI^L,ixO^L,temperature)
-    ! !> Update a1
-    !     a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*((rhd_gamma-one)/w(ixO^S,iw_rho))**4.d0*dt
-    !  ! a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*(temperature(ixO^S)/e_gas(ixO^S))**4.d0*dt
-    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !> Update gas-energy in w, internal + kinetic
+    w(ixO^S,iw_e) = e_gas(ixO^S) + half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
 
     !> advance E_rad
-    E_rad(ixO^S) = (a1*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2 + a3)
+    E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S) + a3(ixO^S))
 
     !> Update rad-energy in w
     w(ixO^S,iw_r_e) = E_rad(ixO^S)

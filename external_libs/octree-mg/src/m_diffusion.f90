@@ -72,6 +72,8 @@ contains
     integer                   :: n
     real(dp)                  :: res
 
+    print*, 'ITS DIFFUSION TIME'
+
     mg%operator_type = mg_vhelmholtz
     call mg_set_methods(mg)
 
@@ -90,14 +92,14 @@ contains
 
     ! Start with an FMG cycle
     call mg_fas_fmg(mg, .true., max_res=res)
-    ! print*, 'Full MG', 0, res
+    print*, 'Full MG', 0, res
 
     ! Add V-cycles if necessary
     do n = 1, max_its
        if (res <= max_res) exit
        call mg_fas_vcycle(mg, max_res=res)
 
-       ! print*, 'V-Cycle', n, res
+       print*, 'V-Cycle', n, res
 
     end do
 

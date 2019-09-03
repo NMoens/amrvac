@@ -7,7 +7,7 @@
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
-  nwauxio = 5
+  nwauxio = 1
 /
 
  &savelist
@@ -22,7 +22,7 @@
  &stoplist
    time_max = 1.d2
    dtmin = 1.0d-20
-   it_max = 5
+   it_max = 2
 /
 
  &methodlist
@@ -31,7 +31,7 @@
    limiter         = 20*'minmod' !'minmod'/'koren'
    source_split_usr = .false.
    typesourcesplit = 'sf'
-   small_values_method = 'error'
+   small_values_method = 'replace'
    small_pressure = 1.d-8
    small_density = 1.d-8
 /
@@ -47,10 +47,10 @@
 
  &meshlist
    refine_max_level   = 1
-   domain_nx1         = 32
+   domain_nx1         = 64
    domain_nx2         = 64
-   block_nx1          = 32
-   block_nx2          = 32
+   block_nx1          = 64
+   block_nx2          = 64
    xprobmin1       = -1.5d0
    xprobmax1       = 1.5d0
    xprobmin2       = 1.0d0
@@ -60,7 +60,7 @@
  /
 
  &paramlist
-  courantpar       = 0.3d0
+  courantpar       = 0.3d-1
   !dtpar           = 1d-10
  /
 
@@ -72,12 +72,12 @@
   rhd_radiation_formalism = 'fld'
   rhd_radiation_force = .true.
   rhd_energy_interact = .true.
-  rhd_radiation_diffusion = .false.
+  rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
  /
 
  &fld_list
-  fld_split = .false.
+  fld_split = .true.
   fld_opacity_law = 'special'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'

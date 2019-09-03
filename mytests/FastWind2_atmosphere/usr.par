@@ -4,7 +4,7 @@
 
 &filelist
   base_filename='./output/const'
-  restart_from_file = './output/const0012.dat'
+  !restart_from_file = './output/const0012.dat'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
@@ -84,7 +84,7 @@
   fld_opacity_law = 'fastwind'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Diffusion'
+  fld_fluxlimiter = 'Minerbo'
   diff_coef_filter = .true.
   size_D_filter = 1
   /

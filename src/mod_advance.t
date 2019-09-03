@@ -481,7 +481,7 @@ contains
 
   !> process is a user entry in time loop, before output and advance
   !>         allows to modify solution, add extra variables, etc.
-  !> Warning: CFL dt already determined (and is not recomputed)! 
+  !> Warning: CFL dt already determined (and is not recomputed)!
   subroutine process(iit,qt)
     use mod_usr_methods, only: usr_process_grid, usr_process_global
     use mod_global_parameters

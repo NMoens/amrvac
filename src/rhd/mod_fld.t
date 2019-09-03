@@ -285,18 +285,14 @@ module mod_fld
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * radiation_force(ixO^S,idir)
+
+        print*, it, 'Not Adding F_rad to kinetic energy'
         !if (.not. block%e_is_internal) then
           !> Energy equation source term (kinetic energy)
           w(ixO^S,iw_e) = w(ixO^S,iw_e) &
               + qdt * radiation_force(ixO^S,idir) * wCT(ixO^S,iw_mom(idir))/wCT(ixO^S,iw_rho)
         !endif
       enddo
-
-      if (mype == 0) then
-        do i = 1,10
-          print*, w(5,i,iw_e), w(5,i,iw_e)-half*(w(5,i, iw_mom(2))**2)/w(5,i, iw_rho) , qdt * radiation_force(5,i,2)
-        enddo
-      endif
     end if
 
 
@@ -749,10 +745,13 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res
 
+    integer :: i
+
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
     call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
+
   end subroutine Diffuse_E_rad_mg
 
   !> Calculates cell-centered diffusion coefficient to be used in multigrid
@@ -769,7 +768,7 @@ module mod_fld
 
     if (fld_diff_testcase) then
 
-      w(ixO^S,i_diff_mg) = 1.d8
+      w(ixO^S,i_diff_mg) = 1.d0
 
       ! w(ixO^S,i_diff_mg) = 1.d0/(1.d-3*fld_speedofligt_0*0.33333333d0/(w(ixO^S,i_op)*w(ixO^S,iw_rho)))
       !
@@ -849,7 +848,7 @@ module mod_fld
 
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
-    call mg_copy_to_tree(i_diff_mg, mg_iveps, .false., .false.)
+    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
   end subroutine set_mg_diffcoef
 
   !> Sets boundary conditions for multigrid, based on hydro-bounds
@@ -1426,9 +1425,9 @@ module mod_fld
 
     integer :: i,j,idir,ix^D
 
-    double precision ::     rhd_gamma = 5.d0/3.d0
+    double precision ::     rhd_gamma = 1.6666667d0
 
-    if (it == 0) print*, "ATETNTION RHD_GAMMA FAKE"
+    if (it == 0) print*, "ATTENTION RHD_GAMMA FAKE"
 
     !> calculate tensor div_v
     do i = 1,ndir
@@ -1478,6 +1477,11 @@ module mod_fld
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) - a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
+    print*, it, 'Before'
+    do i = ixOmin2,ixOmax2
+      print*, w(5,i,iw_e), w(5,i,iw_r_e)
+    enddo
+
     !> Loop over every cell for rootfinding method
     {do ix^D=ixOmin^D,ixOmax^D\ }
       select case(fld_interaction_method)
@@ -1500,6 +1504,11 @@ module mod_fld
 
     !> Update rad-energy in w
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
+
+    print*, it, 'After'
+    do i = ixOmin2,ixOmax2
+      print*, w(5,i,iw_e), w(5,i,iw_r_e)
+    enddo
 
   end subroutine Energy_interaction
 

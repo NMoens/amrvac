@@ -21,9 +21,9 @@ contains
     call set_coordinate_system("Cartesian_2D")
 
 
-    unit_velocity = 1.d5
-    unit_numberdensity = 1.d-8/((1.d0+4.d0*He_abundance)*mp_cgs)
-    unit_length = 1.d11
+    unit_velocity = 1.d0
+    unit_numberdensity = 1.d0/((1.d0+4.d0*He_abundance)*mp_cgs)
+    unit_length = 1.d0
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -104,7 +104,7 @@ contains
 
       do i = ixGmin1,ixGmax1
         do j = ixGmin2,ixGmax2
-        e0(i,j) =  dexp(-8.d0 *dpi**two*t1*unit_time)*sin(two*dpi*x(i,j,&
+        e0(i,j) =  2 + dexp(-8.d0 *dpi**two*t1*unit_time)*sin(two*dpi*x(i,j,&
            1))*sin(two*dpi*x(i,j,2))
         enddo
       enddo
@@ -139,9 +139,14 @@ contains
       double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
          1:ndim)
 
+      integer :: i
       w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = one
       w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = zero
       w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = one
+
+      do i = ixOmin1, ixOmax1
+        print*, w(i,5,r_e)
+      enddo
 
     end subroutine constant_var
 

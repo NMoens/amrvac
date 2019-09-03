@@ -23,7 +23,7 @@
  &stoplist
    !time_max = 0.1d0
    !dtmin = 1.0d-20
-   it_max = 5000
+   it_max = 500
 /
 
  &methodlist
@@ -38,19 +38,19 @@
 
 &boundlist
   nghostcells  =  2
-  typeboundary_min1 = 5*'periodic'
-  typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 5*'periodic'
-  typeboundary_max2 = 5*'periodic'
+  typeboundary_min1 = 5*'cont'
+  typeboundary_max1 = 5*'cont'
+  typeboundary_min2 = 5*'cont'
+  typeboundary_max2 = 5*'cont'
   internalboundary = T
 /
 
  &meshlist
    refine_max_level   = 3
-   domain_nx1         = 64
-   domain_nx2         = 64
-   block_nx1          = 64
-   block_nx2          = 64
+   domain_nx1         = 32
+   domain_nx2         = 32
+   block_nx1          = 32
+   block_nx2          = 32
    xprobmin1       =  0.d0
    xprobmax1       =  2.d0
    xprobmin2       =  -1.d0

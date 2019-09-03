@@ -365,7 +365,7 @@ contains
 
     select case (iB)
       case (3)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous !mg_bc_dirichlet
         mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmin2-1,&
            r_e))/(ixImax1-ixImin1) !const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
       case (4)

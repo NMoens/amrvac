@@ -47,7 +47,6 @@ contains
     p0 = eg0*(rhd_gamma - one)
     a0 = dsqrt(rhd_gamma*p0/rho0)
 
-
     tau_wave = 1.d3
     wavelength = tau_wave/(rho0*0.4d0)
     frequency = 2.d0*dpi*a0/wavelength
@@ -121,7 +120,7 @@ contains
 
     double precision :: ampl, a2
 
-    ampl = 1.d-5*p0
+    ampl = 1.d-2*p0
     a2 = p0/rho0
 
     where (x(ixI^S,1) .lt. one)

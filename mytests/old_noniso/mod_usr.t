@@ -91,6 +91,8 @@ subroutine usr_params_read(files)
   T_star = T_star
   tau_bound = tau_bound
 
+  fld_kappa0 = fld_kappa0/unit_opacity
+
 end subroutine usr_params_read
 
 subroutine initglobaldata_usr
@@ -210,7 +212,7 @@ subroutine initial_conditions(ixG^L, ix^L, w, x)
   w(ixG^S, rho_) = density(ixG^S)
   w(ixG^S, mom(:)) = zero
   w(ixG^S, e_) = pressure(ixG^S)/(rhd_gamma - one)
-  w(ixG^S,r_e) = 4.d0*fld_sigma_0/fld_speedofligt_0*(a*pressure(ixG^S) + b)
+  w(ixG^S,r_e) = 4.d0*fld_sigma_0/(const_c/unit_velocity)*(a*pressure(ixG^S) + b)
 
 
   lower_bc_rho(:) = w(5,1:2, rho_)
@@ -276,12 +278,12 @@ subroutine special_bound(qt,ixG^L,ixB^L,iB,w,x)
     w(:,2, rho_) = lower_bc_rho(2)
     w(:,2,mom(2)) = zero !w(:,3,mom(2))
 
-    w(:,2, r_e) = w(:,3, r_e) - 3.0*w(:,2, rho_)*w(:,2,i_op)*Flux0/fld_speedofligt_0*(x(:,2,2)-x(:,3,2))
+    w(:,2, r_e) = w(:,3, r_e) - 3.0*w(:,2, rho_)*w(:,2,i_op)*Flux0/(const_c/unit_velocity)*(x(:,2,2)-x(:,3,2))
 
     !w(:,2, r_e) = lower_bc_re(2)
 
     pressure(:,2) = const_kB/(0.6*mp_cgs)*w(:,2, rho_)/unit_pressure*(unit_temperature*unit_density)&
-    *(fld_speedofligt_0/(4.d0*fld_sigma_0)*w(:,2, r_e))**0.25d0
+    *((const_c/unit_velocity)/(4.d0*fld_sigma_0)*w(:,2, r_e))**0.25d0
     w(:,2, e_) = pressure(:,2)/(rhd_gamma - one) + (w(:,2, mom(2))*w(:,2, mom(2))/(2*w(:,2, rho_)))
 
     !w(:,2, e_) = w(:,3, e_) + w(:,3, mom(2))*(half - one/(rhd_gamma - one))&
@@ -291,12 +293,12 @@ subroutine special_bound(qt,ixG^L,ixB^L,iB,w,x)
     w(:,1, rho_) = lower_bc_rho(1)
     w(:,1,mom(2)) = zero !w(:,3,mom(2))
 
-    w(:,1, r_e) = w(:,2, r_e) - 3.0*w(:,1, rho_)*w(:,2,i_op)*Flux0/fld_speedofligt_0*(x(:,1,2)-x(:,2,2))
+    w(:,1, r_e) = w(:,2, r_e) - 3.0*w(:,1, rho_)*w(:,2,i_op)*Flux0/(const_c/unit_velocity)*(x(:,1,2)-x(:,2,2))
 
     !w(:,1, r_e) = lower_bc_re(1)
 
     pressure(:,1) = const_kB/(0.6*mp_cgs)*w(:,1, rho_)/unit_pressure*(unit_temperature*unit_density)&
-    *(fld_speedofligt_0/(4.d0*fld_sigma_0)*w(:,1, r_e))**0.25d0
+    *((const_c/unit_velocity)/(4.d0*fld_sigma_0)*w(:,1, r_e))**0.25d0
     w(:,1, e_) = pressure(:,1)/(rhd_gamma - one) + (w(:,1, mom(2))*w(:,1, mom(2))/(2*w(:,1, rho_)))
 
     ! w(:,1, e_) = w(:,2, e_) + w(:,2, mom(2))*(half - one/(rhd_gamma - one))&
@@ -351,7 +353,7 @@ subroutine radiation_boundary(qt,ixI^L,iB,w,w_rad,x)
   case(3)
     do i=ixImin1,ixImax1
       do j=ixImin2+nghostcells-1,ixImin2,-1
-        w_rad(i,j) = 3.0*w(i,j, rho_)*w(i,j+1,i_op)*Flux0/fld_speedofligt_0*(x(i,j,2)-x(i,j+1,2))
+        w_rad(i,j) = 3.0*w(i,j, rho_)*w(i,j+1,i_op)*Flux0/(const_c/unit_velocity)*(x(i,j,2)-x(i,j+1,2))
       enddo
     enddo
 
@@ -381,7 +383,7 @@ subroutine set_gravitation_field(ixI^L,ixO^L,wCT,x,gravity_field)
   gravity_field(ixI^S,1) = zero
   gravity_field(ixI^S,2) = -const_G*M_star/(R_star**2)/unit_velocity*unit_time
 
-  !print*, gravity_field(5,5,2), Flux0*fld_kappa0/fld_speedofligt_0
+  !print*, gravity_field(5,5,2), Flux0*fld_kappa0/(const_c/unit_velocity)
 
 end subroutine set_gravitation_field
 

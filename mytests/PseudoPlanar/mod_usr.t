@@ -82,6 +82,7 @@ contains
     T_0 = t_0/unit_temperature
     E_0 = E_0/unit_pressure
     L_star = L_star/(unit_radflux*unit_time**2)
+    fld_kappa0 = fld_kappa0/unit_opacity
 
 
     print*, 'Unitless: ########################'
@@ -119,11 +120,11 @@ contains
     w(ixI^S,mom(2)) = w(ixI^S,rho_)*v_inf
 
     w(ixI^S,r_e) = E_0 &
-    + fld_kappa0*L_star*M_dot/((4*dpi)**2*fld_speedofligt_0*v_inf) &
+    + fld_kappa0*L_star*M_dot/((4*dpi)**2*(const_c/unit_velocity)*v_inf) &
     * (one/x(ixI^S,2)**3 - one)
 
     print*, '#######################################################'
-    print*, fld_kappa0*L_star*M_dot/((4*dpi)**2*fld_speedofligt_0*v_inf)
+    print*, fld_kappa0*L_star*M_dot/((4*dpi)**2*(const_c/unit_velocity)*v_inf)
 
     pressure(ixI^S) = const_kB*w(ixI^S,rho_) &
     /(const_mp*fld_mu)*(w(ixI^S,r_e)/const_rad_a)**0.25 &

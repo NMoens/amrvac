@@ -57,7 +57,7 @@
  /
 
  &paramlist
-  courantpar       = 0.01d0
+  courantpar       = 0.1d-2
   !dtpar           = 1d-4
  /
 

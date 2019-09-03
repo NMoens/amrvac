@@ -457,7 +457,7 @@ contains
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
-    g_rad(ixO^S) = w(ixO^S,i_op)*w(ixO^S,i_flux(2))/fld_speedofligt_0
+    g_rad(ixO^S) = w(ixO^S,i_op)*w(ixO^S,i_flux(2))/(const_c/unit_velocity)
     g_grav(ixI^S) = const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
     big_gamma(ixO^S) = g_rad(ixO^S)/g_grav(ixO^S)
 

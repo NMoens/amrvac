@@ -41,6 +41,8 @@ contains
     ! Active the physics module
     call rhd_activate()
 
+    fld_kappa0 = fld_kappa0/unit_opacity
+
     print*, 'unit_time', unit_time
     print*, 'unit_temperature', unit_temperature
     print*, 'unit_length', unit_length
@@ -77,7 +79,7 @@ end subroutine initglobaldata_usr
     w(ixG^S, mom(:)) = zero
     w(ixG^S,r_e) = 1.d12
 
-    !e_eq = w(3,3,rho_)/(rhd_gamma-one) * (fld_speedofligt_0*w(3,3,r_e)/(4.0d0*fld_sigma_0))**(1.d0/4.d0)
+    !e_eq = w(3,3,rho_)/(rhd_gamma-one) * ((const_c/unit_velocity)*w(3,3,r_e)/(4.0d0*fld_sigma_0))**(1.d0/4.d0)
 
     e_eq = (w(3,3,r_e)*unit_pressure/(const_rad_a))**(1.d0/4.d0) &
           *one/(rhd_gamma-one)*const_kB*w(3,3,rho_)*unit_density &
@@ -91,7 +93,7 @@ end subroutine initglobaldata_usr
     print*, w(ixG^S,r_e)
 
     print*, "E", w(3,3,r_e)
-    print*, "c", fld_speedofligt_0
+    print*, "c", (const_c/unit_velocity)
     print*, "rho", w(3,3,rho_)
     print*, "kappa", fld_kappa0
     print*, "sigma", fld_sigma_0

@@ -14,12 +14,6 @@ module mod_fld
     !> mean particle mass
     double precision, public :: fld_mu = 0.6d0
 
-    !> Dimensionless Boltzman constante sigma
-    double precision, public :: fld_sigma_0
-
-    !> Dimensionless speed of light
-    double precision, public :: fld_speedofligt_0
-
     !> Maximum amount of pseudotimesteps before trying something else
     integer, public :: fld_maxdw = 100
 
@@ -212,21 +206,14 @@ module mod_fld
     !> Need mean molecular weight
     fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
 
-    !> Dimensionless speed of light
-    fld_speedofligt_0 = const_c/unit_velocity
-
     !> Dimensionless Boltzman constante sigma
-    fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
-
-    !> Make kappa dimensionless !!!STILL NEED TO MULTIPLY W RHO
-    fld_kappa0 = fld_kappa0/unit_opacity
+    ! fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
 
     !> Read in opacity table if necesary
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
     if ((fld_opacity_law .eq. 'thomson') .or. (fld_opacity_law .eq. 'fastwind'))  then
       sigma_thomson = 6.6524585d-25
       fld_kappa0 = sigma_thomson/const_mp * (1.+2.*He_abundance)/(1.+4.*He_abundance)
-      fld_kappa0 = fld_kappa0/unit_opacity
     endif
   end subroutine fld_init
 
@@ -280,7 +267,7 @@ module mod_fld
 
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux
-        radiation_force(ixO^S,idir) = wCT(ixO^S,iw_rho)*wCT(ixO^S,i_op)*wCCT(ixO^S, i_flux(idir))/fld_speedofligt_0
+        radiation_force(ixO^S,idir) = wCT(ixO^S,iw_rho)*wCT(ixO^S,i_op)*wCCT(ixO^S, i_flux(idir))/(const_c/unit_velocity)
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
@@ -390,19 +377,19 @@ module mod_fld
 
     select case (fld_opacity_law)
       case('const')
-        fld_kappa = fld_kappa0
+        fld_kappa = fld_kappa0/unit_opacity
       case('thomson')
-        fld_kappa = fld_kappa0
+        fld_kappa = fld_kappa0/unit_opacity
       case('kramers')
         rho0 = half !> Take lower value of rho in domain
-        fld_kappa(ixO^S) = fld_kappa0*((w(ixO^S,iw_rho)/rho0))
+        fld_kappa(ixO^S) = fld_kappa0/unit_opacity*((w(ixO^S,iw_rho)/rho0))
       case('bump')
         !> Opacity bump
         rho0 = 0.2d0 !0.5d-1
         n = 7.d0
         sigma_b = 2.d-2
-        !fld_kappa(ixO^S) = fld_kappa0*(one + n*dexp(-((rho0  - w(ixO^S,iw_rho))**two)/rho0))
-        fld_kappa(ixO^S) = fld_kappa0*(one + n*dexp(-one/sigma_b*(dlog(w(ixO^S,iw_rho)/rho0))**two))
+        !fld_kappa(ixO^S) = fld_kappa0/unit_opacity*(one + n*dexp(-((rho0  - w(ixO^S,iw_rho))**two)/rho0))
+        fld_kappa(ixO^S) = fld_kappa0/unit_opacity*(one + n*dexp(-one/sigma_b*(dlog(w(ixO^S,iw_rho)/rho0))**two))
       case('non_iso')
         call phys_get_pthermal(w,x,ixI^L,ixO^L,Temp)
         Temp(ixO^S)=Temp(ixO^S)/w(ixO^S,iw_rho)
@@ -410,7 +397,7 @@ module mod_fld
         rho0 = 0.5d0 !> Take lower value of rho in domain
         Temp0 = one
         n = -7.d0/two
-        fld_kappa(ixO^S) = fld_kappa0*(w(ixO^S,iw_rho)/rho0)*(Temp(ixO^S)/Temp0)**n
+        fld_kappa(ixO^S) = fld_kappa0/unit_opacity*(w(ixO^S,iw_rho)/rho0)*(Temp(ixO^S)/Temp0)**n
       case('fastwind')
         call phys_get_pthermal(w,x,ixI^L,ixO^L,pth)
         a2(ixO^S) = pth(ixO^S)/w(ixO^S,iw_rho)*unit_velocity**2.d0
@@ -418,15 +405,15 @@ module mod_fld
         akram = 13.1351597305
         bkram = -4.5182188206
 
-        fld_kappa(ixO^S) = fld_kappa0 &
+        fld_kappa(ixO^S) = fld_kappa0/unit_opacity &
         * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
 
         {do ix^D=ixOmin^D,ixOmax^D\ }
           !> Hard limit on kappa
-          fld_kappa(ix^D) = min(fld_kappa(ix^D),2.3d0*fld_kappa0)
+          fld_kappa(ix^D) = min(fld_kappa(ix^D),2.3d0*fld_kappa0/unit_opacity)
 
           !> Limit kappa through T
-          ! fld_kappa(ix^D) = fld_kappa0 &
+          ! fld_kappa(ix^D) = fld_kappa0/unit_opacity &
           ! * (1.d0+10.d0**akram*w(ix^D,iw_rho)*unit_density &
           ! * (max(a2(ix^D),const_kB*5.9d4/(fld_mu*const_mp))/1.d12)**bkram)
         {enddo\ }
@@ -482,7 +469,7 @@ module mod_fld
         vel(ixI^S) = w(ixI^S,iw_mom(idir))/w(ixI^S,iw_rho)
         call gradient(vel,ixI^L,ixO^L,idir,gradv)
         forceM(ixI^S) = Qbar/(one-alpha) &
-        *(gradv(ixI^S)/(w(ixI^S,iw_rho)*fld_speedofligt_0*Qbar*w(ixI^S,i_op)))**alpha
+        *(gradv(ixI^S)/(w(ixI^S,iw_rho)*(const_c/unit_velocity)*Qbar*w(ixI^S,i_op)))**alpha
         w(ixO^S,i_opf(idir)) = w(ixO^S,i_op)*forceM(ixO^S)
       enddo
     else
@@ -634,7 +621,7 @@ module mod_fld
     do idir = 1,ndir
       !> gradient or gradientS ?!?!?!?!?!?
       call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-      rad_flux(ixI^S, idir) = -fld_speedofligt_0*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
+      rad_flux(ixI^S, idir) = -(const_c/unit_velocity)*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
     end do
 
     w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
@@ -770,13 +757,13 @@ module mod_fld
 
       w(ixO^S,i_diff_mg) = 1.d0
 
-      ! w(ixO^S,i_diff_mg) = 1.d0/(1.d-3*fld_speedofligt_0*0.33333333d0/(w(ixO^S,i_op)*w(ixO^S,iw_rho)))
+      ! w(ixO^S,i_diff_mg) = 1.d0/(1.d-3*(const_c/unit_velocity)*0.33333333d0/(w(ixO^S,i_op)*w(ixO^S,iw_rho)))
       !
-      ! w(ixO^S,i_test) = fld_speedofligt_0*0.33333333d0/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
+      ! w(ixO^S,i_test) = (const_c/unit_velocity)*0.33333333d0/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
 
     else
       !> calculate diffusion coefficient
-      w(ixO^S,i_diff_mg) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
+      w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
 
       !> ghostcells
       do i = ixImin1,ixImax1
@@ -792,7 +779,7 @@ module mod_fld
       ! !for simplicity, only in direction 2
       ! rad_e(ixI^S) = w(ixI^S,iw_r_e)
       ! call gradient(rad_e,ixI^L,ixO^L,2,grad_r_e)
-      ! max_D(ixO^S) = abs(fld_speedofligt_0*rad_e(ixO^S)/grad_r_e(ixO^S))
+      ! max_D(ixO^S) = abs((const_c/unit_velocity)*rad_e(ixO^S)/grad_r_e(ixO^S))
       !
       ! {do ix^D = ixOmin^D,ixOmax^D\}
       !     ! call mpistop('You have reached maximal D, the D is too big')
@@ -1129,7 +1116,7 @@ module mod_fld
       D(ixI^S,1:ndim) = one/(unit_length*unit_velocity)
     else
       !> calculate diffusion coefficient
-      D_center(ixO^S) = fld_speedofligt_0*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
+      D_center(ixO^S) = (const_c/unit_velocity)*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
 
       !> Extrapolate lambda to ghostcells
       !> Edges
@@ -1470,8 +1457,8 @@ module mod_fld
     E_rad(ixO^S) = w(ixO^S,iw_r_e)
 
     !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*fld_sigma_0*((rhd_gamma-one)/w(ixO^S,iw_rho))**4.d0*dt
-    a2(ixO^S) = fld_speedofligt_0*w(ixO^S,i_op)*w(ixO^S,iw_rho)*dt
+    a1(ixO^S) = 4*w(ixO^S,i_op)*w(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure))*((rhd_gamma-one)/w(ixO^S,iw_rho))**4.d0*dt
+    a2(ixO^S) = (const_c/unit_velocity)*w(ixO^S,i_op)*w(ixO^S,iw_rho)*dt
     a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
 
     c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) - a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))

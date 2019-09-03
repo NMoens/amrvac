@@ -323,7 +323,7 @@ subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
   integer                            :: idim
 
   do idim = 1,ndim
-    g_rad(ixO^S,idim) = w(ixO^S,i_op)*w(ixO^S,i_flux(idim))/fld_speedofligt_0
+    g_rad(ixO^S,idim) = w(ixO^S,i_op)*w(ixO^S,i_flux(idim))/(const_c/unit_velocity)
   enddo
   big_gamma(ixO^S) = g_rad(ixO^S,2)/(const_G*mstar/rstar**2*(unit_time**2/unit_length))
 

@@ -80,6 +80,8 @@ subroutine usr_init()
   print*, 'unit_pressure', unit_pressure
   print*, '================================================================'
 
+  fld_kappa0 = fld_kappa0/unit_opacity
+
 end subroutine usr_init
 
 !==========================================================================================

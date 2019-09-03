@@ -26,6 +26,8 @@ contains
     ! Active the physics module
     call rhd_activate()
 
+    fld_kappa0 = fld_kappa0/unit_opacity
+
   end subroutine usr_init
 
   !> A routine for specifying initial conditions

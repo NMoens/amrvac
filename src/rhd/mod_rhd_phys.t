@@ -1033,6 +1033,7 @@ contains
     double precision :: wCCT(ixI^S,1:nw)
     double precision :: cmax(ixI^S)
 
+    call get_rad_extravars(w, x, ixI^L, ixO^L)
 
     !> Maybe this WCCT stuff is unnescecary, I just put it here
     !> because i want e.g. original fluxes for my radiation force

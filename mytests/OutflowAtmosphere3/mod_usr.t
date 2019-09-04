@@ -96,11 +96,13 @@ contains
     sp_T = fld_mu*mp_cgs/kB_cgs*sp_sos**2
     sp_p = sp_sos**2*sp_rho
 
-    print*, 'soundspeed at sonic point', sp_sos
-    print*, 'density at sonic point', sp_rho
-    print*, 'pressure at sonic point', sp_p
-    print*, 'Temperature at sonic point', sp_T
-    print*, 'cgs opacity', kappa_0
+    if (mype .eq. 0) then
+      print*, 'soundspeed at sonic point', sp_sos
+      print*, 'density at sonic point', sp_rho
+      print*, 'pressure at sonic point', sp_p
+      print*, 'Temperature at sonic point', sp_T
+      print*, 'cgs opacity', kappa_0
+    endif
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length  = R_star !r_arr(nghostcells) ! cm
@@ -134,7 +136,6 @@ contains
       print*, 'unit_velocity', unit_velocity
     endif
 
-
     !> Make all parameters dimensionless
     M_star = M_star/(unit_density*unit_length**3.d0)
     R_star = R_star/unit_length
@@ -145,7 +146,6 @@ contains
     sp_rho = sp_rho/unit_density
     sp_T = sp_T/unit_temperature
     sp_p = sp_p/unit_temperature
-
 
     !> Make initial profiles dimensionless
     r_arr = r_arr/unit_length
@@ -221,12 +221,6 @@ contains
     p_arr = kb_cgs/(fld_mu*mp_cgs)*T_arr*rho_arr
     e_arr = p_arr/(rhd_gamma - one) + half*rho_arr*v_arr**2
 
-    do i = 1,domain_nx2+2*nghostcells
-      ! print*, i, p_arr(i), (rhd_gamma - one)*(e_arr(i) - half*rho_arr(i)*v_arr(i)**2) &
-      ! ,(p_arr(i) - (rhd_gamma - one)*(e_arr(i) - half*rho_arr(i)*v_arr(i)**2))/p_arr(i)
-      print*, Er_arr(i), const_rad_a*T_arr(i)**4
-    enddo
-
   end subroutine ReadInTable
 
   !> A routine for specifying initial conditions
@@ -256,6 +250,11 @@ contains
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
+    ! do i = ixImin2, ixImax2
+    !   print*, i, x(5,i,2), w(5,i,i_flux(2)), x(5,i,2)**2*w(5,i,i_flux(2))
+    ! enddo
+    ! stop
+
   end subroutine initial_conditions
 
   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
@@ -284,8 +283,6 @@ contains
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma-one) + half*(w(ixImin1:ixImax1,i,mom(1))**2 &
         + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
         w(ixImin1:ixImax1,i,r_e) = const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
-
-
       !++++++++++++++++++++++++++++++++++++++++++++
 
       do i = ixBmax2 -1, ixBmin2, -1
@@ -300,14 +297,6 @@ contains
         w(ixImin1:ixImax1,i,e_) = kbTmu(ixImin1:ixImax1,i)*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma-one) &
         + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
       enddo
-
-
-      ! if (mype == 0) then
-      !   do i = 1,10
-      !     print*, w(5,i,rho_), kbTmu(5,i), w(5,i,e_), w(5,i,r_e)
-      !   enddo
-      ! endif
-
 
     case(4)
       do i = ixBmin2,ixBmax2
@@ -445,6 +434,7 @@ contains
     double precision, intent(in)       :: x(ixI^S,1:ndim)
     double precision                   :: w(ixI^S,nw+nwauxio)
     double precision                   :: normconv(0:nw+nwauxio)
+
     double precision                   :: g_rad(ixI^S), big_gamma(ixI^S)
     double precision                   :: g_grav(ixI^S)
     double precision                   :: Tgas(ixI^S),Trad(ixI^S)
@@ -467,10 +457,9 @@ contains
     w(ixO^S,nw+1) = Tgas(ixO^S)*unit_temperature
     w(ixO^S,nw+2) = Trad(ixO^S)*unit_temperature
     w(ixO^S,nw+3) = big_gamma(ixO^S)
-    w(ixO^S,nw+4) = 4*dpi*w(ixO^S,mom(2))*radius(ixI^S)**2 &
+    w(ixO^S,nw+4) = 4*dpi*w(ixO^S,mom(2))*radius(ixO^S)**2 &
     *unit_density*unit_velocity/M_sun*year
-    w(ixO^S,nw+5) = w(ixO^S,i_flux(2)) + w(ixO^S,r_e)*w(ixO^S,mom(2))/w(ixO^S,rho_)
-
+    w(ixO^S,nw+5) = (w(ixO^S,i_flux(2)) + w(ixO^S,r_e)*w(ixO^S,mom(2))/w(ixO^S,rho_))*radius(ixO^S)**2
 
   end subroutine specialvar_output
 
@@ -479,7 +468,7 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'Tgas Trad Gamma Mdot Ftot'
+    varnames = 'Tgas Trad Gamma Mdot FtotR2'
   end subroutine specialvarnames_output
 
 end module mod_usr

@@ -275,7 +275,7 @@ module mod_fld
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * radiation_force(ixO^S,idir)
 
-        print*, it, 'Not Adding F_rad to kinetic energy'
+        ! print*, it, 'Not Adding F_rad to kinetic energy'
         if (.not. block%e_is_internal) then
           !> Energy equation source term (kinetic energy)
           w(ixO^S,iw_e) = w(ixO^S,iw_e) &
@@ -628,11 +628,10 @@ module mod_fld
 
     w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
 
-
     !>Cheaty bit:
-    if (x(3,3,2) .lt. 1.5) then
-      w(:,ixOmin2+1,i_flux(2)) = (x(:,ixOmin2+2,2)/x(:,ixOmin2+1,2))**2*w(:,ixOmin2+2,i_flux(2))
-    endif
+    ! if (x(3,3,2) .lt. 1.5) then
+    !   w(:,ixOmin2+1,i_flux(2)) = (x(:,ixOmin2+2,2)/x(:,ixOmin2+1,2))**2*w(:,ixOmin2+2,i_flux(2))
+    ! endif
 
 
     ! stop
@@ -861,6 +860,7 @@ module mod_fld
          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
       case ('cont')
          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+         mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
       case ('periodic')
         !> Do nothing
       case ('special')
@@ -1416,7 +1416,7 @@ module mod_fld
 
     double precision ::     rhd_gamma = 1.6666667d0
 
-    if (it == 0) print*, "ATTENTION RHD_GAMMA FAKE"
+    if (it == 0 .and. mype == 0) print*, "ATTENTION RHD_GAMMA FAKE"
 
     !> calculate tensor div_v
     do i = 1,ndir
@@ -1467,10 +1467,10 @@ module mod_fld
     c1(ixO^S) = (one + a2(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
 
-    print*, it, 'Before'
-    do i = ixOmin2,ixOmax2
-      print*,  half*(w(5,i, iw_mom(1))**2+w(5,i, iw_mom(2))**2)/w(5,i, iw_rho), w(5,i,iw_e), w(5,i,iw_r_e)
-    enddo
+    ! print*, it, 'Before'
+    ! do i = ixOmin2,ixOmax2
+    !   print*,  half*(w(5,i, iw_mom(1))**2+w(5,i, iw_mom(2))**2)/w(5,i, iw_rho), w(5,i,iw_e), w(5,i,iw_r_e)
+    ! enddo
 
     !> Loop over every cell for rootfinding method
     {do ix^D=ixOmin^D,ixOmax^D\ }
@@ -1495,10 +1495,10 @@ module mod_fld
     !> Update rad-energy in w
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
 
-    print*, it, 'After'
-    do i = ixOmin2,ixOmax2
-      print*,  a2(5,i), w(5,i,iw_e), w(5,i,iw_r_e)
-    enddo
+    ! print*, it, 'After'
+    ! do i = ixOmin2,ixOmax2
+    !   print*,  a2(5,i), w(5,i,iw_e), w(5,i,iw_r_e)
+    ! enddo
 
   end subroutine Energy_interaction
 

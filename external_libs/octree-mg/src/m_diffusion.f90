@@ -90,13 +90,13 @@ contains
 
     ! Start with an FMG cycle
     call mg_fas_fmg(mg, .true., max_res=res)
-    print*, "Full MG",0, res
+    ! print*, "Full MG",0, res
 
     ! Add V-cycles if necessary
     do n = 1, max_its
        if (res <= max_res) exit
        call mg_fas_vcycle(mg, max_res=res)
-       print*, "V-cycle",n, res
+       ! print*, "V-cycle",n, res
     end do
 
     if (n == max_its + 1) then

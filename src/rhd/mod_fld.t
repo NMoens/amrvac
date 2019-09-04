@@ -274,11 +274,11 @@ module mod_fld
             + qdt * radiation_force(ixO^S,idir)
 
         print*, it, 'Not Adding F_rad to kinetic energy'
-        !if (.not. block%e_is_internal) then
+        if (.not. block%e_is_internal) then
           !> Energy equation source term (kinetic energy)
           w(ixO^S,iw_e) = w(ixO^S,iw_e) &
               + qdt * radiation_force(ixO^S,idir) * wCT(ixO^S,iw_mom(idir))/wCT(ixO^S,iw_rho)
-        !endif
+        endif
       enddo
     end if
 
@@ -1466,7 +1466,7 @@ module mod_fld
 
     print*, it, 'Before'
     do i = ixOmin2,ixOmax2
-      print*, w(5,i,iw_e), w(5,i,iw_r_e)
+      print*,  half*(w(5,i, iw_mom(1))**2+w(5,i, iw_mom(2))**2)/w(5,i, iw_rho), w(5,i,iw_e), w(5,i,iw_r_e)
     enddo
 
     !> Loop over every cell for rootfinding method
@@ -1494,7 +1494,7 @@ module mod_fld
 
     print*, it, 'After'
     do i = ixOmin2,ixOmax2
-      print*, w(5,i,iw_e), w(5,i,iw_r_e)
+      print*,  half*(w(5,i, iw_mom(1))**2+w(5,i, iw_mom(2))**2)/w(5,i, iw_rho), w(5,i,iw_e), w(5,i,iw_r_e)
     enddo
 
   end subroutine Energy_interaction

@@ -13,8 +13,8 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   !ditsave_dat     = 1
-   !ditsave_log     = 1
+   ditsave_dat     = 1
+   ditsave_log     = 1
    dtsave_dat     = 0.2d0
    dtsave_log     = 0.2d0
 /
@@ -22,7 +22,7 @@
  &stoplist
    time_max = 4.d1
    dtmin = 2.0d-20
-   !it_max = 20
+   it_max = 20
 /
 
  &methodlist
@@ -47,9 +47,9 @@
  &meshlist
    refine_max_level   = 1
    domain_nx1         = 256
-   domain_nx2         = 32
-   block_nx1          = 32
-   block_nx2          = 32
+   domain_nx2         = 256
+   block_nx1          = 256
+   block_nx2          = 256
    xprobmin1       = 0.d0
    xprobmax1       = 20.25d0
    xprobmin2       = -1.28125d0
@@ -57,7 +57,7 @@
  /
 
  &paramlist
-  courantpar       = 0.1d-2
+  courantpar       = 0.1d0
   !dtpar           = 1d-4
  /
 
@@ -76,6 +76,6 @@
   fld_opacity_law = 'const'
   fld_kappa0 = 0.4d0
   fld_diff_scheme = 'mg'
-  fld_interaction_method = 'Newton'
+  fld_interaction_method = 'Bisect'
   fld_fluxlimiter = 'Diffusion'
   /

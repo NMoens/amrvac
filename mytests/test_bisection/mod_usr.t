@@ -79,8 +79,6 @@ end subroutine initglobaldata_usr
     w(ixG^S, mom(:)) = zero
     w(ixG^S,r_e) = 1.d12
 
-    !e_eq = w(3,3,rho_)/(rhd_gamma-one) * ((const_c/unit_velocity)*w(3,3,r_e)/(4.0d0*fld_sigma_0))**(1.d0/4.d0)
-
     e_eq = (w(3,3,r_e)*unit_pressure/(const_rad_a))**(1.d0/4.d0) &
           *one/(rhd_gamma-one)*const_kB*w(3,3,rho_)*unit_density &
           /(fld_mu*const_mp)/unit_pressure
@@ -96,7 +94,6 @@ end subroutine initglobaldata_usr
     print*, "c", (const_c/unit_velocity)
     print*, "rho", w(3,3,rho_)
     print*, "kappa", fld_kappa0
-    print*, "sigma", fld_sigma_0
     print*, "gamma", rhd_gamma
     print*, "e0", e_eq
 

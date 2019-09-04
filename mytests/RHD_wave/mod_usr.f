@@ -8,7 +8,7 @@ module mod_usr
 
   double precision :: rho0 = 3.216d-9
   double precision :: eg0 = 26.020d3
-  double precision :: Er0 = 17.340d3
+  double precision :: Er0! = 17.340d3
 
   double precision :: T0, a0, p0
 
@@ -43,9 +43,13 @@ contains
 
   subroutine initglobaldata_usr
     use mod_global_parameters
+    use mod_fld
 
     p0 = eg0*(rhd_gamma - one)
     a0 = dsqrt(rhd_gamma*p0/rho0)
+
+    T0 = const_mp*fld_mu/const_kB*(p0/rho0)
+    Er0 = const_rad_a*T0**4
 
     tau_wave = 1.d3
     wavelength = tau_wave/(rho0*0.4d0)

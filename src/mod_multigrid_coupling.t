@@ -13,14 +13,14 @@ contains
 
   !> Setup multigrid for usage
   subroutine mg_setup_multigrid()
-    error stop "Multigrid not available in 1D"
+    stop "Multigrid not available in 1D"
   end subroutine mg_setup_multigrid
 
   !> If the grid has changed, rebuild the full multigrid tree
   subroutine mg_update_refinement(n_coarsen, n_refine)
     integer, intent(in) :: n_coarsen
     integer, intent(in) :: n_refine
-    error stop "Multigrid not available in 1D"
+    stop "Multigrid not available in 1D"
   end subroutine mg_update_refinement
 
   !> Copy a variable to the multigrid tree, including a layer of ghost cells
@@ -30,7 +30,7 @@ contains
     logical, intent(in)      :: restrict   !< Restrict variable on multigrid tree
     logical, intent(in)      :: restrict_gc !< Fill ghost cells after restrict
 
-    error stop "Multigrid not available in 1D"
+    stop "Multigrid not available in 1D"
   end subroutine mg_copy_to_tree
 
 end module mod_multigrid_coupling
@@ -61,24 +61,25 @@ contains
     use mod_global_parameters
 
     if (ndim == 1) &
-         error stop "Multigrid not available in 1D"
+         stop "Multigrid not available in 1D"
 
     if (ndim /= mg_ndim) then
-      error stop "Multigrid module was compiled for different ndim"
+         write(*,*) "Multigrid module was compiled for different ndim"
+         stop
     endif
 
     select case (typeaxial)
     case ("slab")
-       if (ndim == 1) error stop "Multigrid only support 2D, 3D"
+       if (ndim == 1) stop "Multigrid only support 2D, 3D"
     case ("cylindrical")
-       if (ndim == 3) error stop "Multigrid does not support cylindrical 3D"
+       if (ndim == 3) stop "Multigrid does not support cylindrical 3D"
        mg%geometry_type = mg_cylindrical
     case default
-       error stop "Multigrid does not support your geometry"
+       stop "Multigrid does not support your geometry"
     end select
 
     if (any([ block_nx^D ] /= block_nx1)) &
-         error stop "Multigrid requires all block_nx to be equal"
+         stop "Multigrid requires all block_nx to be equal"
 
     call mg_comm_init(mg)
     call mg_set_methods(mg)
@@ -93,12 +94,7 @@ contains
     character(len=std_len)    :: bnd_name(mg_num_neighbors)
     integer                   :: n
 
-    print*, 'mg_copy_boundary_conditions is called'
-
     do n = 1, mg_num_neighbors
-
-      print*, n, typeboundary(iw, n)
-
        select case (typeboundary(iw, n))
        case ('symm')
           mg%bc(n, mg_iphi)%bc_type = mg_bc_neumann
@@ -113,12 +109,9 @@ contains
           ! Nothing to do here
        case default
           print *, "Not a standard: ", trim(typeboundary(iw, n))
-          error stop "You have to set a user-defined boundary method"
+          stop "You have to set a user-defined boundary method"
        end select
     end do
-
-    print*, 'after do-loop'
-
   end subroutine mg_copy_boundary_conditions
 
   !> If the grid has changed, rebuild the full multigrid tree
@@ -151,7 +144,7 @@ contains
     type(tree_node), pointer :: pnode
 
     if (.not. mg%is_allocated) &
-         error stop "mg_copy_to_tree: tree not allocated yet"
+         stop "mg_copy_to_tree: tree not allocated yet"
 
     do iigrid = 1, igridstail
        igrid =  igrids(iigrid);
@@ -179,6 +172,37 @@ contains
 
   end subroutine mg_copy_to_tree
 
+!   !> Copy a variable to the multigrid tree with a single layer of ghost cells
+!   subroutine mg_copy_to_tree_gc(iw_from, iw_to)
+!     use mod_global_parameters
+!     use mod_forest
+!     integer, intent(in)      :: iw_from !< Variable to use as right-hand side
+!     integer, intent(in)      :: iw_to   !< Copy to this variable
+!     integer                  :: iigrid, igrid, id
+!     integer                  :: nc, lvl
+!     type(tree_node), pointer :: pnode
+
+!     if (.not. mg%is_allocated) &
+!          error stop "mg_copy_to_tree: tree not allocated yet"
+
+!     do iigrid = 1, igridstail
+!        igrid =  igrids(iigrid);
+!        pnode => igrid_to_node(igrid, mype)%node
+!        id    =  pnode%id
+!        lvl   =  mg%boxes(id)%lvl
+!        nc    =  mg%box_size_lvl(lvl)
+
+! {^IFTWOD
+!        mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = &
+!             pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+! }
+! {^IFTHREED
+!        mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = &
+!             pw(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+!             ixMlo3-1:ixMhi3+1, iw_from)
+! }
+!     end do
+!   end subroutine mg_copy_to_tree_gc
 
   !> Copy a variable from the multigrid tree
   subroutine mg_copy_from_tree(iw_from, iw_to)
@@ -190,8 +214,10 @@ contains
     integer                  :: nc, lvl
     type(tree_node), pointer :: pnode
 
-    if (.not. mg%is_allocated) &
-         error stop "mg_copy_from_tree: tree not allocated yet"
+    if (.not. mg%is_allocated) then
+         write(*,*) "mg_copy_from_tree: tree not allocated yet"
+         stop
+    endif
 
     do iigrid = 1, igridstail
        igrid =  igrids(iigrid);
@@ -222,9 +248,10 @@ contains
     integer                  :: nc, lvl
     type(tree_node), pointer :: pnode
 
-    if (.not. mg%is_allocated) &
-         error stop "mg_copy_from_tree_gc: tree not allocated yet"
-
+    if (.not. mg%is_allocated) then
+         write(*,*) "mg_copy_from_tree_gc: tree not allocated yet"
+         stop
+    endif
     do iigrid = 1, igridstail
        igrid =  igrids(iigrid);
        pnode => igrid_to_node(igrid, mype)%node

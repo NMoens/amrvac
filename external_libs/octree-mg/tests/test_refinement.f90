@@ -1,5 +1,5 @@
 #include "../src/cpp_macros.h"
-program test_one_level
+program test_refinement
   use mpi
 #ifndef SINGLE_MODULE
   use m_octree_mg
@@ -16,45 +16,46 @@ program test_one_level
   integer             :: box_size
   integer             :: domain_size(NDIM)
   real(dp)            :: dr(NDIM)
-  real(dp)            :: r_min(NDIM)    = 0.0_dp
   logical             :: periodic(NDIM) = .false.
   logical             :: fmg_cycle      = .true.
-  integer             :: n_finer        = 0
+  integer             :: lvl, n_levels
   real(dp), parameter :: pi             = acos(-1.0_dp)
   character(len=40)   :: arg_string
   integer             :: n, ierr, n_args
-  real(dp)            :: t0, t1, t2, n_unknowns
-  integer             :: i_sol, i_eps
+  real(dp)            :: t0, t1, n_unknowns
+  integer             :: i_sol
   type(mg_t)          :: mg
 
   n_args = command_argument_count()
-  if (n_args < NDIM+1 .or. n_args > NDIM+3) then
-     error stop "Usage: ./test_refinement box_size nx ny [nz] [n_its] [FMG?]"
+  if (n_args < NDIM+2 .or. n_args > NDIM+4) then
+     error stop "Usage: ./test_refinement n_levels box_size nx ny [nz] [n_its] [FMG?]"
   end if
 
   call get_command_argument(1, arg_string)
+  read(arg_string, *) n_levels
+
+  call get_command_argument(2, arg_string)
   read(arg_string, *) box_size
 
   do n = 1, NDIM
-     call get_command_argument(1+n, arg_string)
+     call get_command_argument(2+n, arg_string)
      read(arg_string, *) domain_size(n)
   end do
 
-  if (n_args > NDIM+1) then
-     call get_command_argument(NDIM+2, arg_string)
+  if (n_args > NDIM+2) then
+     call get_command_argument(NDIM+3, arg_string)
      read(arg_string, *) n_its
   end if
 
-  if (n_args > NDIM+2) then
-     call get_command_argument(NDIM+3, arg_string)
+  if (n_args > NDIM+3) then
+     call get_command_argument(NDIM+4, arg_string)
      read(arg_string, *) fmg_cycle
   end if
 
   dr =  1.0_dp / domain_size
 
-  mg%n_extra_vars = 2
-  i_eps = mg_num_vars + 1
-  i_sol = mg_num_vars + 2
+  mg%n_extra_vars = 1
+  i_sol = mg_num_vars + 1
 
   mg%geometry_type = mg_cartesian
   mg%operator_type = mg_laplacian
@@ -67,18 +68,8 @@ program test_one_level
 
   call mg_set_methods(mg)
   call mg_comm_init(mg)
-  t0 = mpi_wtime()
-  call mg_build_rectangle(mg, domain_size, box_size, dr, r_min, &
-       periodic, n_finer)
-  call mg_load_balance(mg)
-  t1 = mpi_wtime()
-  call mg_allocate_storage(mg)
-  t2 = mpi_wtime()
 
-  if (mg%my_rank == 0) then
-     print *, "mesh construction (s) ", t1-t0
-     print *, "allocate storage (s)  ", t2-t1
-  end if
+  call build_amr_tree(mg, n_levels, domain_size, box_size, dr, periodic)
 
   call set_solution(mg)
   call compute_rhs_and_reset(mg)
@@ -97,13 +88,19 @@ program test_one_level
   t1 = mpi_wtime()
 
   if (mg%my_rank == 0) then
+     do lvl = 1, mg%highest_lvl
+        write(*, '(A,I0,A,I0,A,I0,A)') " lvl_", lvl, ": ", &
+             size(mg%lvls(lvl)%ids), " boxes, ", &
+             size(mg%lvls(lvl)%leaves), " leaves"
+     end do
+
      if (fmg_cycle) then
         print *, "cycle type        FMG"
      else
         print *, "cycle type        V-cycle"
      end if
      print *, "n_cpu            ", mg%n_cpu
-     print *, "problem_size     ", domain_size
+     print *, "coarse grid      ", domain_size
      print *, "box_size         ", box_size
      print *, "n_iterations     ", n_its
      print *, "time/iteration   ", (t1-t0) / n_its
@@ -133,10 +130,14 @@ contains
              r = mg%boxes(id)%r_min + ([IJK] - 0.5_dp) * mg%dr(:, lvl)
              sol = product(sin(2 * pi * n_modes * r))
              mg%boxes(id)%cc(IJK, i_sol) = sol
-             mg%boxes(id)%cc(IJK, i_eps) = max(1.0_dp, 1.0_dp + r(1))
           end do; CLOSE_DO
        end do
     end do
+
+    ! Set ghost cells for the solution. Because they depend on coarse-grid
+    ! values, first restrict the solution.
+    call mg_restrict(mg, i_sol)
+    call mg_fill_ghost_cells(mg, i_sol)
   end subroutine set_solution
 
   subroutine compute_rhs_and_reset(mg)
@@ -164,10 +165,10 @@ contains
 
     err = 0.0_dp
 
-    do lvl = mg%highest_lvl, mg%highest_lvl
+    do lvl = 1, mg%highest_lvl
        nc = mg%box_size_lvl(lvl)
-       do n = 1, size(mg%lvls(lvl)%my_ids)
-          id = mg%lvls(lvl)%my_ids(n)
+       do n = 1, size(mg%lvls(lvl)%my_leaves)
+          id = mg%lvls(lvl)%my_leaves(n)
           do KJI_DO(1, nc)
              sol = mg%boxes(id)%cc(IJK, i_sol)
              val = mg%boxes(id)%cc(IJK, mg_iphi)
@@ -183,4 +184,62 @@ contains
     if (mg%my_rank == 0) print *, it, "max err", max_err
   end subroutine print_error
 
-end program test_one_level
+  subroutine build_amr_tree(mg, n_amr_levels, lvl1_size, box_size, dr, periodic)
+    type(mg_t), intent(inout) :: mg
+    integer, intent(in)       :: n_amr_levels
+    integer, intent(in)       :: lvl1_size(NDIM)
+    integer, intent(in)       :: box_size
+    real(dp), intent(in)      :: dr(NDIM)
+    logical, intent(in)       :: periodic(NDIM)
+    integer                   :: lvl, i, id
+    integer                   :: n_finer
+    real(dp)                  :: r_min(NDIM), domain_len(NDIM)
+    real(dp)                  :: r0(NDIM), r1(NDIM), box_center(NDIM)
+
+    ! Estimate for the number of boxes on refined levels (can be large)
+    n_finer    = n_amr_levels * product(lvl1_size / box_size) + 1000
+    r_min      = 0.0_dp
+    domain_len = lvl1_size * dr
+
+    call mg_build_rectangle(mg, lvl1_size, box_size, dr, &
+         r_min, periodic, n_finer)
+
+    ! Add refinement
+    do lvl = 1, n_amr_levels-1
+       do i = 1, size(mg%lvls(lvl)%ids)
+          id = mg%lvls(lvl)%ids(i)
+
+          ! Refine center region
+          r0 = 0.5_dp * domain_len - domain_len * 0.5**(lvl+1)
+          r1 = 0.5_dp * domain_len + domain_len * 0.5**(lvl+1)
+
+          box_center = mg%boxes(id)%r_min + 0.5_dp * box_size * mg%boxes(id)%dr
+
+          if (all(box_center >= r0 .and. box_center <= r1)) then
+             call mg_add_children(mg, id)
+          end if
+       end do
+
+       call mg_set_leaves_parents(mg%boxes, mg%lvls(lvl))
+       call mg_set_next_level_ids(mg, lvl)
+       call mg_set_neighbors_lvl(mg, lvl+1)
+    end do
+
+    call mg_set_leaves_parents(mg%boxes, mg%lvls(n_amr_levels))
+
+    mg%highest_lvl = n_amr_levels
+
+    ! Store boxes with refinement boundaries (from the coarse side)
+    do lvl = 1, mg%highest_lvl
+       call mg_set_refinement_boundaries(mg%boxes, mg%lvls(lvl))
+    end do
+
+    ! Assign boxes to MPI processes
+    call mg_load_balance(mg)
+
+    ! Allocate storage for boxes owned by this process
+    call mg_allocate_storage(mg)
+
+  end subroutine build_amr_tree
+
+end program test_refinement

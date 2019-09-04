@@ -11,6 +11,8 @@ module mod_fld
     !> Opacity per unit of unit_density
     double precision, public :: fld_kappa0 = 0.34d0
 
+    double precision :: fld_sigma_0
+
     !> mean particle mass
     double precision, public :: fld_mu = 0.6d0
 
@@ -207,7 +209,7 @@ module mod_fld
     fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
 
     !> Dimensionless Boltzman constante sigma
-    ! fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
+    fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
 
     !> Read in opacity table if necesary
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
@@ -1461,8 +1463,9 @@ module mod_fld
     a2(ixO^S) = (const_c/unit_velocity)*w(ixO^S,i_op)*w(ixO^S,iw_rho)*dt
     a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
 
-    c0(ixO^S) = ((one + a1(ixO^S) + a3(ixO^S))*e_gas(ixO^S) - a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
-    c1(ixO^S) = (one + a1(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
+    c0(ixO^S) = ((one + a2(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
+    c1(ixO^S) = (one + a2(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
+
 
     print*, it, 'Before'
     do i = ixOmin2,ixOmax2
@@ -1494,7 +1497,7 @@ module mod_fld
 
     print*, it, 'After'
     do i = ixOmin2,ixOmax2
-      print*,  half*(w(5,i, iw_mom(1))**2+w(5,i, iw_mom(2))**2)/w(5,i, iw_rho), w(5,i,iw_e), w(5,i,iw_r_e)
+      print*,  a2(5,i), w(5,i,iw_e), w(5,i,iw_r_e)
     enddo
 
   end subroutine Energy_interaction

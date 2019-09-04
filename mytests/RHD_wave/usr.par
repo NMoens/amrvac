@@ -52,8 +52,8 @@
    block_nx2          = 256
    xprobmin1       = 0.d0
    xprobmax1       = 20.25d0
-   xprobmin2       = -1.28125d0
-   xprobmax2       = 1.28125d0
+   xprobmin2       = -10.125 !-1.28125d0
+   xprobmax2       = 10.125 !1.28125d0
  /
 
  &paramlist
@@ -76,6 +76,6 @@
   fld_opacity_law = 'const'
   fld_kappa0 = 0.4d0
   fld_diff_scheme = 'mg'
-  fld_interaction_method = 'Bisect'
+  fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
   /

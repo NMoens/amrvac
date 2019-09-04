@@ -17,22 +17,22 @@ def ReadE(filename):
 plt.title('Energy interaction schemes')
 
 t, e_eq, e_r, e_g = ReadE('/bisect_1')
-plt.loglog(t,e_g,'r1',label='dt = 1e-10')
+plt.loglog(t,e_g,'r1',label='bisect 1')
 
 t, e_eq, e_r, e_g = ReadE('/bisect_2')
-plt.loglog(t,e_g,'b2',label='dt = 1e-8')
+plt.loglog(t,e_g,'b1',label='bisect 2')
 
 t, e_eq, e_r, e_g = ReadE('/newton_1')
-plt.loglog(t,e_g,'y3',label='dt = 1e-6')
+plt.loglog(t,e_g,'r2',label='Newton 1')
 
 t, e_eq, e_r, e_g = ReadE('/newton_2')
-plt.loglog(t,e_g,'r1')
+plt.loglog(t,e_g,'b2',label='Newton 2')
 
 t, e_eq, e_r, e_g = ReadE('/halley_1')
-plt.loglog(t,e_g,'b2')
+plt.loglog(t,e_g,'r3',label='Halley 1')
 
 t, e_eq, e_r, e_g = ReadE('/Halley_updated')
-plt.loglog(t,e_g,'y3')
+plt.loglog(t,e_g,'b3',label='Halley New')
 
 plt.loglog(t,e_eq,'k--', label='equilibrium level')
 

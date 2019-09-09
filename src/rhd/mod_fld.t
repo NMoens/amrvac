@@ -1416,7 +1416,7 @@ module mod_fld
 
     double precision ::     rhd_gamma = 1.6666667d0
 
-    if (it == 0 .and. mype == 0) print*, "ATTENTION RHD_GAMMA FAKE"
+    if (it == 0) print*, "ATTENTION RHD_GAMMA FAKE"
 
     !> calculate tensor div_v
     do i = 1,ndir

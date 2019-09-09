@@ -12,7 +12,7 @@ module mod_usr
 
   double precision :: T0, a0, p0
 
-  double precision :: wavelength, frequency, tau_wave
+  double precision :: wavelength, frequency, tau_wave, wavenumber
   double precision :: Boltzmann_numer, energy_ratio
 
 contains
@@ -51,9 +51,10 @@ contains
     T0 = const_mp*fld_mu/const_kB*(p0/rho0)
     Er0 = const_rad_a*T0**4
 
-    tau_wave = 1.d9
+    tau_wave = 1.d3
     wavelength = tau_wave/(rho0*0.4d0)
     frequency = 2.d0*dpi*a0/wavelength
+    wavenumber = 2.d0*dpi/wavelength
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length = wavelength ! cm
@@ -73,10 +74,12 @@ contains
     a0 = a0/unit_velocity
     p0 = p0/unit_pressure
     eg0 = eg0/unit_pressure
+    T0 = T0/unit_temperature
     Er0 = Er0/unit_pressure
 
     wavelength = wavelength/unit_length
     frequency = frequency*unit_time
+    wavenumber = wavenumber*unit_length
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
@@ -123,12 +126,16 @@ contains
   subroutine Initialize_Wave(level,qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
      ixOmin2,ixOmax1,ixOmax2,w,x)
     use mod_global_parameters
+    use mod_fld
     integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2,level
     double precision, intent(in)    :: qt
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
     double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
        1:ndim)
+
+    double precision :: press(ixImin1:ixImax1,ixImin2:ixImax2),&
+        temp(ixImin1:ixImax1,ixImin2:ixImax2)
 
     double precision :: ampl, a2
 
@@ -137,16 +144,31 @@ contains
 
     where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .lt. one)
       w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho0 + &
-         ampl*dsin(frequency*global_time)*dcos(2*dpi*x(ixImin1:ixImax1,&
-         ixImin2:ixImax2,1)/wavelength)
+         ampl*wavenumber**2/frequency*dsin(wavenumber*x(ixImin1:ixImax1,&
+         ixImin2:ixImax2,1)-frequency*global_time)
 
       w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = &
-         ampl**2/(rho0*a2**(3.d0/2.d0))*dsin(frequency*global_time)*dcos(&
-         2*dpi*x(ixImin1:ixImax1,ixImin2:ixImax2,1)/wavelength)
+         wavenumber*ampl*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1)-frequency*global_time)*w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,mom(2)) = zero
 
-      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg0
+      press(ixImin1:ixImax1,ixImin2:ixImax2) = p0 + &
+         rho0*frequency*ampl*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1)-frequency*global_time)*w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
 
-      w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er0
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = press(ixImin1:ixImax1,&
+         ixImin2:ixImax2)/(rhd_gamma-one) + half*(w(ixImin1:ixImax1,&
+         ixImin2:ixImax2,mom(1))**2/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_))
+
+      temp(ixImin1:ixImax1,ixImin2:ixImax2) = T0*(one + &
+         rho0*frequency*ampl*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1)-frequency*global_time)*w(ixImin1:ixImax1,ixImin2:ixImax2,&
+         rho_)/p0 - ampl*wavenumber**2/frequency*dsin(wavenumber*x(&
+         ixImin1:ixImax1,ixImin2:ixImax2,1)-frequency*global_time)/rho0)
+
+      w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = &
+         const_rad_a*(temp(ixImin1:ixImax1,&
+         ixImin2:ixImax2)*unit_temperature)**4.d0/unit_pressure
     endwhere
 
 

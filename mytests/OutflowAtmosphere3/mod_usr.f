@@ -257,11 +257,6 @@ contains
     call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
 
-    ! do i = ixImin2, ixImax2
-    !   print*, i, x(5,i,2), w(5,i,i_flux(2)), x(5,i,2)**2*w(5,i,i_flux(2))
-    ! enddo
-    ! stop
-
   end subroutine initial_conditions
 
   subroutine boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixBmin1,&
@@ -302,6 +297,10 @@ contains
            rho_)
         w(ixImin1:ixImax1,i,r_e) = const_rad_a*sp_T**4*unit_temperature**&
            4/unit_pressure
+
+        do j=ixImin1,ixImax1
+          w(j,i,mom(2)) = max(w(j,i,mom(2)),zero)
+        enddo
       !++++++++++++++++++++++++++++++++++++++++++++
 
       do i = ixBmax2 -1, ixBmin2, -1
@@ -354,13 +353,15 @@ contains
 
     select case (iB)
       case (3)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous !mg_bc_dirichlet
-        mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmin2-1,&
-           r_e))/(ixImax1-ixImin1) !const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmin2-1,r_e))/(ixImax1-ixImin1)!const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
       case (4)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-        mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmax2+1,&
-           r_e))/(ixImax1-ixImin1)
+        if (sum(w(:,ixOmax2,r_e)) .lt. sum(w(:,ixOmax2+1,r_e))) then
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        else
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmax2+1,r_e))/(ixImax1-ixImin1)
+        endif
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
         error stop "You have to set a user-defined boundary method"

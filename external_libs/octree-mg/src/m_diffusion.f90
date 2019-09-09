@@ -68,7 +68,7 @@ contains
     real(dp), intent(in)      :: dt
     integer, intent(in)       :: order
     real(dp), intent(in)      :: max_res
-    integer, parameter        :: max_its = 500
+    integer, parameter        :: max_its = 1000
     integer                   :: n
     real(dp)                  :: res
 
@@ -101,6 +101,7 @@ contains
 
     if (n == max_its + 1) then
        if (mg%my_rank == 0) then
+          print *, res, max_res
           print *, "Did you specify boundary conditions correctly?"
           print *, "Or is the variation in diffusion too large?"
        end if

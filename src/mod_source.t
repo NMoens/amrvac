@@ -14,6 +14,7 @@ contains
     use mod_ghostcells_update
     use mod_thermal_conduction, only: phys_thermal_conduction
     use mod_physics, only: phys_req_diagonal, phys_global_source, physics_type
+    use mod_fld, only: diff_crit
 
     logical, intent(in) :: prior
 
@@ -21,13 +22,32 @@ contains
     integer :: iigrid, igrid, i^D
     logical :: src_active
 
+    integer :: i, itdiff, Ndiff
+
     ! add thermal conduction
     if(associated(phys_thermal_conduction)) call phys_thermal_conduction()
+
+    ! ! Radiation diffusion
+    ! if (physics_type .eq. 'rhd') then
+    !   if (.not. prior .and. associated(phys_global_source)) then
+    !      call phys_global_source(dt, qt, src_active)
+    !   end if
+    ! endif
 
     ! Radiation diffusion
     if (physics_type .eq. 'rhd') then
       if (.not. prior .and. associated(phys_global_source)) then
+        !> If the diffusion constant is too big, the diffusion timestep has to be split up over severall smaller steps.
+        !> The value one is just a proxy for something that worked
+        if (diff_crit .lt. one) then
          call phys_global_source(dt, qt, src_active)
+        else
+         Ndiff = int(diff_crit)
+             do itdiff = 1,Ndiff
+               call phys_global_source(dt/Ndiff, qt, src_active)
+               ! print*, it, itdiff,Ndiff
+             enddo
+          endif
       end if
     endif
 

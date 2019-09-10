@@ -36,10 +36,10 @@
 
 &boundlist
   !nghostcells  = 4
-  typeboundary_min1 = 5*'cont'
-  typeboundary_max1 = 5*'cont'
-  typeboundary_min2 = 5*'periodic'
-  typeboundary_max2 = 5*'periodic'
+  typeboundary_min1 = 6*'cont'
+  typeboundary_max1 = 6*'cont'
+  typeboundary_min2 = 6*'periodic'
+  typeboundary_max2 = 6*'periodic'
   internalboundary = T
 /
 
@@ -47,12 +47,16 @@
    refine_max_level   = 1
    domain_nx1         = 256
    domain_nx2         = 32
+   domain_nx3         = 32
    block_nx1          = 32
    block_nx2          = 32
+   block_nx3          = 32
    xprobmin1       = 0.d0
-   xprobmax1       = 20.d0
-   xprobmin2       = -1.25d0
-   xprobmax2       = 1.25d0
+   xprobmax1       = 20.25d0
+   xprobmin2       = -1.28125d0
+   xprobmax2       = 1.28125d0
+   xprobmin3       = -1.28125d0
+   xprobmax3       = 1.28125d0
  /
 
  &paramlist
@@ -76,6 +80,5 @@
   fld_kappa0 = 0.4d0
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Pomraning'
-  fld_diff_tol = 1.d-4
+  fld_fluxlimiter = 'Diffusion'
   /

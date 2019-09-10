@@ -13,7 +13,7 @@ module mod_usr
   double precision :: T0, a0, p0
 
   double precision :: wavelength, frequency, tau_wave, wavenumber
-  double precision :: Boltzmann_number, energy_ratio, L_damp, r_Bo
+  double precision :: Boltzmann_numer, energy_ratio
 
 contains
 
@@ -51,14 +51,10 @@ contains
     T0 = const_mp*fld_mu/const_kB*(p0/rho0)
     Er0 = const_rad_a*T0**4
 
-    tau_wave = 1.d0
-    wavelength = tau_wave/(rho0*fld_kappa0)
+    tau_wave = 1.d3
+    wavelength = tau_wave/(rho0*0.4d0)
     frequency = 2.d0*dpi*a0/wavelength
     wavenumber = 2.d0*dpi/wavelength
-
-    Boltzmann_number = 4*rhd_gamma*a0*eg0/(const_c*Er0)
-    r_Bo = a0/const_c*Boltzmann_number
-
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length = wavelength ! cm
@@ -83,7 +79,6 @@ contains
     wavelength = wavelength/unit_length
     frequency = frequency*unit_time
     wavenumber = wavenumber*unit_length
-
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
@@ -143,6 +138,7 @@ contains
 
       w(ixI^S,mom(1)) = wavenumber*ampl*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)*w(ixI^S,rho_)
       w(ixI^S,mom(2)) = zero
+      w(ixI^S,mom(3)) = zero
 
       press(ixI^S) = p0 + rho0*frequency*ampl*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)*w(ixI^S,rho_)
 
@@ -154,47 +150,9 @@ contains
       w(ixI^S,r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
     endwhere
 
-    ! Print out some information on Q:
-    ! print*, 'Q', 1.d0/3.d0*const_c/unit_velocity/(w(5,5,i_op)*rho0)*dt/(x(5,5,1) - x(4,5,1))**2
 
 
   end subroutine Initialize_Wave
-
-
-  ! function WaveSolution(ixI^L,ixO^L,x,time,my_w) result(my_w)
-  !
-  !   use mod_global_parameters
-  !   use mod_fld
-  !   integer, intent(in)             :: ixI^L,ixO^L
-  !   double precision, intent(in)    :: time
-  !   double precision, intent(inout) :: my_w(ixI^S,1:nw)
-  !   double precision, intent(in)    :: x(ixI^S,1:ndim)
-  !
-  !   double precision :: press(ixI^S), temp(ixI^S)
-  !
-  !   double precision :: ampl, a2
-  !
-  !   my_w(ixI^S,rho_) = rho0 + ampl*wavenumber**2/frequency*dsin(wavenumber*x(ixI^S,1)-frequency*time)
-  !
-  !   my_w(ixI^S,mom(1)) = wavenumber*ampl*dsin(wavenumber*x(ixI^S,1)-frequency*time)*my_w(ixI^S,rho_)
-  !   my_w(ixI^S,mom(2)) = zero
-  !
-  !   press(ixI^S) = p0 + rho0*frequency*ampl*dsin(wavenumber*x(ixI^S,1)-frequency*time)*my_w(ixI^S,rho_)
-  !
-  !   my_w(ixI^S,e_) = press(ixI^S)/(rhd_gamma-one) + half*(my_w(ixI^S,mom(1))**2/w(ixI^S,rho_))
-  !
-  !   temp(ixI^S) = T0*(one + rho0*frequency*ampl*dsin(wavenumber*x(ixI^S,1)-frequency*time)*my_w(ixI^S,rho_)/p0 &
-  !   - ampl*wavenumber**2/frequency*dsin(wavenumber*x(ixI^S,1)-frequency*time)/rho0)
-  !
-  !   my_w(ixI^S,r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
-  !
-  !   where (x(ixI^S,1) .lt. one)
-  !     my_w(ixI^S,rho_) = my_w(ixI^S,rho_)*dexp(-(x(ixI^S,1)-one)/L_damp)
-  !
-  !
-  !   endwhere
-  !
-  ! end function WaveSolution
 
 
 end module mod_usr

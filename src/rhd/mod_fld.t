@@ -11,7 +11,7 @@ module mod_fld
     !> Opacity per unit of unit_density
     double precision, public :: fld_kappa0 = 0.34d0
 
-    double precision :: fld_sigma_0
+    double precision, public :: fld_sigma_0
 
     !> mean particle mass
     double precision, public :: fld_mu = 0.6d0
@@ -24,7 +24,10 @@ module mod_fld
     double precision, public :: fld_bisect_tol = 1.d-4
 
     !> Tolerance for adi method for radiative Energy diffusion
-    double precision, public :: fld_adi_tol = 1.d-2
+    double precision, public :: fld_diff_tol = 1.d-4
+
+    !> Number for splitting the diffusion module
+    double precision, public :: diff_crit
 
     double precision :: fld_max_fracdt = 50.d0
 
@@ -104,7 +107,7 @@ module mod_fld
     integer                      :: n
 
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
-    fld_bisect_tol, fld_diff_testcase, fld_adi_tol, fld_max_fracdt,&
+    fld_bisect_tol, fld_diff_testcase, fld_diff_tol, fld_max_fracdt,&
     fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
     diff_coef_filter, size_D_filter, lineforce_opacities
 
@@ -236,6 +239,7 @@ module mod_fld
     if (fld_diff_scheme .eq. 'mg') then
       call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
       call set_mg_bounds(w, x, ixI^L, ixO^L)
+      call get_diffusion_criterion(w, x, ixI^L, ixO^L)
     endif
   end subroutine get_rad_extravars
 
@@ -733,10 +737,26 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res
 
-    integer :: i
+    ! integer :: i, itdiff, Ndiff
+    !
+    ! call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
+    !
+    ! if (diff_crit .lt. one) then
+    !   call diffusion_solve_vcoeff(mg, qdt, 2, fld_diff_tol)
+    ! else
+    !   Ndiff = int(diff_crit)
+    !   do itdiff = 1,Ndiff
+    !     call diffusion_solve_vcoeff(mg, qdt/Ndiff, 2, fld_diff_tol)
+    !   enddo
+    ! endif
+    !
+    ! call mg_copy_from_tree(mg_iphi, iw_r_e)
+    ! active = .true.
+
+
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 2, 1.d-4)
+    call diffusion_solve_vcoeff(mg, qdt, 2, fld_diff_tol)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
 
@@ -912,7 +932,7 @@ module mod_fld
     do while (converged .eqv. .false.)
 
       !> Check if solution converged
-      if (ADI_Error .lt. fld_adi_tol) then
+      if (ADI_Error .lt. fld_diff_tol) then
         !> If converged in former loop, break loop
         converged = .true.
       else
@@ -930,7 +950,7 @@ module mod_fld
 
         call Evolve_ADI(w, x, E_new, E_old, w_max, frac_grid, ixI^L, ixO^L)
         call Error_check_ADI(w, x, E_new, E_old, ixI^L, ixO^L, ADI_Error) !> SHOULD THIS BE DONE EVERY ITERATION???
-        if (ADI_Error .lt. fld_adi_tol) then
+        if (ADI_Error .lt. fld_diff_tol) then
           converged = .true.
         endif
       endif
@@ -941,7 +961,7 @@ module mod_fld
           !> use a smaller timestep than the hydrodynamical one
           call half_timestep_ADI(w, x, E_new, E_old, ixI^L, ixO^L, converged)
           call Error_check_ADI(w, x, E_new, E_old, ixI^L, ixO^L, ADI_Error)
-          if (ADI_Error .lt. fld_adi_tol) then
+          if (ADI_Error .lt. fld_diff_tol) then
             converged = .true.
           endif
         endif
@@ -981,7 +1001,7 @@ module mod_fld
       !---------------------------------------------------------------
       do while (converged .eqv. .false.)
         !> Check if solution converged
-        if (ADI_Error .lt. fld_adi_tol) then
+        if (ADI_Error .lt. fld_diff_tol) then
           !> If converged in former loop, break loop
           converged = .true.
           goto 7895
@@ -998,7 +1018,7 @@ module mod_fld
         !> If adjusting pseudostep doesn't work, divide the actual timestep in smaller parts
         if (w_max .gt. fld_maxdw) goto 5231
 
-        if (ADI_Error .lt. fld_adi_tol) then
+        if (ADI_Error .lt. fld_diff_tol) then
           converged = .true.
         endif
 
@@ -1164,6 +1184,30 @@ module mod_fld
 
     endif
   end subroutine fld_get_diffcoef
+
+  subroutine get_diffusion_criterion(w, x, ixI^L, ixO^L)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+
+    double precision             :: Q(ixO^S,1:ndim),diff_crit_mype
+    integer                      :: jxO^L, hxO^L, idir
+
+    do idir = 1,ndir
+      hxO^L=ixO^L-kr(idir,^D);
+      jxO^L=ixO^L+kr(idir,^D);
+
+      Q(ixO^S,idir) = w(ixO^S,i_diff_mg)*dt/((x(jxO^S,idir)-x(hxO^S,idir))/2)**2
+    enddo
+    diff_crit_mype = minval(Q(ixO^S,1:ndim))
+
+    !> Communicate 'Q' over processors
+    call MPI_ALLREDUCE(diff_crit_mype,diff_crit,1,MPI_DOUBLE_PRECISION,MPI_MIN, &
+                       icomm,ierrmpi)
+
+  end subroutine get_diffusion_criterion
 
   !> Construct the matrix out of rad-hydro variables
   subroutine make_matrix(x,w,dw,E_m,E_n,sweepdir,ixImax,ixI^L,ixO^L,diag1,sub1,sup1,bvec1,diag2,sub2,sup2,bvec2)

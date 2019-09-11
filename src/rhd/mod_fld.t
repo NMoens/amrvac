@@ -287,11 +287,11 @@ module mod_fld
         endif
       enddo
 
-      if (mype == 0) then
-        do i = 1,10
-          print*, w(5,i,iw_e), w(5,i,iw_e)-half*(w(5,i, iw_mom(2))**2)/w(5,i, iw_rho) , qdt * radiation_force(5,i,2)
-        enddo
-      endif
+      ! if (mype == 0) then
+      !   do i = 1,10
+      !     print*, w(5,i,iw_e), w(5,i,iw_e)-half*(w(5,i, iw_mom(2))**2)/w(5,i, iw_rho) , qdt * radiation_force(5,i,2)
+      !   enddo
+      ! endif
     end if
 
 
@@ -862,7 +862,7 @@ module mod_fld
 
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
-    call mg_copy_to_tree(i_diff_mg, mg_iveps, .false., .false.)
+    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
   end subroutine set_mg_diffcoef
 
   !> Sets boundary conditions for multigrid, based on hydro-bounds

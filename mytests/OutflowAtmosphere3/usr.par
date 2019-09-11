@@ -13,8 +13,8 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat     = 1
-   ditsave_log     = 1
+   !ditsave_dat     = 1
+   !ditsave_log     = 1
    dtsave_dat     = 0.5d-2
    dtsave_log     = 5.d-2
 /
@@ -22,7 +22,7 @@
  &stoplist
    time_max = 1.d0
    dtmin = 1.0d-20
-   it_max = 20
+   !it_max = 20
 /
 
  &methodlist
@@ -31,7 +31,7 @@
    limiter         = 20*'minmod' !'minmod'/'koren'
    source_split_usr = .false.
    typesourcesplit = 'sf'
-   small_values_method = 'error'
+   small_values_method = 'replace'
    small_pressure = 1.d-8
    small_density = 1.d-8
 /
@@ -41,7 +41,7 @@
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 3*'special',2*'special'
-  typeboundary_max2 = 4*'noinflow','special'
+  typeboundary_max2 = 4*'noinflow','cont'
   internalboundary = T
 /
 
@@ -60,7 +60,7 @@
  /
 
  &paramlist
-  courantpar       = 0.3d-1
+  courantpar       = 0.3d-2
   !dtpar           = 1d-10
  /
 
@@ -82,4 +82,5 @@
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
+  fld_diff_tol = 1.d-3
   /

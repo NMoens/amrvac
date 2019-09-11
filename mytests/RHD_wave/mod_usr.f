@@ -10,7 +10,7 @@ module mod_usr
   double precision :: eg0 = 26.020d3
   double precision :: Er0! = 17.340d3
 
-  double precision :: T0, a0, p0
+  double precision :: T0, a0, p0, ampl
 
   double precision :: wavelength, frequency, tau_wave, wavenumber
   double precision :: Boltzmann_number, energy_ratio, L_damp, r_Bo
@@ -51,14 +51,13 @@ contains
     T0 = const_mp*fld_mu/const_kB*(p0/rho0)
     Er0 = const_rad_a*T0**4
 
-    tau_wave = 1.d0
+    tau_wave = 1.d9
     wavelength = tau_wave/(rho0*fld_kappa0)
     frequency = 2.d0*dpi*a0/wavelength
     wavenumber = 2.d0*dpi/wavelength
 
     Boltzmann_number = 4*rhd_gamma*a0*eg0/(const_c*Er0)
     r_Bo = a0/const_c*Boltzmann_number
-
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length = wavelength ! cm
@@ -84,7 +83,7 @@ contains
     wavelength = wavelength/unit_length
     frequency = frequency*unit_time
     wavenumber = wavenumber*unit_length
-
+    ampl = 1.d-2*p0
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
@@ -99,6 +98,10 @@ contains
       print*, 'angular frequency', frequency
       print*, 'wavelength', wavelength
       print*, 'opt tickness 1 wvl', tau_wave
+      print*, 'wave number', wavenumber
+      print*, 'amplitude', ampl
+      print*, 'Bo', Boltzmann_number
+      print*, 'r_Bo', r_Bo
 
     endif
 
@@ -142,9 +145,8 @@ contains
     double precision :: press(ixImin1:ixImax1,ixImin2:ixImax2),&
         temp(ixImin1:ixImax1,ixImin2:ixImax2)
 
-    double precision :: ampl, a2
+    double precision :: a2
 
-    ampl = 1.d-2*p0
     a2 = p0/rho0
 
     where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .lt. one)
@@ -177,7 +179,7 @@ contains
     endwhere
 
     ! Print out some information on Q:
-    ! print*, 'Q', 1.d0/3.d0*const_c/unit_velocity/(w(5,5,i_op)*rho0)*dt/(x(5,5,1) - x(4,5,1))**2
+    ! print*, 'Q',w(5,5,i_op)
 
 
   end subroutine Initialize_Wave

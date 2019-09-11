@@ -474,6 +474,9 @@ contains
          rho_)*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
     endif
 
+    ! Print out some information on Q:
+    ! print*, 'Q', 1.d0/3.d0*const_c/unit_velocity/(w(5,5,i_op)*w(5,5,rho_))*dt/(x(5,5,1) - x(4,5,1))**2
+
   end subroutine PseudoPlanar
 
   subroutine Opacity_stepfunction(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&

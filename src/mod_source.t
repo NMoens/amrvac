@@ -42,7 +42,7 @@ contains
         if (diff_crit .lt. one) then
          call phys_global_source(dt, qt, src_active)
         else
-         Ndiff = int(diff_crit)
+         Ndiff = ceiling(diff_crit)
              do itdiff = 1,Ndiff
                call phys_global_source(dt/Ndiff, qt, src_active)
                ! print*, it, itdiff,Ndiff

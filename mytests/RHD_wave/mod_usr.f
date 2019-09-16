@@ -55,7 +55,7 @@ contains
     T0 = const_mp*fld_mu/const_kB*(p0/rho0)
     Er0 = const_rad_a*T0**4
 
-    tau_wave = 1.d9
+    tau_wave = 1.d0
 
     wavelength = tau_wave/(rho0*fld_kappa0)
     frequency = 2.d0*dpi*a0/wavelength
@@ -134,7 +134,8 @@ contains
        1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-    double precision :: temp(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: press(ixImin1:ixImax1,ixImin2:ixImax2),&
+        temp(ixImin1:ixImax1,ixImin2:ixImax2)
 
     ! Set initial values for w
     w(ixImin1:ixImax1,ixImin2:ixImax2, rho_) = rho0 + &
@@ -146,8 +147,16 @@ contains
     w(ixImin1:ixImax1,ixImin2:ixImax2, e_) = eg0 + &
        A_e*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2, r_e) = Er0 + &
-       A_Er*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
+    press(ixImin1:ixImax1,ixImin2:ixImax2) = p0 + &
+       A_p*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
+    temp(ixImin1:ixImax1,ixImin2:ixImax2) = &
+       (const_mp*fld_mu/const_kb)*press(ixImin1:ixImax1,&
+       ixImin2:ixImax2)/w(ixImin1:ixImax1,ixImin2:ixImax2,&
+        rho_)*(unit_pressure/unit_density)/unit_temperature
+
+    w(ixImin1:ixImax1,ixImin2:ixImax2, r_e) = &
+       const_rad_a*(temp(ixImin1:ixImax1,&
+       ixImin2:ixImax2)*unit_temperature)**4.d0/unit_pressure
 
 
     call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
@@ -181,6 +190,18 @@ contains
       w(ixImin1:ixImax1,ixImin2:ixImax2, e_) = eg0 + &
          A_e*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,&
          1)-frequency*global_time)
+
+      press(ixImin1:ixImax1,ixImin2:ixImax2) = p0 + &
+         A_p*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,&
+         1)-frequency*global_time)
+      temp(ixImin1:ixImax1,ixImin2:ixImax2) = &
+         (const_mp*fld_mu/const_kb)*press(ixImin1:ixImax1,&
+         ixImin2:ixImax2)/w(ixImin1:ixImax1,ixImin2:ixImax2,&
+          rho_)*(unit_pressure/unit_density)/unit_temperature
+
+      w(ixImin1:ixImax1,ixImin2:ixImax2, r_e) = &
+         const_rad_a*(temp(ixImin1:ixImax1,&
+         ixImin2:ixImax2)*unit_temperature)**4.d0/unit_pressure
     endwhere
 
   end subroutine Initialize_Wave

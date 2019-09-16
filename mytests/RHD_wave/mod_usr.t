@@ -55,7 +55,7 @@ contains
     T0 = const_mp*fld_mu/const_kB*(p0/rho0)
     Er0 = const_rad_a*T0**4
 
-    tau_wave = 1.d9
+    tau_wave = 1.d0
 
     wavelength = tau_wave/(rho0*fld_kappa0)
     frequency = 2.d0*dpi*a0/wavelength
@@ -130,7 +130,7 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    double precision :: temp(ixI^S)
+    double precision :: press(ixI^S), temp(ixI^S)
 
     ! Set initial values for w
     w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1))
@@ -138,7 +138,11 @@ contains
     w(ixI^S, mom(2)) = zero
     w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1))
 
-    w(ixI^S, r_e) = Er0 + A_Er*dsin(wavenumber*x(ixI^S,1))
+    press(ixI^S) = p0 + A_p*dsin(wavenumber*x(ixI^S,1))
+    temp(ixI^S) = (const_mp*fld_mu/const_kb)*press(ixI^S)/w(ixI^S, rho_)&
+    *(unit_pressure/unit_density)/unit_temperature
+
+    w(ixI^S, r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
 
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
@@ -161,6 +165,12 @@ contains
       w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
       w(ixI^S, mom(2)) = zero
       w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
+
+      press(ixI^S) = p0 + A_p*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
+      temp(ixI^S) = (const_mp*fld_mu/const_kb)*press(ixI^S)/w(ixI^S, rho_)&
+      *(unit_pressure/unit_density)/unit_temperature
+
+      w(ixI^S, r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
     endwhere
 
   end subroutine Initialize_Wave

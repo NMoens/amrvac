@@ -287,14 +287,7 @@ module mod_fld
         endif
       enddo
 
-      ! if (mype == 0) then
-      !   do i = 1,10
-      !     print*, w(5,i,iw_e), w(5,i,iw_e)-half*(w(5,i, iw_mom(2))**2)/w(5,i, iw_rho) , qdt * radiation_force(5,i,2)
-      !   enddo
-      ! endif
     end if
-
-
 
   end subroutine get_fld_rad_force
 

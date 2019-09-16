@@ -2,7 +2,7 @@
 module mod_usr
 
   ! Include a physics module
-  use mod_rhd
+  use mod_hd
 
   implicit none
 
@@ -15,7 +15,8 @@ module mod_usr
   double precision :: wavelength, frequency, tau_wave, wavenumber
   double precision :: Boltzmann_number, energy_ratio, L_damp, r_Bo
 
-  double precision :: A_rho, A_v, A_p, A_e, A_Er
+  double precision :: A_rho, A_v, A_p, A_e
+
 
 contains
 
@@ -38,31 +39,22 @@ contains
     ! ...
 
     ! Active the physics module
-    call rhd_activate()
+    call hd_activate()
 
   end subroutine usr_init
 
 
   subroutine initglobaldata_usr
     use mod_global_parameters
-    use mod_fld
 
-    p0 = eg0*(rhd_gamma - one)
-    ! a0 = dsqrt(rhd_gamma*p0/rho0)
+    p0 = eg0*(hd_gamma - one)
     a0 = dsqrt(p0/rho0)
-
-
-    T0 = const_mp*fld_mu/const_kB*(p0/rho0)
-    Er0 = const_rad_a*T0**4
 
     tau_wave = 1.d9
 
-    wavelength = tau_wave/(rho0*fld_kappa0)
+    wavelength = tau_wave/(rho0*0.4d0)
     frequency = 2.d0*dpi*a0/wavelength
     wavenumber = 2.d0*dpi/wavelength
-
-    Boltzmann_number = 4*rhd_gamma*a0*eg0/(const_c*Er0)
-    r_Bo = a0/(const_c*Boltzmann_number)
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length = wavelength ! cm
@@ -74,22 +66,15 @@ contains
     unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*const_kb)
     unit_time=unit_length/unit_velocity
 
-    unit_radflux = unit_velocity*unit_pressure
-    unit_opacity = one/(unit_density*unit_length)
-
     rho0 = rho0/unit_density
     a0 = a0/unit_velocity
     p0 = p0/unit_pressure
     eg0 = eg0/unit_pressure
-    T0 = T0/unit_temperature
-    Er0 = Er0/unit_pressure
 
 
     wavelength = wavelength/unit_length
     frequency = frequency*unit_time
     wavenumber = wavenumber*unit_length
-
-    L_damp = const_c/unit_velocity*fld_kappa0/unit_opacity*rho0/frequency
 
     ampl = 1.d-5
 
@@ -99,7 +84,6 @@ contains
       print*, 'unit_pressure', unit_pressure
       print*, 'unit_temperature', unit_temperature
       print*, 'unit_radflux', unit_radflux
-      print*, 'unit_opacity', unit_opacity
       print*, 'unit_time', unit_time
       print*, 'unit_velocity', unit_velocity
       print*, '-----------------------------'
@@ -108,29 +92,23 @@ contains
       print*, 'opt tickness 1 wvl', tau_wave
       print*, 'wave number', wavenumber
       print*, 'amplitude', ampl
-      print*, 'Bo', Boltzmann_number
-      print*, 'r_Bo', r_Bo
-      print*, 'L_damp', L_damp
     endif
 
     A_rho = ampl
     A_v = frequency/(wavenumber*rho0)*A_rho
     A_p = frequency**2/wavenumber**2*A_rho
-    A_e = rhd_gamma/(rhd_gamma-one)*p0/rho0*A_rho
-    A_Er = Er0/rho0*A_rho
+    A_e = hd_gamma/(hd_gamma-one)*p0/rho0*A_rho
 
   end subroutine initglobaldata_usr
 
   !> A routine for specifying initial conditions
   subroutine initial_conditions(ixI^L, ixO^L, w, x)
     use mod_global_parameters
-    use mod_fld
 
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
-
-    double precision :: temp(ixI^S)
+    double precision :: press(ixI^S)
 
     ! Set initial values for w
     w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1))
@@ -138,23 +116,19 @@ contains
     w(ixI^S, mom(2)) = zero
     w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1))
 
-    w(ixI^S, r_e) = Er0 + A_Er*dsin(wavenumber*x(ixI^S,1))
-
-
-    call get_rad_extravars(w, x, ixI^L, ixO^L)
-
   end subroutine initial_conditions
 
 
   subroutine Initialize_Wave(level,qt,ixI^L,ixO^L,w,x)
     use mod_global_parameters
-    use mod_fld
     integer, intent(in)             :: ixI^L,ixO^L,level
     double precision, intent(in)    :: qt
     double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
 
     double precision :: press(ixI^S), temp(ixI^S)
+
+    !> HD_WAVE
 
     where (x(ixI^S,1) .lt. one)
       w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)

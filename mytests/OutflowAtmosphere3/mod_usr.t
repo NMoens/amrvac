@@ -22,7 +22,7 @@ module mod_usr
 
   double precision :: M_dot_ratio
   double precision :: Gamma_0
-  double precision :: kappa_0
+  double precision :: kappa_0, kappa_b
   double precision :: L_0
   double precision :: M_star
   double precision :: R_star
@@ -31,6 +31,7 @@ module mod_usr
   double precision :: sp_rho
   double precision :: sp_T
   double precision :: sp_p
+  double precision :: Heff
 
 contains
 
@@ -79,7 +80,10 @@ contains
     !> Set stellar mass and radius
     call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,sp_rho,sp_sos)
 
+    !> Gamma at the base is one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
+    kappa_b = one*4*dpi*const_G*M_star*const_c/L_0
+
 
     allocate(r_arr(domain_nx2+2*nghostcells))
     allocate(rho_arr(domain_nx2+2*nghostcells))
@@ -104,6 +108,8 @@ contains
       print*, 'cgs opacity', kappa_0
     endif
 
+    Heff = sp_sos**2.d0/(const_G*M_star/R_star**2.d0*abs(Gamma_0 - one))
+
     ! Choose independent normalization units if using dimensionless variables.
     unit_length  = R_star !r_arr(nghostcells) ! cm
     unit_numberdensity = sp_rho/((1.d0+4.d0*He_abundance)*mp_cgs)
@@ -125,6 +131,7 @@ contains
       print*, Gamma_0, kappa_0
 
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
+      print*, 'effective scaleheight: ', Heff
 
       print*, 'unit_length', unit_length
       print*, 'unit_density', unit_density
@@ -142,10 +149,12 @@ contains
     M_dot = M_dot/(unit_density*unit_length**3.d0)*unit_time
     L_0 = L_0/(unit_pressure*unit_length**3.d0)*unit_time
     kappa_0 = kappa_0/unit_opacity
+    kappa_b = kappa_b/unit_opacity
     sp_sos = sp_sos/unit_velocity
     sp_rho = sp_rho/unit_density
     sp_T = sp_T/unit_temperature
     sp_p = sp_p/unit_temperature
+    Heff = Heff/unit_length
 
     !> Make initial profiles dimensionless
     r_arr = r_arr/unit_length
@@ -163,6 +172,7 @@ contains
       print*, Gamma_0, kappa_0
 
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
+      print*, 'effective scaleheight: ', Heff
     endif
 
   end subroutine initglobaldata_usr
@@ -250,6 +260,14 @@ contains
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
+
+
+    ! print*, 'INITIAL CONDITIONS ################33'
+    ! do i = 1,10
+    !   print*, w(5,i,r_e)
+    ! enddo
+
+
   end subroutine initial_conditions
 
   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
@@ -262,7 +280,7 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: a(ixImin1:ixImax1),b(ixImin1:ixImax1),c(ixImin1:ixImax1),d(ixImin1:ixImax1)
-    double precision :: Temp(ixI^S), Press(ixI^S), kbTmu(ixI^S)
+    double precision :: Temp(ixI^S), Press(ixI^S), kbTmu(ixI^S), vel(ixI^S)
 
     integer :: i,j
 
@@ -270,32 +288,36 @@ contains
 
     case(3)
 
-      !++++++++++++++++++++++++++++++++++++++++++++
-      i = ixBmax2
-        w(ixImin1:ixImax1,i,rho_) = x(ixImin1:ixImax1,nghostcells+1,2)**2/x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,nghostcells+1,mom(2))/sp_sos
-        w(ixImin1:ixImax1,i,mom(1)) = w(ixImin1:ixImax1,i+1,mom(1))
-        w(ixImin1:ixImax1,i,mom(2)) = x(ixImin1:ixImax1,i+1,2)**2/x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,i+1,mom(2))
-        w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma-one) + half*(w(ixImin1:ixImax1,i,mom(1))**2 &
-        + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
-        w(ixImin1:ixImax1,i,r_e) = const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
-
-        do j=ixImin1,ixImax1
-          w(j,i,mom(2)) = max(w(j,i,mom(2)),zero)
-        enddo
-      !++++++++++++++++++++++++++++++++++++++++++++
-
-      do i = ixBmax2 -1, ixBmin2, -1
-        w(ixImin1:ixImax1,i,rho_) = w(ixImin1:ixImax1,i+1,rho_) - 2*w(ixImin1:ixImax1,i+2,rho_)
-        w(ixImin1:ixImax1,i,mom(1)) = w(ixImin1:ixImax1,i+1,mom(1))
-        w(ixImin1:ixImax1,i,mom(2)) = x(ixImin1:ixImax1,i+1,2)**2/x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,i+1,mom(2))
-        do j = ixImin1,ixImax1
-          w(j,i,r_e) = max(w(j,i+1,r_e) -2*w(j,i+2,r_e),w(j,i+1,r_e))
-        enddo
-        kbTmu(ixImin1:ixImax1,i) = (w(ixImin1:ixImax1,i,r_e)*unit_pressure/const_rad_a)**0.25*const_kB/(fld_mu*const_mp)
-        kbTmu(ixImin1:ixImax1,i) = kbTmu(ixImin1:ixImax1,i)/unit_velocity**2
-        w(ixImin1:ixImax1,i,e_) = kbTmu(ixImin1:ixImax1,i)*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma-one) &
+      do i = ixBmax2, ixBmin2, -1
+        w(ixImin1:ixImax1,i,rho_) = M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
+        w(ixImin1:ixImax1,i,mom(1)) = zero
+        vel(ixImin1:ixImax1,i) =  2*w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_) - w(ixImin1:ixImax1,i+2,mom(2))/w(ixImin1:ixImax1,i+2,rho_)
+        !w(ixImin1:ixImax1,i,mom(2)) = M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*w(ixImin1:ixImax1,i,rho_))
+        w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i,rho_)*vel(ixImin1:ixImax1,i)
+        w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
         + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
+
+        w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
+        + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
+        - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
+        * 3.d0*w(ixImin1:ixImax1,i+2,i_op)*w(ixImin1:ixImax1,i+1,rho_)/(const_c/unit_velocity) &
+        * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
       enddo
+
+      !
+      ! print*, 'BOUNARY COND ##########################################'
+      ! do i = 1,10
+      !   print*, w(5,i,r_e), w(5,i+2,r_e),  (L_0/(4.d0*dpi*x(5,i+1,2)**2.d0) &
+      !   - w(5,i+1,mom(2))/w(5,i+1,rho_)*4.d0/3.d0*w(5,i+1,r_e)), &
+      !   3.d0*w(5,i+2,i_op)*w(5,i+1,rho_)/(const_c/unit_velocity) &
+      !   * (x(5,i+2,2) - x(5,i,2)),  (L_0/(4.d0*dpi*x(5,i+1,2)**2.d0) &
+      !   - w(5,i+1,mom(2))/w(5,i+1,rho_)*4.d0/3.d0*w(5,i+1,r_e)) &
+      !   * 3.d0*w(5,i+2,i_op)*w(5,i+1,rho_)/(const_c/unit_velocity) &
+      !   * (x(5,i+2,2) - x(5,i,2))
+      ! enddo
+      !
+      ! stop
+
 
     case(4)
       do i = ixBmin2,ixBmax2
@@ -328,12 +350,12 @@ contains
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
         ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmin2-1,r_e))/(ixImax1-ixImin1)!const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
       case (4)
-        if (sum(w(:,ixOmax2,r_e)) .lt. sum(w(:,ixOmax2+1,r_e))) then
+        ! if (sum(w(:,ixOmax2,r_e)) .lt. sum(w(:,ixOmax2+1,r_e))) then
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        else
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-          ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmax2+1,r_e))/(ixImax1-ixImin1)
-        endif
+          mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        ! else
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        ! endif
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
         error stop "You have to set a user-defined boundary method"
@@ -421,9 +443,38 @@ contains
     double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(out):: kappa(ixO^S)
 
-    kappa(ixO^S) = kappa_0
+    ! kappa_base = one*4*dpi*const_G*M_star*const_c/L_0
+    ! kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
+
+    kappa(ixO^S) = kappa_b + erf(x(ixO^S,2))*(kappa_0-kappa_b)
+
 
   end subroutine Opacity_stepfunction
+
+  subroutine specialrefine_grid(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+  ! Enforce additional refinement or coarsening
+  ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+  ! you must set consistent values for integers refine/coarsen:
+  ! refine = -1 enforce to not refine
+  ! refine =  0 doesn't enforce anything
+  ! refine =  1 enforce refinement
+  ! coarsen = -1 enforce to not coarsen
+  ! coarsen =  0 doesn't enforce anything
+  ! coarsen =  1 enforce coarsen
+  use mod_global_parameters
+
+  integer, intent(in) :: igrid, level, ixG^L, ix^L
+  double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+  integer, intent(inout) :: refine, coarsen
+
+  ! test with different levels of refinement enforced
+  if (it .gt. 1) then
+    if (any(x(ix^S,2) < 3.d0/4.d0 * xprobmax2)) refine=1
+    if (any(x(ix^S,2) < 2.d0/4.d0 * xprobmax2)) refine=1
+    if (any(x(ix^S,2) < 1.d0/4.d0 * xprobmax2)) refine=1
+  endif
+
+end subroutine specialrefine_grid
 
   subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
     ! this subroutine can be used in convert, to add auxiliary variables to the

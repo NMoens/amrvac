@@ -6,7 +6,7 @@
   base_filename='./output/const'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
-  saveprim         = F
+  saveprim         = T
   nwauxio = 5
 /
 
@@ -41,7 +41,7 @@
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 3*'special',2*'special'
-  typeboundary_max2 = 4*'noinflow','cont'
+  typeboundary_max2 = 4*'cont','special'
   internalboundary = T
 /
 
@@ -60,7 +60,7 @@
  /
 
  &paramlist
-  courantpar       = 0.3d-2
+  courantpar       = 0.1d-1
   !dtpar           = 1d-10
  /
 
@@ -82,5 +82,6 @@
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
-  fld_diff_tol = 1.d-3
+  fld_diff_tol = 1.d-4
+  diff_coef_filter = .true.
   /

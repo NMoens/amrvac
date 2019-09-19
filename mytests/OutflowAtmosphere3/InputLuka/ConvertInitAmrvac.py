@@ -42,37 +42,41 @@ gradE = (er[1:] - er[:-1])/(r[1:] - r[:-1])
 spl_gradE = interpolate.splrep(r[:-1],gradE, s=0)
 gradEnew = interpolate.splev(my_amrvac_grid,spl_gradE, der=0)
 
-Flux = -gradE/rho[1:] #*(r[1:]/R_min)**2
+Flux_cmf = -gradE/rho[1:]*(r[1:]/R_min)**2
+Flux_ent = v[1:]*er[1:]*(r[1:]/R_min)**2
+Flux_obs = -gradE/rho[1:] + v[1:]*er[1:] #*(r[1:]/R_min)**2
+
+print(Flux_obs[-1]*100/Flux_obs[0])
 
 np.savetxt('structure_amrvac.txt',np.transpose([my_amrvac_grid,vnew,rhonew,ernew]))
 
-# plt.figure()
-# plt.title('velocity')
-# plt.plot(r/R_min,v,'r')
-# plt.plot(my_amrvac_grid/R_min,vnew,'bx')
-# plt.xlim([0,10])
-#
-# plt.figure()
-# plt.title('radiation energy')
-# plt.plot(r/R_min,er,'r')
-# plt.plot(my_amrvac_grid/R_min,ernew,'bx')
-# plt.xlim([0,10])
-#
-# plt.figure()
-# plt.semilogy(r/R_min,rho,'r')
-# plt.title('density')
-# plt.semilogy(my_amrvac_grid/R_min,rhonew,'bx')
-# plt.xlim([0,10])
-#
-# plt.figure()
-# plt.title('gradient Er')
-# plt.plot(r[:-1]/R_min,gradE,'r')
-# plt.plot(my_amrvac_grid/R_min,gradEnew,'bx')
-# plt.xlim([0,10])
+plt.figure()
+plt.title('velocity')
+plt.plot(r/R_min,v,'r')
+plt.plot(my_amrvac_grid/R_min,vnew,'bx')
+plt.xlim([0,10])
+
+plt.figure()
+plt.title('radiation energy')
+plt.plot(r/R_min,er,'r')
+plt.plot(my_amrvac_grid/R_min,ernew,'bx')
+plt.xlim([0,10])
+
+plt.figure()
+plt.semilogy(r/R_min,rho,'r')
+plt.title('density')
+plt.semilogy(my_amrvac_grid/R_min,rhonew,'bx')
+plt.xlim([0,10])
+
+plt.figure()
+plt.title('gradient Er')
+plt.plot(r[:-1]/R_min,gradE,'r')
+plt.plot(my_amrvac_grid/R_min,gradEnew,'bx')
+plt.xlim([0,10])
 
 plt.figure()
 plt.title('Flux')
-plt.plot(r[:-1]/R_min,Flux,'r')
+plt.plot(r[:-1]/R_min,Flux_cmf,'r')
 plt.xlim([0,10])
 
 plt.show()

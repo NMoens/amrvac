@@ -37,6 +37,8 @@ contains
 
     ! Specify other user routines, for a list see mod_usr_methods.t
     ! ...
+    usr_special_bc => boundary_conditions
+
 
     ! Active the physics module
     call hd_activate()
@@ -138,5 +140,25 @@ contains
     endwhere
 
   end subroutine Initialize_Wave
+
+  subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
+    use mod_global_parameters
+
+    integer, intent(in)             :: ixI^L, ixB^L, iB
+    double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+
+    select case (iB)
+
+    case(1)
+      w(ixB^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixB^S,1)-frequency*global_time)
+      w(ixB^S, mom(1)) = w(ixB^S, rho_)*A_v*dsin(wavenumber*x(ixB^S,1)-frequency*global_time)
+      w(ixB^S, mom(2)) = zero
+      w(ixB^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixB^S,1)-frequency*global_time)
+
+    case default
+      call mpistop('boundary not known')
+    end select
+  end subroutine boundary_conditions
 
 end module mod_usr

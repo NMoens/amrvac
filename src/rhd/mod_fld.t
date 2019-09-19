@@ -631,13 +631,10 @@ module mod_fld
 
     w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
 
-    !>Cheaty bit:
-    ! if (x(3,3,2) .lt. 1.5) then
-    !   w(:,ixOmin2+1,i_flux(2)) = (x(:,ixOmin2+2,2)/x(:,ixOmin2+1,2))**2*w(:,ixOmin2+2,i_flux(2))
-    ! endif
-
-
-    ! stop
+    ! !>Cheaty bit:
+    !   w(:,ixOmin2,i_flux(2)) = (x(:,ixOmin2+1,2)/x(:,ixOmin2,2))**2*w(:,ixOmin2+1,i_flux(2))
+    !
+    !   w(:,ixOmax2,i_flux(2)) = (x(:,ixOmax2,2)/x(:,ixOmax2-1,2))**2*w(:,ixOmax2-1,i_flux(2))
 
   end subroutine fld_get_radflux
 
@@ -1205,6 +1202,7 @@ module mod_fld
     !> Communicate 'Q' over processors
     call MPI_ALLREDUCE(diff_crit_mype,diff_crit,1,MPI_DOUBLE_PRECISION,MPI_MIN, &
                        icomm,ierrmpi)
+
 
   end subroutine get_diffusion_criterion
 

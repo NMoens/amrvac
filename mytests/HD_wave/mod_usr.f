@@ -37,6 +37,8 @@ contains
 
     ! Specify other user routines, for a list see mod_usr_methods.t
     ! ...
+    usr_special_bc => boundary_conditions
+
 
     ! Active the physics module
     call hd_activate()
@@ -156,5 +158,34 @@ contains
     endwhere
 
   end subroutine Initialize_Wave
+
+  subroutine boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixBmin1,&
+     ixBmin2,ixBmax1,ixBmax2,iB,w,x)
+    use mod_global_parameters
+
+    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
+        ixBmin1,ixBmin2,ixBmax1,ixBmax2, iB
+    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+
+    select case (iB)
+
+    case(1)
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, rho_) = rho0 + &
+         A_rho*dsin(wavenumber*x(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+         1)-frequency*global_time)
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, mom(1)) = w(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2, rho_)*A_v*dsin(wavenumber*x(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2,1)-frequency*global_time)
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, mom(2)) = zero
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, e_) = eg0 + &
+         A_e*dsin(wavenumber*x(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+         1)-frequency*global_time)
+
+    case default
+      call mpistop('boundary not known')
+    end select
+  end subroutine boundary_conditions
 
 end module mod_usr

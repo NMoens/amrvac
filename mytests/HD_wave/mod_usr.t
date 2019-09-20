@@ -78,7 +78,7 @@ contains
     frequency = frequency*unit_time
     wavenumber = wavenumber*unit_length
 
-    ampl = 1.d-5
+    ampl = 1.d-3
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
@@ -114,7 +114,7 @@ contains
 
     ! Set initial values for w
     w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1))
-    w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1))
+    w(ixI^S, mom(1)) = zero + w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1))
     w(ixI^S, mom(2)) = zero
     w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1))
 
@@ -133,10 +133,10 @@ contains
     !> HD_WAVE
 
     where (x(ixI^S,1) .lt. one)
-      w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
-      w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
+      w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1)-frequency*qt)
+      w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1)-frequency*qt)
       w(ixI^S, mom(2)) = zero
-      w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
+      w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1)-frequency*qt)
     endwhere
 
   end subroutine Initialize_Wave
@@ -151,11 +151,10 @@ contains
     select case (iB)
 
     case(1)
-      w(ixB^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixB^S,1)-frequency*global_time)
-      w(ixB^S, mom(1)) = w(ixB^S, rho_)*A_v*dsin(wavenumber*x(ixB^S,1)-frequency*global_time)
+      w(ixB^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixB^S,1)-frequency*qt)
+      w(ixB^S, mom(1)) = w(ixB^S, rho_)*A_v*dsin(wavenumber*x(ixB^S,1)-frequency*qt)
       w(ixB^S, mom(2)) = zero
-      w(ixB^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixB^S,1)-frequency*global_time)
-
+      w(ixB^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixB^S,1)-frequency*qt)
     case default
       call mpistop('boundary not known')
     end select

@@ -242,6 +242,7 @@ contains
     integer :: i,j,b
     integer :: NumberOfBlocks
     double precision :: x_perc
+    double precision :: rand(ixO^S)
 
     NumberOfBlocks = domain_nx2/block_nx2
 
@@ -260,13 +261,15 @@ contains
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
+    ! call RANDOM_NUMBER(rand)
+    ! w(ixO^S,rho_) = w(ixO^S,rho_)*(one+1.d-2*rand(ixO^S))
 
 
     ! print*, 'INITIAL CONDITIONS ################33'
     ! do i = 1,10
-    !   print*, w(5,i,r_e)
+    !   print*, w(5,i,rho_), w(5,i,mom(2)), w(5,i,e_), w(5,i,r_e)
     ! enddo
-
+    !
 
   end subroutine initial_conditions
 
@@ -280,7 +283,7 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: a(ixImin1:ixImax1),b(ixImin1:ixImax1),c(ixImin1:ixImax1),d(ixImin1:ixImax1)
-    double precision :: Temp(ixI^S), Press(ixI^S), kbTmu(ixI^S), vel(ixI^S)
+    double precision :: Temp(ixI^S), Press(ixI^S), kbTmu(ixI^S)
 
     integer :: i,j
 
@@ -289,11 +292,12 @@ contains
     case(3)
 
       do i = ixBmax2, ixBmin2, -1
-        w(ixImin1:ixImax1,i,rho_) = M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
+        w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
         w(ixImin1:ixImax1,i,mom(1)) = zero
-        vel(ixImin1:ixImax1,i) =  2*w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_) - w(ixImin1:ixImax1,i+2,mom(2))/w(ixImin1:ixImax1,i+2,rho_)
-        !w(ixImin1:ixImax1,i,mom(2)) = M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*w(ixImin1:ixImax1,i,rho_))
-        w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i,rho_)*vel(ixImin1:ixImax1,i)
+        w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
+        do j = ixImin2,ixImax2
+          w(ixImin1:ixImax1,i,mom(2)) = min(1.2d0, w(ixImin1:ixImax1,i,mom(2)))
+        enddo
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
         + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
 
@@ -304,19 +308,11 @@ contains
         * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
       enddo
 
-      !
-      ! print*, 'BOUNARY COND ##########################################'
+
+      ! print*, 'BOUNARY COND ##########################################', it
       ! do i = 1,10
-      !   print*, w(5,i,r_e), w(5,i+2,r_e),  (L_0/(4.d0*dpi*x(5,i+1,2)**2.d0) &
-      !   - w(5,i+1,mom(2))/w(5,i+1,rho_)*4.d0/3.d0*w(5,i+1,r_e)), &
-      !   3.d0*w(5,i+2,i_op)*w(5,i+1,rho_)/(const_c/unit_velocity) &
-      !   * (x(5,i+2,2) - x(5,i,2)),  (L_0/(4.d0*dpi*x(5,i+1,2)**2.d0) &
-      !   - w(5,i+1,mom(2))/w(5,i+1,rho_)*4.d0/3.d0*w(5,i+1,r_e)) &
-      !   * 3.d0*w(5,i+2,i_op)*w(5,i+1,rho_)/(const_c/unit_velocity) &
-      !   * (x(5,i+2,2) - x(5,i,2))
+      !   print*, w(5,i,rho_), w(5,i,mom(2)), w(5,i,e_), w(5,i,r_e)
       ! enddo
-      !
-      ! stop
 
 
     case(4)
@@ -446,7 +442,7 @@ contains
     ! kappa_base = one*4*dpi*const_G*M_star*const_c/L_0
     ! kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
 
-    kappa(ixO^S) = kappa_b + erf(x(ixO^S,2))*(kappa_0-kappa_b)
+    kappa(ixO^S) = kappa_b + erf(x(ixO^S,2)-one)*(kappa_0-kappa_b)
 
 
   end subroutine Opacity_stepfunction

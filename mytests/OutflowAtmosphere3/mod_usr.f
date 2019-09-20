@@ -271,9 +271,9 @@ contains
 
     ! print*, 'INITIAL CONDITIONS ################33'
     ! do i = 1,10
-    !   print*, w(5,i,r_e)
+    !   print*, w(5,i,rho_), w(5,i,mom(2)), w(5,i,e_), w(5,i,r_e)
     ! enddo
-
+    !
 
   end subroutine initial_conditions
 
@@ -293,7 +293,7 @@ contains
        c(ixImin1:ixImax1),d(ixImin1:ixImax1)
     double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2),&
         Press(ixImin1:ixImax1,ixImin2:ixImax2), kbTmu(ixImin1:ixImax1,&
-       ixImin2:ixImax2), vel(ixImin1:ixImax1,ixImin2:ixImax2)
+       ixImin2:ixImax2)
 
     integer :: i,j
 
@@ -302,15 +302,14 @@ contains
     case(3)
 
       do i = ixBmax2, ixBmin2, -1
-        w(ixImin1:ixImax1,i,rho_) = M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,&
-           2)**2.d0*sp_sos)
+        w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
         w(ixImin1:ixImax1,i,mom(1)) = zero
-        vel(ixImin1:ixImax1,i) =  2*w(ixImin1:ixImax1,i+1,&
-           mom(2))/w(ixImin1:ixImax1,i+1,rho_) - w(ixImin1:ixImax1,i+2,&
-           mom(2))/w(ixImin1:ixImax1,i+2,rho_)
-        !w(ixImin1:ixImax1,i,mom(2)) = M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*w(ixImin1:ixImax1,i,rho_))
-        w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i,&
-           rho_)*vel(ixImin1:ixImax1,i)
+        w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,&
+           2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
+        do j = ixImin2,ixImax2
+          w(ixImin1:ixImax1,i,mom(2)) = min(1.2d0, w(ixImin1:ixImax1,i,&
+             mom(2)))
+        enddo
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,&
            rho_)/(rhd_gamma - one) + half*(w(ixImin1:ixImax1,i,&
            mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,&
@@ -325,19 +324,11 @@ contains
            2) - x(ixImin1:ixImax1,i,2))
       enddo
 
-      !
-      ! print*, 'BOUNARY COND ##########################################'
+
+      ! print*, 'BOUNARY COND ##########################################', it
       ! do i = 1,10
-      !   print*, w(5,i,r_e), w(5,i+2,r_e),  (L_0/(4.d0*dpi*x(5,i+1,2)**2.d0) &
-      !   - w(5,i+1,mom(2))/w(5,i+1,rho_)*4.d0/3.d0*w(5,i+1,r_e)), &
-      !   3.d0*w(5,i+2,i_op)*w(5,i+1,rho_)/(const_c/unit_velocity) &
-      !   * (x(5,i+2,2) - x(5,i,2)),  (L_0/(4.d0*dpi*x(5,i+1,2)**2.d0) &
-      !   - w(5,i+1,mom(2))/w(5,i+1,rho_)*4.d0/3.d0*w(5,i+1,r_e)) &
-      !   * 3.d0*w(5,i+2,i_op)*w(5,i+1,rho_)/(const_c/unit_velocity) &
-      !   * (x(5,i+2,2) - x(5,i,2))
+      !   print*, w(5,i,rho_), w(5,i,mom(2)), w(5,i,e_), w(5,i,r_e)
       ! enddo
-      !
-      ! stop
 
 
     case(4)
@@ -511,7 +502,7 @@ contains
     ! kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
 
     kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b + erf(x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,2))*(kappa_0-kappa_b)
+       ixOmin2:ixOmax2,2)-one)*(kappa_0-kappa_b)
 
 
   end subroutine Opacity_stepfunction

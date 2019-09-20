@@ -79,7 +79,7 @@ contains
     frequency = frequency*unit_time
     wavenumber = wavenumber*unit_length
 
-    ampl = 1.d-5
+    ampl = 1.d-3
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
@@ -119,7 +119,7 @@ contains
     ! Set initial values for w
     w(ixImin1:ixImax1,ixImin2:ixImax2, rho_) = rho0 + &
        A_rho*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
-    w(ixImin1:ixImax1,ixImin2:ixImax2, mom(1)) = w(ixImin1:ixImax1,&
+    w(ixImin1:ixImax1,ixImin2:ixImax2, mom(1)) = zero + w(ixImin1:ixImax1,&
        ixImin2:ixImax2, rho_)*A_v*dsin(wavenumber*x(ixImin1:ixImax1,&
        ixImin2:ixImax2,1))
     w(ixImin1:ixImax1,ixImin2:ixImax2, mom(2)) = zero
@@ -147,14 +147,14 @@ contains
     where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .lt. one)
       w(ixImin1:ixImax1,ixImin2:ixImax2, rho_) = rho0 + &
          A_rho*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,&
-         1)-frequency*global_time)
+         1)-frequency*qt)
       w(ixImin1:ixImax1,ixImin2:ixImax2, mom(1)) = w(ixImin1:ixImax1,&
          ixImin2:ixImax2, rho_)*A_v*dsin(wavenumber*x(ixImin1:ixImax1,&
-         ixImin2:ixImax2,1)-frequency*global_time)
+         ixImin2:ixImax2,1)-frequency*qt)
       w(ixImin1:ixImax1,ixImin2:ixImax2, mom(2)) = zero
       w(ixImin1:ixImax1,ixImin2:ixImax2, e_) = eg0 + &
          A_e*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,&
-         1)-frequency*global_time)
+         1)-frequency*qt)
     endwhere
 
   end subroutine Initialize_Wave
@@ -174,15 +174,14 @@ contains
     case(1)
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, rho_) = rho0 + &
          A_rho*dsin(wavenumber*x(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
-         1)-frequency*global_time)
+         1)-frequency*qt)
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, mom(1)) = w(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2, rho_)*A_v*dsin(wavenumber*x(ixBmin1:ixBmax1,&
-         ixBmin2:ixBmax2,1)-frequency*global_time)
+         ixBmin2:ixBmax2,1)-frequency*qt)
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, mom(2)) = zero
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2, e_) = eg0 + &
          A_e*dsin(wavenumber*x(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
-         1)-frequency*global_time)
-
+         1)-frequency*qt)
     case default
       call mpistop('boundary not known')
     end select

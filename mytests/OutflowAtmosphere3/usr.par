@@ -61,7 +61,7 @@
 
  &paramlist
   courantpar       = 0.1d-1
-  !dtpar           = 1d-10
+  dtpar           = 1d-6
  /
 
  &rhd_list

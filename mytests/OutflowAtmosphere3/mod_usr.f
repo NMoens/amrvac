@@ -31,7 +31,11 @@ module mod_usr
   double precision :: sp_rho
   double precision :: sp_T
   double precision :: sp_p
+  double precision :: sp_Er
   double precision :: Heff
+
+  integer :: int_r, int_v, int_re, int_dt
+
 
 contains
 
@@ -61,12 +65,20 @@ contains
     ! Special Opacity
     usr_special_opacity => Opacity_stepfunction
 
+    ! Analysis
+    usr_modify_output => time_average_values
+
     ! Output routines
     usr_aux_output    => specialvar_output
     usr_add_aux_names => specialvarnames_output
 
     ! Active the physics module
     call rhd_activate()
+
+    int_r = var_set_extravar("int_r", "int_r")
+    int_v = var_set_extravar("int_v", "int_v")
+    int_re = var_set_extravar("int_re", "int_re")
+    int_dt = var_set_extravar("int_dt", "int_dt")
 
   end subroutine usr_init
 
@@ -100,6 +112,7 @@ contains
     sp_rho = M_dot/(4*dpi*R_star**2*sp_sos)
     sp_T = fld_mu*mp_cgs/kB_cgs*sp_sos**2
     sp_p = sp_sos**2*sp_rho
+    sp_Er = const_rad_a*sp_T**4.d0
 
     if (mype .eq. 0) then
       print*, 'soundspeed at sonic point', sp_sos
@@ -155,7 +168,8 @@ contains
     sp_sos = sp_sos/unit_velocity
     sp_rho = sp_rho/unit_density
     sp_T = sp_T/unit_temperature
-    sp_p = sp_p/unit_temperature
+    sp_p = sp_p/unit_pressure
+    sp_Er = sp_Er/unit_pressure
     Heff = Heff/unit_length
 
     !> Make initial profiles dimensionless
@@ -248,6 +262,7 @@ contains
     integer :: i,j,b
     integer :: NumberOfBlocks
     double precision :: x_perc
+    double precision :: rand(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
     NumberOfBlocks = domain_nx2/block_nx2
 
@@ -267,6 +282,9 @@ contains
     call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
 
+    call RANDOM_NUMBER(rand)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rho_)*(one+1.d-1*rand(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
 
 
     ! print*, 'INITIAL CONDITIONS ################33'
@@ -307,7 +325,7 @@ contains
         w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,&
            2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
         do j = ixImin2,ixImax2
-          w(ixImin1:ixImax1,i,mom(2)) = min(1.2d0, w(ixImin1:ixImax1,i,&
+          w(ixImin1:ixImax1,i,mom(2)) = min(1.02d0, w(ixImin1:ixImax1,i,&
              mom(2)))
         enddo
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,&
@@ -322,6 +340,11 @@ contains
            r_e)) * 3.d0*w(ixImin1:ixImax1,i+2,i_op)*w(ixImin1:ixImax1,i+1,&
            rho_)/(const_c/unit_velocity) * (x(ixImin1:ixImax1,i+2,&
            2) - x(ixImin1:ixImax1,i,2))
+
+        do j = ixImin2,ixImax2
+          w(ixImin1:ixImax1,i,r_e) = min(1.5d0*sp_Er, w(ixImin1:ixImax1,i,&
+             r_e))
+        enddo
       enddo
 
 
@@ -509,34 +532,64 @@ contains
 
   subroutine specialrefine_grid(igrid,level,ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
      ixmin1,ixmin2,ixmax1,ixmax2,qt,w,x,refine,coarsen)
-  ! Enforce additional refinement or coarsening
-  ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
-  ! you must set consistent values for integers refine/coarsen:
-  ! refine = -1 enforce to not refine
-  ! refine =  0 doesn't enforce anything
-  ! refine =  1 enforce refinement
-  ! coarsen = -1 enforce to not coarsen
-  ! coarsen =  0 doesn't enforce anything
-  ! coarsen =  1 enforce coarsen
-  use mod_global_parameters
+    ! Enforce additional refinement or coarsening
+    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+    ! you must set consistent values for integers refine/coarsen:
+    ! refine = -1 enforce to not refine
+    ! refine =  0 doesn't enforce anything
+    ! refine =  1 enforce refinement
+    ! coarsen = -1 enforce to not coarsen
+    ! coarsen =  0 doesn't enforce anything
+    ! coarsen =  1 enforce coarsen
+    use mod_global_parameters
 
-  integer, intent(in) :: igrid, level, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
-     ixmin2,ixmax1,ixmax2
-  double precision, intent(in) :: qt, w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:nw),&
-      x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:ndim)
-  integer, intent(inout) :: refine, coarsen
+    integer, intent(in) :: igrid, level, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
+        ixmin1,ixmin2,ixmax1,ixmax2
+    double precision, intent(in) :: qt, w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+       1:nw), x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:ndim)
+    integer, intent(inout) :: refine, coarsen
 
-  ! test with different levels of refinement enforced
-  if (it .gt. 1) then
-    if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,&
-       2) < 3.d0/4.d0 * xprobmax2)) refine=1
-    if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,&
-       2) < 2.d0/4.d0 * xprobmax2)) refine=1
-    if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,&
-       2) < 1.d0/4.d0 * xprobmax2)) refine=1
-  endif
+    ! test with different levels of refinement enforced
+    if (it .gt. 1) then
+      if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,&
+         2) < 3.d0/4.d0 * xprobmax2)) refine=1
+      if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,&
+         2) < 2.d0/4.d0 * xprobmax2)) refine=1
+      if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,&
+         2) < 1.d0/4.d0 * xprobmax2)) refine=1
+    endif
 
-end subroutine specialrefine_grid
+  end subroutine specialrefine_grid
+
+
+  subroutine time_average_values(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+     ixOmin2,ixOmax1,ixOmax2,qt,w,x)
+    use mod_global_parameters
+    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)    :: qt,x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+
+    !!!ARE V AND MOM IN RADIAL COORDS???
+
+    if (it .gt. 5) then
+      w(ixImin1:ixImax1,ixImin2:ixImax2,int_r) = w(ixImin1:ixImax1,&
+         ixImin2:ixImax2,int_r) + w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)*dt
+      w(ixImin1:ixImax1,ixImin2:ixImax2,int_v) =  w(ixImin1:ixImax1,&
+         ixImin2:ixImax2,int_v) + w(ixImin1:ixImax1,ixImin2:ixImax2,&
+         mom(1))/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)*dt
+      w(ixImin1:ixImax1,ixImin2:ixImax2,int_re) = w(ixImin1:ixImax1,&
+         ixImin2:ixImax2,int_re) + w(ixImin1:ixImax1,ixImin2:ixImax2,r_e)*dt
+
+      w(ixImin1:ixImax1,ixImin2:ixImax2,int_dt) =  w(ixImin1:ixImax1,&
+         ixImin2:ixImax2,int_dt) + dt
+    else
+      w(ixImin1:ixImax1,ixImin2:ixImax2,int_r) = zero
+      w(ixImin1:ixImax1,ixImin2:ixImax2,int_v) = zero
+      w(ixImin1:ixImax1,ixImin2:ixImax2,int_re) = zero
+    endif
+  end subroutine time_average_values
 
   subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2,w,x,normconv)

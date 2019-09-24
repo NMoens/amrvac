@@ -310,7 +310,8 @@ contains
         w(ixImin1:ixImax1,i,mom(1)) = zero
         w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
         do j = ixImin2,ixImax2
-          w(ixImin1:ixImax1,i,mom(2)) = min(1.02d0, w(ixImin1:ixImax1,i,mom(2)))
+          w(ixImin1:ixImax1,i,mom(2)) = min(1.5d0, w(ixImin1:ixImax1,i,mom(2)))
+          w(ixImin1:ixImax1,i,mom(2)) = max(-1.0d0, w(ixImin1:ixImax1,i,mom(2)))
         enddo
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
         + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
@@ -318,11 +319,12 @@ contains
         w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
         + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
         - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
-        * 3.d0*w(ixImin1:ixImax1,i+2,i_op)*w(ixImin1:ixImax1,i+1,rho_)/(const_c/unit_velocity) &
+        *(1.d0/w(ixImin1:ixImax1,i+2,i_lambda))*w(ixImin1:ixImax1,i+2,i_op)*w(ixImin1:ixImax1,i+1,rho_)/(const_c/unit_velocity) &
         * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
 
         do j = ixImin2,ixImax2
           w(ixImin1:ixImax1,i,r_e) = min(1.5d0*sp_Er, w(ixImin1:ixImax1,i,r_e))
+          w(ixImin1:ixImax1,i,r_e) = max(0.5d0*sp_Er, w(ixImin1:ixImax1,i,r_e))
         enddo
       enddo
 

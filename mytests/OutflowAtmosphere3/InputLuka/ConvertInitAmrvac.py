@@ -11,10 +11,10 @@ i, r, v, rho, er = np.loadtxt(strc,skiprows = 2, unpack=True)
 
 Mdot = 4*np.pi*r**2*rho*v
 
-n_cells = 256
+n_cells = 64
 n_gh = 2
 R_min = 1.*rsun
-R_max = 13.*rsun
+R_max = 7.*rsun
 
 inew = range(n_cells+2*n_gh)
 

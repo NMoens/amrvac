@@ -11,7 +11,7 @@ module m_octree_mg
   use m_multigrid
   use m_helmholtz
   use m_vhelmholtz
-  ! use m_free_space
+  use m_free_space
 
   implicit none
   public

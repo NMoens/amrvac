@@ -9,7 +9,7 @@ vpath %.f90 ../poisson_3d_fft
 
 include ../makerules.make
 include ../src/definitions.make
-# include ../poisson_3d_fft/definitions.make
+include ../poisson_3d_fft/definitions.make
 
 $(LIBOMG): $(OBJECTS)
 	$(RM) $@

@@ -1,5 +1,5 @@
 PROGS_2D := test_uniform_grid_2d test_performance_2d test_refinement_2d
-PROGS_3D := test_uniform_grid_3d test_performance_3d test_free_space_3d test_refinement_3d
+PROGS_3D := test_uniform_grid_3d test_performance_3d test_refinement_3d
 LIBS = omg
 
 include ../makerules.make
@@ -25,7 +25,6 @@ run: $(PROGS_2D) $(PROGS_3D)
 	mpirun ./test_refinement_3d 3 16 64 64 64 10 t
 	mpirun ./test_refinement_2d 3 16 64 64 10 f
 	mpirun ./test_refinement_3d 3 16 64 64 64 10 f
-	mpirun ./test_free_space_3d 16 64 64 64
 
 $(PROGS_2D): LIBDIRS+=../lib_2d
 $(PROGS_2D): INCDIRS+=../lib_2d

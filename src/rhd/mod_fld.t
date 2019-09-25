@@ -749,12 +749,15 @@ module mod_fld
     ! call mg_copy_from_tree(mg_iphi, iw_r_e)
     ! active = .true.
 
-
+    print*, 'beginning diffusion', mype
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
     call diffusion_solve_vcoeff(mg, qdt, 2, fld_diff_tol)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
     active = .true.
+
+    print*, 'ending diffusion', mype
+
 
   end subroutine Diffuse_E_rad_mg
 
@@ -1507,12 +1510,6 @@ module mod_fld
     c0(ixO^S) = ((one + a2(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a2(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
-
-    ! print*, it, 'Before'
-    ! do i = ixOmin2,ixOmax2
-    !   print*,  half*(w(5,i, iw_mom(1))**2+w(5,i, iw_mom(2))**2)/w(5,i, iw_rho), w(5,i,iw_e), w(5,i,iw_r_e)
-    ! enddo
-
     !> Loop over every cell for rootfinding method
     {do ix^D=ixOmin^D,ixOmax^D\ }
       select case(fld_interaction_method)
@@ -1535,11 +1532,6 @@ module mod_fld
 
     !> Update rad-energy in w
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
-
-    ! print*, it, 'After'
-    ! do i = ixOmin2,ixOmax2
-    !   print*,  a2(5,i), w(5,i,iw_e), w(5,i,iw_r_e)
-    ! enddo
 
   end subroutine Energy_interaction
 
@@ -1629,17 +1621,25 @@ module mod_fld
 
     double precision :: xval, yval, der, deltax
 
+    integer :: ii
+
     yval = bigdouble
     xval = e_gas
     der = one
     deltax = one
 
+    ii = 0
     !> Compare error with dx = dx/dy dy
     do while (abs(deltax) .gt. fld_bisect_tol)
       yval = Polynomial_Bisection(xval, c0, c1)
       der = dPolynomial_Bisection(xval, c0, c1)
       deltax = -yval/der
       xval = xval + deltax
+      ii = ii + 1
+      if (ii .gt. 1d2) then
+        call Bisection_method(e_gas, E_rad, c0, c1)
+        return
+      endif
     enddo
 
     e_gas = xval
@@ -1655,12 +1655,15 @@ module mod_fld
 
     double precision :: xval, yval, der, dder, deltax
 
+    integer :: ii
+
     yval = bigdouble
     xval = e_gas
     der = one
     dder = one
     deltax = one
 
+    ii = 0
     !> Compare error with dx = dx/dy dy
     do while (abs(deltax) .gt. fld_bisect_tol)
       yval = Polynomial_Bisection(xval, c0, c1)
@@ -1668,6 +1671,12 @@ module mod_fld
       dder = ddPolynomial_Bisection(xval, c0, c1)
       deltax = -two*yval*der/(two*der**2 - yval*dder)
       xval = xval + deltax
+      ii = ii + 1
+      if (ii .gt. 1d2) then
+        call mpistop('Halley did not convergggge')
+        call Newton_method(e_gas, E_rad, c0, c1)
+        return
+      endif
     enddo
 
     e_gas = xval

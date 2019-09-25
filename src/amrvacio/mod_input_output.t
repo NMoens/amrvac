@@ -821,14 +821,14 @@ contains
 
     if (any(stretched_dim)) then
        allocate(qstretch(0:nlevelshi,1:ndim),dxfirst(0:nlevelshi,1:ndim),&
-             dxfirst_1mq(0:nlevelshi,1:ndim),dxmid(0:nlevelshi,1:ndim)) 
+             dxfirst_1mq(0:nlevelshi,1:ndim),dxmid(0:nlevelshi,1:ndim))
        allocate(nstretchedblocks(1:nlevelshi,1:ndim))
        qstretch(0:nlevelshi,1:ndim)=0.0d0
        dxfirst(0:nlevelshi,1:ndim)=0.0d0
        nstretchedblocks(1:nlevelshi,1:ndim)=0
        {if (stretch_type(^D) == stretch_uni) then
-           ! first some sanity checks 
-           if(qstretch_baselevel(^D)<1.0d0.or.qstretch_baselevel(^D)==bigdouble) then 
+           ! first some sanity checks
+           if(qstretch_baselevel(^D)<1.0d0.or.qstretch_baselevel(^D)==bigdouble) then
              if(mype==0) then
                write(*,*) 'stretched grid needs finite qstretch_baselevel>1'
                write(*,*) 'will try default value for qstretch_baselevel in dimension', ^D
@@ -879,8 +879,8 @@ contains
            ! compute stretched part to ensure uniform center
            ipower=(nstretchedblocks_baselevel(^D)/2)*block_nx^D
            if(nstretchedblocks_baselevel(^D)==domain_nx^D/block_nx^D)then
-              xstretch^D=0.5d0*(xprobmax^D-xprobmin^D) 
-           else 
+              xstretch^D=0.5d0*(xprobmax^D-xprobmin^D)
+           else
               xstretch^D=(xprobmax^D-xprobmin^D) &
                 /(2.0d0+dble(domain_nx^D-nstretchedblocks_baselevel(^D)*block_nx^D) &
                *(1.0d0-qstretch_baselevel(^D))/(1.0d0-qstretch_baselevel(^D)**ipower))
@@ -1192,7 +1192,7 @@ contains
     call phys_write_info(fh)
 
     ! Write snapshotnext etc., which is useful for restarting.
-    ! Note we add one, since snapshotnext is updated *after* this procedure 
+    ! Note we add one, since snapshotnext is updated *after* this procedure
     call MPI_FILE_WRITE(fh, snapshotnext+1, 1, MPI_INTEGER, st, er)
     call MPI_FILE_WRITE(fh, slicenext, 1, MPI_INTEGER, st, er)
     call MPI_FILE_WRITE(fh, collapsenext, 1, MPI_INTEGER, st, er)
@@ -1703,7 +1703,7 @@ contains
                    shape(w(ixO^S, 1:nw_found)))
               ps(igrid)%ws(ixOs^S,1:nws)=reshape(w_buffer(n_values_stagger+1:n_values), &
                    shape(ws(ixOs^S, 1:nws)))
-            else 
+            else
               w(ixO^S, 1:nw_found) = reshape(w_buffer(1:n_values), &
                    shape(w(ixO^S, 1:nw_found)))
             end if

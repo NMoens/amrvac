@@ -94,7 +94,7 @@ contains
 
     !> Gamma at the base is one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
-    kappa_b = one*4*dpi*const_G*M_star*const_c/L_0
+    kappa_b = 0.9d0* one*4*dpi*const_G*M_star*const_c/L_0
 
 
     allocate(r_arr(domain_nx2+2*nghostcells))
@@ -276,7 +276,7 @@ contains
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
     call RANDOM_NUMBER(rand)
-    w(ixO^S,rho_) = w(ixO^S,rho_)*(one+1.d-1*rand(ixO^S))
+    w(ixO^S,rho_) = w(ixO^S,rho_)*(one+1.d-2*rand(ixO^S))
 
 
     ! print*, 'INITIAL CONDITIONS ################33'
@@ -467,30 +467,30 @@ contains
 
   end subroutine Opacity_stepfunction
 
-  subroutine specialrefine_grid(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
-    ! Enforce additional refinement or coarsening
-    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
-    ! you must set consistent values for integers refine/coarsen:
-    ! refine = -1 enforce to not refine
-    ! refine =  0 doesn't enforce anything
-    ! refine =  1 enforce refinement
-    ! coarsen = -1 enforce to not coarsen
-    ! coarsen =  0 doesn't enforce anything
-    ! coarsen =  1 enforce coarsen
-    use mod_global_parameters
-
-    integer, intent(in) :: igrid, level, ixG^L, ix^L
-    double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
-    integer, intent(inout) :: refine, coarsen
-
-    ! test with different levels of refinement enforced
-    if (it .gt. 1) then
-      if (any(x(ix^S,2) < 3.d0/4.d0 * xprobmax2)) refine=1
-      if (any(x(ix^S,2) < 2.d0/4.d0 * xprobmax2)) refine=1
-      if (any(x(ix^S,2) < 1.d0/4.d0 * xprobmax2)) refine=1
-    endif
-
-  end subroutine specialrefine_grid
+  ! subroutine specialrefine_grid(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+  !   ! Enforce additional refinement or coarsening
+  !   ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+  !   ! you must set consistent values for integers refine/coarsen:
+  !   ! refine = -1 enforce to not refine
+  !   ! refine =  0 doesn't enforce anything
+  !   ! refine =  1 enforce refinement
+  !   ! coarsen = -1 enforce to not coarsen
+  !   ! coarsen =  0 doesn't enforce anything
+  !   ! coarsen =  1 enforce coarsen
+  !   use mod_global_parameters
+  !
+  !   integer, intent(in) :: igrid, level, ixG^L, ix^L
+  !   double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+  !   integer, intent(inout) :: refine, coarsen
+  !
+  !   ! test with different levels of refinement enforced
+  !   if (it .gt. 1) then
+  !     if (any(x(ix^S,2) < 3.d0/4.d0 * xprobmax2)) refine=1
+  !     if (any(x(ix^S,2) < 2.d0/4.d0 * xprobmax2)) refine=1
+  !     if (any(x(ix^S,2) < 1.d0/4.d0 * xprobmax2)) refine=1
+  !   endif
+  !
+  ! end subroutine specialrefine_grid
 
 
   subroutine time_average_values(ixI^L,ixO^L,qt,w,x)

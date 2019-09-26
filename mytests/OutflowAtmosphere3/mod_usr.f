@@ -95,7 +95,7 @@ contains
 
     !> Gamma at the base is one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
-    kappa_b = 0.9d0* one*4*dpi*const_G*M_star*const_c/L_0
+    kappa_b = one*4*dpi*const_G*M_star*const_c/L_0
 
 
     allocate(r_arr(domain_nx2+2*nghostcells))

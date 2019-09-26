@@ -803,7 +803,7 @@ module mod_fld
 
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
-    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
+    call mg_copy_to_tree(i_diff_mg, mg_iveps, .false., .false.)
   end subroutine set_mg_diffcoef
 
   !> Sets boundary conditions for multigrid, based on hydro-bounds

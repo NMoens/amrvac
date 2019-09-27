@@ -148,6 +148,7 @@ contains
 
       print*, 'unit_length', unit_length
       print*, 'unit_density', unit_density
+      print*, 'unit_numberdensity', unit_numberdensity
       print*, 'unit_pressure', unit_pressure
       print*, 'unit_temperature', unit_temperature
       print*, 'unit_radflux', unit_radflux
@@ -309,9 +310,9 @@ contains
         w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
         w(ixImin1:ixImax1,i,mom(1)) = zero
         w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
-        do j = ixImin2,ixImax2
-          w(ixImin1:ixImax1,i,mom(2)) = min(1.5d0, w(ixImin1:ixImax1,i,mom(2)))
-          w(ixImin1:ixImax1,i,mom(2)) = max(-1.0d0, w(ixImin1:ixImax1,i,mom(2)))
+        do j = ixImin1,ixImax1
+          w(j,i,mom(2)) = min(1.5d0, w(j,i,mom(2)))
+          w(j,i,mom(2)) = max(-1.0d0, w(j,i,mom(2)))
         enddo
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
         + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
@@ -322,9 +323,9 @@ contains
         *(1.d0/w(ixImin1:ixImax1,i+2,i_lambda))*w(ixImin1:ixImax1,i+2,i_op)*w(ixImin1:ixImax1,i+1,rho_)/(const_c/unit_velocity) &
         * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
 
-        do j = ixImin2,ixImax2
-          w(ixImin1:ixImax1,i,r_e) = min(1.5d0*sp_Er, w(ixImin1:ixImax1,i,r_e))
-          w(ixImin1:ixImax1,i,r_e) = max(0.5d0*sp_Er, w(ixImin1:ixImax1,i,r_e))
+        do j = ixImin1,ixImax1
+          w(j,i,r_e) = min(1.5d0*sp_Er, w(j,i,r_e))
+          w(j,i,r_e) = max(0.5d0*sp_Er, w(j,i,r_e))
         enddo
       enddo
 

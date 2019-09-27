@@ -40,7 +40,7 @@ def extract(data,varname,attribute_mode='cell'):
         vtk_values = pointdata.GetPointData().GetScalars(varname)
     else:
         print("attribute_mode is either 'cell' or 'point'")
-    
+
     return ah.vtk2array(vtk_values)
 
 #=============================================================================
@@ -58,7 +58,7 @@ class load:
         self.isLoaded = False
         self.mirrorPlane=mirrorPlane
         self.silent = silent
-        
+
         self.rotateX = rotateX
         self.rotateY = rotateY
         self.rotateZ = rotateZ
@@ -78,7 +78,7 @@ class load:
             self.datareader = v.vtkXMLImageDataReader()
         else:
             print('Unknown filetype')
-            
+
         if (self.silent == 0): print('========================================')
         if (self.silent == 0): print('loading file %s' % (self.filename))
 
@@ -101,7 +101,7 @@ class load:
             return tmp
         except AttributeError:
             print("Unknown variable", varname)
-    
+
     def getData(self):
         self.datareader.SetFileName(self.filename)
         self.datareader.Update()
@@ -133,13 +133,17 @@ class load:
         else:
             self.pointdata=self.data
 
-
     def getVars(self):
         nvars= self.data.GetCellData().GetNumberOfArrays()
         for i in range(nvars):
+
             varname = self.data.GetCellData().GetArrayName(i)
+
             if (self.silent == 0): print("Assigning variable:", varname)
             vtk_values = self.data.GetCellData().GetArray(varname)
+
+            if varname == 'lambda':
+                varname = 'Lambda'
             exec("self.%s = ah.vtk2array(vtk_values)[0:self.ncells]" % (varname))
 
 
@@ -162,9 +166,9 @@ class load:
         if self.data.GetCell(icell).GetCellType() == 3 :
             pts=ah.vtk2array(self.data.GetCell(icell).GetPoints().GetData())
             return np.array((pts[0][0],pts[1][0]))
-        else: 
+        else:
             if (self.silent == 0): print("Can handle only type 3 or type 8")
-        
+
 
     def getPointList(self):
         tstart = default_timer()
@@ -186,7 +190,7 @@ class load:
                 self.ylist.extend((pts[0][1],pts[1][1],pts[3][1],pts[2][1],None))
         tend = default_timer()
         if (self.silent == 0): print('Getting formatted pointlist time=%f sec' % (tend-tstart))
-        return [self.xlist,self.ylist]        
+        return [self.xlist,self.ylist]
 
 
     def getCenterPoints(self):
@@ -584,11 +588,11 @@ class particles():
 
         for ipayload in range(self.npayload):
             (payload[ipayload],) = struct.unpack('d',self.file.read(8))
-        
-        self.data.append({'index':index, 'q':q, 
-                          'follow':follow, 'm':m, 't':t, 
+
+        self.data.append({'index':index, 'q':q,
+                          'follow':follow, 'm':m, 't':t,
                           'dt':dt, 'x':x, 'u':u, 'payload':payload})
-        
+
         self.mynparticles= self.mynparticles + 1
 
 
@@ -651,24 +655,24 @@ class ensemble():
         iteration_ = ipe_+1
         index_     = iteration_+1
 
-        if x.shape[1] == index_+1 : 
+        if x.shape[1] == index_+1 :
 
             for particle in x:
-                self.data.append({'t':particle[t_],  
-                                  'dt':particle[dt_], 'x':np.array(particle[x1_:x1_+self.components]), 
-                                  'u':np.array(particle[u1_:u1_+self.components]), 
+                self.data.append({'t':particle[t_],
+                                  'dt':particle[dt_], 'x':np.array(particle[x1_:x1_+self.components]),
+                                  'u':np.array(particle[u1_:u1_+self.components]),
                                   'payload':np.array(particle[payload_:payload_+self.npayload]),
                                   'ipe':particle[ipe_].astype(np.int), 'iteration':particle[iteration_].astype(np.int), 'index':particle[index_].astype(np.int)})
 
         else:
             print('File inconsistent, assuming iteration counter overflow')
             for particle in x:
-                self.data.append({'t':particle[t_],  
-                                  'dt':particle[dt_], 'x':np.array(particle[x1_:x1_+self.components]), 
-                                  'u':np.array(particle[u1_:u1_+self.components]), 
+                self.data.append({'t':particle[t_],
+                                  'dt':particle[dt_], 'x':np.array(particle[x1_:x1_+self.components]),
+                                  'u':np.array(particle[u1_:u1_+self.components]),
                                   'payload':np.array(particle[payload_:payload_+self.npayload]),
                                   'garbage':particle[ipe_].astype(np.int), 'index':particle[index_-1].astype(np.int)})
-            
+
 
         self.isLoaded = True
 
@@ -698,7 +702,7 @@ class postrad():
         self.__openfiles()
         self.__read()
         self.__closefiles()
-        
+
     def __makefilenames(self):
         self.filename_vars = self.filenameout+str(self.offset).zfill(4)+'.blk'
         self.filename_grid = self.filenameout+'_grid.blk'
@@ -716,7 +720,7 @@ class postrad():
         self.__set_dtype()
         self.__read_grid()
         self.__read_data()
-        
+
     def __read_header(self):
         file_vars = self.file_vars
         file_vars.seek(0)
@@ -742,9 +746,9 @@ class postrad():
             single_precision = True
         else:
             single_precision = False
-        
+
         self.header = {'nr':nr, 'ntheta':ntheta, 'nphi':nphi,'t':t,'a':a,'r_in':r_in,'theta_in':theta_in,'phi_in':phi_in,'r_out':r_out,'theta_out':theta_out,'phi_out':phi_out,'gammahat':gammahat,'hslope':hslope,'imetric':imetric,'dim':dim,'single_precision':single_precision}
-    
+
     def __set_dtype(self):
         if (self.header['single_precision']):
             self.__dtype_str = 'f'
@@ -755,10 +759,10 @@ class postrad():
         file_vars = self.file_vars
         header = self.header
         file_vars.seek(self.headersize)
-            
+
         len_bytes = header['nphi']*header['ntheta']*header['nr']*self.nvars
         data = np.array(struct.unpack(self.__dtype_str*len_bytes,file_vars.read())).reshape(header['nphi'],header['ntheta'],header['nr'],self.nvars)
-        
+
         self.data = data
 
     def __read_grid(self):
@@ -767,5 +771,5 @@ class postrad():
         file_grid.seek(0)
         len_bytes = header['nphi']*header['ntheta']*header['nr']*3
         data = np.array(struct.unpack(self.__dtype_str*len_bytes,file_grid.read())).reshape(header['nphi'],header['ntheta'],header['nr'],3)
-        
+
         self.grid = data

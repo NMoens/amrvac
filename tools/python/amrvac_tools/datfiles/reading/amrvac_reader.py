@@ -81,6 +81,13 @@ class load_file():
         print("-" * 40)
         print("Known variables: {}".format(self.known_fields))
 
+    def get_varnames(self):
+        """
+        returns list of variable names
+        """
+        return self.known_fields
+
+
     def get_bounds(self):
         """
         Get the bounds of the calculation domain.

@@ -166,7 +166,7 @@ module mod_fld
 
     !> Introduce opacity, lambda and R as global variables
     i_op = var_set_extravar("Kappa", "Kappa")
-    i_lambda = var_set_extravar("lambda", "lambda")
+    i_lambda = var_set_extravar("Lambda", "Lambda")
     i_fld_R = var_set_extravar("fld_R", "fld_R")
 
     !> Introduce test variable globally
@@ -473,8 +473,8 @@ module mod_fld
       do idir = 1,ndir
         vel(ixI^S) = w(ixI^S,iw_mom(idir))/w(ixI^S,iw_rho)
         call gradient(vel,ixI^L,ixO^L,idir,gradv)
-        forceM(ixI^S) = Qbar/(one-alpha) &
-        *(gradv(ixI^S)/(w(ixI^S,iw_rho)*(const_c/unit_velocity)*Qbar*w(ixI^S,i_op)))**alpha
+        forceM(ixO^S) = Qbar/(one-alpha) &
+        *(gradv(ixO^S)/(w(ixO^S,iw_rho)*(const_c/unit_velocity)*Qbar*w(ixO^S,i_op)))**alpha
         w(ixO^S,i_opf(idir)) = w(ixO^S,i_op)*forceM(ixO^S)
       enddo
     else
@@ -513,16 +513,16 @@ module mod_fld
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      fld_R(ixI^S) = dsqrt(normgrad2(ixI^S))/(w(ixI^S,i_op)*w(ixI^S,iw_rho)*w(ixI^S,iw_r_e))
+      fld_R(ixI^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
-      fld_lambda(ixI^S) = one/fld_R(ixI^S)
+      fld_lambda(ixO^S) = one/fld_R(ixO^S)
 
-      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
-      w(ixI^S,i_fld_R) = fld_R(ixI^S)
+      w(ixO^S,i_lambda) = fld_lambda(ixO^S)
+      w(ixO^S,i_fld_R) = fld_R(ixO^S)
 
     case('Pomraning')
       !> Calculate R everywhere
@@ -532,17 +532,17 @@ module mod_fld
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      fld_R(ixI^S) = dsqrt(normgrad2(ixI^S))/(w(ixI^S,i_op)*w(ixI^S,iw_rho)*w(ixI^S,iw_r_e))
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       !> Levermore and Pomraning: lambda = (2 + R)/(6 + 3R + R^2)
-      fld_lambda(ixI^S) = (2.d0+fld_R(ixI^S))/(6.d0+3*fld_R(ixI^S)+fld_R(ixI^S)**2.d0)
+      fld_lambda(ixO^S) = (2.d0+fld_R(ixO^S))/(6.d0+3*fld_R(ixO^S)+fld_R(ixO^S)**2.d0)
 
-      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
-      w(ixI^S,i_fld_R) = fld_R(ixI^S)
+      w(ixO^S,i_lambda) = fld_lambda(ixO^S)
+      w(ixO^S,i_fld_R) = fld_R(ixO^S)
 
     case('Pomraning2')
       !> Calculate R everywhere
@@ -552,17 +552,17 @@ module mod_fld
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      fld_R(ixI^S) = dsqrt(normgrad2(ixI^S))/(w(ixI^S,i_op)*w(ixI^S,iw_rho)*w(ixI^S,iw_r_e))
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
-      fld_lambda(ixI^S) = one/fld_R(ixI^S)*(one/dtanh(fld_R(ixI^S)) - one/fld_R(ixI^S))
+      fld_lambda(ixO^S) = one/fld_R(ixO^S)*(one/dtanh(fld_R(ixO^S)) - one/fld_R(ixO^S))
 
-      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
-      w(ixI^S,i_fld_R) = fld_R(ixI^S)
+      w(ixO^S,i_lambda) = fld_lambda(ixO^S)
+      w(ixO^S,i_fld_R) = fld_R(ixO^S)
 
 
     case('Minerbo')
@@ -573,14 +573,14 @@ module mod_fld
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        normgrad2(ixI^S) = normgrad2(ixI^S) + grad_r_e(ixI^S)**2
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      fld_R(ixI^S) = dsqrt(normgrad2(ixI^S))/(w(ixI^S,i_op)*w(ixI^S,iw_rho)*w(ixI^S,iw_r_e))
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       !> Minerbo:
-      {do ix^D=ixImin^D,ixImax^D\ }
+      {do ix^D=ixOmin^D,ixOmax^D\ }
           if (fld_R(ix^D) .lt. 3.d0/2.d0) then
             fld_lambda(ix^D) = 2.d0/(3.d0 + dsqrt(9.d0 + 12.d0*fld_R(ix^D)**2.d0))
           else
@@ -588,15 +588,15 @@ module mod_fld
           endif
       {enddo\}
 
-      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
-      w(ixI^S,i_fld_R) = fld_R(ixI^S)
+      w(ixO^S,i_lambda) = fld_lambda(ixO^S)
+      w(ixO^S,i_fld_R) = fld_R(ixO^S)
     case('special')
       if (.not. associated(usr_special_fluxlimiter)) then
         call mpistop("special fluxlimiter not defined")
       endif
       call usr_special_fluxlimiter(ixI^L, ixO^L, w, x, fld_lambda, fld_R)
-      w(ixI^S,i_lambda) = fld_lambda(ixI^S)
-      w(ixI^S,i_fld_R) = fld_R(ixI^S)
+      w(ixO^S,i_lambda) = fld_lambda(ixO^S)
+      w(ixO^S,i_fld_R) = fld_R(ixO^S)
     case default
       call mpistop('Fluxlimiter unknown')
     end select
@@ -624,10 +624,10 @@ module mod_fld
     do idir = 1,ndir
       !> gradient or gradientS ?!?!?!?!?!?
       call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-      rad_flux(ixI^S, idir) = -(const_c/unit_velocity)*w(ixI^S,i_lambda)/(w(ixI^S,i_op)*w(ixI^S,iw_rho))*grad_r_e(ixI^S)
+      rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
 
-    w(ixI^S,i_flux(:)) = rad_flux(ixI^S,:)
+    w(ixO^S,i_flux(:)) = rad_flux(ixO^S,:)
 
     ! !>Cheaty bit:
     !   w(:,ixOmin2,i_flux(2)) = (x(:,ixOmin2+1,2)/x(:,ixOmin2,2))**2*w(:,ixOmin2+1,i_flux(2))

@@ -285,14 +285,7 @@ contains
 
     call RANDOM_NUMBER(rand)
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rho_)*(one+1.d-2*rand(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
-
-
-    ! print*, 'INITIAL CONDITIONS ################33'
-    ! do i = 1,10
-    !   print*, w(5,i,rho_), w(5,i,mom(2)), w(5,i,e_), w(5,i,r_e)
-    ! enddo
-    !
+       ixOmin2:ixOmax2,rho_)*(one+1.d-1*rand(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
 
   end subroutine initial_conditions
 
@@ -327,7 +320,7 @@ contains
            2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
         do j = ixImin1,ixImax1
           w(j,i,mom(2)) = min(1.5d0, w(j,i,mom(2)))
-          w(j,i,mom(2)) = max(-1.0d0, w(j,i,mom(2)))
+          w(j,i,mom(2)) = max(-0.5d0, w(j,i,mom(2)))
         enddo
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,&
            rho_)/(rhd_gamma - one) + half*(w(ixImin1:ixImax1,i,&
@@ -347,13 +340,6 @@ contains
           w(j,i,r_e) = max(0.5d0*sp_Er, w(j,i,r_e))
         enddo
       enddo
-
-
-      ! print*, 'BOUNARY COND ##########################################', it
-      ! do i = 1,10
-      !   print*, w(5,i,rho_), w(5,i,mom(2)), w(5,i,e_), w(5,i,r_e)
-      ! enddo
-
 
     case(4)
       do i = ixBmin2,ixBmax2

@@ -18,6 +18,12 @@ rel_diff = False
 cgs_units = False
 my_var = False
 
+
+# class User_variables:
+#     def __init__(self, filepath, variable)
+
+
+
 class Plotter:
     def __init__(self, filepath,variable):
         self.fig = plt.figure()
@@ -151,7 +157,7 @@ class Plotter:
             return 1.0/(ds.units.unit_density*ds.units.unit_length)
         elif varname == 'F1' or varname == 'F2':
             return ds.units.unit_velocity*ds.units.unit_pressure
-        elif varname == 'lambda' or varname == 'gamma' or varname == 'fld_R' or varname == 'D':
+        elif varname == 'Lambda' or varname == 'gamma' or varname == 'fld_R' or varname == 'D':
             return 1.e0
         else:
             print('Varname not known/defined')

@@ -313,7 +313,7 @@ contains
         w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
         + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
         - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
-        *(1.d0/w(ixImin1:ixImax1,i+2,i_lambda))*w(ixImin1:ixImax1,i+2,i_op)*w(ixImin1:ixImax1,i+1,rho_)/(const_c/unit_velocity) &
+        *(1.d0/w(ixImin1:ixImax1,nghostcells+1,i_lambda))*w(ixImin1:ixImax1,nghostcells+1,i_op)*w(ixImin1:ixImax1,i+1,rho_)/(const_c/unit_velocity) &
         * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
 
         do j = ixImin1,ixImax1
@@ -377,11 +377,11 @@ contains
     double precision :: radius(ixI^S)
     double precision :: mass
 
-    radius(ixI^S) = x(ixI^S,2)*unit_length
+    radius(ixO^S) = x(ixO^S,2)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
-    gravity_field(ixI^S,1) = zero
-    gravity_field(ixI^S,2) = -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
+    gravity_field(ixO^S,1) = zero
+    gravity_field(ixO^S,2) = -const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
 
   end subroutine set_gravitation_field
 
@@ -404,8 +404,8 @@ contains
     rdir = 2
     pdir = 1
 
-    v(ixI^S,1) = wCT(ixI^S,mom(1))/wCT(ixI^S,rho_)
-    v(ixI^S,2) = wCT(ixI^S,mom(2))/wCT(ixI^S,rho_)
+    v(ixO^S,1) = wCT(ixO^S,mom(1))/wCT(ixO^S,rho_)
+    v(ixO^S,2) = wCT(ixO^S,mom(2))/wCT(ixO^S,rho_)
 
     radius(ixO^S) = x(ixO^S,2)
 
@@ -415,9 +415,9 @@ contains
 
     !> dm_r/dt = +rho*v_p**2/r -rho*v_p**2/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
-    w(ixI^S,mom(rdir)) = w(ixI^S,mom(rdir)) + qdt*wCT(ixI^S,rho_)*v(ixI^S,pdir)**two/x(ixI^S,rdir) &
-                                            - qdt*2*wCT(ixI^S,rho_)*v(ixI^S,rdir)**two/x(ixI^S,rdir)
-    w(ixI^S,mom(pdir)) = w(ixI^S,mom(pdir)) - qdt*3*v(ixI^S,rdir)*v(ixI^S,pdir)*wCT(ixI^S,rho_)/x(ixI^S,rdir)
+    w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) + qdt*wCT(ixO^S,rho_)*v(ixO^S,pdir)**two/x(ixO^S,rdir) &
+                                            - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/x(ixO^S,rdir)
+    w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*3*v(ixO^S,rdir)*v(ixO^S,pdir)*wCT(ixO^S,rho_)/x(ixO^S,rdir)
 
 
     !> de/dt = -2 (e+p)v_r/r
@@ -527,13 +527,13 @@ contains
     double precision :: radius(ixI^S)
     double precision :: mass
 
-    radius(ixI^S) = x(ixI^S,2)*unit_length
+    radius(ixO^S) = x(ixO^S,2)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
     g_rad(ixO^S) = w(ixO^S,i_op)*w(ixO^S,i_flux(2))/(const_c/unit_velocity)
-    g_grav(ixI^S) = const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
+    g_grav(ixO^S) = const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
     big_gamma(ixO^S) = g_rad(ixO^S)/g_grav(ixO^S)
 
     call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)

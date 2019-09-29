@@ -331,9 +331,10 @@ contains
            r_e) + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,&
            2)**2.d0) - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,&
            rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,&
-           r_e)) *(1.d0/w(ixImin1:ixImax1,i+2,i_lambda))*w(ixImin1:ixImax1,i+2,&
-           i_op)*w(ixImin1:ixImax1,i+1,rho_)/(const_c/unit_velocity) * &
-           (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
+           r_e)) *(1.d0/w(ixImin1:ixImax1,nghostcells+1,&
+           i_lambda))*w(ixImin1:ixImax1,nghostcells+1,i_op)*w(ixImin1:ixImax1,&
+           i+1,rho_)/(const_c/unit_velocity) * (x(ixImin1:ixImax1,i+2,&
+           2) - x(ixImin1:ixImax1,i,2))
 
         do j = ixImin1,ixImax1
           w(j,i,r_e) = min(1.5d0*sp_Er, w(j,i,r_e))
@@ -405,14 +406,14 @@ contains
     double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: mass
 
-    radius(ixImin1:ixImax1,ixImin2:ixImax2) = x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,2)*unit_length
+    radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,2)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
-    gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,1) = zero
-    gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,&
-       2) = -const_G*mass/radius(ixImin1:ixImax1,&
-       ixImin2:ixImax2)**2*(unit_time**2/unit_length)
+    gravity_field(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1) = zero
+    gravity_field(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       2) = -const_G*mass/radius(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)**2*(unit_time**2/unit_length)
 
   end subroutine set_gravitation_field
 
@@ -439,10 +440,10 @@ contains
     rdir = 2
     pdir = 1
 
-    v(ixImin1:ixImax1,ixImin2:ixImax2,1) = wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-       mom(1))/wCT(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
-    v(ixImin1:ixImax1,ixImin2:ixImax2,2) = wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-       mom(2))/wCT(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
+    v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1) = wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       mom(1))/wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
+    v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2) = wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       mom(2))/wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
 
     radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = x(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,2)
@@ -455,16 +456,16 @@ contains
 
     !> dm_r/dt = +rho*v_p**2/r -rho*v_p**2/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(rdir)) = w(ixImin1:ixImax1,&
-       ixImin2:ixImax2,mom(rdir)) + qdt*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-       rho_)*v(ixImin1:ixImax1,ixImin2:ixImax2,pdir)**two/x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,rdir) - qdt*2*wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
-       rho_)*v(ixImin1:ixImax1,ixImin2:ixImax2,rdir)**two/x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,rdir)
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(pdir)) = w(ixImin1:ixImax1,&
-       ixImin2:ixImax2,mom(pdir)) - qdt*3*v(ixImin1:ixImax1,ixImin2:ixImax2,&
-       rdir)*v(ixImin1:ixImax1,ixImin2:ixImax2,pdir)*wCT(ixImin1:ixImax1,&
-       ixImin2:ixImax2,rho_)/x(ixImin1:ixImax1,ixImin2:ixImax2,rdir)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(rdir)) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,mom(rdir)) + qdt*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,pdir)**two/x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rdir) - qdt*2*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)**two/x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rdir)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(pdir)) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,mom(pdir)) - qdt*3*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rdir)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,pdir)*wCT(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rho_)/x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)
 
 
     !> de/dt = -2 (e+p)v_r/r
@@ -602,8 +603,8 @@ contains
     double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: mass
 
-    radius(ixImin1:ixImax1,ixImin2:ixImax2) = x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,2)*unit_length
+    radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,2)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
     call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
@@ -612,9 +613,9 @@ contains
     g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        i_op)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        i_flux(2))/(const_c/unit_velocity)
-    g_grav(ixImin1:ixImax1,ixImin2:ixImax2) = &
-       const_G*mass/radius(ixImin1:ixImax1,&
-       ixImin2:ixImax2)**2*(unit_time**2/unit_length)
+    g_grav(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
+       const_G*mass/radius(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)**2*(unit_time**2/unit_length)
     big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = g_rad(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)/g_grav(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 

@@ -502,13 +502,14 @@ module mod_fld
 
     select case (fld_fluxlimiter)
     case('Diffusion')
-      w(ixI^S,i_lambda) = one/3.d0
-      w(ixI^S,i_fld_R) = zero
+      w(ixO^S,i_lambda) = one/3.d0
+      w(ixO^S,i_fld_R) = zero
 
     case('FreeStream')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixI^S) = zero
+      normgrad2(ixO^S) = zero
+
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
@@ -516,7 +517,7 @@ module mod_fld
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      fld_R(ixI^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       fld_lambda(ixO^S) = one/fld_R(ixO^S)
@@ -527,7 +528,8 @@ module mod_fld
     case('Pomraning')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixI^S) = zero
+      normgrad2(ixO^S) = zero
+
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
@@ -547,7 +549,8 @@ module mod_fld
     case('Pomraning2')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixI^S) = zero
+      normgrad2(ixO^S) = zero
+
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
@@ -568,7 +571,8 @@ module mod_fld
     case('Minerbo')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixI^S) = zero
+      normgrad2(ixO^S) = zero
+
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
@@ -627,12 +631,10 @@ module mod_fld
       rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
 
-    w(ixO^S,i_flux(:)) = rad_flux(ixO^S,:)
+    w(ixO^S,i_test) = rad_flux(ixO^S,2)
 
-    ! !>Cheaty bit:
-    !   w(:,ixOmin2,i_flux(2)) = (x(:,ixOmin2+1,2)/x(:,ixOmin2,2))**2*w(:,ixOmin2+1,i_flux(2))
-    !
-    !   w(:,ixOmax2,i_flux(2)) = (x(:,ixOmax2,2)/x(:,ixOmax2-1,2))**2*w(:,ixOmax2-1,i_flux(2))
+
+    w(ixO^S,i_flux(:)) = rad_flux(ixO^S,:)
 
   end subroutine fld_get_radflux
 
@@ -656,7 +658,7 @@ module mod_fld
     normgrad2(ixO^S) = zero
 
     rad_e(ixI^S) = w(ixI^S, iw_r_e)
-    grad_r_e(ixI^S,:) = zero
+    grad_r_e(ixO^S,:) = zero
     do idir = 1,ndir
       !> gradient or gradientS ?!?!?!?!?!?
       call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
@@ -732,8 +734,11 @@ module mod_fld
     double precision             :: max_res
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
+    call MPI_BARRIER(icomm,ierrmpi)
     call diffusion_solve_vcoeff(mg, qdt, 2, fld_diff_tol)
-    call mg_copy_from_tree(mg_iphi, iw_r_e)
+    call MPI_BARRIER(icomm,ierrmpi)
+    call mg_copy_from_tree_gc(mg_iphi, iw_r_e)
+    call MPI_BARRIER(icomm,ierrmpi)
     active = .true.
 
   end subroutine Diffuse_E_rad_mg
@@ -780,8 +785,8 @@ module mod_fld
     if (size_D_filter .lt. 1) call mpistop("D filter of size < 1 makes no sense")
     if (size_D_filter .gt. nghostcells) call mpistop("D filter of size > nghostcells makes no sense")
 
-    tmp_D(ixI^S) = w(ixI^S,i_diff_mg)
-    filtered_D(ixI^S) = zero
+    tmp_D(ixO^S) = w(ixO^S,i_diff_mg)
+    filtered_D(ixO^S) = zero
 
     do filter = 1,size_D_filter
       {do ix^D = ixOmin^D+size_D_filter,ixOmax^D-size_D_filter\}
@@ -803,7 +808,7 @@ module mod_fld
 
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
-    call mg_copy_to_tree(i_diff_mg, mg_iveps, .false., .false.)
+    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
   end subroutine set_mg_diffcoef
 
   !> Sets boundary conditions for multigrid, based on hydro-bounds

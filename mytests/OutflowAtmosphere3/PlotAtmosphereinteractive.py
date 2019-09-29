@@ -8,6 +8,28 @@ import os, glob
 import tkinter as tk
 from tkinter import filedialog
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import asyncio as syn
+
+# Current possibilities:
+# press right
+# press left
+# press up
+# press down
+# press shift right
+# press shift left
+# press shift up
+# press shift down
+# press t
+# press l
+# press d
+# press u
+# press m
+# press i
+# press shift i
+
+
+
+
 
 
 file_counter = 0
@@ -19,15 +41,34 @@ cgs_units = False
 my_var = False
 
 
-# class User_variables:
-#     def __init__(self, filepath, variable)
 
+# class variables:
+#
+#     def g_rad(self,filepath):
+#
+#         return g_rad
+#
+#     def g_grav(self,filepath):
+#
+#         return g_grav
+#
+#     def Gamma(self,filepath):
+#
+#         return Gamma
+#
+#     def Trad(self,filepath):
+#
+#         return Trad
+#
+#     def Tgas(self,filepath):
+#
+#         return Tgas
 
 
 class Plotter:
     def __init__(self, filepath,variable):
         self.fig = plt.figure()
-        self.fig.canvas.mpl_connect('key_press_event', self.press)
+        self.cid = self.fig.canvas.mpl_connect('key_press_event', self.press)
         self.plotter(filepath,variable)
         plt.show()
 
@@ -138,6 +179,30 @@ class Plotter:
             print('plotting my variable:   ',my_var)
             self.plotter(files[file_counter],'my_variable1')
 
+        if event.key == 'i':
+            self.fig.canvas.mpl_disconnect(self.cid)
+            print('Go to variable:')
+            # gotovar = str(input("Enter variable name"))
+            self.cid = self.fig.canvas.mpl_connect('key_press_event', self.press)
+            try:
+                var_counter = variables.index(gotovar)
+                self.plotter(files[file_counter],variables[var_counter])
+            except:
+                print("Variable not recognised in list")
+                self.plotter(files[file_counter],variables[var_counter])
+
+        if event.key == 'I':
+            print('Go to snap:')
+
+            gotosnap = int(input("Enter index of snap"))
+            try:
+                file_counter = gotosnap
+                self.plotter(files[file_counter],variables[var_counter])
+            except:
+                print("snap number not recognised in list")
+                self.plotter(files[file_counter],variables[var_counter])
+
+
     def units(self, filepath, varname):
         ds = amrvac_reader.load_file(filepath)
 
@@ -163,7 +228,10 @@ class Plotter:
             print('Varname not known/defined')
             return 1.e0
 
-    def calc_myvariable(self,ad):
+    def calc_myvariable(self,filepath):
+        ds = amrvac_reader.load_file(filepath)
+        ad = ds.load_all_data()
+        x,y = ds.get_coordinate_arrays()
         data = (ad['e']-(ad['m1']**2 + ad['m2']**2)/(0.5*ad['rho']))*(1.666667 -1.0)
         return data
 
@@ -178,7 +246,7 @@ class Plotter:
         ny = len(y)
 
         if varname == 'my_variable1':
-            data = self.calc_myvariable(ad)
+            data = self.calc_myvariable(filepath)[0]
         else:
             data = ad[varname]
 

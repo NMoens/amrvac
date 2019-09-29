@@ -55,7 +55,7 @@ contains
     T0 = const_mp*fld_mu/const_kB*(p0/rho0)
     Er0 = const_rad_a*T0**4
 
-    tau_wave = 1.d0
+    tau_wave = 1.d3
 
     wavelength = tau_wave/(rho0*fld_kappa0)
     frequency = 2.d0*dpi*a0/wavelength

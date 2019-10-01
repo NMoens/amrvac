@@ -352,9 +352,14 @@ contains
     select case (iB)
       case (3)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmin2-1,r_e))/(ixImax1-ixImin1)!const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
       case (4)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        ! if (sum(w(:,ixOmax2,r_e)) .lt. sum(w(:,ixOmax2+1,r_e))) then
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        ! else
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        ! endif
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
         error stop "You have to set a user-defined boundary method"

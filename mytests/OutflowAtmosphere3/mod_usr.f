@@ -95,7 +95,7 @@ contains
 
     !> Gamma at the base is one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
-    kappa_b = one*4*dpi*const_G*M_star*const_c/L_0
+    kappa_b = 0.5*4*dpi*const_G*M_star*const_c/L_0
 
 
     allocate(r_arr(domain_nx2+2*nghostcells))
@@ -284,8 +284,11 @@ contains
        ixOmin2,ixOmax1,ixOmax2)
 
     call RANDOM_NUMBER(rand)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rho_)*(one+1.d-1*rand(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
+    where (x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2) .lt. 6)
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,rho_)*(one+1.d-1*rand(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2))
+    endwhere
 
   end subroutine initial_conditions
 
@@ -318,10 +321,10 @@ contains
         w(ixImin1:ixImax1,i,mom(1)) = zero
         w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,&
            2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
-        do j = ixImin1,ixImax1
-          w(j,i,mom(2)) = min(1.5d0, w(j,i,mom(2)))
-          w(j,i,mom(2)) = max(-0.5d0, w(j,i,mom(2)))
-        enddo
+        ! do j = ixImin1,ixImax1
+        !   w(j,i,mom(2)) = min(1.5d0*sp_rho*sp_sos, w(j,i,mom(2)))
+        !   w(j,i,mom(2)) = max(-0.d0*sp_rho*sp_sos, w(j,i,mom(2)))
+        ! enddo
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,&
            rho_)/(rhd_gamma - one) + half*(w(ixImin1:ixImax1,i,&
            mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,&
@@ -335,11 +338,10 @@ contains
            i_lambda))*w(ixImin1:ixImax1,nghostcells+1,i_op)*w(ixImin1:ixImax1,&
            i+1,rho_)/(const_c/unit_velocity) * (x(ixImin1:ixImax1,i+2,&
            2) - x(ixImin1:ixImax1,i,2))
-
-        do j = ixImin1,ixImax1
-          w(j,i,r_e) = min(1.5d0*sp_Er, w(j,i,r_e))
-          w(j,i,r_e) = max(0.5d0*sp_Er, w(j,i,r_e))
-        enddo
+        ! do j = ixImin1,ixImax1
+        !   w(j,i,r_e) = min(1.5d0*sp_Er, w(j,i,r_e))
+        !   w(j,i,r_e) = max(0.5d0*sp_Er, w(j,i,r_e))
+        ! enddo
       enddo
 
     case(4)

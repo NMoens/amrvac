@@ -631,9 +631,6 @@ module mod_fld
       rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
 
-    w(ixO^S,i_test) = rad_flux(ixO^S,2)
-
-
     w(ixO^S,i_flux(:)) = rad_flux(ixO^S,:)
 
   end subroutine fld_get_radflux
@@ -1078,7 +1075,7 @@ module mod_fld
       deltax = -yval/der
       xval = xval + deltax
       ii = ii + 1
-      if (ii .gt. 1d2) then
+      if (ii .gt. 1d3) then
         call Bisection_method(e_gas, E_rad, c0, c1)
         return
       endif
@@ -1114,8 +1111,8 @@ module mod_fld
       deltax = -two*yval*der/(two*der**2 - yval*dder)
       xval = xval + deltax
       ii = ii + 1
-      if (ii .gt. 1d2) then
-        call mpistop('Halley did not convergggge')
+      if (ii .gt. 1d3) then
+        ! call mpistop('Halley did not convergggge')
         call Newton_method(e_gas, E_rad, c0, c1)
         return
       endif

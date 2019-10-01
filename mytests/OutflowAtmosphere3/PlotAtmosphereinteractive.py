@@ -24,12 +24,21 @@ import asyncio as syn
 # press d
 # press u
 # press m
+# press a
+################
 # press i
 # press shift i
 
+unit_length=69599000000.0
+unit_numberdensity=729723637293892.50
+unit_temperature=189666.48683552662
 
+c_light = 2.99792458e10
+G_grav = 6.67191e-8
+M_sun = 1.9891000e33
+M_star = 1e1*M_sun
 
-
+hd_gamma = 1.66667
 
 
 file_counter = 0
@@ -39,30 +48,9 @@ lineout = False
 rel_diff = False
 cgs_units = False
 my_var = False
+fix_axes = True
+prim_cons = False
 
-
-
-# class variables:
-#
-#     def g_rad(self,filepath):
-#
-#         return g_rad
-#
-#     def g_grav(self,filepath):
-#
-#         return g_grav
-#
-#     def Gamma(self,filepath):
-#
-#         return Gamma
-#
-#     def Trad(self,filepath):
-#
-#         return Trad
-#
-#     def Tgas(self,filepath):
-#
-#         return Tgas
 
 
 class Plotter:
@@ -81,6 +69,9 @@ class Plotter:
         global rel_diff
         global cgs_units
         global my_var
+        global fix_axes
+        # global extra_vars
+        global prim_cons
 
         if event.key == 'right':
             if (file_counter + 1) < len(files):
@@ -170,14 +161,23 @@ class Plotter:
             print('cgs units:   ',cgs_units)
             self.plotter(files[file_counter],variables[var_counter])
 
-        if event.key == 'm':
-            print('Toggle standard variables and my defined variable')
-            if my_var:
-                my_var = False
+        if event.key == 'a':
+            print('Toggle fixed axes vs automatic axes')
+            if fix_axes:
+                fix_axes = False
             else:
-                my_var = True
-            print('plotting my variable:   ',my_var)
-            self.plotter(files[file_counter],'my_variable1')
+                fix_axes = True
+            print('Fixing axes:   ',fix_axes)
+            self.plotter(files[file_counter],variables[var_counter])
+
+        if event.key == 'c':
+            print('Toggle primitive vs conservative')
+            if prim_cons:
+                prim_cons = False
+            else:
+                prim_cons = True
+            print('Primitive variables:   ',prim_cons)
+            self.plotter(files[file_counter],variables[var_counter])
 
         if event.key == 'i':
             self.fig.canvas.mpl_disconnect(self.cid)
@@ -206,7 +206,7 @@ class Plotter:
     def units(self, filepath, varname):
         ds = amrvac_reader.load_file(filepath)
 
-        ds.units.set_units(unit_length=69599000000.0, unit_numberdensity=729723637293892.50, unit_temperature=189666.48683552662)
+        ds.units.set_units(unit_length=unit_length, unit_numberdensity=unit_numberdensity, unit_temperature=unit_temperature)
 
         if varname == 'rho':
             return ds.units.unit_density
@@ -222,18 +222,60 @@ class Plotter:
             return 1.0/(ds.units.unit_density*ds.units.unit_length)
         elif varname == 'F1' or varname == 'F2':
             return ds.units.unit_velocity*ds.units.unit_pressure
+        elif varname =='M_dot':
+            return ds.units.unit_density*ds.units.unit_length**3/ds.units.unit_time*(365.25*24*60*60)/M_sun
         elif varname == 'Lambda' or varname == 'gamma' or varname == 'fld_R' or varname == 'D':
             return 1.e0
         else:
             print('Varname not known/defined')
             return 1.e0
 
-    def calc_myvariable(self,filepath):
+    def calc_myvariable(self,filepath,varname):
         ds = amrvac_reader.load_file(filepath)
+        ds.units.set_units(unit_length=unit_length, unit_numberdensity=unit_numberdensity, unit_temperature=unit_temperature)
         ad = ds.load_all_data()
         x,y = ds.get_coordinate_arrays()
-        data = (ad['e']-(ad['m1']**2 + ad['m2']**2)/(0.5*ad['rho']))*(1.666667 -1.0)
-        return data
+        nx = len(x)
+        ny = len(y)
+
+        r = []
+        for i in range(nx):
+            r.append(y)
+        r = np.array(r)
+
+        #> Define your variables here:
+        if varname == 'a2':
+            p = (hd_gamma - 1)*(ad['e'] - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
+            a2 = p/ad['rho']
+            return a2
+
+        if varname == 'g_rad':
+            grad = ad['Kappa']*ad['F2']/c_light*ds.units.unit_velocity
+            return grad
+
+        if varname == 'g_grav':
+            ggrav = G_grav*M_star/(r*ds.units.unit_length)**2\
+            *(ds.units.unit_time**2/ds.units.unit_length)
+            return ggrav
+
+        if varname == 'Gamma':
+            grad = ad['Kappa']*ad['F2']/(c_light/ds.units.unit_velocity)
+            ggrav = G_grav*M_star/(r*ds.units.unit_length)**2\
+            *(ds.units.unit_time**2/ds.units.unit_length)
+            Gamma = grad/ggrav
+            return Gamma
+
+        if varname == 'M_dot':
+            M_dot = 4.*np.pi*ad['m2']*r**2.
+            return M_dot
+
+        if varname == 'radius':
+            return r
+
+
+        else:
+            print('variable not defined')
+
 
     def plotter(self, filepath, varname):
 
@@ -245,27 +287,38 @@ class Plotter:
         nx = len(x)
         ny = len(y)
 
-        if varname == 'my_variable1':
-            data = self.calc_myvariable(filepath)[0]
+        ds0 = amrvac_reader.load_file(files[0])
+        ad0 = ds0.load_all_data()
+
+        if varname in extra_vars:
+            data = self.calc_myvariable(filepath, varname)
+            data0 = self.calc_myvariable(files[0], varname)
         else:
             data = ad[varname]
+            data0 = ad0[varname]
 
         if rel_diff:
-            ds0 = amrvac_reader.load_file(files[0])
-            ad0 = ds0.load_all_data()
-            if varname == 'my_variable1':
-                data0 = self.calc_myvariable(ad0)
-            else:
-                data0 = ad0[varname]
-
             data = abs((data-data0)/data0)
 
-
+        if prim_cons:
+            if varname == 'm1':
+                varname = 'v1'
+                data = data/ad['rho']
+                data0 = data0/ad0['rho']
+            if varname == 'm2':
+                varname = 'v2'
+                data = data/ad['rho']
+                data0 = data0/ad0['rho']
+            if varname == 'e':
+                varname = 'p'
+                data = (hd_gamma - 1)*(data - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
+                data0 = (hd_gamma - 1)*(data0 - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
 
         if cgs_units:
             time = time*ds.units.unit_time
             if not rel_diff:
                 data = data*self.units(filepath,varname)
+                data0 = data0*self.units(filepath,varname)
 
 
 
@@ -274,6 +327,7 @@ class Plotter:
         ax = self.fig.add_subplot(111)
 
         if lineout:
+            ax.grid(which='both')
             if loglin and data.any() > 0:
                 for i in range(nx):
                     ax.loglog(y,data[i],'b-')
@@ -284,10 +338,23 @@ class Plotter:
                     ax.plot(y,data[i],'b-')
                 ax.plot(y,np.mean(data,axis=0),'ro')
 
+            if fix_axes:
+                ax.set_ylim(data0.min(),data0.max())
+
+
         else:
             norm = None
             if loglin:
-                norm = matplotlib.colors.LogNorm()
+                if fix_axes:
+                    norm = matplotlib.colors.LogNorm(vmin=data0.min(), vmax=data0.max())
+                else:
+                    norm = matplotlib.colors.LogNorm()
+
+
+            else:
+                if fix_axes:
+                    norm = matplotlib.colors.Normalize(vmin=data0.min(), vmax=data0.max())
+
 
             im = ax.imshow(np.rot90(data), extent=[*bounds_x, *bounds_y], norm = norm)
             ax.set_aspect('equal')
@@ -311,8 +378,17 @@ if __name__ == '__main__':
     files.sort()
 
     ds = amrvac_reader.load_file(files[0])
-    variables = ds.get_varnames()
-    #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
+    orig_variables = ds.get_varnames()
+        #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
+    extra_vars = ['M_dot', 'g_rad', 'g_grav', 'Gamma', 'radius', 'a2']
+    delete_vars = []
+    variables = ds.get_varnames() #.extend(extra_vars)
+    variables.extend(extra_vars)
 
+    #Get rid of the following variables
+    variables.remove('int_r')
+    variables.remove('int_v')
+    variables.remove('int_re')
+    variables.remove('int_dt')
 
     Plot = Plotter(files[file_counter],variables[var_counter])

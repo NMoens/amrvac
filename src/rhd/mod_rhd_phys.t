@@ -1069,7 +1069,7 @@ contains
 
 
     call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
-    ! w(ixI^S,i_test) = cmax(ixI^S)
+    w(ixI^S,i_test) = cmax(ixI^S)
 
 
   end subroutine rhd_add_radiation_source

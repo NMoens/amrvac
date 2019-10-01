@@ -83,7 +83,7 @@
   fld_opacity_law = 'special'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Minerbo'
+  fld_fluxlimiter = 'Pomraning'
   fld_diff_tol = 1.d-4
   diff_coef_filter = .true.
   size_D_filter = 2

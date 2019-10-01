@@ -10,10 +10,10 @@
 /
 
  &savelist
-   itsave(1,1)     = 0
-   itsave(1,2)     = 0
-   ditsave_dat     = 1
-   ditsave_log     = 1
+   !itsave(1,1)     = 0
+   !itsave(1,2)     = 0
+   !ditsave_dat     = 1
+   !ditsave_log     = 1
    dtsave_dat     = 0.2d0
    dtsave_log     = 0.2d0
 /
@@ -21,7 +21,7 @@
  &stoplist
    time_max = 4.d1
    dtmin = 2.0d-20
-   it_max = 50
+   !it_max = 50
 /
 
  &methodlist

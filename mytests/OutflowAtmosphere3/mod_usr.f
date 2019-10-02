@@ -283,12 +283,10 @@ contains
     call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
 
-    call RANDOM_NUMBER(rand)
-    where (x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,2) .lt. 6)
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,rho_)*(one+1.d-1*rand(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2))
-    endwhere
+    ! call RANDOM_NUMBER(rand)
+    ! where (x(ixO^S,2) .lt. 6)
+    !   w(ixO^S,rho_) = w(ixO^S,rho_)*(one+1.d-1*rand(ixO^S))
+    ! endwhere
 
   end subroutine initial_conditions
 
@@ -377,14 +375,9 @@ contains
     select case (iB)
       case (3)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixImin1:ixImax1,ixOmin2-1,r_e))/(ixImax1-ixImin1)!const_rad_a*sp_T**4*unit_temperature**4/unit_pressure
       case (4)
-        ! if (sum(w(:,ixOmax2,r_e)) .lt. sum(w(:,ixOmax2+1,r_e))) then
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          mg%bc(iB, mg_iphi)%bc_value = 0.d0
-        ! else
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        ! endif
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        mg%bc(iB, mg_iphi)%bc_value = 0.d0
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
         error stop "You have to set a user-defined boundary method"

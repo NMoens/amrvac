@@ -34,7 +34,11 @@ unit_numberdensity=729723637293892.50
 unit_temperature=189666.48683552662
 
 c_light = 2.99792458e10
+a_rad = 7.5657e-15
 G_grav = 6.67191e-8
+k_b = 1.380648520e-16
+m_p = 1.6737236e-24
+mu = 0.6
 M_sun = 1.9891000e33
 M_star = 1e1*M_sun
 
@@ -224,6 +228,8 @@ class Plotter:
             return ds.units.unit_velocity*ds.units.unit_pressure
         elif varname =='M_dot':
             return ds.units.unit_density*ds.units.unit_length**3/ds.units.unit_time*(365.25*24*60*60)/M_sun
+        elif varname =='T_gas' or varname == 'T_rad':
+                return ds.units.unit_temperature
         elif varname == 'Lambda' or varname == 'gamma' or varname == 'fld_R' or varname == 'D':
             return 1.e0
         else:
@@ -269,9 +275,14 @@ class Plotter:
             M_dot = 4.*np.pi*ad['m2']*r**2.
             return M_dot
 
-        if varname == 'radius':
-            return r
+        if varname == 'T_rad':
+            T_rad = (ad['r_e']*ds.units.unit_pressure/a_rad)**0.25/ds.units.unit_temperature
+            return T_rad
 
+        if varname == 'T_gas':
+            p = (hd_gamma - 1)*(ad['e'] - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
+            T_gas = m_p*mu/k_b*(p*ds.units.unit_pressure/ad['rho']/ds.units.unit_density)/ds.units.unit_temperature
+            return T_gas
 
         else:
             print('variable not defined')
@@ -380,7 +391,7 @@ if __name__ == '__main__':
     ds = amrvac_reader.load_file(files[0])
     orig_variables = ds.get_varnames()
         #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
-    extra_vars = ['M_dot', 'g_rad', 'g_grav', 'Gamma', 'radius', 'a2']
+    extra_vars = ['M_dot', 'g_rad', 'g_grav', 'Gamma', 'T_gas', 'T_rad']
     delete_vars = []
     variables = ds.get_varnames() #.extend(extra_vars)
     variables.extend(extra_vars)

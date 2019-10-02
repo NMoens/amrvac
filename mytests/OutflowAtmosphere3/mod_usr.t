@@ -276,10 +276,10 @@ contains
 
     call get_rad_extravars(w, x, ixI^L, ixO^L)
 
-    call RANDOM_NUMBER(rand)
-    where (x(ixO^S,2) .lt. 6)
-      w(ixO^S,rho_) = w(ixO^S,rho_)*(one+1.d-1*rand(ixO^S))
-    endwhere
+    ! call RANDOM_NUMBER(rand)
+    ! where (x(ixO^S,2) .lt. 6)
+    !   w(ixO^S,rho_) = w(ixO^S,rho_)*(one+1.d-1*rand(ixO^S))
+    ! endwhere
 
   end subroutine initial_conditions
 

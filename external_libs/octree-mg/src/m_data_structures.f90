@@ -66,6 +66,9 @@ module m_data_structures
   !> Value to indicate a continuous boundary condition
   integer, parameter, public :: mg_bc_continuous = -12
 
+  !> Value to indicate a continuous boundary condition
+  integer, parameter, public :: mg_bc_consflux = -13
+
   !> Special value that indicates there is no box
   integer, parameter, public :: mg_no_box = 0
   !> Special value that indicates there is a physical boundary

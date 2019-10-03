@@ -25,6 +25,7 @@ import asyncio as syn
 # press u
 # press m
 # press a
+# press o
 ################
 # press i
 # press shift i
@@ -52,8 +53,9 @@ lineout = False
 rel_diff = False
 cgs_units = False
 my_var = False
-fix_axes = True
+fix_axes = False
 prim_cons = False
+plot_orig = False
 
 
 
@@ -74,8 +76,8 @@ class Plotter:
         global cgs_units
         global my_var
         global fix_axes
-        # global extra_vars
         global prim_cons
+        global plot_orig
 
         if event.key == 'right':
             if (file_counter + 1) < len(files):
@@ -183,6 +185,15 @@ class Plotter:
             print('Primitive variables:   ',prim_cons)
             self.plotter(files[file_counter],variables[var_counter])
 
+        if event.key == 'o':
+            print('Overplot t=0 profile')
+            if plot_orig:
+                plot_orig = False
+            else:
+                plot_orig = True
+            print('Plotting t=0 profile:   ',plot_orig)
+            self.plotter(files[file_counter],variables[var_counter])
+
         if event.key == 'i':
             self.fig.canvas.mpl_disconnect(self.cid)
             print('Go to variable:')
@@ -284,12 +295,32 @@ class Plotter:
             T_gas = m_p*mu/k_b*(p*ds.units.unit_pressure/ad['rho']/ds.units.unit_density)/ds.units.unit_temperature
             return T_gas
 
+        if varname == 'Av_rho':
+            Av_rho = ad['int_r']/ad['int_dt']
+            return Av_rho
+
+        if varname == 'Av_v':
+            Av_v = ad['int_v']/ad['int_dt']
+            return Av_v
+
+        if varname == 'Av_re':
+            Av_re = ad['int_re']/ad['int_dt']
+            return Av_re
+
+        if varname == 'Gamma_weighted':
+            grad = ad['Kappa']*ad['F2']/(c_light/ds.units.unit_velocity)
+            ggrav = G_grav*M_star/(r*ds.units.unit_length)**2\
+            *(ds.units.unit_time**2/ds.units.unit_length)
+            Gamma = grad/ggrav
+            Gamma_w = Gamma*1./3./ad['Lambda']
+            return Gamma_w
         else:
             print('variable not defined')
 
 
     def plotter(self, filepath, varname):
 
+        #Read data from current step
         ds = amrvac_reader.load_file(filepath)
         bounds_x, bounds_y = ds.get_bounds()
         time = ds.get_time()
@@ -298,19 +329,37 @@ class Plotter:
         nx = len(x)
         ny = len(y)
 
+        #Read data from iniial step
         ds0 = amrvac_reader.load_file(files[0])
         ad0 = ds0.load_all_data()
 
-        if varname in extra_vars:
+
+        #For time-integrated data
+        if varname == 'Av_rho':
+            data = self.calc_myvariable(filepath, varname)
+            data0 = ad0['rho']
+        elif varname == 'Av_v':
+            data = self.calc_myvariable(filepath, varname)
+            data0 = ad0['m2']/ad0['rho']
+        elif varname == 'Av_re':
+            data = self.calc_myvariable(filepath, varname)
+            data0 = ad0['r_e']
+        #For selfdefined variables, read/calculate data for current and initial snap
+        elif varname in extra_vars:
             data = self.calc_myvariable(filepath, varname)
             data0 = self.calc_myvariable(files[0], varname)
+        #For original variables: rho, m, e, Er,....
         else:
             data = ad[varname]
             data0 = ad0[varname]
 
+
+
         if rel_diff:
             data = abs((data-data0)/data0)
 
+
+        #Convert to pirmitive variables if necessary
         if prim_cons:
             if varname == 'm1':
                 varname = 'v1'
@@ -325,6 +374,7 @@ class Plotter:
                 data = (hd_gamma - 1)*(data - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
                 data0 = (hd_gamma - 1)*(data0 - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
 
+        #Multiply data with correct units
         if cgs_units:
             time = time*ds.units.unit_time
             if not rel_diff:
@@ -332,37 +382,54 @@ class Plotter:
                 data0 = data0*self.units(filepath,varname)
 
 
-
+        #Clear figure
         plt.clf()
 
         ax = self.fig.add_subplot(111)
 
+        #Plot the 1D profiles
         if lineout:
             ax.grid(which='both')
+            #Loglog plot
             if loglin and data.any() > 0:
                 for i in range(nx):
                     ax.loglog(y,data[i],'b-')
+                if plot_orig:
+                    ax.loglog(y,np.mean(data0,axis=0),'k-')
                 ax.loglog(y,np.mean(data,axis=0),'ro')
-
+            #Linear plot
             else:
                 for i in range(nx):
                     ax.plot(y,data[i],'b-')
+                if plot_orig:
+                    ax.plot(y,np.mean(data0,axis=0),'k-')
                 ax.plot(y,np.mean(data,axis=0),'ro')
 
+
+            #Fix the ylim axes
             if fix_axes:
-                ax.set_ylim(data0.min(),data0.max())
+                d_lim = 0.05*(data0.max() - data0.min())
+                ax.set_ylim(data0.min() - d_lim , data0.max() + d_lim)
+            else:
+                d_lim = 0.05*(np.mean(data,axis=0).max() - np.mean(data,axis=0).min())
+                ax.set_ylim(np.mean(data,axis=0).min() - d_lim ,np.mean(data,axis=0).max() + d_lim)
 
 
+
+        #Plot the pseudocolor using imshow
         else:
             norm = None
+            #logarithmic colormap
             if loglin:
+                #Fix colorbar to value in initial snap
                 if fix_axes:
                     norm = matplotlib.colors.LogNorm(vmin=data0.min(), vmax=data0.max())
                 else:
                     norm = matplotlib.colors.LogNorm()
 
-
+            #Linear colormap
             else:
+                #Fix colorbar to value in initial snap
                 if fix_axes:
                     norm = matplotlib.colors.Normalize(vmin=data0.min(), vmax=data0.max())
 
@@ -373,6 +440,7 @@ class Plotter:
             cax = divider.append_axes("right", size="5%", pad=0.05)
             self.fig.colorbar(im, cax=cax)
 
+        #Set title including variable name and timestamp
         fname = os.path.split(filepath)[1]
         plt.title(varname + '   at T=' + str(round(time,4)) )
         plt.draw()
@@ -391,12 +459,17 @@ if __name__ == '__main__':
     ds = amrvac_reader.load_file(files[0])
     orig_variables = ds.get_varnames()
         #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
-    extra_vars = ['M_dot', 'g_rad', 'g_grav', 'Gamma', 'T_gas', 'T_rad']
+    extra_vars = ['M_dot', 'g_rad', 'g_grav', 'Gamma', 'T_gas', 'T_rad', 'Av_rho',  'Av_v',  'Av_re', 'Gamma_weighted']
     delete_vars = []
     variables = ds.get_varnames() #.extend(extra_vars)
     variables.extend(extra_vars)
 
     #Get rid of the following variables
+    variables.remove('Edd11')
+    variables.remove('Edd12')
+    variables.remove('Edd21')
+    variables.remove('Edd22')
+
     variables.remove('int_r')
     variables.remove('int_v')
     variables.remove('int_re')

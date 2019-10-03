@@ -305,17 +305,17 @@ contains
         w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
         w(ixImin1:ixImax1,i,mom(1)) = zero
         w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
-        ! do j = ixImin1,ixImax1
-        !   w(j,i,mom(2)) = min(1.5d0*sp_rho*sp_sos, w(j,i,mom(2)))
-        !   w(j,i,mom(2)) = max(-0.d0*sp_rho*sp_sos, w(j,i,mom(2)))
-        ! enddo
+        do j = ixImin1,ixImax1
+          ! w(j,i,mom(2)) = min(1.5d0*sp_rho*sp_sos, w(j,i,mom(2)))
+          w(j,i,mom(2)) = max(-0.d0*sp_rho*sp_sos, w(j,i,mom(2)))
+        enddo
         w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
         + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
 
         w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
         + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
         - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
-        *(1.d0/w(ixImin1:ixImax1,nghostcells+1,i_lambda))*w(ixImin1:ixImax1,nghostcells+1,i_op)*w(ixImin1:ixImax1,i+1,rho_)/(const_c/unit_velocity) &
+        *3.d0*w(ixImin1:ixImax1,nghostcells+1,i_op)*sp_rho/(const_c/unit_velocity) &
         * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
         ! do j = ixImin1,ixImax1
         !   w(j,i,r_e) = min(1.5d0*sp_Er, w(j,i,r_e))
@@ -347,12 +347,22 @@ contains
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
     double precision, intent(in)    :: w(ixI^S,1:nw)
 
+    double precision :: tot_bc_value(ixOmin1:ixOmax1)
     integer :: i
 
     select case (iB)
       case (3)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
+        i = ixOmin2-1
+        tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i+1,2)**2.d0) &
+        - w(ixOmin1:ixOmax1,i+1,mom(2))/w(ixOmin1:ixOmax1,i+1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) &
+        *3.d0*w(ixOmin1:ixOmax1,i+1,i_op)*sp_rho/(const_c/unit_velocity)
+
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        mg%bc(iB, mg_iphi)%bc_value = -2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
+
       case (4)
+
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         mg%bc(iB, mg_iphi)%bc_value = 0.d0
       case default
@@ -482,13 +492,13 @@ contains
     double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    !!!ARE V AND MOM IN RADIAL COORDS???
+    
 
     if (it .gt. 5) then
       w(ixI^S,int_r) = w(ixI^S,int_r) &
       + w(ixI^S,rho_)*dt
       w(ixI^S,int_v) =  w(ixI^S,int_v) &
-      + w(ixI^S,mom(1))/w(ixI^S,rho_)*dt
+      + w(ixI^S,mom(2))/w(ixI^S,rho_)*dt
       w(ixI^S,int_re) = w(ixI^S,int_re) &
       + w(ixI^S,r_e)*dt
 

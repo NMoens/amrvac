@@ -1029,39 +1029,29 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
     logical, intent(in) :: qsourcesplit
     logical, intent(inout) :: active
-
-    double precision :: wCCT(ixI^S,1:nw)
     double precision :: cmax(ixI^S)
 
-    call get_rad_extravars(w, x, ixI^L, ixO^L)
+    call get_rad_extravars(w, wCT, x, ixI^L, ixO^L)
 
     !> Maybe this WCCT stuff is unnescecary, I just put it here
     !> because i want e.g. original fluxes for my radiation force
     !> sourceterms should be  w = w + dt WCT, so F should be wCT-F, not w-F
-    wCCT(ixI^S,1:nw) = wCT(ixI^S,1:nw)
-
-    !> Update opacities, flux limiter and radiation fluxes
-    call fld_get_opacity(wCCT, x, ixI^L, ixO^L)
-    call fld_get_fluxlimiter(wCCT, x, ixI^L, ixO^L)
-    call fld_get_radflux(wCCT, x, ixI^L, ixO^L)
-    call fld_get_eddington(wCCT, x, ixI^L, ixO^L)
-
-    if (fld_diff_scheme .eq. 'mg') call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
+    if (fld_diff_scheme .eq. 'mg') call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
 
     select case(rhd_radiation_formalism)
     case('fld')
       !> diffusion
       ! print*, it, 'Doing diffusion stuff'
-      if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCCT,w,x,&
+      if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
         ! call phys_global_source(dt, global_time, active)
       !> photon tiring, heating and cooling
       ! print*, it, 'Doing bisection stuff'
-      if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCCT,w,x,&
+      if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
       !> radiation force
       ! print*, it, 'Doing radforce stuff'
-      if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCCT,w,x,&
+      if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
     case default
       call mpistop('Radiation formalism unknown')

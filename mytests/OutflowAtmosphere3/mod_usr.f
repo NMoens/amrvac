@@ -280,7 +280,7 @@ contains
       w(:,i,r_e) = Er_arr(j)
     enddo
 
-    call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+    call get_rad_extravars(w, w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
 
     ! call RANDOM_NUMBER(rand)
@@ -435,7 +435,6 @@ contains
        1:nw), x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-    double precision :: wCCT(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
     double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2),v(ixImin1:ixImax1,&
        ixImin2:ixImax2,2)
     double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
@@ -483,11 +482,10 @@ contains
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
-      wCCT = wCT
-      call get_rad_extravars(wCCT, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-         ixOmin2,ixOmax1,ixOmax2)
+      call get_rad_extravars(w, wCT, x, ixImin1,ixImin2,ixImax1,ixImax2,&
+          ixOmin1,ixOmin2,ixOmax1,ixOmax2)
       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,r_e) - qdt*two*wCCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         ixOmin2:ixOmax2,r_e) - qdt*two*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
          i_flux(rdir))/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     endif
 
@@ -557,14 +555,14 @@ contains
        1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-    !!!ARE V AND MOM IN RADIAL COORDS???
+
 
     if (it .gt. 5) then
       w(ixImin1:ixImax1,ixImin2:ixImax2,int_r) = w(ixImin1:ixImax1,&
          ixImin2:ixImax2,int_r) + w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)*dt
       w(ixImin1:ixImax1,ixImin2:ixImax2,int_v) =  w(ixImin1:ixImax1,&
          ixImin2:ixImax2,int_v) + w(ixImin1:ixImax1,ixImin2:ixImax2,&
-         mom(1))/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)*dt
+         mom(2))/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)*dt
       w(ixImin1:ixImax1,ixImin2:ixImax2,int_re) = w(ixImin1:ixImax1,&
          ixImin2:ixImax2,int_re) + w(ixImin1:ixImax1,ixImin2:ixImax2,r_e)*dt
 
@@ -611,7 +609,7 @@ contains
        ixOmin2:ixOmax2,2)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
-    call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+    call get_rad_extravars(w, w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
 
     g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&

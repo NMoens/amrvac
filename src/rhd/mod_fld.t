@@ -224,22 +224,23 @@ module mod_fld
 
   !> Compute all extra variables in w-array:
   !> Flux, Eddington tensor, lambda, R, kappa
-  subroutine get_rad_extravars(w, x, ixI^L, ixO^L)
+  subroutine get_rad_extravars(w, wCT, x, ixI^L, ixO^L)
     use mod_global_parameters
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: wCT(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
-    call fld_get_opacity(w, x, ixI^L, ixO^L)
-    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
-    call fld_get_radflux(w, x, ixI^L, ixO^L)
-    call fld_get_eddington(w, x, ixI^L, ixO^L)
+    call fld_get_opacity(w, wCT, x, ixI^L, ixO^L)
+    call fld_get_fluxlimiter(w, wCT, x, ixI^L, ixO^L)
+    call fld_get_radflux(w, wCT, x, ixI^L, ixO^L)
+    call fld_get_eddington(w, wCT, x, ixI^L, ixO^L)
 
     if (fld_diff_scheme .eq. 'mg') then
-      call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
+      call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
       call set_mg_bounds(w, x, ixI^L, ixO^L)
-      call get_diffusion_criterion(w, x, ixI^L, ixO^L)
+      call get_diffusion_criterion(w, wCT, x, ixI^L, ixO^L)
     endif
   end subroutine get_rad_extravars
 
@@ -269,11 +270,11 @@ module mod_fld
       active = .true.
 
       wCCT = wCT
-      call fld_get_radflux(wCCT, x, ixI^L, ixO^L)
+      call fld_get_radflux(w, wCT, x, ixI^L, ixO^L)
 
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux
-        radiation_force(ixO^S,idir) = wCT(ixO^S,iw_rho)*wCT(ixO^S,i_op)*wCCT(ixO^S, i_flux(idir))/(const_c/unit_velocity)
+        radiation_force(ixO^S,idir) = wCT(ixO^S,iw_rho)*wCT(ixO^S,i_op)*w(ixO^S, i_flux(idir))/(const_c/unit_velocity)
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
@@ -349,7 +350,7 @@ module mod_fld
       ! case('adi')
       !   call Evolve_E_rad(w, x, ixI^L, ixO^L)
       case('mg')
-        call fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
+        call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
         call set_mg_bounds(w, x, ixI^L, ixO^L)
 
         active = .true.
@@ -362,7 +363,7 @@ module mod_fld
 
   !> Sets the opacity in the w-array
   !> by calling mod_opacity
-  subroutine fld_get_opacity(w, x, ixI^L, ixO^L)
+  subroutine fld_get_opacity(w, wCT, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
     use mod_physics, only: phys_get_tgas
@@ -371,6 +372,7 @@ module mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: wCT(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision :: fld_kappa(ixO^S)
     double precision :: Temp(ixI^S), pth(ixI^S), a2(ixO^S)
@@ -387,31 +389,31 @@ module mod_fld
         fld_kappa = fld_kappa0/unit_opacity
       case('kramers')
         rho0 = half !> Take lower value of rho in domain
-        fld_kappa(ixO^S) = fld_kappa0/unit_opacity*((w(ixO^S,iw_rho)/rho0))
+        fld_kappa(ixO^S) = fld_kappa0/unit_opacity*((wCT(ixO^S,iw_rho)/rho0))
       case('bump')
         !> Opacity bump
         rho0 = 0.2d0 !0.5d-1
         n = 7.d0
         sigma_b = 2.d-2
         !fld_kappa(ixO^S) = fld_kappa0/unit_opacity*(one + n*dexp(-((rho0  - w(ixO^S,iw_rho))**two)/rho0))
-        fld_kappa(ixO^S) = fld_kappa0/unit_opacity*(one + n*dexp(-one/sigma_b*(dlog(w(ixO^S,iw_rho)/rho0))**two))
+        fld_kappa(ixO^S) = fld_kappa0/unit_opacity*(one + n*dexp(-one/sigma_b*(dlog(wCT(ixO^S,iw_rho)/rho0))**two))
       case('non_iso')
-        call phys_get_pthermal(w,x,ixI^L,ixO^L,Temp)
-        Temp(ixO^S)=Temp(ixO^S)/w(ixO^S,iw_rho)
+        call phys_get_pthermal(wCT,x,ixI^L,ixO^L,Temp)
+        Temp(ixO^S)=Temp(ixO^S)/wCT(ixO^S,iw_rho)
 
         rho0 = 0.5d0 !> Take lower value of rho in domain
         Temp0 = one
         n = -7.d0/two
-        fld_kappa(ixO^S) = fld_kappa0/unit_opacity*(w(ixO^S,iw_rho)/rho0)*(Temp(ixO^S)/Temp0)**n
+        fld_kappa(ixO^S) = fld_kappa0/unit_opacity*(wCT(ixO^S,iw_rho)/rho0)*(Temp(ixO^S)/Temp0)**n
       case('fastwind')
-        call phys_get_pthermal(w,x,ixI^L,ixO^L,pth)
-        a2(ixO^S) = pth(ixO^S)/w(ixO^S,iw_rho)*unit_velocity**2.d0
+        call phys_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
+        a2(ixO^S) = pth(ixO^S)/wCT(ixO^S,iw_rho)*unit_velocity**2.d0
 
         akram = 13.1351597305
         bkram = -4.5182188206
 
         fld_kappa(ixO^S) = fld_kappa0/unit_opacity &
-        * (1.d0+10.d0**akram*w(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
+        * (1.d0+10.d0**akram*wCT(ixO^S,iw_rho)*unit_density*(a2(ixO^S)/1.d12)**bkram)
 
         {do ix^D=ixOmin^D,ixOmax^D\ }
           !> Hard limit on kappa
@@ -424,9 +426,9 @@ module mod_fld
         {enddo\ }
 
       case('opal')
-        call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
+        call phys_get_tgas(wCT,x,ixI^L,ixO^L,Temp)
         {do ix^D=ixOmin^D,ixOmax^D\ }
-            rho0 = w(ix^D,iw_rho)*unit_density
+            rho0 = wCT(ix^D,iw_rho)*unit_density
             Temp0 = Temp(ix^D)*unit_temperature
             call set_opal_opacity(rho0,Temp0,n)
             fld_kappa(ix^D) = n/unit_opacity
@@ -436,7 +438,7 @@ module mod_fld
         if (.not. associated(usr_special_opacity)) then
           call mpistop("special opacity not defined")
         endif
-        call usr_special_opacity(ixI^L, ixO^L, w, x, fld_kappa)
+        call usr_special_opacity(ixI^L, ixO^L, wCT, x, fld_kappa)
 
       case default
         call mpistop("Doesn't know opacity law")
@@ -487,13 +489,14 @@ module mod_fld
   !> This subroutine calculates flux limiter lambda using the prescription
   !> stored in fld_fluxlimiter.
   !> It also calculates the ratio of radiation scaleheight and mean free path
-  subroutine fld_get_fluxlimiter(w, x, ixI^L, ixO^L)
+  subroutine fld_get_fluxlimiter(w, wCT, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
     use mod_usr_methods
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: wCT(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision :: fld_R(ixI^S), fld_lambda(ixI^S)
     double precision ::  normgrad2(ixI^S)
@@ -510,14 +513,14 @@ module mod_fld
       !> |grad E|/(rho kappa E)
       normgrad2(ixO^S) = zero
 
-      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      rad_e(ixI^S) = wCT(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(wCT(ixO^S,i_op)*wCT(ixO^S,iw_rho)*wCT(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       fld_lambda(ixO^S) = one/fld_R(ixO^S)
@@ -530,14 +533,14 @@ module mod_fld
       !> |grad E|/(rho kappa E)
       normgrad2(ixO^S) = zero
 
-      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      rad_e(ixI^S) = wCT(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(wCT(ixO^S,i_op)*wCT(ixO^S,iw_rho)*wCT(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       !> Levermore and Pomraning: lambda = (2 + R)/(6 + 3R + R^2)
@@ -551,14 +554,14 @@ module mod_fld
       !> |grad E|/(rho kappa E)
       normgrad2(ixO^S) = zero
 
-      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      rad_e(ixI^S) = wCT(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(wCT(ixO^S,i_op)*wCT(ixO^S,iw_rho)*wCT(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
@@ -573,14 +576,14 @@ module mod_fld
       !> |grad E|/(rho kappa E)
       normgrad2(ixO^S) = zero
 
-      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      rad_e(ixI^S) = wCT(ixI^S, iw_r_e)
       do idir = 1,ndir
         !> gradient or gradientS ?!?!?!?!?!?
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
-      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(w(ixO^S,i_op)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(wCT(ixO^S,i_op)*wCT(ixO^S,iw_rho)*wCT(ixO^S,iw_r_e))
 
       !> Calculate the flux limiter, lambda
       !> Minerbo:
@@ -598,7 +601,7 @@ module mod_fld
       if (.not. associated(usr_special_fluxlimiter)) then
         call mpistop("special fluxlimiter not defined")
       endif
-      call usr_special_fluxlimiter(ixI^L, ixO^L, w, x, fld_lambda, fld_R)
+      call usr_special_fluxlimiter(ixI^L, ixO^L, wCT, x, fld_lambda, fld_R)
       w(ixO^S,i_lambda) = fld_lambda(ixO^S)
       w(ixO^S,i_fld_R) = fld_R(ixO^S)
     case default
@@ -608,12 +611,13 @@ module mod_fld
 
   !> Calculate Radiation Flux
   !> stores radiation flux in w-array
-  subroutine fld_get_radflux(w, x, ixI^L, ixO^L)
+  subroutine fld_get_radflux(w, wCT, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: wCT(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision :: rad_flux(ixI^S, 1:ndim)
     double precision :: L_star, R_star
@@ -621,14 +625,14 @@ module mod_fld
     double precision :: rad_e(ixI^S)
     integer :: ix^D, idir
 
-    rad_e(ixI^S) = w(ixI^S, iw_r_e)
+    rad_e(ixI^S) = wCT(ixI^S, iw_r_e)
 
     !> Calculate the Flux using the fld closure relation
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndir
       !> gradient or gradientS ?!?!?!?!?!?
       call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-      rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
+      rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*wCT(ixO^S,i_lambda)/(wCT(ixO^S,i_op)*wCT(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
 
     w(ixO^S,i_flux(:)) = rad_flux(ixO^S,:)
@@ -637,12 +641,13 @@ module mod_fld
 
   !> Calculate Eddington-tensor
   !> Stores Eddington-tensor in w-array
-  subroutine fld_get_eddington(w, x, ixI^L, ixO^L)
+  subroutine fld_get_eddington(w, wCT, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: wCT(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision :: eddington_tensor(ixO^S,1:ndim,1:ndim)
     double precision :: tnsr2(ixO^S,1:ndim,1:ndim)
@@ -654,7 +659,7 @@ module mod_fld
     !> |grad E|/(rho kappa E)
     normgrad2(ixO^S) = zero
 
-    rad_e(ixI^S) = w(ixI^S, iw_r_e)
+    rad_e(ixI^S) = wCT(ixI^S, iw_r_e)
     grad_r_e(ixO^S,:) = zero
     do idir = 1,ndir
       !> gradient or gradientS ?!?!?!?!?!?
@@ -664,7 +669,7 @@ module mod_fld
 
     !> Calculate radiation pressure
     !> P = (lambda + lambda^2 R^2)*E
-    f(ixO^S) = w(ixO^S,i_lambda) + w(ixO^S, i_lambda)**two * w(ixO^S, i_fld_R)**two
+    f(ixO^S) = wCT(ixO^S,i_lambda) + wCT(ixO^S, i_lambda)**two * wCT(ixO^S, i_fld_R)**two
     f(ixO^S) = one/two*(one-f(ixO^S)) + one/two*(3.d0*f(ixO^S) - one)
 
     do idir = 1,ndir
@@ -730,6 +735,8 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res
 
+    call set_mg_diffcoef()
+
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
     call MPI_BARRIER(icomm,ierrmpi)
     call diffusion_solve_vcoeff(mg, qdt, 2, fld_diff_tol)
@@ -741,12 +748,13 @@ module mod_fld
   end subroutine Diffuse_E_rad_mg
 
   !> Calculates cell-centered diffusion coefficient to be used in multigrid
-  subroutine fld_get_diffcoef_central(w, x, ixI^L, ixO^L)
+  subroutine fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: wCT(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
     double precision :: max_D(ixI^S), grad_r_e(ixI^S), rad_e(ixI^S)
@@ -759,7 +767,7 @@ module mod_fld
     else
 
       !> calculate diffusion coefficient
-      w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*w(ixO^S,i_lambda)/(w(ixO^S,i_op)*w(ixO^S,iw_rho))
+      w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*wCT(ixO^S,i_lambda)/(wCT(ixO^S,i_op)*wCT(ixO^S,iw_rho))
 
       if (diff_coef_filter) then
         !call mpistop('Hold your bloody horses, not implemented yet ')
@@ -844,11 +852,12 @@ module mod_fld
     enddo
   end subroutine set_mg_bounds
 
-  subroutine get_diffusion_criterion(w, x, ixI^L, ixO^L)
+  subroutine get_diffusion_criterion(w, wCT, x, ixI^L, ixO^L)
     use mod_global_parameters
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: wCT(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
     double precision             :: Q(ixO^S,1:ndim),diff_crit_mype
@@ -858,7 +867,7 @@ module mod_fld
       hxO^L=ixO^L-kr(idir,^D);
       jxO^L=ixO^L+kr(idir,^D);
 
-      Q(ixO^S,idir) = w(ixO^S,i_diff_mg)*dt/((x(jxO^S,idir)-x(hxO^S,idir))/2)**2
+      Q(ixO^S,idir) = wCT(ixO^S,i_diff_mg)*dt/((x(jxO^S,idir)-x(hxO^S,idir))/2)**2
     enddo
     diff_crit_mype = minval(Q(ixO^S,1:ndim))
 

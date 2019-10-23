@@ -6,15 +6,17 @@ from scipy import interpolate
 rsun = 6.9599000e10
 msun = 1.9891000e33
 
+rstar = 1.e0 * rsun
+
 strc = os.getcwd() + '/struct.txt'
 i, r, v, rho, er = np.loadtxt(strc,skiprows = 2, unpack=True)
 
 Mdot = 4*np.pi*r**2*rho*v
 
-n_cells = 256
+n_cells = 64
 n_gh = 2
-R_min = 1.*rsun
-R_max = 13.*rsun
+R_min = 1.*rstar
+R_max = 4.*rstar
 
 inew = range(n_cells+2*n_gh)
 

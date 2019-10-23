@@ -33,14 +33,15 @@ contains
       if (.not. prior .and. associated(phys_global_source)) then
         !> If the diffusion constant is too big, the diffusion timestep has to be split up over severall smaller steps.
         !> The value one is just a proxy for something that worked
-        if (diff_crit .lt. one) then
-         call phys_global_source(dt, qt, src_active)
-        else
-         Ndiff = ceiling(diff_crit)
-             do itdiff = 1,Ndiff
-               call phys_global_source(dt/Ndiff, qt, src_active)
-             enddo
-          endif
+        ! if (diff_crit .lt. 10) then
+          call phys_global_source(dt, qt, src_active)
+        ! else
+        !   Ndiff = ceiling(diff_crit/10)
+        !   print*, Ndiff
+        !   do itdiff = 1,Ndiff
+        !     call phys_global_source(dt/Ndiff, qt, src_active)
+        !   enddo
+        ! endif
       end if
     endif
 

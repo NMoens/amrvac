@@ -274,7 +274,7 @@ contains
       w(:,i,r_e) = Er_arr(j)
     enddo
 
-    call get_rad_extravars(w, w, x, ixI^L, ixO^L)
+    call get_rad_extravars(w, x, ixI^L, ixO^L)
 
     ! call RANDOM_NUMBER(rand)
     ! where (x(ixO^S,2) .lt. 6)
@@ -402,6 +402,7 @@ contains
     double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
+    double precision :: wCCT(ixI^S,1:nw)
     double precision :: pth(ixI^S),v(ixI^S,2)
     double precision :: radius(ixI^S)
     integer :: rdir, pdir
@@ -431,8 +432,9 @@ contains
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
-      call get_rad_extravars(w, wCT, x, ixI^L, ixO^L)
-      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*w(ixO^S,i_flux(rdir))/radius(ixO^S)
+      wCCT = wCT
+      call get_rad_extravars(wCCT, x, ixI^L, ixO^L)
+      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*wCCT(ixO^S,i_flux(rdir))/radius(ixO^S)
     endif
 
     if (rhd_radiation_advection) then
@@ -490,7 +492,7 @@ contains
     double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-
+    
 
     if (it .gt. 5) then
       w(ixI^S,int_r) = w(ixI^S,int_r) &
@@ -534,7 +536,7 @@ contains
     radius(ixO^S) = x(ixO^S,2)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
-    call get_rad_extravars(w, w, x, ixI^L, ixO^L)
+    call get_rad_extravars(w, x, ixI^L, ixO^L)
 
     g_rad(ixO^S) = w(ixO^S,i_op)*w(ixO^S,i_flux(2))/(const_c/unit_velocity)
     g_grav(ixO^S) = const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)

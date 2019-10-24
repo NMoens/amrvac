@@ -95,7 +95,7 @@ contains
 
     !> Gamma at the base is one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
-    kappa_b = 0.5*4*dpi*const_G*M_star*const_c/L_0
+    kappa_b = 0.99d0*4*dpi*const_G*M_star*const_c/L_0
 
 
     allocate(r_arr(domain_nx2+2*nghostcells))
@@ -190,6 +190,7 @@ contains
 
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
       print*, 'effective scaleheight: ', Heff
+      print*, 'scaleheight per cell:  ', Heff*domain_nx2/(xprobmax2-xprobmin2)
     endif
 
   end subroutine initglobaldata_usr
@@ -380,8 +381,15 @@ contains
            rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) *3.d0*w(ixOmin1:ixOmax1,&
            i+1,i_op)*sp_rho/(const_c/unit_velocity)
 
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = -2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
+        !> neumann:
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        ! mg%bc(iB, mg_iphi)%bc_value = 2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
+
+        !> consflux:
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
+        mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
+
+
 
       case (4)
 
@@ -511,12 +519,9 @@ contains
         x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
     double precision, intent(out):: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
-    ! kappa_base = one*4*dpi*const_G*M_star*const_c/L_0
-    ! kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
 
-    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b + erf(x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,2)-one)*(kappa_0-kappa_b)
-
+    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b + erf((x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,2)-one)*100)*(kappa_0-kappa_b)
 
   end subroutine Opacity_stepfunction
 

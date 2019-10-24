@@ -239,7 +239,7 @@ module mod_fld
 
     if (fld_diff_scheme .eq. 'mg') then
       call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
-      call set_mg_bounds(w, x, ixI^L, ixO^L)
+      call set_mg_bounds(wCT, x, ixI^L, ixO^L)
       call get_diffusion_criterion(w, wCT, x, ixI^L, ixO^L)
     endif
   end subroutine get_rad_extravars
@@ -351,7 +351,7 @@ module mod_fld
       !   call Evolve_E_rad(w, x, ixI^L, ixO^L)
       case('mg')
         call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
-        call set_mg_bounds(w, x, ixI^L, ixO^L)
+        call set_mg_bounds(wCT, x, ixI^L, ixO^L)
 
         active = .true.
 

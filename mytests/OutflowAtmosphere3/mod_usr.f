@@ -374,32 +374,30 @@ contains
 
     select case (iB)
       case (3)
-
         i = ixOmin2-1
         tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i+1,&
            2)**2.d0) - w(ixOmin1:ixOmax1,i+1,mom(2))/w(ixOmin1:ixOmax1,i+1,&
-           rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) *3.d0*w(ixOmin1:ixOmax1,&
-           i+1,i_op)*sp_rho/(const_c/unit_velocity)
+           rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) *w(ixOmin1:ixOmax1,i+1,&
+           i_lambda)*w(ixOmin1:ixOmax1,i+1,i_op)*w(ixOmin1:ixOmax1,i+1,&
+           rho_)/(const_c/unit_velocity)
 
         !> neumann:
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        ! mg%bc(iB, mg_iphi)%bc_value = 2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        mg%bc(iB, mg_iphi)%bc_value = 2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
 
         !> consflux:
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
-        mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
-
-
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
+        ! mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
 
       case (4)
-
         i = ixOmax2+1
         tot_bc_value(ixOmin1:ixOmax1) = (w(ixOmin1:ixOmax1,i,&
            i_flux(2)) - w(ixOmin1:ixOmax1,i-1,mom(2))/w(ixOmin1:ixOmax1,i-1,&
-           rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i-1,r_e)) *3.d0*w(ixOmin1:ixOmax1,&
-           i-1,i_op)*sp_rho/(const_c/unit_velocity)
+           rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i-1,r_e)) *w(ixOmin1:ixOmax1,i+1,&
+           i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,&
+           rho_)/(const_c/unit_velocity)
 
-        !> Neumann
+        ! !> Neumann
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
 

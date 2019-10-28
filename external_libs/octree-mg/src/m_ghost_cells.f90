@@ -628,9 +628,8 @@ contains
     ! A continuous boundary (same slope) as:
     ! x0 = 2 * x1 - x2
     ! Conserving FLD total flux as:
-    ! x0 = b * 2dx + b2 * x1 * 2*dx + x2
-    ! x0 = 2*dx*b + x2
-    ! x0 = x1 + 2*b
+    ! x0 = 2*dx*b +/- x2
+    ! Fixed number
     ! Below, we set coefficients to handle these cases
     select case (bc_type)
     case (mg_bc_dirichlet)
@@ -648,9 +647,14 @@ contains
        c2 = -1
     case (mg_bc_consflux)
        dr = mg%dr(mg_neighb_dim(nb), mg%boxes(id)%lvl)
-       c0 = 2*dr
+       c0 = 2*dr*mg_neighb_high_pm(nb)
        c1 = 0
        c2 = 1
+    case (mg_bc_fixed)
+       dr = mg%dr(mg_neighb_dim(nb), mg%boxes(id)%lvl)
+       c0 = 1
+       c1 = 0
+       c2 = 0
 
     case default
        error stop "bc_to_gc: unknown boundary condition"

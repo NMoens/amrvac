@@ -575,6 +575,8 @@ module mod_fld
       !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
       fld_lambda(ixO^S) = one/fld_R(ixO^S)*(one/dtanh(fld_R(ixO^S)) - one/fld_R(ixO^S))
 
+      !>WHAT HAPPENS WHEN R=0 (full diffusion) => 1/R = NAN => dtanh(1/R) =????
+
       w(ixO^S,i_lambda) = fld_lambda(ixO^S)
       w(ixO^S,i_fld_R) = fld_R(ixO^S)
 

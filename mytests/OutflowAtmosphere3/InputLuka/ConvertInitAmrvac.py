@@ -8,7 +8,7 @@ msun = 1.9891000e33
 
 rstar = 1.e0 * rsun
 
-strc = os.getcwd() + '/struct.txt'
+strc = os.getcwd() + '/struct_steep.txt'
 i, r, v, rho, er = np.loadtxt(strc,skiprows = 2, unpack=True)
 
 Mdot = 4*np.pi*r**2*rho*v

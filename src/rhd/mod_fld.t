@@ -74,6 +74,10 @@ module mod_fld
     logical :: diff_coef_filter = .false.
     integer :: size_D_filter = 1
 
+    !> Take a running average over the fluxlimiter
+    logical :: flux_lim_filter = .false.
+    integer :: size_L_filter = 1
+
     !> Use or don't use lineforce opacities
     logical :: Lineforce_opacities = .false.
 
@@ -109,7 +113,8 @@ module mod_fld
     namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
     fld_bisect_tol, fld_diff_testcase, fld_diff_tol, fld_max_fracdt,&
     fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
-    diff_coef_filter, size_D_filter, lineforce_opacities
+    diff_coef_filter, size_D_filter, flux_lim_filter, size_L_filter, &
+    lineforce_opacities
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -503,6 +508,9 @@ module mod_fld
     double precision :: grad_r_e(ixI^S), rad_e(ixI^S)
     integer :: idir, i, j, ix^D
 
+    double precision :: tmp_L(ixI^S), filtered_L(ixI^S)
+    integer :: filter, idim
+
     select case (fld_fluxlimiter)
     case('Diffusion')
       w(ixO^S,i_lambda) = one/3.d0
@@ -607,6 +615,32 @@ module mod_fld
     case default
       call mpistop('Fluxlimiter unknown')
     end select
+
+
+    if (flux_lim_filter) then
+      if (size_L_filter .lt. 1) call mpistop("D filter of size < 1 makes no sense")
+      if (size_L_filter .gt. nghostcells) call mpistop("D filter of size > nghostcells makes no sense")
+
+      tmp_L(ixO^S) = w(ixO^S,i_lambda)
+      filtered_L(ixO^S) = zero
+
+      do filter = 1,size_L_filter
+        {do ix^D = ixOmin^D+size_D_filter,ixOmax^D-size_L_filter\}
+          do idim = 1,ndim
+            filtered_L(ix^D) = filtered_L(ix^D) &
+                             + tmp_L(ix^D+filter*kr(idim,^D)) &
+                             + tmp_L(ix^D-filter*kr(idim,^D))
+          enddo
+        {enddo\}
+      enddo
+
+      {do ix^D = ixOmin^D+size_D_filter,ixOmax^D-size_D_filter\}
+        tmp_L(ix^D) = (tmp_L(ix^D)+filtered_L(ix^D))/(1+2*size_L_filter*ndim)
+      {enddo\}
+
+      w(ixO^S,i_lambda) = tmp_L(ixO^S)
+    endif
+
   end subroutine fld_get_fluxlimiter
 
   !> Calculate Radiation Flux

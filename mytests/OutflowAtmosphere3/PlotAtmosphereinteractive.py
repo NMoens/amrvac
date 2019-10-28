@@ -10,6 +10,8 @@ from tkinter import filedialog
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import asyncio as syn
 
+from ipywidgets import widgets, interactive
+
 # Current possibilities:
 # press right
 # press left
@@ -372,7 +374,7 @@ class Plotter:
             if varname == 'e':
                 varname = 'p'
                 data = (hd_gamma - 1)*(data - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
-                data0 = (hd_gamma - 1)*(data0 - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
+                data0 = (hd_gamma - 1)*(data0 - (0.5*(ad0['m1']**2+ad0['m2']**2)/ad0['rho']))
 
         #Multiply data with correct units
         if cgs_units:

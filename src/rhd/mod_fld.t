@@ -886,6 +886,10 @@ module mod_fld
          error stop "You have to set a user-defined boundary method"
       end select
     enddo
+
+    ! print*, it, mype, mg%bc(iB, mg_iphi)%bc_value
+
+
   end subroutine set_mg_bounds
 
   subroutine get_diffusion_criterion(w, wCT, x, ixI^L, ixO^L)

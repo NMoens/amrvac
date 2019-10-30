@@ -343,42 +343,94 @@ contains
   subroutine mg_boundary_conditions(qt,ixI^L,ixO^L,iB,w,x)
 
     use mod_global_parameters
+    use mod_physics, only: phys_get_tgas
 
     integer, intent(in)             :: ixI^L, ixO^L, iB
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
     double precision, intent(in)    :: w(ixI^S,1:nw)
 
-    double precision :: tot_bc_value(ixOmin1:ixOmax1)
+    double precision :: Tgas(ixI^S)
+
+    double precision :: tot_bc_value(ixOmin1:ixOmax1),tot_bc_value2
     integer :: i
 
     select case (iB)
       case (3)
-        i = ixOmin2-1
-        tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i+1,2)**2.d0) &
-        - w(ixOmin1:ixOmax1,i+1,mom(2))/w(ixOmin1:ixOmax1,i+1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) &
-        *w(ixOmin1:ixOmax1,i+1,i_lambda)*w(ixOmin1:ixOmax1,i+1,i_op)*w(ixOmin1:ixOmax1,i+1,rho_)/(const_c/unit_velocity)
+        if (x(5,ixImin2,2) .le. xprobmin2) then
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !> OMG THIS ROUTINE IS CALLED BY EVERY PROCESS, THUS BOUNDARY VALUES DEPEND ON WHICH PROCESSOR READS LAST!!!
+          !> NEED SOME MPI-STUFF TO COMUNICATE CORRECT VALUES!!!!!!!!!!!!!!!!!!!!!!!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        !> neumann:
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        ! mg%bc(iB, mg_iphi)%bc_value = 2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
+          i = ixOmin2-1
+          tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i+1,2)**2.d0) &
+          - w(ixOmin1:ixOmax1,i+1,mom(2))/w(ixOmin1:ixOmax1,i+1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) &
+          *w(ixOmin1:ixOmax1,i+1,i_lambda)*w(ixOmin1:ixOmax1,i+1,i_op)*w(ixOmin1:ixOmax1,i+1,rho_)/(const_c/unit_velocity)
 
-        !> consflux:
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
-        mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
+          !> Neumann:
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          ! mg%bc(iB, mg_iphi)%bc_value = 2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
+
+          !> Consflux:
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
+          ! mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
+
+          !> Fixed:
+          ! i = ixOmin2-1
+          ! call phys_get_tgas(w,x,ixI^L,ixO^L,Tgas)
+          ! tot_bc_value(ixOmin1:ixOmax1) = (Tgas(ixOmin1:ixOm
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+          mg%bc(iB, mg_iphi)%bc_value = Er_arr(i)
+          ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
+
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
+        endif
 
       case (4)
-        i = ixOmax2+1
-        tot_bc_value(ixOmin1:ixOmax1) = (w(ixOmin1:ixOmax1,i,i_flux(2)) &
-        - w(ixOmin1:ixOmax1,i-1,mom(2))/w(ixOmin1:ixOmax1,i-1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i-1,r_e)) &
-        *w(ixOmin1:ixOmax1,i+1,i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,rho_)/(const_c/unit_velocity)
 
-        ! !> Neumann
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        if (x(5,ixImax2,2) .ge. xprobmax2) then
 
-        !> consflux:
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
-        mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
+          i = ixOmax2+1
+          tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i-1,2)**2.d0) &
+          - w(ixOmin1:ixOmax1,i-1,mom(2))/w(ixOmin1:ixOmax1,i-1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i-1,r_e)) &
+          *w(ixOmin1:ixOmax1,i-1,i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,rho_)/(const_c/unit_velocity)
+
+          ! i = domain_nx2+3
+          ! tot_bc_value2 = (L_0/(4.d0*dpi*r_arr(i-1)**2.d0) &
+          ! - v_arr(i-1)*4.d0/3.d0*Er_arr(i-1)) &
+          ! *1.d0/3.d0*w(5,i_op)*rho_arr(i-1)/(const_c/unit_velocity)
+
+
+          ! !> Neumann
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+
+          !> Consflux:
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
+          ! mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
+
+          !> Fixed:
+          ! i = ixOmax2+1
+          ! call phys_get_tgas(w,x,ixI^L,ixO^L,Tgas)
+          ! tot_bc_value(ixOmin1:ixOmax1) = (Tgas(ixOmin1:ixOmax1, i)*unit_temperature)**4*const_rad_a/unit_pressure
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+          mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
+
+          ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
+
+          ! print*, it, Er_arr(domain_nx2+3), sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1), mg%bc(iB, mg_iphi)%bc_value, &
+          ! sum(w(ixOmin1:ixOmax1,i-2,r_e))/(ixOmax1-ixOmin1) + sum(tot_bc_value)/(ixOmax1-ixOmin1)*abs(x(5,i,2) - x(5,i-2,2))
+
+
+          !> Continuous:
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
+          ! print*, it, mype, mg%bc(iB, mg_iphi)%bc_value
+
+        endif
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

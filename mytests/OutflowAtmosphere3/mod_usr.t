@@ -363,7 +363,7 @@ contains
           !> NEED SOME MPI-STUFF TO COMUNICATE CORRECT VALUES!!!!!!!!!!!!!!!!!!!!!!!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+          !
           i = ixOmin2-1
           tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i+1,2)**2.d0) &
           - w(ixOmin1:ixOmax1,i+1,mom(2))/w(ixOmin1:ixOmax1,i+1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) &
@@ -380,7 +380,7 @@ contains
           !> Fixed:
           ! i = ixOmin2-1
           ! call phys_get_tgas(w,x,ixI^L,ixO^L,Tgas)
-          ! tot_bc_value(ixOmin1:ixOmax1) = (Tgas(ixOmin1:ixOm
+          ! tot_bc_value(ixOmin1:ixOmax1) = (Tgas(ixOmin1:ixOmax1, i)*unit_temperature)**4*const_rad_a/unit_pressure
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
           mg%bc(iB, mg_iphi)%bc_value = Er_arr(i)
           ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
@@ -393,7 +393,10 @@ contains
 
         if (x(5,ixImax2,2) .ge. xprobmax2) then
 
-          i = ixOmax2+1
+          i = ixOmax2 +1
+          ! tot_bc_value(ixOmin1:ixOmax1) = w(ixOmin1:ixOmax1,i-2,i_flux(2)) &
+          ! *w(ixOmin1:ixOmax1,i-1,i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,rho_)/(const_c/unit_velocity)
+
           tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i-1,2)**2.d0) &
           - w(ixOmin1:ixOmax1,i-1,mom(2))/w(ixOmin1:ixOmax1,i-1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i-1,r_e)) &
           *w(ixOmin1:ixOmax1,i-1,i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,rho_)/(const_c/unit_velocity)
@@ -407,22 +410,19 @@ contains
           ! !> Neumann
           ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
           ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+          ! mg%bc(iB, mg_iphi)%bc_value = 2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
 
           !> Consflux:
           ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
           ! mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
 
           !> Fixed:
-          ! i = ixOmax2+1
-          ! call phys_get_tgas(w,x,ixI^L,ixO^L,Tgas)
-          ! tot_bc_value(ixOmin1:ixOmax1) = (Tgas(ixOmin1:ixOmax1, i)*unit_temperature)**4*const_rad_a/unit_pressure
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
           mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
-
           ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
+          ! mg%bc(iB, mg_iphi)%bc_value = min(1.5*Er_arr(domain_nx2+3),max(sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1),0.5*Er_arr(domain_nx2+3)))
 
-          ! print*, it, Er_arr(domain_nx2+3), sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1), mg%bc(iB, mg_iphi)%bc_value, &
-          ! sum(w(ixOmin1:ixOmax1,i-2,r_e))/(ixOmax1-ixOmin1) + sum(tot_bc_value)/(ixOmax1-ixOmin1)*abs(x(5,i,2) - x(5,i-2,2))
+          ! print*, it, Er_arr(domain_nx2+3), sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1), mg%bc(iB, mg_iphi)%bc_value
 
 
           !> Continuous:

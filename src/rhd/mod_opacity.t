@@ -18,7 +18,7 @@ module mod_opacity
     double precision, public :: Log_T_list(7:76)
 
     !character(*), parameter, public :: fileplace = "$AMRVAC_DIR/src/rhd/Opacity_tables/"
-    character(*), parameter, public :: AMRVAC_DIR = "/lhome/nicolasm/amrvac/"
+    character(*), parameter, public :: AMRVAC_DIR = "/lhome/nicolasm/amrvac/" ! use call getenv("AMRVAC_DIR", AMRVAC_DIR)
     character(*), parameter, public :: fileplace = AMRVAC_DIR//"src/rhd/Opacity_tables/"
 
     public :: init_opal

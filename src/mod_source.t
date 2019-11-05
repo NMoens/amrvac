@@ -29,18 +29,17 @@ contains
 
     src_active = .false.
 
-
     ! Radiation diffusion
     ! > This one should actually fit beneath the other thingies
     if (physics_type .eq. 'rhd') then
       if (.not. prior .and. associated(phys_global_source)) then
-        !> If the diffusion constant is too big, the diffusion timestep has to be split up over severall smaller steps.
-        !> The value one is just a proxy for something that worked
-        ! if (diff_crit .lt. 10) then
+        ! !> If the diffusion constant is too big, the diffusion timestep has to be split up over severall smaller steps.
+        ! !> The value one is just a proxy for something that worked
+        ! if (diff_crit .lt. 200) then
           call phys_global_source(dt, qt, src_active)
         ! else
-        !   Ndiff = ceiling(diff_crit/10)
-        !   print*, Ndiff
+        !   Ndiff = ceiling(diff_crit/200)
+        !   ! print*, Ndiff
         !   do itdiff = 1,Ndiff
         !     call phys_global_source(dt/Ndiff, qt, src_active)
         !   enddo

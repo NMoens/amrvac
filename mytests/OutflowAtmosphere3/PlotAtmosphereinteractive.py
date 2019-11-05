@@ -316,6 +316,18 @@ class Plotter:
             Gamma = grad/ggrav
             Gamma_w = Gamma*1./3./ad['Lambda']
             return Gamma_w
+
+        if varname == 'tau':
+            dtau = ad['Kappa']*ad['rho']
+            tau = np.zeros(np.shape(dtau))
+            nx = np.shape(dtau)[0]
+            ny = np.shape(dtau)[1]
+            for j in range(nx):
+                tau[j][ny-1] = dtau[j][ny-1]
+                for i in range(ny-2,-1,-1):
+                    tau[j][i] = tau[j][i+1] + dtau[j][i]
+            return tau
+
         else:
             print('variable not defined')
 
@@ -378,7 +390,6 @@ class Plotter:
 
         #Multiply data with correct units
         if cgs_units:
-            time = time*ds.units.unit_time
             if not rel_diff:
                 data = data*self.units(filepath,varname)
                 data0 = data0*self.units(filepath,varname)
@@ -444,7 +455,12 @@ class Plotter:
 
         #Set title including variable name and timestamp
         fname = os.path.split(filepath)[1]
-        plt.title(varname + '   at T=' + str(round(time,4)) )
+
+
+        if cgs_units:
+            plt.title(varname + '   at T=' + str(round(time/ds.units.unit_time,4)) )
+        else:
+            plt.title(varname + '   at T=' + str(round(time,4)) )
         plt.draw()
 
 
@@ -461,13 +477,13 @@ if __name__ == '__main__':
     ds = amrvac_reader.load_file(files[0])
     orig_variables = ds.get_varnames()
         #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
-    extra_vars = ['M_dot', 'g_rad', 'g_grav', 'Gamma', 'T_gas', 'T_rad', 'Av_rho',  'Av_v',  'Av_re', 'Gamma_weighted']
+    extra_vars = ['M_dot', 'g_rad', 'Gamma', 'T_gas', 'Av_rho',  'Av_v',  'Av_re','tau']
     delete_vars = []
     variables = ds.get_varnames() #.extend(extra_vars)
     variables.extend(extra_vars)
 
     #Get rid of the following variables
-    variables.remove('Edd11')
+    # variables.remove('Edd11')
     variables.remove('Edd12')
     variables.remove('Edd21')
     variables.remove('Edd22')

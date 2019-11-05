@@ -1,12 +1,6 @@
 from amrvac_tools.datfiles.reading import amrvac_reader
 import numpy as np
 
-
-
-
-
-
-
 def PlotSnapshot(file):
     ds = amrvac_reader.load_file(file)
     ds.get_info()

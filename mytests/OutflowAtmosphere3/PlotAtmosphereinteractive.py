@@ -28,6 +28,8 @@ from ipywidgets import widgets, interactive
 # press m
 # press a
 # press o
+# press pgd
+# press pgu
 ################
 # press i
 # press shift i
@@ -89,9 +91,25 @@ class Plotter:
             print('file counter:  ',file_counter)
             self.plotter(files[file_counter],variables[var_counter])
 
+        if event.key == 'pagedown':
+            if (file_counter + 20) < len(files):
+                file_counter = file_counter + 20
+            else:
+                file_counter = 0
+            print('file counter:  ',file_counter)
+            self.plotter(files[file_counter],variables[var_counter])
+
         if event.key == 'left':
             if (file_counter - 1) >= 0:
                 file_counter = file_counter - 1
+            else:
+                file_counter = len(files) -1
+            print('file counter:  ',file_counter)
+            self.plotter(files[file_counter],variables[var_counter])
+
+        if event.key == 'pageup':
+            if (file_counter - 20) >= 0:
+                file_counter = file_counter - 20
             else:
                 file_counter = len(files) -1
             print('file counter:  ',file_counter)
@@ -210,7 +228,6 @@ class Plotter:
 
         if event.key == 'I':
             print('Go to snap:')
-
             gotosnap = int(input("Enter index of snap"))
             try:
                 file_counter = gotosnap
@@ -318,7 +335,8 @@ class Plotter:
             return Gamma_w
 
         if varname == 'tau':
-            dtau = ad['Kappa']*ad['rho']
+            dy = (max(y) - min(y))/ny
+            dtau = ad['Kappa']*ad['rho']*dy
             tau = np.zeros(np.shape(dtau))
             nx = np.shape(dtau)[0]
             ny = np.shape(dtau)[1]

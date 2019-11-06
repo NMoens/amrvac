@@ -765,7 +765,7 @@ contains
     end if
 
     if (rhd_radiation_advection) then
-      f(ixO^S, r_e) = v(ixO^S) * w(ixO^S, r_e)
+      f(ixO^S, r_e) = v(ixO^S) * (one + w(ixO^S,i_edd(idim,idim)))* w(ixO^S,r_e)
     else
       f(ixO^S, r_e) = zero
     endif
@@ -818,7 +818,7 @@ contains
     end if
 
     if (rhd_radiation_advection) then
-      f(ixO^S, r_e) = w(ixO^S,mom(idim)) * wC(ixO^S, r_e)
+      f(ixO^S, r_e) = w(ixO^S,mom(idim)) * * (one + wC(ixO^S,i_edd(idim,idim)))* wC(ixO^S,r_e)
     else
       f(ixO^S, r_e) = zero
     endif

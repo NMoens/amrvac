@@ -13,7 +13,7 @@ contains
     use mod_global_parameters
     use mod_ghostcells_update
     use mod_thermal_conduction, only: phys_thermal_conduction
-    use mod_physics, only: phys_req_diagonal, phys_global_source, physics_type
+    use mod_physics, only: phys_req_diagonal, global_radiation_source, physics_type
     use mod_fld, only: diff_crit
 
     logical, intent(in) :: prior
@@ -32,16 +32,16 @@ contains
     ! Radiation diffusion
     ! > This one should actually fit beneath the other thingies
     if (physics_type .eq. 'rhd') then
-      if (.not. prior .and. associated(phys_global_source)) then
+      if (.not. prior .and. associated(global_radiation_source)) then
         ! !> If the diffusion constant is too big, the diffusion timestep has to be split up over severall smaller steps.
         ! !> The value one is just a proxy for something that worked
         ! if (diff_crit .lt. 200) then
-          call phys_global_source(dt, qt, src_active)
+          call global_radiation_source(dt, qt, src_active)
         ! else
         !   Ndiff = ceiling(diff_crit/200)
         !   ! print*, Ndiff
         !   do itdiff = 1,Ndiff
-        !     call phys_global_source(dt/Ndiff, qt, src_active)
+        !     call global_radiation_source(dt/Ndiff, qt, src_active)
         !   enddo
         ! endif
       end if
@@ -66,16 +66,16 @@ contains
 
     ! Radiation diffusion
     ! if (physics_type .eq. 'rhd') then
-    !   if (.not. prior .and. associated(phys_global_source)) then
+    !   if (.not. prior .and. associated(global_radiation_source)) then
     !     !> If the diffusion constant is too big, the diffusion timestep has to be split up over severall smaller steps.
     !     !> The value one is just a proxy for something that worked
     !     ! if (diff_crit .lt. 10) then
-    !       call phys_global_source(dt, qt, src_active)
+    !       call global_radiation_source(dt, qt, src_active)
     !     ! else
     !     !   Ndiff = ceiling(diff_crit/10)
     !     !   print*, Ndiff
     !     !   do itdiff = 1,Ndiff
-    !     !     call phys_global_source(dt/Ndiff, qt, src_active)
+    !     !     call global_radiation_source(dt/Ndiff, qt, src_active)
     !     !   enddo
     !     ! endif
     !   end if

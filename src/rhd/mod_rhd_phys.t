@@ -1044,7 +1044,6 @@ contains
       ! print*, it, 'Doing diffusion stuff'
       if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
-        ! call phys_global_source(dt, global_time, active)
       !> photon tiring, heating and cooling
       ! print*, it, 'Doing bisection stuff'
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&

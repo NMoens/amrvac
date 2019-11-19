@@ -133,7 +133,7 @@ module mod_fld
   subroutine fld_init(He_abundance, rhd_radiation_diffusion)
     use mod_global_parameters
     use mod_variables
-    use mod_physics, only: phys_global_source
+    use mod_physics, only: global_radiation_source
     use mod_opacity, only: init_opal
     use mod_multigrid_coupling, only: mg_copy_boundary_conditions
 
@@ -196,7 +196,7 @@ module mod_fld
         use_multigrid = .true.
 
         if (rhd_radiation_diffusion) then
-          phys_global_source => Diffuse_E_rad_mg
+          global_radiation_source => Diffuse_E_rad_mg
         endif
 
         mg_after_new_tree => set_mg_diffcoef

@@ -45,7 +45,7 @@ module mod_physics
   procedure(sub_add_source_geom), pointer :: phys_add_source_geom        => null()
   procedure(sub_add_source), pointer      :: phys_add_source             => null()
 
-  procedure(sub_global_source), pointer   :: phys_global_source       => null()
+  procedure(sub_global_source), pointer   :: global_radiation_source     => null()
 
   procedure(sub_get_aux), pointer         :: phys_get_aux                => null()
   procedure(sub_check_w), pointer         :: phys_check_w                => null()

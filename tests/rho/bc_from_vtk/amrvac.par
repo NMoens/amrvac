@@ -12,7 +12,7 @@
  /
 
  &stoplist
-        time_max=1.5d0
+        time_max=2.5d0
  /
 
  &methodlist
@@ -53,4 +53,3 @@
  &rho_list
         rho_v = 1.0,0.0,0.0
  /
-

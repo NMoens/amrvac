@@ -34,7 +34,7 @@ contains
       write(*,*) "Location: ", x({ix_bad(^D)}, :)
       write(*,*) "Cell number: ", ix_bad(:)
       do iw = 1, nw
-         write(*, '(A20,A,E14.7)'), trim(cons_wnames(iw)), ": ", &
+         write(*, '(A20,A,E14.7)') trim(cons_wnames(iw)), ": ", &
               w({ix_bad(^D)}, iw)
       end do
       write(*,*) "Saving status at the previous time step"
@@ -60,7 +60,7 @@ contains
         {kxOmin^D= max(ix^D-i, ixOmin^D);
         kxOmax^D= min(ix^D+i, ixOmax^D);\}
 
-        ! in case cells are fine within smaller cube than 
+        ! in case cells are fine within smaller cube than
         ! the userset small_values_daverage: use that smaller cube
         if (any(w_flag(kxO^S) == 0)) exit
       end do
@@ -77,7 +77,7 @@ contains
           end if
         end do
       else
-        write(*,*) "no cells without error were found in cube of size", & 
+        write(*,*) "no cells without error were found in cube of size", &
              small_values_daverage
         write(*,*) "at location:", x(ix^D, 1:ndim)
         write(*,*) "at index:", ix^D

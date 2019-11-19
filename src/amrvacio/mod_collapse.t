@@ -9,8 +9,8 @@ contains
 !=============================================================================
 subroutine write_collapsed
 use mod_global_parameters
-! Writes a collapsed view of the data integrated over one grid-direction.  
-! E.g. column density maps.  
+! Writes a collapsed view of the data integrated over one grid-direction.
+! E.g. column density maps.
 ! Uses flat interpolation throughout.
 ! by Oliver Porth
 ! 6.Nov 2013
@@ -36,7 +36,7 @@ use mod_global_parameters
 integer, intent(in)                               :: dir
 ! .. local ..
 integer                                           :: jgrid, igrid, Morton_no
-double precision,dimension(0:nw+nwauxio)          :: normconv 
+double precision,dimension(0:nw+nwauxio)          :: normconv
 !-----------------------------------------------------------------------------
 if(.not.slab) call mpistop("collapse only for slab cartesian cases")
 
@@ -84,7 +84,7 @@ subroutine output_collapsed_csv(dir,normconv)
 use mod_global_parameters
 use mod_calculate_xw
 integer, intent(in)                               :: dir
-double precision,dimension(0:nw+nwauxio),intent(in):: normconv 
+double precision,dimension(0:nw+nwauxio),intent(in):: normconv
 character(len=1024) :: filename, outfilehead, line
 logical             :: fileopen
 integer                                           :: iw
@@ -104,18 +104,18 @@ select case(dir)
 case (1)
    dxdim1 = dx(2,collapseLevel)
    dxdim2 = dx(3,collapseLevel)
-   xdim^LIM1=xprob^LIM2; 
-   xdim^LIM2=xprob^LIM3; 
+   xdim^LIM1=xprob^LIM2;
+   xdim^LIM2=xprob^LIM3;
 case (2)
    dxdim1 = dx(1,collapseLevel)
    dxdim2 = dx(3,collapseLevel)
-   xdim^LIM1=xprob^LIM1; 
-   xdim^LIM2=xprob^LIM3; 
+   xdim^LIM1=xprob^LIM1;
+   xdim^LIM2=xprob^LIM3;
 case (3)
    dxdim1 = dx(1,collapseLevel)
    dxdim2 = dx(2,collapseLevel)
-   xdim^LIM1=xprob^LIM1; 
-   xdim^LIM2=xprob^LIM2; 
+   xdim^LIM1=xprob^LIM1;
+   xdim^LIM2=xprob^LIM2;
 case default
    call mpistop("slice direction not clear in output_collapsed_csv")
 end select
@@ -124,10 +124,10 @@ end select
 select case(dir)
 case (1)
    dxdim1 = dx(2,collapseLevel)
-   xdim^LIM1=xprob^LIM2; 
+   xdim^LIM1=xprob^LIM2;
 case (2)
    dxdim1 = dx(1,collapseLevel)
-   xdim^LIM1=xprob^LIM1; 
+   xdim^LIM1=xprob^LIM1;
 case default
    call mpistop("slice direction not clear in output_collapsed_csv")
 end select
@@ -135,12 +135,12 @@ end select
 
  inquire(unitcollapse,opened=fileopen)
  if(.not.fileopen)then
-      ! generate filename: 
+      ! generate filename:
       write(filename,"(a,i1.1,a,i1.1,a,i4.4,a)") trim(base_filename) // '_d', &
            dir,'_l',collapseLevel,'_n',collapsenext,'.csv'
       open(unitcollapse,file=filename,status='unknown',form='formatted')
    end if
-   ! get and write the header: 
+   ! get and write the header:
    call getheadernames(wnamei,xandwnamei,outfilehead)
    line=''
    do iw=1,ndim+nw+nwauxio-1
@@ -167,7 +167,7 @@ subroutine output_collapsed_vti(dir,normconv)
 use mod_global_parameters
 use mod_calculate_xw
 integer, intent(in)                               :: dir
-double precision,dimension(0:nw+nwauxio),intent(in):: normconv 
+double precision,dimension(0:nw+nwauxio),intent(in):: normconv
 character(len=1024) :: filename, outfilehead, line
 logical             :: fileopen
 integer                                           :: iw
@@ -192,18 +192,18 @@ select case(dir)
 case (1)
    dxdim1 = dx(2,1)*2.0d0**(1-collapseLevel)
    dxdim2 = dx(3,1)*2.0d0**(1-collapseLevel)
-   xdim^LIM1=xprob^LIM2; 
-   xdim^LIM2=xprob^LIM3; 
+   xdim^LIM1=xprob^LIM2;
+   xdim^LIM2=xprob^LIM3;
 case (2)
    dxdim1 = dx(1,1)*2.0d0**(1-collapseLevel)
    dxdim2 = dx(3,1)*2.0d0**(1-collapseLevel)
-   xdim^LIM1=xprob^LIM1; 
-   xdim^LIM2=xprob^LIM3; 
+   xdim^LIM1=xprob^LIM1;
+   xdim^LIM2=xprob^LIM3;
 case (3)
    dxdim1 = dx(1,1)*2.0d0**(1-collapseLevel)
    dxdim2 = dx(2,1)*2.0d0**(1-collapseLevel)
-   xdim^LIM1=xprob^LIM1; 
-   xdim^LIM2=xprob^LIM2; 
+   xdim^LIM1=xprob^LIM1;
+   xdim^LIM2=xprob^LIM2;
 case default
    call mpistop("slice direction not clear in output_collapsed_vti")
 end select
@@ -212,10 +212,10 @@ end select
 select case(dir)
 case (1)
    dxdim1 = dx(2,1)*2.0d0**(1-collapseLevel)
-   xdim^LIM1=xprob^LIM2; 
+   xdim^LIM1=xprob^LIM2;
 case (2)
    dxdim1 = dx(1,1)*2.0d0**(1-collapseLevel)
-   xdim^LIM1=xprob^LIM1; 
+   xdim^LIM1=xprob^LIM1;
 case default
    call mpistop("slice direction not clear in output_collapsed_vti")
 end select
@@ -238,12 +238,12 @@ length = length*size_single
 
  inquire(unitcollapse,opened=fileopen)
  if(.not.fileopen)then
-      ! generate filename: 
+      ! generate filename:
     write(filename,"(a,i1.1,a,i1.1,a,i4.4,a)") trim(base_filename)//'_d',dir,&
          '_l',collapseLevel,'_n',collapsenext,'.vti'
       open(unitcollapse,file=filename,status='unknown',form='formatted')
  end if
-! get the header: 
+! get the header:
 call getheadernames(wnamei,xandwnamei,outfilehead)
 
 ! generate xml header
@@ -267,7 +267,7 @@ write(unitcollapse,'(a,6(i10),a)') &
 write(unitcollapse,'(a)')'<CellData>'
 
 do iw=1,nw+nwauxio
-  if(iw<=nw) then 
+  if(iw<=nw) then
     if(.not.w_write(iw)) cycle
   endif
   write(unitcollapse,'(a,a,a,i16,a)')&
@@ -287,7 +287,7 @@ buf='_'
 write(unitcollapse) TRIM(buf)
 
 do iw=1,nw+nwauxio
-  if(iw<=nw) then 
+  if(iw<=nw) then
     if(.not.w_write(iw)) cycle
   endif
   write(unitcollapse) length
@@ -308,7 +308,7 @@ open(unitcollapse,file=filename,status='unknown',form='formatted',position='appe
 write(unitcollapse,'(a)')'</AppendedData>'
 write(unitcollapse,'(a)')'</VTKFile>'
 close(unitcollapse)
- 
+
 end if
 
 end subroutine output_collapsed_vti
@@ -398,21 +398,21 @@ select case(dir)
 case (1)
    igdim1=(ig2-1)*nx2
    igdim2=(ig3-1)*nx3
-   idim1target^LIM=ix2target^LIM; 
+   idim1target^LIM=ix2target^LIM;
    idim2target^LIM=ix3target^LIM;
    ixMdim^LLIM1=ixM^LLIM2;
    ixMdim^LLIM2=ixM^LLIM3;
 case (2)
    igdim1=(ig1-1)*nx1
    igdim2=(ig3-1)*nx3
-   idim1target^LIM=ix1target^LIM; 
+   idim1target^LIM=ix1target^LIM;
    idim2target^LIM=ix3target^LIM;
    ixMdim^LLIM1=ixM^LLIM1;
    ixMdim^LLIM2=ixM^LLIM3;
 case (3)
    igdim1=(ig1-1)*nx1
    igdim2=(ig2-1)*nx2
-   idim1target^LIM=ix1target^LIM; 
+   idim1target^LIM=ix1target^LIM;
    idim2target^LIM=ix2target^LIM;
    ixMdim^LLIM1=ixM^LLIM1;
    ixMdim^LLIM2=ixM^LLIM2;
@@ -440,11 +440,11 @@ end if
 select case(dir)
 case (1)
    igdim1=(ig2-1)*nx2
-   idim1target^LIM=ix2target^LIM; 
+   idim1target^LIM=ix2target^LIM;
    ixMdim^LLIM1=ixM^LLIM2;
 case (2)
    igdim1=(ig1-1)*nx1
-   idim1target^LIM=ix1target^LIM; 
+   idim1target^LIM=ix1target^LIM;
    ixMdim^LLIM1=ixM^LLIM1;
 case default
    call mpistop("slice direction not clear in integrate_subnode")
@@ -477,7 +477,7 @@ subroutine collapse_subnode(igrid,jgrid,dir,normconv)
   use mod_calculate_xw
 
 integer, intent(in) :: igrid, jgrid, dir
-double precision,dimension(0:nw+nwauxio),intent(out)       :: normconv 
+double precision,dimension(0:nw+nwauxio),intent(out)       :: normconv
 ! .. local ..
 integer                :: ix, iw
 double precision       :: dx^D
@@ -497,7 +497,7 @@ call calc_grid(unitslice,igrid,xC,xCC,xC_TMP,xCC_TMP,wC_TMP,wCC_TMP,normconv,&
 {^IFTHREED
 select case (dir)
 case (1)
-  if(slab) then
+  if(slab_uniform) then
     do ix=ixMlo1,ixMhi1
       ps_sub(jgrid)%w(ixMlo2:ixMhi2,ixMlo3:ixMhi3,1:nw+nwauxio) = &
            ps_sub(jgrid)%w(ixMlo2:ixMhi2,ixMlo3:ixMhi3,1:nw+nwauxio) &
@@ -516,7 +516,7 @@ case (1)
   ps_sub(jgrid)%x(ixMlo2:ixMhi2,ixMlo3:ixMhi3,1:ndim) = &
        ps(igrid)%x(ixMlo1,ixMlo2:ixMhi2,ixMlo3:ixMhi3,1:ndim)
 case (2)
-  if(slab) then
+  if(slab_uniform) then
     do ix=ixMlo2,ixMhi2
        ps_sub(jgrid)%w(ixMlo1:ixMhi1,ixMlo3:ixMhi3,1:nw+nwauxio) = &
             ps_sub(jgrid)%w(ixMlo1:ixMhi1,ixMlo3:ixMhi3,1:nw+nwauxio) &
@@ -533,9 +533,9 @@ case (2)
     end do
   endif
   ps_sub(jgrid)%x(ixMlo1:ixMhi1,ixMlo3:ixMhi3,1:ndim) = &
-       ps(igrid)%x(ixMlo1:ixMhi1,ixMlo2,ixMlo3:ixMhi3,1:ndim) 
+       ps(igrid)%x(ixMlo1:ixMhi1,ixMlo2,ixMlo3:ixMhi3,1:ndim)
 case (3)
-  if(slab) then
+  if(slab_uniform) then
     do ix=ixMlo3,ixMhi3
        ps_sub(jgrid)%w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,1:nw+nwauxio) = &
             ps_sub(jgrid)%w(ixMlo1:ixMhi1,ixMlo2:ixMhi2,1:nw+nwauxio) &
@@ -552,7 +552,7 @@ case (3)
     end do
   endif
   ps_sub(jgrid)%x(ixMlo1:ixMhi1,ixMlo2:ixMhi2,1:ndim) = &
-       ps(igrid)%x(ixMlo1:ixMhi1,ixMlo2:ixMhi2,ixMlo3,1:ndim) 
+       ps(igrid)%x(ixMlo1:ixMhi1,ixMlo2:ixMhi2,ixMlo3,1:ndim)
 case default
    print*, 'subnode, dir: ', dir
    call mpistop("slice direction not clear in collapse_subnode")
@@ -561,7 +561,7 @@ end select
 {^IFTWOD
 select case (dir)
 case (1)
-  if(slab) then
+  if(slab_uniform) then
     do ix=ixMlo1,ixMhi1
       ps_sub(jgrid)%w(ixMlo2:ixMhi2,1:nw+nwauxio) = &
            ps_sub(jgrid)%w(ixMlo2:ixMhi2,1:nw+nwauxio) &
@@ -580,7 +580,7 @@ case (1)
   ps_sub(jgrid)%x(ixMlo2:ixMhi2,1:ndim) = &
        ps(igrid)%x(ixMlo1,ixMlo2:ixMhi2,1:ndim)
 case (2)
-  if(slab) then
+  if(slab_uniform) then
     do ix=ixMlo2,ixMhi2
        ps_sub(jgrid)%w(ixMlo1:ixMhi1,1:nw+nwauxio) = &
             ps_sub(jgrid)%w(ixMlo1:ixMhi1,1:nw+nwauxio) &
@@ -597,13 +597,13 @@ case (2)
     end do
   end if
   ps_sub(jgrid)%x(ixMlo1:ixMhi1,1:ndim) = &
-       ps(igrid)%x(ixMlo1:ixMhi1,ixMlo2,1:ndim) 
+       ps(igrid)%x(ixMlo1:ixMhi1,ixMlo2,1:ndim)
 case default
    call mpistop("slice direction not clear in collapse_subnode")
 end select
 }
-{^IFONED   
-if(slab) then
+{^IFONED
+if(slab_uniform) then
   do ix=ixMlo1,ixMhi1
      ps_sub(jgrid)%w(1:nw+nwauxio) = ps_sub(jgrid)%w(1:nw+nwauxio) + wCC_TMP(ix,1:nw+nwauxio) * dx1
   end do

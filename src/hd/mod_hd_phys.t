@@ -104,6 +104,7 @@ contains
   subroutine hd_angmomfix(fC,x,wnew,ixI^L,ixO^L,idim)
     use mod_global_parameters
     use mod_dust, only: dust_n_species, dust_mom
+    use mod_geometry
     double precision, intent(in)       :: x(ixI^S,1:ndim)
     double precision, intent(inout)    :: fC(ixI^S,1:nwflux,1:ndim),  wnew(ixI^S,1:nw)
     integer, intent(in)                :: ixI^L, ixO^L
@@ -121,8 +122,8 @@ contains
 
     inv_volume(ixO^S) = 1.0d0/block%dvolume(ixO^S)
 
-    select case(typeaxial)
-    case ("cylindrical")
+    select case(coordinate)
+    case (cylindrical)
        do iw=1,nwflux
         isangmom = (iw==iw_mom(phi_))
         if (hd_dust) &
@@ -136,10 +137,10 @@ contains
                 inv_volume(ixO^S)
         endif
       enddo
-     case ("spherical")
+     case (spherical)
       if (hd_dust) &
         call mpistop("Error: hd_angmomfix is not implemented &\\
-        &with dust and typeaxial=='sperical'")
+        &with dust and coordinate=='sperical'")
       do iw=1,nwflux
         if     (idim==r_ .and. (iw==iw_mom(2) .or. iw==iw_mom(phi_))) then
           fC(kxC^S,iw,idim)= fC(kxC^S,iw,idim)*(x(kxC^S,idim)+half*block%dx(kxC^S,idim))
@@ -319,7 +320,6 @@ contains
     double precision             :: tmp(ixI^S)
 
     flag(ixO^S) = 0
-    where(w(ixO^S, rho_) < small_density) flag(ixO^S) = rho_
 
     if (hd_energy) then
        if (primitive) then
@@ -330,6 +330,8 @@ contains
           where(tmp(ixO^S) < small_pressure) flag(ixO^S) = e_
        endif
     end if
+
+    where(w(ixO^S, rho_) < small_density) flag(ixO^S) = rho_
 
   end subroutine hd_check_w
 
@@ -672,11 +674,12 @@ contains
   !> not ndim. Eg, they are the same in 2.5D and in 3D, for any geometry.
   !>
   !> Ileyk : to do :
-  !>     - address the source term for the dust in case (typeaxial == 'spherical')
+  !>     - address the source term for the dust in case (coordinate == spherical)
   subroutine hd_add_source_geom(qdt, ixI^L, ixO^L, wCT, w, x)
     use mod_global_parameters
     use mod_viscosity, only: visc_add_source_geom ! viscInDiv
     use mod_dust, only: dust_n_species, dust_mom, dust_rho, dust_small_to_zero, set_dusttozero, dust_min_rho
+    use mod_geometry
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: qdt, x(ixI^S, 1:ndim)
     double precision, intent(inout) :: wCT(ixI^S, 1:nw), w(ixI^S, 1:nw)
@@ -694,15 +697,15 @@ contains
        n_fluids = 1
     end if
 
-    select case (typeaxial)
-    case ("cylindrical")
+    select case (coordinate)
+    case (cylindrical)
        do ifluid = 0, n_fluids-1
           ! s[mr]=(pthermal+mphi**2/rho)/radius
           if (ifluid == 0) then
              ! gas
              irho  = rho_
              mr_   = mom(r_)
-             mphi_ = mom(phi_)
+             if(phi_>0) mphi_ = mom(phi_)
              call hd_get_pthermal(wCT, x, ixI^L, ixO^L, source)
              minrho = 0.0d0
           else
@@ -730,12 +733,12 @@ contains
              w(ixO^S, mr_) = w(ixO^S, mr_) + qdt * source(ixO^S) / x(ixO^S, r_)
           end if
        end do
-    case ("spherical")
+    case (spherical)
        if (hd_dust) then
           call mpistop("Dust geom source terms not implemented yet with spherical geometries")
        end if
        mr_   = mom(r_)
-       mphi_ = mom(phi_)
+       if(phi_>0) mphi_ = mom(phi_)
        h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
        ! s[mr]=((mtheta**2+mphi**2)/rho+2*p)/r
        call hd_get_pthermal(wCT, x, ixI^L, ixO^L, pth)
@@ -913,12 +916,12 @@ contains
       select case (small_values_method)
       case ("replace")
         if (small_values_fix_iw(rho_)) then
-          where(flag(ixO^S) /= 0) w(ixO^S,rho_) = small_density
+          where(flag(ixO^S) == rho_) w(ixO^S,rho_) = small_density
         end if
 
         do idir = 1, ndir
           if (small_values_fix_iw(mom(idir))) then
-            where(flag(ixO^S) /= 0) w(ixO^S, mom(idir)) = 0.0d0
+            where(flag(ixO^S) == rho_) w(ixO^S, mom(idir)) = 0.0d0
           end if
         end do
 

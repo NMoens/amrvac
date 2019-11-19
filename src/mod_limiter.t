@@ -2,6 +2,8 @@
 module mod_limiter
   use mod_ppm
   use mod_mp5
+  use mod_weno
+  use mod_venk
 
   implicit none
   public
@@ -18,9 +20,17 @@ module mod_limiter
   integer, parameter :: limiter_koren = 7
   integer, parameter :: limiter_cada = 8
   integer, parameter :: limiter_cada3 = 9
+  integer, parameter :: limiter_venk = 10
   ! Special cases
-  integer, parameter :: limiter_ppm = 10
-  integer, parameter :: limiter_mp5 = 11
+  integer, parameter :: limiter_ppm = 11
+  integer, parameter :: limiter_mp5 = 12
+  integer, parameter :: limiter_weno3  = 13
+  integer, parameter :: limiter_weno5 = 14
+  integer, parameter :: limiter_wenoz5  = 15
+  integer, parameter :: limiter_wenozp5  = 16
+  integer, parameter :: limiter_weno7 = 17
+  integer, parameter :: limiter_mpweno7 = 18
+  integer, parameter :: limiter_exeno7 = 19
 
 contains
 
@@ -46,10 +56,27 @@ contains
        limiter_type = limiter_cada
     case ('cada3')
        limiter_type = limiter_cada3
+    case('venk')
+       limiter_type = limiter_venk
     case ('ppm')
        limiter_type = limiter_ppm
     case ('mp5')
        limiter_type = limiter_mp5
+    case ('weno3')
+       limiter_type = limiter_weno3
+    case ('weno5')
+       limiter_type = limiter_weno5
+    case ('wenoz5')
+       limiter_type = limiter_wenoz5
+    case ('wenozp5')
+       limiter_type = limiter_wenozp5
+    case ('weno7')
+       limiter_type = limiter_weno7
+    case ('mpweno7')
+       limiter_type = limiter_mpweno7
+    case ('exeno7')
+       limiter_type = limiter_exeno7
+
     case default
        limiter_type = -1
        write(*,*) 'Unknown limiter: ', namelim

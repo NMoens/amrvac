@@ -8,7 +8,7 @@ contains
   subroutine usr_init()
     usr_init_one_grid => initonegrid_usr
     usr_aux_output    => specialvar_output
-    usr_add_aux_names => specialvarnames_output 
+    usr_add_aux_names => specialvarnames_output
     usr_set_B0        => specialset_B0
 
     call set_coordinate_system("spherical")
@@ -18,13 +18,13 @@ contains
 
   subroutine initonegrid_usr(ixI^L,ixO^L,w,x)
   ! initialize one grid
-    use mod_physics
     integer, intent(in) :: ixI^L, ixO^L
     double precision, intent(in) :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: rbs,xc^D,xcc^D
     double precision :: xcart(ixI^S,1:ndim),Bloc(ixI^S,ndir)
+    integer :: idir,ixC^L
     logical, save:: first=.true.
 
     if (first) then
@@ -51,6 +51,16 @@ contains
     w(ixO^S,mom(:))=0.d0
     if(B0field) then
       w(ixO^S,mag(:))=0.d0
+    else if(stagger_grid) then
+      do idir=1,ndim
+        xcart=x
+        ixCmin^D=ixOmin^D-kr(idir,^D);
+        ixCmax^D=ixOmax^D;
+        xcart(ixC^S,idir)=x(ixC^S,idir)+half*block%dx(ixC^S,idir)
+        call get_B(ixI^L,ixC^L,Bloc,xcart)
+        block%ws(ixC^S,idir)=Bloc(ixC^S,idir)
+      end do
+      call mhd_face_to_center(ixO^L,block)
     else
       call get_B(ixI^L,ixO^L,Bloc,x)
       w(ixO^S,mag(:))=Bloc(ixO^S,:)
@@ -58,7 +68,7 @@ contains
 
     if(mhd_glm) w(ixO^S,psi_)=0.d0
 
-    call phys_to_conserved(ixI^L,ixO^L,w,x)
+    call mhd_to_conserved(ixI^L,ixO^L,w,x)
 
   end subroutine initonegrid_usr
 
@@ -90,7 +100,7 @@ contains
     double precision                   :: w(ixI^S,nw+nwauxio)
     double precision                   :: normconv(0:nw+nwauxio)
 
-    double precision                   :: tmp(ixI^S) 
+    double precision                   :: tmp(ixI^S)
 
     call phys_get_pthermal(w,x,ixI^L,ixO^L,tmp)
     ! output the temperature p/rho
@@ -105,7 +115,7 @@ contains
     ! output divB1
     call get_divb(w,ixI^L,ixO^L,tmp)
     w(ixO^S,nw+3)=tmp(ixO^S)
-    
+
   end subroutine specialvar_output
 
   subroutine specialvarnames_output(varnames)

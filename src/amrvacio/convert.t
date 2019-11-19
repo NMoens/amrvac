@@ -4,13 +4,14 @@ use mod_usr_methods, only: usr_special_convert
 use mod_global_parameters
 use mod_ghostcells_update
 use mod_physics, only: phys_req_diagonal
+use mod_thermal_emission
 !-----------------------------------------------------------------------------
 
 if(mype==0.and.level_io>0) write(unitterm,*)'reset tree to fixed level=',level_io
-if(level_io>0 .or. level_io_min.ne.1 .or. level_io_max.ne.nlevelshi) then 
+if(level_io>0 .or. level_io_min.ne.1 .or. level_io_max.ne.nlevelshi) then
    call resettree_convert
 else if(.not. phys_req_diagonal) then
-   call getbc(global_time,0.d0,ps,0,nwflux+nwaux)
+   call getbc(global_time,0.d0,ps,1,nwflux+nwaux)
 end if
 
 select case(convert_type)
@@ -44,6 +45,13 @@ select case(convert_type)
    call mpistop("Error in generate_plotfile: Unknown convert_type")
 end select
 
+
+! output synthetic euv emission
+if (ndim==3) then
+  if (image) call get_EUV_image(unitconvert)
+  if (spectrum) call get_EUV_spectra(unitconvert)
+endif
+
 end subroutine generate_plotfile
 !=============================================================================
 subroutine oneblock(qunit)
@@ -56,7 +64,7 @@ subroutine oneblock(qunit)
 ! this version can not work on multiple CPUs
 ! does not renormalize variables
 
-! header info differs from onegrid below 
+! header info differs from onegrid below
 
 ! ASCII or binary output
 
@@ -166,7 +174,7 @@ if (saveprim) then
   do iigrid=1,igridstail; igrid=igrids(iigrid)
     if (.not.writeblk(igrid)) cycle
     call phys_to_primitive(ixG^LL,ixG^LL^LSUB1,ps1(igrid)%w,ps(igrid)%x)
-    if (allocated(ps(igrid)%B0)) then
+    if(B0field) then
       ! add background magnetic field B0 to B
       ps1(igrid)%w(ixG^T,iw_mag(:))=ps1(igrid)%w(ixG^T,iw_mag(:))+ps(igrid)%B0(ixG^T,:,0)
     end if
@@ -174,7 +182,7 @@ if (saveprim) then
 else
   do iigrid=1,igridstail; igrid=igrids(iigrid)
     if (.not.writeblk(igrid)) cycle
-    if (allocated(ps(igrid)%B0)) then
+    if (B0field) then
       ! add background magnetic field B0 to B
       if(phys_energy) &
         ps1(igrid)%w(ixG^T,iw_e)=ps1(igrid)%w(ixG^T,iw_e)+0.5d0*sum(ps(igrid)%B0(ixG^T,:,0)**2,dim=ndim+1) &
@@ -319,7 +327,7 @@ do Morton_no=Morton_start(mype),Morton_stop(mype)
                                      ,ps(igrid)%w(ix^D,1:nw)
    {end do\}
   end if
-end do   
+end do
 
 if(mype==0.and.npe>1) allocate(intstatus(MPI_STATUS_SIZE,1))
 
@@ -341,7 +349,7 @@ Manycpu : if (npe>1) then
          {end do\}
    end do loop_Morton
   end do loop_cpu
- end if 
+ end if
 end if Manycpu
 
 if (npe>1) then
@@ -350,7 +358,7 @@ if (npe>1) then
 endif
 
 if(mype==0) close(qunit)
-end subroutine onegrid 
+end subroutine onegrid
 !============================================================================
 subroutine tecplot(qunit)
 
@@ -402,12 +410,12 @@ if(nw/=count(w_write(1:nw)))then
 end if
 
 if(nocartesian)then
- if(mype==0) PRINT *,'tecplot with nocartesian and typeaxial=',typeaxial
+ if(mype==0) PRINT *,'tecplot with nocartesian'
 endif
 
 inquire(qunit,opened=fileopen)
 if (.not.fileopen) then
-   ! generate filename    
+   ! generate filename
    filenr=snapshotini
    if (autoconvert) filenr=snapshotnext
    write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".plt"
@@ -443,7 +451,7 @@ if(convert_type=='tecline') then
 
    write(qunit,"(a,i7,a,1pe12.5,a)") &
          'ZONE T="all levels", I=',elems, &
-         ', SOLUTIONTIME=',global_time*time_convert_factor,', F=POINT' 
+         ', SOLUTIONTIME=',global_time*time_convert_factor,', F=POINT'
 
    igonlevel=0
    do iigrid=1,igridstail; igrid=igrids(iigrid);
@@ -466,12 +474,12 @@ do level=levmin,levmax
    ! with the AMR grid LEVEL. Other options would be
    !    let each grid define a zone: inefficient for TECPLOT internal workings
    !       hence not implemented
-   !    let entire octree define 1 zone: no difference in interpolation 
+   !    let entire octree define 1 zone: no difference in interpolation
    !       properties across TECPLOT zones detected as yet, hence not done
    select case(convert_type)
      case('tecplot')
        ! in this option, we store the corner coordinates, as well as the corner
-       ! values of all variables (obtained by averaging). This allows POINT packaging, 
+       ! values of all variables (obtained by averaging). This allows POINT packaging,
        ! and thus we can save full grid info by using one call to calc_grid
        write(qunit,"(a,i7,a,a,i7,a,i7,a,f25.16,a,a)") &
             'ZONE T="',level,'"',', N=',nodesonlevel,', E=',elemsonlevel, &
@@ -490,9 +498,9 @@ do level=levmin,levmax
        enddo
      case('tecplotCC')
        ! in this option, we store the corner coordinates, and the cell center
-       ! values of all variables. Due to this mix of corner/cell center, we must 
-       ! use BLOCK packaging, and thus we have enormous overhead by using 
-       ! calc_grid repeatedly to merely fill values of cell corner coordinates 
+       ! values of all variables. Due to this mix of corner/cell center, we must
+       ! use BLOCK packaging, and thus we have enormous overhead by using
+       ! calc_grid repeatedly to merely fill values of cell corner coordinates
        ! and cell center values per dimension, per variable
        if(ndim+nw+nwauxio>99) call mpistop("adjust format specification in writeout")
        if(nw+nwauxio==1)then
@@ -520,7 +528,7 @@ do level=levmin,levmax
         endif
        endif
        do idim=1,ndim
-         first=(idim==1) 
+         first=(idim==1)
          do iigrid=1,igridstail; igrid=igrids(iigrid);
             if (node(plevel_,igrid)/=level) cycle
             call calc_x(igrid,xC,xCC)
@@ -670,7 +678,7 @@ end if
 
 inquire(qunit,opened=fileopen)
 if(.not.fileopen)then
-  ! generate filename 
+  ! generate filename
    filenr=snapshotini
    if (autoconvert) filenr=snapshotnext
   write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".vtu"
@@ -719,7 +727,7 @@ do level=levmin,levmax
             '<Piece NumberOfPoints="',np,'" NumberOfCells="',nc,'">'
          write(qunit,'(a)')'<PointData>'
          do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
 
@@ -746,7 +754,7 @@ do level=levmin,levmax
             '<Piece NumberOfPoints="',np,'" NumberOfCells="',nc,'">'
          write(qunit,'(a)')'<CellData>'
          do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
 
@@ -769,7 +777,7 @@ do level=levmin,levmax
          write(qunit,'(a)')'</Points>'
       end select
 
-   
+
       write(qunit,'(a)')'<Cells>'
 
       ! connectivity part
@@ -894,19 +902,19 @@ if (mype /= 0) then
 else
  ! mype==0
  offset=0
- 
+
  inquire(qunit,opened=fileopen)
  if(.not.fileopen)then
-   ! generate filename 
+   ! generate filename
     filenr=snapshotini
     if (autoconvert) filenr=snapshotnext
    write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".vtu"
    ! Open the file for the header part
    open(qunit,file=filename,status='replace')
  endif
- 
+
  call getheadernames(wnamei,xandwnamei,outfilehead)
- 
+
  ! generate xml header
  write(qunit,'(a)')'<?xml version="1.0"?>'
  write(qunit,'(a)',advance='no') '<VTKFile type="UnstructuredGrid"'
@@ -918,16 +926,16 @@ else
  write(qunit,*) real(global_time*time_convert_factor)
  write(qunit,'(a)')'</DataArray>'
  write(qunit,'(a)')'</FieldData>'
- 
+
  ! number of cells, number of corner points, per grid.
  nx^D=ixMhi^D-ixMlo^D+1;
  nxC^D=nx^D+1;
  nc={nx^D*}
  np={nxC^D*}
- 
+
  length=np*size_real
  lengthcc=nc*size_real
- 
+
  length_coords=3*length
  length_conn=2**^ND*size_int*nc
  length_offsets=nc*size_int
@@ -941,7 +949,7 @@ else
          '<Piece NumberOfPoints="',np,'" NumberOfCells="',nc,'">'
       write(qunit,'(a)')'<PointData>'
       do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
 
@@ -965,7 +973,7 @@ else
          '<Piece NumberOfPoints="',np,'" NumberOfCells="',nc,'">'
       write(qunit,'(a)')'<CellData>'
       do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
 
@@ -984,22 +992,22 @@ else
       offset=offset+length_coords+size_int
       write(qunit,'(a)')'</Points>'
     end if
-   
+
     write(qunit,'(a)')'<Cells>'
 
     ! connectivity part
     write(qunit,'(a,i16,a)')&
       '<DataArray type="Int32" Name="connectivity" format="appended" offset="',offset,'"/>'
-    offset=offset+length_conn+size_int    
+    offset=offset+length_conn+size_int
 
     ! offsets data array
     write(qunit,'(a,i16,a)') &
       '<DataArray type="Int32" Name="offsets" format="appended" offset="',offset,'"/>'
-    offset=offset+length_offsets+size_int    
+    offset=offset+length_offsets+size_int
 
     ! VTK cell type data array
     write(qunit,'(a,i16,a)') &
-      '<DataArray type="Int32" Name="types" format="appended" offset="',offset,'"/>' 
+      '<DataArray type="Int32" Name="types" format="appended" offset="',offset,'"/>'
     offset=offset+size_int+nc*size_int
 
     write(qunit,'(a)')'</Cells>'
@@ -1017,7 +1025,7 @@ else
            '<Piece NumberOfPoints="',np,'" NumberOfCells="',nc,'">'
         write(qunit,'(a)')'<PointData>'
         do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
 
@@ -1041,7 +1049,7 @@ else
            '<Piece NumberOfPoints="',np,'" NumberOfCells="',nc,'">'
         write(qunit,'(a)')'<CellData>'
         do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
 
@@ -1060,22 +1068,22 @@ else
         offset=offset+length_coords+size_int
         write(qunit,'(a)')'</Points>'
       end if
-     
+
       write(qunit,'(a)')'<Cells>'
 
       ! connectivity part
       write(qunit,'(a,i16,a)')&
         '<DataArray type="Int32" Name="connectivity" format="appended" offset="',offset,'"/>'
-      offset=offset+length_conn+size_int    
+      offset=offset+length_conn+size_int
 
       ! offsets data array
       write(qunit,'(a,i16,a)') &
         '<DataArray type="Int32" Name="offsets" format="appended" offset="',offset,'"/>'
-      offset=offset+length_offsets+size_int    
+      offset=offset+length_offsets+size_int
 
       ! VTK cell type data array
       write(qunit,'(a,i16,a)') &
-        '<DataArray type="Int32" Name="types" format="appended" offset="',offset,'"/>' 
+        '<DataArray type="Int32" Name="types" format="appended" offset="',offset,'"/>'
       offset=offset+size_int+nc*size_int
 
       write(qunit,'(a)')'</Cells>'
@@ -1099,7 +1107,7 @@ else
    call calc_grid(qunit,igrid,xC,xCC,xC_TMP,xCC_TMP,wC_TMP,wCC_TMP,normconv,&
                   ixC^L,ixCC^L,.true.)
    do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
      if(cell_corner) then
@@ -1169,7 +1177,7 @@ else
         call MPI_RECV(wCC_TMP,1,type_block_wcc_io, ipe,itag,icomm,intstatus(:,1),ierrmpi)
       end if
       do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
         if(cell_corner) then
@@ -1281,7 +1289,7 @@ subroutine ImageDataVtk_mpi(qunit)
 ! allows renormalizing using convert factors
 ! allows skipping of w_write selected variables
 
-! implementation such that length of ASCII output is identical when 
+! implementation such that length of ASCII output is identical when
 ! run on 1 versus multiple CPUs (however, the order of the vtu pieces can differ)
 
 use mod_forest, only: Morton_start, Morton_stop, tree_node_ptr, igrid_to_node, sfc_to_igrid
@@ -1366,7 +1374,7 @@ else
 
  inquire(qunit,opened=fileopen)
  if(.not.fileopen)then
-    ! generate filename 
+    ! generate filename
     filenr=snapshotini
     if (autoconvert) filenr=snapshotnext
     write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".vti"
@@ -1414,7 +1422,7 @@ do Morton_no=Morton_start(0),Morton_stop(0)
    call calc_grid(qunit,igrid,xC,xCC,xC_TMP,xCC_TMP,wC_TMP,wCC_TMP,normconv,&
         ixC^L,ixCC^L,.true.)
    call write_vti(qunit,ixG^LL,ixC^L,ixCC^L,ig^D,&
-        nx^D,normconv,wnamei,wC_TMP,wCC_TMP)   
+        nx^D,normconv,wnamei,wC_TMP,wCC_TMP)
 end do
 
 if(npe>1)then
@@ -1430,7 +1438,7 @@ if(npe>1)then
          call MPI_RECV(wC_TMP,1,type_block_wc_io, ipe,itag,icomm,intstatus(:,1),ierrmpi)
          call MPI_RECV(wCC_TMP,1,type_block_wcc_io, ipe,itag,icomm,intstatus(:,1),ierrmpi)
          call write_vti(qunit,ixG^LL,ixrvC^L,ixrvCC^L,ig^D,&
-              nx^D,normconv,wnamei,wC_TMP,wCC_TMP)   
+              nx^D,normconv,wnamei,wC_TMP,wCC_TMP)
       end do
    end do
 end if
@@ -1482,7 +1490,7 @@ endif
 
 inquire(qunit,opened=fileopen)
 if(.not.fileopen)then
-   ! generate filename 
+   ! generate filename
    filenr=snapshotini
    if (autoconvert) filenr=snapshotnext
    ! Open the file for the header part
@@ -1549,7 +1557,7 @@ subroutine unstructuredvtk_mpi(qunit)
 ! allows renormalizing using convert factors
 ! allows skipping of w_write selected variables
 
-! implementation such that length of ASCII output is identical when 
+! implementation such that length of ASCII output is identical when
 ! run on 1 versus multiple CPUs (however, the order of the vtu pieces can differ)
 
 use mod_forest, only: Morton_start, Morton_stop, sfc_to_igrid
@@ -1588,7 +1596,7 @@ integer :: levmin_recv,levmax_recv,level_recv,igrid_recv,ixrvC^L,ixrvCC^L
 if (mype==0) then
  inquire(qunit,opened=fileopen)
  if(.not.fileopen)then
-    ! generate filename 
+    ! generate filename
     filenr=snapshotini
     if (autoconvert) filenr=snapshotnext
     write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".vtu"
@@ -1738,7 +1746,7 @@ use mod_global_parameters
 integer, intent(in) :: qunit
 integer, intent(in) :: ixI^L,ixC^L,ixCC^L
 integer, intent(in) :: igrid,nc,np,nx^D,nxC^D
-double precision, intent(in) :: normconv(0:nw+nwauxio) 
+double precision, intent(in) :: normconv(0:nw+nwauxio)
 character(len=name_len), intent(in)::  wnamei(1:nw+nwauxio)
 
 double precision, dimension(ixMlo^D-1:ixMhi^D,ndim) :: xC
@@ -1758,7 +1766,7 @@ select case(convert_type)
             '<Piece NumberOfPoints="',np,'" NumberOfCells="',nc,'">'
       write(qunit,'(a)')'<PointData>'
       do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
 
@@ -1786,7 +1794,7 @@ select case(convert_type)
          '<Piece NumberOfPoints="',np,'" NumberOfCells="',nc,'">'
       write(qunit,'(a)')'<CellData>'
       do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
             write(qunit,'(a,a,a)')&
@@ -1846,7 +1854,7 @@ use mod_global_parameters
 integer, intent(in) :: qunit
 integer, intent(in) :: ixI^L,ixC^L,ixCC^L
 integer, intent(in) :: ig^D,nx^D
-double precision, intent(in) :: normconv(0:nw+nwauxio) 
+double precision, intent(in) :: normconv(0:nw+nwauxio)
 character(len=name_len), intent(in)::  wnamei(1:nw+nwauxio)
 
 double precision, dimension(ixMlo^D-1:ixMhi^D,nw+nwauxio)   :: wC
@@ -1868,7 +1876,7 @@ select case(convert_type)
             '<Piece Extent="',extent,'">'
       write(qunit,'(a)')'<PointData>'
       do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
 
@@ -1885,7 +1893,7 @@ select case(convert_type)
             '<Piece Extent="',extent,'">'
       write(qunit,'(a)')'<CellData>'
       do iw=1,nw+nwauxio
-         if(iw<=nw) then 
+         if(iw<=nw) then
             if(.not.w_write(iw)) cycle
          endif
             write(qunit,'(a,a,a)')&
@@ -1921,7 +1929,7 @@ case('pvtuCCmpi','pvtuBCCmpi')
 end select
 inquire(qunit,opened=fileopen)
 if(.not.fileopen)then
-   ! generate filename 
+   ! generate filename
    filenr=snapshotini
    if (autoconvert) filenr=snapshotnext
    write(filename,'(a,i4.4,a)') TRIM(base_filename),filenr,".pvtu"
@@ -1981,7 +1989,7 @@ subroutine tecplot_mpi(qunit)
 ! parallel, uses calc_grid to compute nwauxio variables
 ! allows renormalizing using convert factors
 
-! the current implementation is such that tecplotmpi and tecplotCCmpi will 
+! the current implementation is such that tecplotmpi and tecplotCCmpi will
 ! create different length output ASCII files when used on 1 versus multiple CPUs
 ! in fact, on 1 CPU, there will be as many zones as there are levels
 ! on multiple CPUs, there will be a number of zones up to the number of
@@ -2030,7 +2038,7 @@ if(nw/=count(w_write(1:nw)))then
 end if
 
 if(nocartesian)then
- if(mype==0) PRINT *,'tecplot_mpi with nocartesian and typeaxial=',typeaxial
+ if(mype==0) PRINT *,'tecplot_mpi with nocartesian'
 endif
 
 Master_cpu_open : if (mype == 0) then
@@ -2092,7 +2100,7 @@ if(convert_type=='teclinempi') then
 
    if (mype==0) write(qunit,"(a,i7,a,1pe12.5,a)") &
          'ZONE T="all levels", I=',elems, &
-         ', SOLUTIONTIME=',global_time*time_convert_factor,', F=POINT' 
+         ', SOLUTIONTIME=',global_time*time_convert_factor,', F=POINT'
 
    igonlevel=0
    do Morton_no=Morton_start(mype),Morton_stop(mype)
@@ -2129,7 +2137,7 @@ if(convert_type=='teclinempi') then
              w_TEC(1:nw+nwauxio)=wCC_TMP_recv(ix^D,1:nw+nwauxio)*normconv(1:nw+nwauxio)
              write(qunit,fmt="(100(e14.6))") x_TEC, w_TEC
          {end do\}
-        end do 
+        end do
        end do
        close(qunit)
     end if
@@ -2152,12 +2160,12 @@ do level=levmin,levmax
    ! with the AMR grid LEVEL. Other options would be
    !    let each grid define a zone: inefficient for TECPLOT internal workings
    !       hence not implemented
-   !    let entire octree define 1 zone: no difference in interpolation 
+   !    let entire octree define 1 zone: no difference in interpolation
    !       properties across TECPLOT zones detected as yet, hence not done
    select case(convert_type)
      case('tecplotmpi')
        ! in this option, we store the corner coordinates, as well as the corner
-       ! values of all variables (obtained by averaging). This allows POINT packaging, 
+       ! values of all variables (obtained by averaging). This allows POINT packaging,
        ! and thus we can save full grid info by using one call to calc_grid
        if (mype==0.and.(nodesonlevelmype>0.and.elemsonlevelmype>0))&
         write(qunit,"(a,i7,a,a,i7,a,i7,a,f25.16,a,a)") &
@@ -2185,7 +2193,7 @@ do level=levmin,levmax
 
             call MPI_SEND(wC_TMP,1,type_block_wc_io, 0,itag,icomm,ierrmpi)
             call MPI_SEND(xC_TMP,1,type_block_xc_io, 0,itag,icomm,ierrmpi)
-         else  
+         else
            {do ix^DB=ixCmin^DB,ixCmax^DB\}
               x_TEC(1:ndim)=xC_TMP(ix^D,1:ndim)*normconv(0)
               w_TEC(1:nw+nwauxio)=wC_TMP(ix^D,1:nw+nwauxio)*normconv(1:nw+nwauxio)
@@ -2196,9 +2204,9 @@ do level=levmin,levmax
 
      case('tecplotCCmpi')
        ! in this option, we store the corner coordinates, and the cell center
-       ! values of all variables. Due to this mix of corner/cell center, we must 
-       ! use BLOCK packaging, and thus we have enormous overhead by using 
-       ! calc_grid repeatedly to merely fill values of cell corner coordinates 
+       ! values of all variables. Due to this mix of corner/cell center, we must
+       ! use BLOCK packaging, and thus we have enormous overhead by using
+       ! calc_grid repeatedly to merely fill values of cell corner coordinates
        ! and cell center values per dimension, per variable
        if(ndim+nw+nwauxio>99) call mpistop("adjust format specification in writeout")
        if(nw+nwauxio==1)then
@@ -2228,7 +2236,7 @@ do level=levmin,levmax
          {^IFONED 'FELINESEG'}{^IFTWOD 'FEQUADRILATERAL'}{^IFTHREED 'FEBRICK'}
         endif
        endif
-       
+
        do idim=1,ndim
          first=(idim==1)
          do Morton_no=Morton_start(mype),Morton_stop(mype)
@@ -2256,7 +2264,7 @@ do level=levmin,levmax
           end if
          enddo
        enddo
-      
+
        do iw=1,nw+nwauxio
         do Morton_no=Morton_start(mype),Morton_stop(mype)
          igrid = sfc_to_igrid(Morton_no)
@@ -2271,7 +2279,7 @@ do level=levmin,levmax
          call calc_x(igrid,xC,xCC)
          call calc_grid(qunit,igrid,xC,xCC,xC_TMP,xCC_TMP,wC_TMP,wCC_TMP,normconv,&
                            ixC^L,ixCC^L,.true.)
-            
+
          if (mype/=0)then
             ind_send=(/ ixCC^L /)
             siz_ind=2*^ND
@@ -2287,7 +2295,7 @@ do level=levmin,levmax
      case default
        call mpistop('no such tecplot type')
    end select
- 
+
 
    igonlevel=0
    do Morton_no=Morton_start(mype),Morton_stop(mype)
@@ -2326,7 +2334,7 @@ if (mype==0) then
     select case(convert_type)
      case('tecplotmpi')
         ! in this option, we store the corner coordinates, as well as the corner
-        ! values of all variables (obtained by averaging). This allows POINT packaging, 
+        ! values of all variables (obtained by averaging). This allows POINT packaging,
         ! and thus we can save full grid info by using one call to calc_grid
         if(nodesonlevelmype>0.and.elemsonlevelmype>0) &
         write(qunit,"(a,i7,a,a,i7,a,i7,a,f25.16,a,a)") &
@@ -2347,7 +2355,7 @@ if (mype==0) then
          ixrvCmin^D=ind_recv(^D);ixrvCmax^D=ind_recv(^ND+^D);
          call MPI_RECV(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,itag&
                   ,icomm,intstatus(:,1),ierrmpi)
-     
+
          call MPI_RECV(wC_TMP_recv,1,type_block_wc_io, ipe,itag,&
                         icomm,intstatus(:,1),ierrmpi)
          call MPI_RECV(xC_TMP_recv,1,type_block_xc_io, ipe,itag,&
@@ -2361,9 +2369,9 @@ if (mype==0) then
         end do
      case('tecplotCCmpi')
        ! in this option, we store the corner coordinates, and the cell center
-       ! values of all variables. Due to this mix of corner/cell center, we must 
-       ! use BLOCK packaging, and thus we have enormous overhead by using 
-       ! calc_grid repeatedly to merely fill values of cell corner coordinates 
+       ! values of all variables. Due to this mix of corner/cell center, we must
+       ! use BLOCK packaging, and thus we have enormous overhead by using
+       ! calc_grid repeatedly to merely fill values of cell corner coordinates
        ! and cell center values per dimension, per variable
        if(ndim+nw+nwauxio>99) call mpistop("adjust format specification in writeout")
        if(nw+nwauxio==1)then
@@ -2401,18 +2409,18 @@ if (mype==0) then
            itag=igrid_recv*idim
            call MPI_RECV(level_recv,1,MPI_INTEGER, ipe,itag,icomm,intstatus(:,1),ierrmpi)
            if (level_recv/=level) cycle
-           
+
            siz_ind=2*^ND
            itag=igrid_recv*idim
            call MPI_RECV(ind_recv,siz_ind, MPI_INTEGER, ipe,itag,icomm,intstatus(:,1),ierrmpi)
-           ixrvCmin^D=ind_recv(^D);ixrvCmax^D=ind_recv(^ND+^D);     
+           ixrvCmin^D=ind_recv(^D);ixrvCmax^D=ind_recv(^ND+^D);
            call MPI_RECV(normconv,nw+nwauxio+1, MPI_DOUBLE_PRECISION,ipe,itag&
                   ,icomm,intstatus(:,1),ierrmpi)
            call MPI_RECV(xC_TMP_recv,1,type_block_xc_io, ipe,itag,icomm,intstatus(:,1),ierrmpi)
            write(qunit,fmt="(100(e14.6))") xC_TMP_recv(ixrvC^S,idim)*normconv(0)
          end do
        end do
-    
+
        do iw=1,nw+nwauxio
         do Morton_no=Morton_start(ipe),Morton_stop(ipe)
            itag=Morton_no*(ndim+iw)
@@ -2508,7 +2516,7 @@ endif
 ! Now write the Source files:
 inquire(qunit,opened=fileopen)
 if(.not.fileopen)then
-   ! generate filename 
+   ! generate filename
    filenr=snapshotnext-1
    if (autoconvert) filenr=snapshotnext
    ! Open the file for the header part
@@ -2621,22 +2629,22 @@ do level=levmin,levmax
          write(qunit,'(a)')'</Points>'
       end select
 
-   
+
       write(qunit,'(a)')'<Cells>'
 
       ! connectivity part
       write(qunit,'(a,i16,a)')&
         '<DataArray type="Int32" Name="connectivity" format="appended" offset="',offset,'"/>'
-      offset=offset+length_conn+size_int    
+      offset=offset+length_conn+size_int
 
       ! offsets data array
       write(qunit,'(a,i16,a)') &
         '<DataArray type="Int32" Name="offsets" format="appended" offset="',offset,'"/>'
-      offset=offset+length_offsets+size_int    
+      offset=offset+length_offsets+size_int
 
       ! VTK cell type data array
       write(qunit,'(a,i16,a)') &
-        '<DataArray type="Int32" Name="types" format="appended" offset="',offset,'"/>' 
+        '<DataArray type="Int32" Name="types" format="appended" offset="',offset,'"/>'
       offset=offset+size_int+nc*size_int
 
       write(qunit,'(a)')'</Cells>'
@@ -2682,7 +2690,7 @@ do level=levmin,levmax
             case('pvtuBCCmpi')
               write(qunit) lengthcc
               write(qunit) {(|}real(wCC_TMP(ix^D,iw)*normconv(iw)),{ix^D=ixCCmin^D,ixCCmax^D)}
-          end select 
+          end select
         enddo
         do iw=nw+1,nw+nwauxio
           select case(convert_type)
@@ -2692,7 +2700,7 @@ do level=levmin,levmax
             case('pvtuBCCmpi')
               write(qunit) lengthcc
               write(qunit) {(|}real(wCC_TMP(ix^D,iw)*normconv(iw)),{ix^D=ixCCmin^D,ixCCmax^D)}
-          end select 
+          end select
         enddo
 
         write(qunit) length_coords

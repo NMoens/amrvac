@@ -122,6 +122,9 @@ program amrvac
      {^NOONED
      if (use_multigrid) call mg_setup_multigrid()
 
+     !>Something weird with calling mg_setup_multigrid() twice
+     print*, 'called mg_setup_multigrid'
+
      ! improve initial condition
      call improve_initial_condition()
      }
@@ -142,9 +145,13 @@ program amrvac
 
   time_advance=.true.
 
-  {^NOONED
-  if (use_multigrid) call mg_setup_multigrid()
-  }
+  ! {^NOONED
+  ! if (use_multigrid) call mg_setup_multigrid()
+  ! }
+
+  !>Something weird with calling mg_setup_multigrid() twice
+  ! print*, 'called mg_setup_multigrid 2'
+
 
   ! an interface to allow user to do special things before the main loop
   if (associated(usr_before_main_loop)) &

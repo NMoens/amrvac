@@ -272,10 +272,10 @@ mod_rhd_phys.o: mod_fld.mod
 mod_source.o: mod_fld.mod
 mod_fld.o: mod_multigrid_coupling.mod
 mod_fld.o: mod_physics.mod
-mod_fld.o: m_diffusion.mod
+# mod_fld.o: m_diffusion.mod
 mod_fld.o: mod_opacity.mod
 mod_fld.o: mod_geometry.mod
-mod_multigrid_coupling.o: m_octree_mg.mod
+# mod_multigrid_coupling.o: m_octree_mg.mod
 mod_rhd_phys.o: mod_particles.mod
 mod_rhd_phys.o: mod_physics.mod
 mod_rhd_phys.o: mod_radiative_cooling.mod

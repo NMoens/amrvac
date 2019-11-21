@@ -5,7 +5,7 @@ module mod_mhd_phys
   private
 
   !> Whether an energy equation is used
-  logical, public, protected              :: mhd_energy = .false.
+  logical, public, protected              :: mhd_energy = .true.
 
   !> Whether thermal conduction is used
   logical, public, protected              :: mhd_thermal_conduction = .false.
@@ -552,7 +552,6 @@ contains
       if(.not.block%e_is_internal) w(ixO^S,e_)=w(ixO^S,e_) + &
         0.5d0 * sum(w(ixO^S, mom(:))**2, dim=ndim+1) * w(ixO^S, rho_) + &
         mhd_mag_en(w, ixI^L, ixO^L)
-      if(type_divb==divb_glm2) w(ixO^S,e_)=w(ixO^S,e_) + 0.5d0*w(ixO^S,psi_)**2
     end if
 
     ! Convert velocity to momentum
@@ -1056,10 +1055,6 @@ contains
           f(ixO^S,e_)=w(ixO^S,mom(idim))*(wC(ixO^S,e_) + ptotal(ixO^S))- &
              w(ixO^S,mag(idim))*sum(w(ixO^S,mag(:))*w(ixO^S,mom(:)),dim=ndim+1)
 
-          if(type_divb==divb_glm2) then
-            f(ixO^S,e_) = f(ixO^S,e_) + vmax_global*w(ixO^S,psi_)*w(ixO^S,mag(idim))
-          end if
-
           if (B0field) then
              f(ixO^S,e_) = f(ixO^S,e_) &
                 + w(ixO^S,mom(idim)) * tmp(ixO^S) &
@@ -1089,11 +1084,7 @@ contains
       if (idim==idir) then
         ! f_i[b_i] should be exactly 0, so we do not use the transport flux
         if (mhd_glm) then
-           if(type_divb==divb_glm1) then
-             f(ixO^S,mag(idir))=w(ixO^S,psi_)
-           else
-             f(ixO^S,mag(idir))=vmax_global*w(ixO^S,psi_)
-           end if
+           f(ixO^S,mag(idir))=w(ixO^S,psi_)
         else
            f(ixO^S,mag(idir))=zero
         end if
@@ -1125,13 +1116,8 @@ contains
     end do
 
     if (mhd_glm) then
-      if(type_divb==divb_glm1) then
-        !f_i[psi]=Ch^2*b_{i} Eq. 24e and Eq. 38c Dedner et al 2002 JCP, 175, 645
-        f(ixO^S,psi_)  = cmax_global**2*w(ixO^S,mag(idim))
-      else
-        !f_i[psi]=Ch*b_{i} Eq. 3.16e Derigs et al 2018 JCP, 364, 420
-        f(ixO^S,psi_)  = vmax_global*w(ixO^S,mag(idim))
-      end if
+      !f_i[psi]=Ch^2*b_{i} Eq. 24e and Eq. 38c Dedner et al 2002 JCP, 175, 645
+      f(ixO^S,psi_)  = cmax_global**2*w(ixO^S,mag(idim))
     end if
 
   end subroutine mhd_get_flux
@@ -3318,7 +3304,7 @@ contains
           ! current at transverse faces
           xs(ixB^S,:)=x(ixB^S,:)
           xs(ixB^S,idim2)=x(ixB^S,idim2)+half*dx(ixB^S,idim2)
-          call gradientx(wCTs(ixGs^T,idim2),xs,ixGs^LL,ixC^L,idim1,gradi,.false.)
+          call gradientx(wCTs(ixGs^T,idim2),xs,ixGs^LL,ixC^L,idim1,gradi,.true.)
           if (lvc(idim1,idim2,idir)==1) then
             jce(ixC^S,idir)=jce(ixC^S,idir)+gradi(ixC^S)
           else

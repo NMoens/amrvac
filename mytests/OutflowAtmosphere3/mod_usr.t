@@ -343,6 +343,7 @@ contains
   subroutine mg_boundary_conditions(qt,ixI^L,ixO^L,iB,w,x)
 
     use mod_global_parameters
+    use mod_multigrid_coupling
     use mod_physics, only: phys_get_tgas
 
     integer, intent(in)             :: ixI^L, ixO^L, iB
@@ -381,11 +382,11 @@ contains
           ! i = ixOmin2-1
           ! call phys_get_tgas(w,x,ixI^L,ixO^L,Tgas)
           ! tot_bc_value(ixOmin1:ixOmax1) = (Tgas(ixOmin1:ixOmax1, i)*unit_temperature)**4*const_rad_a/unit_pressure
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
-          mg%bc(iB, mg_iphi)%bc_value = Er_arr(i)
+          !#########mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+          !#########mg%bc(iB, mg_iphi)%bc_value = Er_arr(i)
           ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
 
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
         endif
 
@@ -417,8 +418,8 @@ contains
           ! mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
 
           !> Fixed:
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
-          mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
+          !###THIS IS THE ACTUAL WORKING METHOD###!mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+          !###THIS IS THE ACTUAL WORKING METHOD###!mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
           ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
           ! mg%bc(iB, mg_iphi)%bc_value = min(1.5*Er_arr(domain_nx2+3),max(sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1),0.5*Er_arr(domain_nx2+3)))
 
@@ -426,7 +427,7 @@ contains
 
 
           !> Continuous:
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
           ! print*, it, mype, mg%bc(iB, mg_iphi)%bc_value
 

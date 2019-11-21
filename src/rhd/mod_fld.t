@@ -2,7 +2,7 @@
 !> Module for including flux limited diffusion in hydrodynamics simulations
 !> Based on Turner and stone 2001
 module mod_fld
-    use mod_multigrid_coupling
+    ! use mod_multigrid_coupling  !!!!< Is this necesary here?!?!?!
     implicit none
 
     !> source split or not
@@ -15,9 +15,6 @@ module mod_fld
 
     !> mean particle mass
     double precision, public :: fld_mu = 0.6d0
-
-    !> Maximum amount of pseudotimesteps before trying something else
-    integer, public :: fld_maxdw = 100
 
     !> Tolerance for bisection method for Energy sourceterms
     !> This is a percentage of the minimum of gas- and radiation energy
@@ -110,7 +107,7 @@ module mod_fld
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /fld_list/ fld_kappa0, fld_split, fld_maxdw, &
+    namelist /fld_list/ fld_kappa0, fld_split, &
     fld_bisect_tol, fld_diff_testcase, fld_diff_tol, fld_max_fracdt,&
     fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
     diff_coef_filter, size_D_filter, flux_lim_filter, size_L_filter, &
@@ -135,7 +132,7 @@ module mod_fld
     use mod_variables
     use mod_physics, only: global_radiation_source
     use mod_opacity, only: init_opal
-    use mod_multigrid_coupling, only: mg_copy_boundary_conditions
+    use mod_multigrid_coupling
 
     double precision, intent(in) :: He_abundance
     logical, intent(in) :: rhd_radiation_diffusion
@@ -197,6 +194,7 @@ module mod_fld
 
         if (rhd_radiation_diffusion) then
           global_radiation_source => Diffuse_E_rad_mg
+          if (ndim == 1) call mpistop("multigrid not available in 1d")
         endif
 
         mg_after_new_tree => set_mg_diffcoef
@@ -204,14 +202,9 @@ module mod_fld
         mg%n_extra_vars = 1
         mg%operator_type = mg_vhelmholtz
 
-        ! i_diff_mg = var_set_extravar("D", "D")
       endif
     endif
     i_diff_mg = var_set_extravar("D", "D")
-
-
-    !> Check if fld_numdt is not 1
-    if (fld_maxdw .lt. 2) call mpistop("fld_maxdw should be an integer larger than 1")
 
     !> Need mean molecular weight
     fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
@@ -333,7 +326,7 @@ module mod_fld
     use mod_usr_methods
     use mod_physics
     use mod_multigrid_coupling
-    use m_diffusion
+    ! use m_diffusion
     use mpi
 
     use mod_physics, only: phys_get_pthermal  !needed to get temp
@@ -765,7 +758,6 @@ module mod_fld
   subroutine Diffuse_E_rad_mg(qdt, qt, active)
     use mod_global_parameters
     use mod_multigrid_coupling
-    use m_diffusion
 
     double precision, intent(in) :: qdt, qt
     logical, intent(inout)       :: active
@@ -774,11 +766,8 @@ module mod_fld
     call set_mg_diffcoef()
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call MPI_BARRIER(icomm,ierrmpi)
     call diffusion_solve_vcoeff(mg, qdt, 2, fld_diff_tol)
-    call MPI_BARRIER(icomm,ierrmpi)
     call mg_copy_from_tree_gc(mg_iphi, iw_r_e)
-    call MPI_BARRIER(icomm,ierrmpi)
     active = .true.
 
   end subroutine Diffuse_E_rad_mg
@@ -849,11 +838,13 @@ module mod_fld
 
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
+    use mod_multigrid_coupling
     call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
   end subroutine set_mg_diffcoef
 
   !> Sets boundary conditions for multigrid, based on hydro-bounds
   subroutine set_mg_bounds(w, x, ixI^L, ixO^L)
+    use mod_multigrid_coupling
     use mod_global_parameters
     use mod_usr_methods
 

@@ -154,8 +154,8 @@ contains
 
     inv_volume(ixO^S) = 1.0d0/block%dvolume(ixO^S)
 
-    select case(typeaxial)
-    case ("cylindrical")
+    select case(coordinate)
+    case (cylindrical)
        do iw=1,nwflux
         isangmom = (iw==iw_mom(phi_))
         if (rhd_dust) &
@@ -169,10 +169,10 @@ contains
                 inv_volume(ixO^S)
         endif
       enddo
-     case ("spherical")
+     case (spherical)
       if (rhd_dust) &
         call mpistop("Error: rhd_angmomfix is not implemented &\\
-        &with dust and typeaxial=='sperical'")
+        &with dust and coordinate==sperical")
       do iw=1,nwflux
         if     (idim==r_ .and. (iw==iw_mom(2) .or. iw==iw_mom(phi_))) then
           fC(kxC^S,iw,idim)= fC(kxC^S,iw,idim)*(x(kxC^S,idim)+half*block%dx(kxC^S,idim))
@@ -869,8 +869,8 @@ contains
        n_fluids = 1
     end if
 
-    select case (typeaxial)
-    case ("cylindrical")
+    select case (coordinate)
+    case (cylindrical)
        do ifluid = 0, n_fluids-1
           ! s[mr]=(pthermal+mphi**2/rho)/radius
           if (ifluid == 0) then
@@ -905,7 +905,7 @@ contains
              w(ixO^S, mr_) = w(ixO^S, mr_) + qdt * source(ixO^S) / x(ixO^S, r_)
           end if
        end do
-    case ("spherical")
+    case (spherical)
        if (rhd_dust) then
           call mpistop("Dust geom source terms not implemented yet with spherical geometries")
        end if

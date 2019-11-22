@@ -87,6 +87,12 @@ module m_octree_mg_2d
   !> Value to indicate a continuous boundary condition
   integer, parameter, public :: mg_bc_continuous = -12
 
+  !> Value to indicate a continuous boundary condition
+  integer, parameter, public :: mg_bc_consflux = -13
+
+  !> Value to indicate a continuous boundary condition
+  integer, parameter, public :: mg_bc_fixed = -14
+
   !> Special value that indicates there is no box
   integer, parameter, public :: mg_no_box = 0
   !> Special value that indicates there is a physical boundary
@@ -2504,6 +2510,15 @@ contains
        c0 = 0
        c1 = 2
        c2 = -1
+    case (mg_bc_consflux)
+      dr = mg%dr(mg_neighb_dim(nb), mg%boxes(id)%lvl)
+      c0 = 2 * dr * mg_neighb_high_pm(nb) ! This gives a + or - sign
+      c1 = 0
+      c2 = 1
+    case (mg_bc_fixed)
+      c0 = 1
+      c1 = 0
+      c2 = 0
     case default
        error stop "bc_to_gc: unknown boundary condition"
     end select

@@ -1,3 +1,4 @@
+
 !> AMRVAC solves a set of hyperbolic equations
 !> \f$\vec{u}_t + \nabla_x \cdot \vec{f}(\vec{u}) = \vec{s}\f$
 !> using adaptive mesh refinement.
@@ -14,10 +15,6 @@ program amrvac
   use mod_fix_conserve
   use mod_advance, only: process
   use mod_constrained_transport
-
-  {^NOONED
-  use mod_multigrid_coupling
-  }
 
   {^NOONED
   use mod_multigrid_coupling
@@ -122,9 +119,6 @@ program amrvac
      {^NOONED
      if (use_multigrid) call mg_setup_multigrid()
 
-     !>Something weird with calling mg_setup_multigrid() twice
-     print*, 'called mg_setup_multigrid'
-
      ! improve initial condition
      call improve_initial_condition()
      }
@@ -144,14 +138,6 @@ program amrvac
   end if
 
   time_advance=.true.
-
-  ! {^NOONED
-  ! if (use_multigrid) call mg_setup_multigrid()
-  ! }
-
-  !>Something weird with calling mg_setup_multigrid() twice
-  ! print*, 'called mg_setup_multigrid 2'
-
 
   ! an interface to allow user to do special things before the main loop
   if (associated(usr_before_main_loop)) &
@@ -245,20 +231,6 @@ contains
            write(*, '(A4,I10,ES12.3,ES12.3,ES12.3)') " #", &
                 it, global_time, dt, timeio0 - time_in
          end if
-       end if
-
-       ! Check if output needs to be written
-       do ifile=nfile,1,-1
-         save_file(ifile) = timetosave(ifile)
-       end do
-
-       ! Users can modify or set variables before output is written
-       if (any(save_file) .and. associated(usr_modify_output)) then
-         do iigrid=1,igridstail; igrid=igrids(iigrid);
-           ^D&dxlevel(^D)=rnode(rpdx^D_,igrid);
-           block=>ps(igrid)
-           call usr_modify_output(ixG^LL,ixM^LL,global_time,ps(igrid)%w,ps(igrid)%x)
-         end do
        end if
 
        ! output data

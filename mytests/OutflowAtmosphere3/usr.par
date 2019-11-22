@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./3output/const'
+  base_filename='./output/const'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -13,8 +13,8 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   !ditsave_dat     = 1
-   !ditsave_log     = 1
+   !ditsave_dat     = 100
+   !ditsave_log     = 100
    dtsave_dat     = 0.5d-3
    dtsave_log     = 5.d-2
 /

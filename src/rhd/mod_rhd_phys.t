@@ -312,7 +312,10 @@ contains
 
   subroutine rhd_check_params
     use mod_global_parameters
+    use mod_multigrid_coupling
     use mod_dust, only: dust_check_params
+
+    integer :: iB, idim
 
     if (.not. rhd_energy) then
        if (rhd_gamma <= 0.0d0) call mpistop ("Error: rhd_gamma <= 0")
@@ -327,6 +330,33 @@ contains
     small_r_e = small_e
 
     if (rhd_dust) call dust_check_params()
+
+    if (use_multigrid) then
+       ! Set boundary conditions for the multigrid solver
+       do iB = 1, 2*ndim
+          select case (typeboundary(r_e, iB))
+          case ('symm')
+             ! d/dx u = 0
+             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
+             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+          case ('asymm')
+             ! u = 0
+             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_dirichlet
+             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+          case ('cont')
+             ! d/dx u = 0
+             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
+             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+          case ('periodic')
+             ! Nothing to do here
+          case default
+             print *, "divb_multigrid warning: unknown b.c.: ", &
+                  trim(typeboundary(r_e, iB))
+             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_dirichlet
+             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+          end select
+       end do
+    end if
 
   end subroutine rhd_check_params
 

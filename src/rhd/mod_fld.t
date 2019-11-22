@@ -237,7 +237,7 @@ module mod_fld
 
     if (fld_diff_scheme .eq. 'mg') then
       call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
-      call set_mg_bounds(wCT, x, ixI^L, ixO^L)
+      ! call set_mg_bounds(wCT, x, ixI^L, ixO^L)
       call get_diffusion_criterion(w, wCT, x, ixI^L, ixO^L)
     endif
   end subroutine get_rad_extravars
@@ -349,7 +349,7 @@ module mod_fld
       !   call Evolve_E_rad(w, x, ixI^L, ixO^L)
       case('mg')
         call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
-        call set_mg_bounds(wCT, x, ixI^L, ixO^L)
+        ! call set_mg_bounds(wCT, x, ixI^L, ixO^L)
 
         active = .true.
 
@@ -765,8 +765,10 @@ module mod_fld
 
     call set_mg_diffcoef()
 
+    max_res = 1d-7/qdt !fld_diff_tol
+
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 2, fld_diff_tol)
+    call diffusion_solve_vcoeff(mg, qdt, 2, max_res)
     call mg_copy_from_tree_gc(mg_iphi, iw_r_e)
     active = .true.
 
@@ -879,6 +881,8 @@ module mod_fld
     enddo
 
     ! print*, it, mype, mg%bc(iB, mg_iphi)%bc_value
+
+    print*, 'SETTING DIFF BOUNDS'
 
 
   end subroutine set_mg_bounds

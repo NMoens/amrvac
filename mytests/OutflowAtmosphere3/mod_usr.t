@@ -386,7 +386,11 @@ contains
           mg%bc(iB, mg_iphi)%bc_value = Er_arr(i)
           ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
 
+          print*, it, w(5,1:4,r_e)
+
+
         endif
+
 
         !> Continuous boundary conditions
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
@@ -437,6 +441,11 @@ contains
           ! print*, it, mype, mg%bc(iB, mg_iphi)%bc_value
 
         endif
+
+        !
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

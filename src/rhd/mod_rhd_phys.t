@@ -331,32 +331,32 @@ contains
 
     if (rhd_dust) call dust_check_params()
 
-    if (use_multigrid) then
-       ! Set boundary conditions for the multigrid solver
-       do iB = 1, 2*ndim
-          select case (typeboundary(r_e, iB))
-          case ('symm')
-             ! d/dx u = 0
-             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
-             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
-          case ('asymm')
-             ! u = 0
-             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_dirichlet
-             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
-          case ('cont')
-             ! d/dx u = 0
-             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
-             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
-          case ('periodic')
-             ! Nothing to do here
-          case default
-             print *, "divb_multigrid warning: unknown b.c.: ", &
-                  trim(typeboundary(r_e, iB))
-             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_dirichlet
-             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
-          end select
-       end do
-    end if
+    ! if (use_multigrid) then
+    !    ! Set boundary conditions for the multigrid solver
+    !    do iB = 1, 2*ndim
+    !       select case (typeboundary(r_e, iB))
+    !       case ('symm')
+    !          ! d/dx u = 0
+    !          mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
+    !          mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+    !       case ('asymm')
+    !          ! u = 0
+    !          mg%bc(r_e, mg_iphi)%bc_type = mg_bc_dirichlet
+    !          mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+    !       case ('cont')
+    !          ! d/dx u = 0
+    !          mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
+    !          mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+    !       case ('periodic')
+    !          ! Nothing to do here
+    !       case default
+    !          print *, "divb_multigrid warning: unknown b.c.: ", &
+    !               trim(typeboundary(r_e, iB))
+    !          mg%bc(r_e, mg_iphi)%bc_type = mg_bc_continuous
+    !          mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+    !       end select
+    !    end do
+    ! end if
 
   end subroutine rhd_check_params
 
@@ -1063,19 +1063,14 @@ contains
     logical, intent(inout) :: active
     double precision :: cmax(ixI^S)
 
-    call get_rad_extravars(w, wCT, x, ixI^L, ixO^L)
-
     !> Maybe this WCCT stuff is unnescecary, I just put it here
     !> because i want e.g. original fluxes for my radiation force
     !> sourceterms should be  w = w + dt WCT, so F should be wCT-F, not w-F
     if (fld_diff_scheme .eq. 'mg') call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
+    if (fld_diff_scheme .eq. 'mg') call set_mg_bounds(wCT, x, ixI^L, ixO^L)
 
     select case(rhd_radiation_formalism)
     case('fld')
-      !> diffusion
-      ! print*, it, 'Doing diffusion stuff'
-      if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
-        rhd_energy,qsourcesplit,active)
       !> photon tiring, heating and cooling
       ! print*, it, 'Doing bisection stuff'
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&

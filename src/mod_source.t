@@ -32,18 +32,9 @@ contains
     ! Radiation diffusion
     ! > This one should actually fit beneath the other thingies
     if (physics_type .eq. 'rhd') then
-      if (.not. prior .and. associated(global_radiation_source)) then
-        ! !> If the diffusion constant is too big, the diffusion timestep has to be split up over severall smaller steps.
-        ! !> The value one is just a proxy for something that worked
-        ! if (diff_crit .lt. 200) then
+      !>SHOULD BE .NOT. PRIOR CONDITION
+      if (prior .and. associated(global_radiation_source)) then
           call global_radiation_source(dt, qt, src_active)
-        ! else
-        !   Ndiff = ceiling(diff_crit/200)
-        !   ! print*, Ndiff
-        !   do itdiff = 1,Ndiff
-        !     call global_radiation_source(dt/Ndiff, qt, src_active)
-        !   enddo
-        ! endif
       end if
     endif
 
@@ -63,24 +54,6 @@ contains
        call addsource1_grid(igrid,qdt,qt,ps(igrid)%w,src_active)
     end do
     !$OMP END PARALLEL DO
-
-    ! Radiation diffusion
-    ! if (physics_type .eq. 'rhd') then
-    !   if (.not. prior .and. associated(global_radiation_source)) then
-    !     !> If the diffusion constant is too big, the diffusion timestep has to be split up over severall smaller steps.
-    !     !> The value one is just a proxy for something that worked
-    !     ! if (diff_crit .lt. 10) then
-    !       call global_radiation_source(dt, qt, src_active)
-    !     ! else
-    !     !   Ndiff = ceiling(diff_crit/10)
-    !     !   print*, Ndiff
-    !     !   do itdiff = 1,Ndiff
-    !     !     call global_radiation_source(dt/Ndiff, qt, src_active)
-    !     !   enddo
-    !     ! endif
-    !   end if
-    ! endif
-
 
     if (src_active) then
        call getbc(qt,0.d0,ps,0,nwflux+nwaux, phys_req_diagonal)

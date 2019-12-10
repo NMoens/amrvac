@@ -4,7 +4,7 @@
 
 &filelist
   base_filename='./3output/const'
-  autoconvert      = T
+  autoconvert      = F
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
   nwauxio = 5

@@ -495,17 +495,12 @@ if __name__ == '__main__':
     ds = amrvac_reader.load_file(files[0])
     orig_variables = ds.get_varnames()
         #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
-    extra_vars = ['M_dot', 'g_rad', 'Gamma', 'T_gas', 'Av_rho',  'Av_v',  'Av_re','tau']
+    extra_vars = ['M_dot', 'T_gas', 'Av_rho',  'Av_v',  'Av_re']
     delete_vars = []
     variables = ds.get_varnames() #.extend(extra_vars)
     variables.extend(extra_vars)
 
     #Get rid of the following variables
-    # variables.remove('Edd11')
-    variables.remove('Edd12')
-    variables.remove('Edd21')
-    variables.remove('Edd22')
-
     variables.remove('int_r')
     variables.remove('int_v')
     variables.remove('int_re')

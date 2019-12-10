@@ -13,7 +13,7 @@ contains
     use mod_global_parameters
     use mod_ghostcells_update
     use mod_thermal_conduction, only: phys_thermal_conduction
-    use mod_physics, only: phys_req_diagonal, global_radiation_source, physics_type
+    use mod_physics, only: phys_req_diagonal, global_radiation_source, physics_type, phys_global_source
     use mod_fld, only: diff_crit
 
     logical, intent(in) :: prior
@@ -29,15 +29,6 @@ contains
 
     src_active = .false.
 
-    ! Radiation diffusion
-    ! > This one should actually fit beneath the other thingies
-    if (physics_type .eq. 'rhd') then
-      !>SHOULD BE .NOT. PRIOR CONDITION
-      if (prior .and. associated(global_radiation_source)) then
-          call global_radiation_source(dt, qt, src_active)
-      end if
-    endif
-
     if ((.not.prior).and.&
          (typesourcesplit=='sf' .or. typesourcesplit=='ssf')) return
 
@@ -47,6 +38,13 @@ contains
        qt=global_time+dt
     end if
 
+    if (physics_type .eq. 'rhd') then
+      !> SHOULD BE A .NOT. PRIOR CONDITION
+      if (prior .and. associated(global_radiation_source)) then
+        call global_radiation_source(dt, qt, src_active)
+      endif
+    endif
+
     !$OMP PARALLEL DO PRIVATE(igrid,qdt,i^D)
     do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
        qdt=dt_grid(igrid)
@@ -55,8 +53,12 @@ contains
     end do
     !$OMP END PARALLEL DO
 
+    if (.not. prior .and. associated(phys_global_source)) then
+       call phys_global_source(dt, qt, src_active)
+    end if
+
     if (src_active) then
-       call getbc(qt,0.d0,ps,0,nwflux+nwaux, phys_req_diagonal)
+       call getbc(qt,0.d0,ps,1,nwflux+nwaux,phys_req_diagonal)
     end if
 
   end subroutine add_split_source

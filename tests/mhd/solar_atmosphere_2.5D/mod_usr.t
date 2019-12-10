@@ -24,7 +24,8 @@ contains
     usr_refine_grid     => special_refine_grid
     usr_set_B0          => specialset_B0
     usr_aux_output      => specialvar_output
-    usr_add_aux_names   => specialvarnames_output 
+    usr_add_aux_names   => specialvarnames_output
+    usr_init_vector_potential=>initvecpot_usr
 
     call mhd_activate()
   end subroutine usr_init
@@ -37,7 +38,7 @@ contains
     gzone=0.2d0 ! thickness of a ghostzone below the bottom boundary
     dya=(2.d0*gzone+xprobmax2-xprobmin2)/dble(jmax) ! cells size of high-resolution 1D solar atmosphere
     B0=Busr/unit_magneticfield ! magnetic field strength at the bottom
-    theta=60.d0*dpi/180.d0 ! the angle to the plane xy, 90-theta is the angle to the polarity inversion line of the arcade 
+    theta=60.d0*dpi/180.d0 ! the angle to the plane xy, 90-theta is the angle to the polarity inversion line of the arcade
     kx=dpi/(xprobmax1-xprobmin1)
     ly=kx*dcos(theta)
     SRadius=69.61d0 ! Solar radius
@@ -51,12 +52,12 @@ contains
     integer :: j,na,nb,ibc
     double precision, allocatable :: Ta(:),gg(:)
     double precision:: rpho,Ttop,Tpho,wtra,res,rhob,pb,htra,Ttr,Fc,invT,kappa
-  
+
     rpho=1.151d15/unit_numberdensity ! number density at the bottom relaxla
     Tpho=8.d3/unit_temperature ! temperature of chromosphere
     Ttop=1.5d6/unit_temperature ! estimated temperature in the top
     htra=0.2d0 ! height of initial transition region
-    wtra=0.02d0 ! width of initial transition region 
+    wtra=0.02d0 ! width of initial transition region
     Ttr=1.6d5/unit_temperature ! lowest temperature of upper profile
     Fc=2.d5/heatunit/unit_length ! constant thermal conduction flux
     kappa=8.d-7*unit_temperature**3.5d0/unit_length/unit_density/unit_velocity**3
@@ -71,7 +72,7 @@ contains
        endif
        gg(j)=usr_grav*(SRadius/(SRadius+ya(j)))**2
     enddo
-    !! solution of hydrostatic equation 
+    !! solution of hydrostatic equation
     nb=int(gzone/dya)
     ra(1)=rpho
     pa(1)=rpho*Tpho
@@ -129,17 +130,35 @@ contains
     w(ixO^S,mom(:))=zero
     if(B0field) then
       w(ixO^S,mag(:))=zero
+    else if(stagger_grid) then
+      call b_from_vector_potential(ixGs^LL,ixI^L,ixO^L,block%ws,x)
+      call mhd_face_to_center(ixO^L,block)
+      w(ixO^S,mag(3))=-B0*dcos(kx*x(ixO^S,1))*dexp(-ly*x(ixO^S,2))*dsin(theta)
     else
       w(ixO^S,mag(1))=-B0*dcos(kx*x(ixO^S,1))*dexp(-ly*x(ixO^S,2))*dcos(theta)
       w(ixO^S,mag(2))= B0*dsin(kx*x(ixO^S,1))*dexp(-ly*x(ixO^S,2))
       w(ixO^S,mag(3))=-B0*dcos(kx*x(ixO^S,1))*dexp(-ly*x(ixO^S,2))*dsin(theta)
     endif
 
-    if(mhd_glm) w(ixO^S,psi_)=0.d0
-
     call mhd_to_conserved(ixI^L,ixO^L,w,x)
 
   end subroutine initonegrid_usr
+
+  subroutine initvecpot_usr(ixI^L, ixC^L, xC, A, idir)
+    ! initialize the vectorpotential on the edges
+    ! used by b_from_vectorpotential()
+    use mod_global_parameters
+    integer, intent(in)                :: ixI^L, ixC^L,idir
+    double precision, intent(in)       :: xC(ixI^S,1:ndim)
+    double precision, intent(out)      :: A(ixI^S)
+
+    if (idir==3) then
+      A(ixC^S) = B0/ly*dcos(kx*xC(ixC^S,1))*dexp(-ly*xC(ixC^S,2))*dcos(theta)
+    else
+      A(ixC^S) = 0.d0
+    end if
+
+  end subroutine initvecpot_usr
 
   subroutine specialbound_usr(qt,ixI^L,ixO^L,iB,w,x)
     ! special boundary types, user defined
@@ -148,8 +167,11 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: pth(ixI^S),tmp(ixI^S),ggrid(ixI^S),invT(ixI^S)
-    double precision :: delydelx
-    integer :: ix^D,idir,ixInt^L
+    double precision :: Q(ixI^S),Qp(ixI^S)
+    double precision :: A(ixGs^T,1:ndir)
+    double precision :: xC(ixGs^T,1:ndim),dxc(ixGs^T,1:ndim),circ(ixGs^T,1:ndim)
+    double precision :: dxidir(ixGs^T)
+    integer :: ix^D,ixOs^L,ixC^L,hxC^L,jxO^L,idir,idim,idim1,idim2
 
     select case(iB)
     case(3)
@@ -161,6 +183,30 @@ contains
       !! fixed b1 b2 b3
       if(iprob==0 .or. B0field) then
         w(ixO^S,mag(:))=0.d0
+      else if(stagger_grid) then
+        do idir=1,nws
+          if(idir==2) cycle
+          ixOsmax^D=ixOmax^D;
+          ixOsmin^D=ixOmin^D-kr(^D,idir);
+          do ix2=ixOsmax2,ixOsmin2,-1
+             block%ws(ix2^%2ixOs^S,idir)=1.d0/3.d0*&
+                   (-block%ws(ix2+2^%2ixOs^S,idir)&
+               +4.d0*block%ws(ix2+1^%2ixOs^S,idir))
+          end do
+        end do
+        ixOs^L=ixO^L-kr(2,^D);
+        jxO^L=ixO^L+nghostcells*kr(2,^D);
+        block%ws(ixOs^S,2)=zero
+        call get_divb(w,ixI^L,jxO^L,Q)
+        do ix2=ixOsmax2,ixOsmin2,-1
+          call get_divb(w,ixI^L,ixO^L,Qp)
+          block%ws(ix2^%2ixOs^S,2)=&
+           -(Q(jxOmin2^%2jxO^S)*block%dvolume(jxOmin2^%2jxO^S)&
+           -Qp(ix2+1^%2ixO^S)*block%dvolume(ix2+1^%2ixO^S))&
+            /block%surfaceC(ix2^%2ixOs^S,2)
+        end do
+        call mhd_face_to_center(ixO^L,block)
+        w(ixO^S,mag(3))=-B0*dcos(kx*x(ixO^S,1))*dexp(-ly*x(ixO^S,2))*dsin(theta)
       else
         w(ixO^S,mag(1))=-B0*dcos(kx*x(ixO^S,1))*dexp(-ly*x(ixO^S,2))*dcos(theta)
         w(ixO^S,mag(2))= B0*dsin(kx*x(ixO^S,1))*dexp(-ly*x(ixO^S,2))
@@ -171,14 +217,13 @@ contains
         w(ixOmin1:ixOmax1,ix2,rho_)=rbc(ix2)
         w(ixOmin1:ixOmax1,ix2,p_)=pbc(ix2)
       enddo
-      if(mhd_glm) w(ixO^S,psi_)=0.d0
       call mhd_to_conserved(ixI^L,ixO^L,w,x)
     case(4)
-      ixInt^L=ixO^L;
-      ixIntmin2=ixOmin2-1;ixIntmax2=ixOmin2-1;
-      call mhd_get_pthermal(w,x,ixI^L,ixInt^L,pth)
-      ixIntmin2=ixOmin2-1;ixIntmax2=ixOmax2;
-      call getggrav(ggrid,ixI^L,ixInt^L,x)
+      ixOs^L=ixO^L;
+      ixOsmin2=ixOmin2-1;ixOsmax2=ixOmin2-1;
+      call mhd_get_pthermal(w,x,ixI^L,ixOs^L,pth)
+      ixOsmin2=ixOmin2-1;ixOsmax2=ixOmax2;
+      call getggrav(ggrid,ixI^L,ixOs^L,x)
       !> fill pth, rho ghost layers according to gravity stratification
       invT(ixOmin2-1^%2ixO^S)=w(ixOmin2-1^%2ixO^S,rho_)/pth(ixOmin2-1^%2ixO^S)
       tmp=0.d0
@@ -194,17 +239,46 @@ contains
                      /w(ixOmin1:ixOmax1,ixOmin2-1:ixOmin2-nghostcells:-1,rho_)
       end do
       !> zero normal gradient extrapolation
-      do ix2=ixOmin2,ixOmax2
-        w(ixOmin1:ixOmax1,ix2,mag(:))=(1.0d0/3.0d0)* &
-                    (-w(ixOmin1:ixOmax1,ix2-2,mag(:))&
-               +4.0d0*w(ixOmin1:ixOmax1,ix2-1,mag(:)))
-      enddo
-      if(mhd_glm) w(ixO^S,psi_)=0.d0
+      if(stagger_grid) then
+        do idir=1,nws
+          if(idir==2) cycle
+          ixOsmax^D=ixOmax^D;
+          ixOsmin^D=ixOmin^D-kr(^D,idir);
+          do ix2=ixOsmin2,ixOsmax2
+             block%ws(ix2^%2ixOs^S,idir)=1.d0/3.d0*&
+                   (-block%ws(ix2-2^%2ixOs^S,idir)&
+               +4.d0*block%ws(ix2-1^%2ixOs^S,idir))
+          end do
+        end do
+        ixOs^L=ixO^L;
+        jxO^L=ixO^L-nghostcells*kr(2,^D);
+        block%ws(ixOs^S,2)=zero
+        call get_divb(w,ixI^L,jxO^L,Q)
+        do ix2=ixOsmin2,ixOsmax2
+          call get_divb(w,ixI^L,ixO^L,Qp)
+          block%ws(ix2^%2ixOs^S,2)=&
+            (Q(jxOmax2^%2jxO^S)*block%dvolume(jxOmax2^%2jxO^S)&
+           -Qp(ix2^%2ixO^S)*block%dvolume(ix2^%2ixO^S))&
+            /block%surfaceC(ix2^%2ixOs^S,2)
+        end do
+        call mhd_face_to_center(ixO^L,block)
+        do ix2=ixOmin2,ixOmax2
+          w(ixOmin1:ixOmax1,ix2,mag(3))=(1.0d0/3.0d0)* &
+                      (-w(ixOmin1:ixOmax1,ix2-2,mag(3))&
+                 +4.0d0*w(ixOmin1:ixOmax1,ix2-1,mag(3)))
+        enddo
+      else
+        do ix2=ixOmin2,ixOmax2
+          w(ixOmin1:ixOmax1,ix2,mag(:))=(1.0d0/3.0d0)* &
+                      (-w(ixOmin1:ixOmax1,ix2-2,mag(:))&
+                 +4.0d0*w(ixOmin1:ixOmax1,ix2-1,mag(:)))
+        enddo
+      end if
       call mhd_to_conserved(ixI^L,ixO^L,w,x)
     case default
        call mpistop("Special boundary is not defined for this region")
     end select
-    
+
   end subroutine specialbound_usr
 
   subroutine gravity(ixI^L,ixO^L,wCT,x,gravity_field)
@@ -312,7 +386,7 @@ contains
     ! output heating rate
     call getbQ(ens,ixI^L,ixO^L,global_time,wlocal,x)
     w(ixO^S,nw+5)=ens(ixO^S)
-    ! store the cooling rate 
+    ! store the cooling rate
     if(mhd_radiative_cooling)call getvar_cooling(ixI^L,ixO^L,wlocal,x,ens)
     w(ixO^S,nw+6)=ens(ixO^S)
 
@@ -321,7 +395,7 @@ contains
     do idir=1,ndir
       w(ixO^S,nw+6+idir)=curlvec(ixO^S,idir)
     end do
-  
+
   end subroutine specialvar_output
 
   subroutine specialvarnames_output(varnames)
@@ -332,7 +406,7 @@ contains
   end subroutine specialvarnames_output
 
   subroutine specialset_B0(ixI^L,ixO^L,x,wB0)
-  ! Here add a steady (time-independent) potential or 
+  ! Here add a steady (time-independent) potential or
   ! linear force-free background field
     integer, intent(in)           :: ixI^L,ixO^L
     double precision, intent(in)  :: x(ixI^S,1:ndim)

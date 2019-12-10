@@ -26,6 +26,8 @@ contains
     ! Active the physics module
     call rhd_activate()
 
+    fld_kappa0 = fld_kappa0/unit_opacity
+
   end subroutine usr_init
 
   !> A routine for specifying initial conditions
@@ -71,12 +73,12 @@ contains
     rbs=0.2d0
     where((x(ixImin1:ixImax1,ixImin2:ixImax2,1)-xc1)**2+(x(ixImin1:ixImax1,&
        ixImin2:ixImax2,2)-xc2)**2<rbs**2)
-      w(ixImin1:ixImax1,ixImin2:ixImax2,e_)=100.d0
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_)=5.d0
     endwhere
 
-    !w(ixO^S,e_) = one + w(ixO^S,e_)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)
+    ! w(ixO^S,e_) = one + w(ixO^S,e_)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)
 
-    call get_rad_extravars(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+    call get_rad_extravars(w, w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2)
 
   end subroutine initial_conditions

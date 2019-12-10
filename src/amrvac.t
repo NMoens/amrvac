@@ -1,3 +1,4 @@
+
 !> AMRVAC solves a set of hyperbolic equations
 !> \f$\vec{u}_t + \nabla_x \cdot \vec{f}(\vec{u}) = \vec{s}\f$
 !> using adaptive mesh refinement.
@@ -12,6 +13,8 @@ program amrvac
   use mod_initialize
   use mod_particles
   use mod_fix_conserve
+  use mod_advance, only: process
+  use mod_constrained_transport
 
   {^NOONED
   use mod_multigrid_coupling
@@ -19,10 +22,11 @@ program amrvac
 
   double precision :: time0, time_in
 
+
   call comm_start()
 
+  time0 = MPI_WTIME()
   time_advance = .false.
-  time0        = MPI_WTIME()
   time_bc      = zero
 
   ! read command line arguments first
@@ -40,10 +44,15 @@ program amrvac
      ! read in dat file
      call read_snapshot()
 
+     ! rewrite it=0 snapshot when restart from it=0 state
+     if(it==0.and.itsave(1,2)==0) snapshotnext=snapshotnext-1
+
      if (reset_time) then
        ! reset it and global time to original value
        it           = it_init
        global_time  = time_init
+       ! reset snapshot number
+       snapshotnext=0
      end if
 
      if (reset_it) then
@@ -55,13 +64,18 @@ program amrvac
      if (firstprocess) call modify_IC
 
      ! reset AMR grid
-     if (reset_grid) call settree
+     if (reset_grid) then
+       call settree
+     else
+       ! set up boundary flux conservation arrays
+       if (levmax>levmin) call allocateBflux
+     end if
 
      ! select active grids
      call selectgrids
 
      ! update ghost cells
-     call getbc(global_time,0.d0,ps,0,nwflux+nwaux)
+     call getbc(global_time,0.d0,ps,1,nwflux+nwaux)
 
      if(use_particles) then
        call read_particles_snapshot
@@ -77,31 +91,45 @@ program amrvac
         if (npe/=1.and.(.not.(index(convert_type,'mpi')>=1)) &
              .and. convert_type .ne. 'user')  &
              call mpistop("non-mpi conversion only uses 1 cpu")
+
+        ! Optionally call a user method that can modify the grid variables
+        ! before saving the converted data
+        if (associated(usr_process_grid) .or. &
+             associated(usr_process_global)) then
+           call process(it,global_time)
+        end if
+
         call generate_plotfile
         call comm_finalize
         stop
      end if
+
+     {^NOONED
+     if (use_multigrid) call mg_setup_multigrid()
+     }
 
   else
 
      ! form and initialize all grids at level one
      call initlevelone
 
-     ! select active grids
-     call selectgrids
-
-     ! update ghost cells
-     call getbc(global_time,0.d0,ps,0,nwflux+nwaux)
-
      ! set up and initialize finer level grids, if needed
      call settree
+
+     {^NOONED
+     if (use_multigrid) call mg_setup_multigrid()
+
+     ! improve initial condition
+     call improve_initial_condition()
+     }
+
+     ! select active grids
+     call selectgrids
 
      if (use_particles) call particles_create()
 
   end if
 
-  ! set up boundary flux conservation arrays
-  if (levmax>levmin) call allocateBflux
 
   if (mype==0) then
      print*,'-------------------------------------------------------------------------------'
@@ -110,10 +138,6 @@ program amrvac
   end if
 
   time_advance=.true.
-
-  {^NOONED
-  if (use_multigrid) call mg_setup_multigrid()
-  }
 
   ! an interface to allow user to do special things before the main loop
   if (associated(usr_before_main_loop)) &
@@ -144,8 +168,8 @@ contains
 
     integer :: level, ifile, fixcount, ncells_block, igrid, iigrid
     integer(kind=8) ncells_update
-    logical :: save_now, crashall, save_file(nfile)
-    double precision :: time_last_print
+    logical :: save_now, crashall
+    double precision :: time_last_print, time_write0, time_write, time_before_advance, dt_loop
 
     time_in=MPI_WTIME()
     time_last_print = -bigdouble
@@ -154,8 +178,13 @@ contains
     n_saves(filelog_:fileout_) = snapshotini
 
     do ifile=nfile,1,-1
-       tsavelast(ifile)=global_time
-       itsavelast(ifile)=it
+       if(resume_previous_run) then
+         tsavelast(ifile)=aint((global_time+smalldouble)/dtsave(ifile))*dtsave(ifile)
+         itsavelast(ifile)=it/ditsave(ifile)*ditsave(ifile)
+       else
+         tsavelast(ifile)=global_time
+         itsavelast(ifile)=it
+       end if
     end do
 
     ! the next two are used to keep track of the performance during runtime:
@@ -166,18 +195,26 @@ contains
     if (mype==0) then
       write(*, '(A,ES9.2,A)') ' Start integrating, print status every ', &
            time_between_print, ' seconds'
-      write(*, '(A10,A12,A12,A12)') 'it', 'time', 'dt', 'wc-time(s)'
+      write(*, '(A4,A10,A12,A12,A12)') '  #', 'it', 'time', 'dt', 'wc-time(s)'
     end if
 
     timeloop0=MPI_WTIME()
     time_bc=0.d0
+    time_write=0.d0
     ncells_block={(ixGhi^D-2*nghostcells)*}
     ncells_update=0
+    dt_loop=0.d0
 
     time_evol : do
 
+       time_before_advance=MPI_WTIME()
        ! set time step
        call setdt()
+
+       ! Check if output needs to be written
+       do ifile=nfile,1,-1
+         save_file(ifile) = timetosave(ifile)
+       end do
 
        ! Optionally call a user method that can modify the grid variables at the
        ! beginning of a time step
@@ -191,28 +228,31 @@ contains
        if (timeio0 - time_last_print > time_between_print) then
          time_last_print = timeio0
          if (mype == 0) then
-           write(*, '(I10,ES12.3,ES12.3,ES12.3)') it, global_time, dt, timeio0 - time_in
+           write(*, '(A4,I10,ES12.3,ES12.3,ES12.3)') " #", &
+                it, global_time, dt, timeio0 - time_in
          end if
        end if
 
-       ! Check if output needs to be written
-       do ifile=nfile,1,-1
-         save_file(ifile) = timetosave(ifile)
-       end do
-
-       ! Users can modify or set variables before output is written
-       if (any(save_file) .and. associated(usr_modify_output)) then
-         do iigrid=1,igridstail; igrid=igrids(iigrid);
-           ^D&dxlevel(^D)=rnode(rpdx^D_,igrid);
-           block=>ps(igrid)
-           call usr_modify_output(ixG^LL,ixM^LL,global_time,ps(igrid)%w,ps(igrid)%x)
+       ! output data
+       if (any(save_file)) then
+         if(associated(usr_modify_output)) then
+           ! Users can modify or set variables before output is written
+           do iigrid=1,igridstail; igrid=igrids(iigrid);
+             ^D&dxlevel(^D)=rnode(rpdx^D_,igrid);
+             block=>ps(igrid)
+             call usr_modify_output(ixG^LL,ixM^LL,global_time,ps(igrid)%w,ps(igrid)%x)
+           end do
+         end if
+         time_write=0.d0
+         do ifile=nfile,1,-1
+           if (save_file(ifile)) then
+             time_write0=MPI_WTIME()
+             call saveamrfile(ifile)
+             time_write=time_write+MPI_WTIME()-time_write0
+           end if
          end do
        end if
 
-       ! output data
-       do ifile=nfile,1,-1
-         if (save_file(ifile)) call saveamrfile(ifile)
-       end do
 
        ! output a snapshot when user write a file named 'savenow' in the same
        ! folder as the executable amrvac
@@ -226,10 +266,12 @@ contains
           call saveamrfile(2)
           call MPI_FILE_DELETE('savenow',MPI_INFO_NULL,ierrmpi)
        endif
-       timeio_tot=timeio_tot+(MPI_WTIME()-timeio0)
+       timeio_tot=timeio_tot+MPI_WTIME()-timeio0
+
+       pass_wall_time=MPI_WTIME()-time0+dt_loop+4.d0*time_write >=wall_time_max
 
        ! exit time loop if time is up
-       if (it>=it_max .or. global_time>=time_max) exit time_evol
+       if (it>=it_max .or. global_time>=time_max .or. pass_wall_time) exit time_evol
 
        ! solving equations
        call advance(it)
@@ -279,7 +321,8 @@ contains
        ! count updated cells
        ncells_update=ncells_update+ncells_block*nleafs_active
 
-
+       ! time lapses in one loop
+       dt_loop=MPI_WTIME()-time_before_advance
     end do time_evol
 
     timeloop=MPI_WTIME()-timeloop0
@@ -304,10 +347,11 @@ contains
     if (mype==0) call MPI_FILE_CLOSE(log_fh,ierrmpi)
     timeio_tot=timeio_tot+(MPI_WTIME()-timeio0)
 
-
     if (mype==0) then
        write(*,'(a,f12.3,a)')' Total time spent on IO     : ',timeio_tot,' sec'
        write(*,'(a,f12.3,a)')' Total timeintegration took : ',MPI_WTIME()-time_in,' sec'
+       write(*, '(A4,I10,ES12.3,ES12.3,ES12.3)') " #", &
+            it, global_time, dt, timeio0 - time_in
     end if
 
     {#IFDEF RAY
@@ -319,11 +363,12 @@ contains
     {^NOONED
     if (use_multigrid) call mg_timers_show(mg)
     }
-
   end subroutine timeintegration
 
   !> Save times are defined by either tsave(isavet(ifile),ifile) or
   !> itsave(isaveit(ifile),ifile) or dtsave(ifile) or ditsave(ifile)
+  !> tsavestart(ifile) determines first start time. This only affects
+  !> read out times determined by dtsave(ifiles).
   !> Other conditions may be included.
   logical function timetosave(ifile)
     use mod_global_parameters
@@ -343,9 +388,11 @@ contains
        isavet(ifile)=isavet(ifile)+1
     end if
 
-    if (global_time>=tsavelast(ifile)+dtsave(ifile)-smalldouble)then
-       oksave=.true.
-       n_saves(ifile) = n_saves(ifile) + 1
+    if(global_time>=tsavestart(ifile)-smalldouble)then
+      if (global_time>=tsavelast(ifile)+dtsave(ifile)-smalldouble)then
+         oksave=.true.
+         n_saves(ifile) = n_saves(ifile) + 1
+      endif
     endif
 
     if (oksave) then

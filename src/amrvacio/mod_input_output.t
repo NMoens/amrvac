@@ -5,10 +5,10 @@ module mod_input_output
   public
 
   !> Version number of the .dat file output
-  integer, parameter :: version_number = 4
+  integer, parameter :: version_number = 5
 
   !> List of compatible versions
-  integer, parameter :: compatible_versions(*) = [3, 4]
+  integer, parameter :: compatible_versions(3) = [3, 4, 5]
 
   !> number of w found in dat files
   integer :: nw_found
@@ -63,6 +63,7 @@ contains
           print *, '         (later .par files override earlier ones)'
           print *, ''
           print *, 'Optional arguments:'
+          print *, '-resume              Resume previous run'
           print *, '-convert             Convert snapshot files'
           print *, '-if file0001.dat     Use this snapshot to restart from'
           print *, '                     (you can modify e.g. output names)'
@@ -103,6 +104,7 @@ contains
     use mod_small_values
     use mod_limiter
     use mod_slice
+    use mod_geometry
 
     logical          :: fileopen, file_exists
     integer          :: i, j, k, ifile, io_state
@@ -128,31 +130,36 @@ contains
          dtsave_collapsed, dtsave_custom
     integer :: ditsave_log, ditsave_dat, ditsave_slice, &
          ditsave_collapsed, ditsave_custom
+    double precision :: tsavestart_log, tsavestart_dat, tsavestart_slice, &
+         tsavestart_collapsed, tsavestart_custom
     integer :: windex, ipower
     double precision :: sizeuniformpart^D
 
     namelist /filelist/ base_filename,restart_from_file, &
          typefilelog,firstprocess,reset_grid,snapshotnext, &
-         convert,convert_type,saveprim,&
+         convert,convert_type,saveprim,usr_filename,&
          nwauxio,nocartesian, w_write,writelevel,&
          writespshift,length_convert_factor, w_convert_factor, &
          time_convert_factor,level_io,level_io_min, level_io_max, &
          autoconvert,slice_type,slicenext,collapsenext,collapse_type
 
     namelist /savelist/ tsave,itsave,dtsave,ditsave,nslices,slicedir, &
-         slicecoord,collapse,collapseLevel, time_between_print, &
+         slicecoord,collapse,collapseLevel, time_between_print,&
          tsave_log, tsave_dat, tsave_slice, tsave_collapsed, tsave_custom, &
          dtsave_log, dtsave_dat, dtsave_slice, dtsave_collapsed, dtsave_custom, &
-         ditsave_log, ditsave_dat, ditsave_slice, ditsave_collapsed, ditsave_custom
+         ditsave_log, ditsave_dat, ditsave_slice, ditsave_collapsed, ditsave_custom,&
+         tsavestart_log, tsavestart_dat, tsavestart_slice, tsavestart_collapsed,&
+         tsavestart_custom, tsavestart
 
-    namelist /stoplist/ it_init,time_init,it_max,time_max,dtmin,reset_it,reset_time
+    namelist /stoplist/ it_init,time_init,it_max,time_max,dtmin,reset_it,reset_time,&
+         wall_time_max
 
     namelist /methodlist/ time_integrator, &
          source_split_usr,typesourcesplit,&
          dimsplit,typedimsplit,&
          flux_scheme,typepred1,&
          limiter,gradient_limiter,cada3_radius,&
-         loglimit,typelimited,typeboundspeed, &
+         loglimit,typeboundspeed, &
          typetvd,typeentropy,entropycoef,typeaverage, &
          typegrad,typediv,typecurl,&
          nxdiffusehllc, flathllc, tvdlfeps,&
@@ -176,6 +183,9 @@ contains
     namelist /paramlist/  courantpar, dtpar, dtdiffpar, &
          typecourant, slowsteps
 
+    namelist /euvlist/ filename_euv,image,spectrum,wavelength,direction_LOS,&
+         direction_slit,location_slit,resolution_euv
+
     ! default maximum number of grid blocks in a processor
     max_blocks=4000
 
@@ -189,6 +199,8 @@ contains
 
     ! default resolution of level-1 mesh (full domain)
     {domain_nx^D = 32\}
+
+
 
     ! defaults for boundary treatments
     typeghostfill = 'linear'
@@ -286,6 +298,7 @@ contains
     it_max        = biginteger
     time_init     = 0.d0
     time_max      = bigdouble
+    wall_time_max = bigdouble
     dtmin         = 1.0d-10
     nslices       = 0
     collapse      = .false.
@@ -301,6 +314,7 @@ contains
       ditsave(ifile) = biginteger ! timesteps between saves
       isavet(ifile)  = 1          ! index for saves by global_time
       isaveit(ifile) = 1          ! index for saves by it
+      tsavestart(ifile) = 0.0d0
     end do
 
     tsave_log       = bigdouble
@@ -321,6 +335,12 @@ contains
     ditsave_collapsed = biginteger
     ditsave_custom    = biginteger
 
+    tsavestart_log       = bigdouble
+    tsavestart_dat       = bigdouble
+    tsavestart_slice     = bigdouble
+    tsavestart_collapsed = bigdouble
+    tsavestart_custom    = bigdouble
+
     typefilelog = 'default'
 
     ! defaults for input
@@ -329,6 +349,8 @@ contains
     firstprocess  = .false.
     reset_grid     = .false.
     base_filename   = 'data'
+    usr_filename    = ''
+
 
     ! Defaults for discretization methods
     typeaverage     = 'default'
@@ -340,7 +362,6 @@ contains
     typecourant     = 'maxsum'
     dimsplit        = .false.
     typedimsplit    = 'default'
-    typelimited     = 'predictor'
     if(physics_type=='mhd') then
       cada3_radius  = 0.5d0
     else
@@ -443,7 +464,10 @@ contains
 106    rewind(unitpar)
        read(unitpar, paramlist, end=107)
 
-107    close(unitpar)
+107    rewind(unitpar)
+       read(unitpar, euvlist, end=108)
+
+108    close(unitpar)
 
        ! Append the log and file names given in the par files
        if (base_filename /= basename_prev) &
@@ -487,10 +511,13 @@ contains
       end if
       call MPI_BCAST(i, 1, MPI_INTEGER, 0, icomm, ierrmpi)
 
-      if (i == -1) call mpistop("No snapshots found to resume from")
-
-      ! Set file name to restart from
-      write(restart_from_file, "(a,i4.4,a)") trim(base_filename), i, ".dat"
+      if (i == -1) then
+        if(mype==0) write(*,*) "No snapshots found to resume from, start a new run..."
+      else
+      !call mpistop("No snapshots found to resume from")
+        ! Set file name to restart from
+        write(restart_from_file, "(a,i4.4,a)") trim(base_filename), i, ".dat"
+      end if
     end if
 
     if (restart_from_file == undefined) then
@@ -522,22 +549,30 @@ contains
     if (dtsave_collapsed < bigdouble) dtsave(4) = dtsave_collapsed
     if (dtsave_custom < bigdouble) dtsave(5) = dtsave_custom
 
+    if (tsavestart_log < bigdouble) tsavestart(1) = tsavestart_log
+    if (tsavestart_dat < bigdouble) tsavestart(2) = tsavestart_dat
+    if (tsavestart_slice < bigdouble) tsavestart(3) = tsavestart_slice
+    if (tsavestart_collapsed < bigdouble) tsavestart(4) = tsavestart_collapsed
+    if (tsavestart_custom < bigdouble) tsavestart(5) = tsavestart_custom
+
     if (ditsave_log < bigdouble) ditsave(1) = ditsave_log
     if (ditsave_dat < bigdouble) ditsave(2) = ditsave_dat
     if (ditsave_slice < bigdouble) ditsave(3) = ditsave_slice
     if (ditsave_collapsed < bigdouble) ditsave(4) = ditsave_collapsed
     if (ditsave_custom < bigdouble) ditsave(5) = ditsave_custom
+    ! convert hours to seconds for ending wall time
+    if (wall_time_max < bigdouble) wall_time_max=wall_time_max*3600.d0
 
     if (mype == 0) then
        write(unitterm, *) ''
-       write(unitterm, *) 'Output type | dtsave    | ditsave | itsave(1) | tsave(1)'
-       write(fmt_string, *) '(A12," | ",E9.3E2," | ",I6,"  | "'//&
+       write(unitterm, *) 'Output type | tsavestart |  dtsave   | ditsave | itsave(1) | tsave(1)'
+       write(fmt_string, *) '(A12," | ",E9.3E2,"  | ",E9.3E2," | ",I6,"  | "'//&
             ',I6, "    | ",E9.3E2)'
     end if
 
     do ifile = 1, nfile
        if (mype == 0) write(unitterm, fmt_string) trim(output_names(ifile)), &
-            dtsave(ifile), ditsave(ifile), itsave(1, ifile), tsave(1, ifile)
+            tsavestart(ifile), dtsave(ifile), ditsave(ifile), itsave(1, ifile), tsave(1, ifile)
     end do
 
     if (mype == 0) write(unitterm, *) ''
@@ -614,7 +649,7 @@ contains
        case (undefined, 'none')
           stretch_type(i) = stretch_none
           stretched_dim(i) = .false.
-       case ('uni')
+       case ('uni','uniform')
           stretch_type(i) = stretch_uni
           stretched_dim(i) = .true.
        case ('symm', 'symmetric')
@@ -633,8 +668,8 @@ contains
     if(typedimsplit   =='default'.and..not.dimsplit)   typedimsplit='unsplit'
     dimsplit   = typedimsplit   /='unsplit'
 
-    if(typeaxial=='default') then
-      typeaxial='slab'
+    if(coordinate==-1) then
+      coordinate=Cartesian
       if(mype==0) then
         write(*,*) 'Warning: coordinate system is not specified!'
         write(*,*) 'call set_coordinate_system in usr_init in mod_usr.t'
@@ -642,19 +677,19 @@ contains
       end if
     end if
 
-    if(typeaxial=="slab") then
+    if(coordinate==Cartesian) then
+      slab=.true.
+      slab_uniform=.true.
       if(any(stretched_dim)) then
-        typeaxial="slabstretch"
-        slab=.false.
-        slab_stretched=.true.
-      else
-        slab=.true.
+        coordinate=Cartesian_stretched
+        slab_uniform=.false.
       end if
     else
       slab=.false.
+      slab_uniform=.false.
     end if
 
-    if(typeaxial=='spherical') then
+    if(coordinate==spherical) then
       if(dimsplit) then
         if(mype==0)print *,'Warning: spherical symmetry needs dimsplit=F, resetting'
         dimsplit=.false.
@@ -662,14 +697,6 @@ contains
     end if
 
     if (ndim==1) dimsplit=.false.
-    if (.not.dimsplit.and.ndim>1) then
-       select case (time_integrator)
-       case ("ssprk54","ssprk43","fourstep", "rk4", "threestep", "twostep")
-          ! Runge-Kutta needs predictor
-          typelimited="predictor"
-          if (mype==0) write(unitterm, '(A30,A)') 'typelimited: ', typelimited
-       end select
-    end if
 
     ! Type limiter is of integer type for performance
     allocate(type_limiter(nlevelshi))
@@ -734,11 +761,11 @@ contains
         end if
         typeboundary(:,2*idim-1)='symm'
         if(physics_type/='rho') then
-        select case(typeaxial)
-        case('cylindrical')
+        select case(coordinate)
+        case(cylindrical)
           typeboundary(phi_+1,2*idim-1)='asymm'
           if(physics_type=='mhd') typeboundary(ndir+windex+phi_,2*idim-1)='asymm'
-        case('spherical')
+        case(spherical)
           typeboundary(3:ndir+1,2*idim-1)='asymm'
           if(physics_type=='mhd') typeboundary(ndir+windex+2:ndir+windex+ndir,2*idim-1)='asymm'
         case default
@@ -755,11 +782,11 @@ contains
         end if
         typeboundary(:,2*idim)='symm'
         if(physics_type/='rho') then
-        select case(typeaxial)
-        case('cylindrical')
+        select case(coordinate)
+        case(cylindrical)
           typeboundary(phi_+1,2*idim)='asymm'
           if(physics_type=='mhd') typeboundary(ndir+windex+phi_,2*idim)='asymm'
-        case('spherical')
+        case(spherical)
           typeboundary(3:ndir+1,2*idim)='asymm'
           if(physics_type=='mhd') typeboundary(ndir+windex+2:ndir+windex+ndir,2*idim)='asymm'
         case default
@@ -774,19 +801,48 @@ contains
       nghostcells=3
     end if
 
+    if(any(limiter(1:nlevelshi)=='weno5')) then
+      nghostcells=3
+    end if
+
+    if(any(limiter(1:nlevelshi)=='wenoz5')) then
+      nghostcells=3
+    end if
+
+    if(any(limiter(1:nlevelshi)=='wenozp5')) then
+      nghostcells=3
+    end if
+
     if(any(limiter(1:nlevelshi)=='ppm')) then
       nghostcells=4
+    end if
+
+    if(any(limiter(1:nlevelshi)=='weno7')) then
+      nghostcells=4
+    end if
+
+    if(any(limiter(1:nlevelshi)=='mpweno7')) then
+      nghostcells=4
+    end if
+
+    if(any(limiter(1:nlevelshi)=='exeno7')) then
+      nghostcells=4
+    end if
+
+    ! prolongation in AMR for constrained transport MHD needs even number ghosts
+    if(stagger_grid .and. refine_max_level>1 .and. mod(nghostcells,2)/=0) then
+      nghostcells=nghostcells+1
     end if
 
     ! If a wider stencil is used, extend the number of ghost cells
     nghostcells = nghostcells + phys_wider_stencil
 
-    select case (typeaxial)
+    select case (coordinate)
        {^NOONED
-    case ("spherical")
+    case (spherical)
        xprob^LIM^DE=xprob^LIM^DE*two*dpi;
        \}
-    case ("cylindrical")
+    case (cylindrical)
        {
        if (^D==phi_) then
           xprob^LIM^D=xprob^LIM^D*two*dpi;
@@ -1143,6 +1199,9 @@ contains
   end function get_snapshot_index
 
   !> Write header for a snapshot
+  !>
+  !> If you edit the header, don't forget to update: snapshot_write_header(),
+  !> snapshot_read_header(), doc/fileformat.md, tools/python/dat_reader.py
   subroutine snapshot_write_header(fh, offset_tree, offset_block)
     use mod_forest
     use mod_physics
@@ -1176,11 +1235,20 @@ contains
          MPI_INTEGER, st, er)
     call MPI_FILE_WRITE(fh, [ block_nx^D ], ndim, &
          MPI_INTEGER, st, er)
+
+    ! Periodicity (assume all variables are periodic if one is)
+    call MPI_FILE_WRITE(fh, periodB, ndim, MPI_LOGICAL, st, er)
+
+    ! Geometry
+    call MPI_FILE_WRITE(fh, geometry_name(1:name_len), &
+         name_len, MPI_CHARACTER, st, er)
+
+    ! Write stagger grid mark
+    call MPI_FILE_WRITE(fh, stagger_grid, 1, MPI_LOGICAL, st, er)
+
     do iw = 1, nw
       call MPI_FILE_WRITE(fh, cons_wnames(iw), name_len, MPI_CHARACTER, st, er)
     end do
-
-    ! TODO: write geometry info
 
     ! Physics related information
     call MPI_FILE_WRITE(fh, physics_type, name_len, MPI_CHARACTER, st, er)
@@ -1193,14 +1261,20 @@ contains
 
     ! Write snapshotnext etc., which is useful for restarting.
     ! Note we add one, since snapshotnext is updated *after* this procedure
-    call MPI_FILE_WRITE(fh, snapshotnext+1, 1, MPI_INTEGER, st, er)
+    if(pass_wall_time) then
+      call MPI_FILE_WRITE(fh, snapshotnext, 1, MPI_INTEGER, st, er)
+    else
+      call MPI_FILE_WRITE(fh, snapshotnext+1, 1, MPI_INTEGER, st, er)
+    end if
     call MPI_FILE_WRITE(fh, slicenext, 1, MPI_INTEGER, st, er)
     call MPI_FILE_WRITE(fh, collapsenext, 1, MPI_INTEGER, st, er)
-    ! Write stagger grid mark
-    call MPI_FILE_WRITE(fh, stagger_grid, 1, MPI_LOGICAL, st, er)
 
   end subroutine snapshot_write_header
 
+  !> Read header for a snapshot
+  !>
+  !> If you edit the header, don't forget to update: snapshot_write_header(),
+  !> snapshot_read_header(), doc/fileformat.md, tools/python/dat_reader.py
   subroutine snapshot_read_header(fh, offset_tree, offset_block)
     use mod_forest
     use mod_global_parameters
@@ -1215,9 +1289,9 @@ contains
     integer, dimension(MPI_STATUS_SIZE)   :: st
     character(len=name_len), allocatable  :: var_names(:), param_names(:)
     double precision, allocatable         :: params(:)
-    character(len=name_len)               :: phys_name
+    character(len=name_len)               :: phys_name, geom_name
     integer                               :: er, n_par, tmp_int
-    logical                               :: stagger_mark_dat
+    logical                               :: stagger_mark_dat, periodic(ndim)
 
     ! Version number
     call MPI_FILE_READ(fh, version, 1, MPI_INTEGER, st, er)
@@ -1306,6 +1380,26 @@ contains
       call mpistop("change block_nx^D in par file")
     end if
 
+    ! From version 5, read more info about the grid
+    if (version > 4) then
+      call MPI_FILE_READ(fh, periodic, ndim, MPI_LOGICAL, st, er)
+      if (any(periodic .neqv. periodB)) &
+           call mpistop("change in periodicity in par file")
+
+      call MPI_FILE_READ(fh, geom_name, name_len, MPI_CHARACTER, st, er)
+
+      if (geom_name /= geometry_name(1:name_len)) then
+        write(*,*) "type of coordinates in data is: ", geom_name
+        call mpistop("select the correct coordinates in mod_usr.t file")
+      end if
+
+      call MPI_FILE_READ(fh, stagger_mark_dat, 1, MPI_LOGICAL, st, er)
+      if (stagger_grid .neqv. stagger_mark_dat) then
+        write(*,*) "Error: stagger grid flag differs from restart data:", stagger_mark_dat
+        call mpistop("change parameter to use stagger grid")
+      end if
+    end if
+
     ! From version 4 onwards, the later parts of the header must be present
     if (version > 3) then
       ! w_names (not used here)
@@ -1350,14 +1444,6 @@ contains
     ! Still used in convert
     snapshotini = snapshotnext-1
 
-    if (version > 4) then
-      call MPI_FILE_READ(fh, stagger_mark_dat, 1, MPI_LOGICAL, st, er)
-      if (stagger_grid .neqv. stagger_mark_dat) then
-        write(*,*) "Error: stagger grid flag differs from restart data:", stagger_mark_dat
-        call mpistop("change parameter to use stagger grid")
-      end if
-    end if
-
   end subroutine snapshot_read_header
 
   !> Compute number of elements in index range
@@ -1398,9 +1484,7 @@ contains
     {ixOmax^D = ixMhi^D + n_ghost(ndim+^D)\}
 
     n_values = count_ix(ixO^L) * nw
-    if(stagger_grid) then
-      n_values=n_values+ product([ ixOmax^D ] - [ ixOmin^D ] + 2)*nws
-    end if
+
   end subroutine block_shape_io
 
   subroutine write_snapshot
@@ -1410,7 +1494,8 @@ contains
 
     integer                       :: file_handle, igrid, Morton_no, iwrite
     integer                       :: ipe, ix_buffer(2*ndim+1), n_values
-    integer                       :: ixO^L, n_ghost(2*ndim), n_values_stagger
+    integer                       :: ixO^L, n_ghost(2*ndim)
+    integer                       :: ixOs^L,n_values_stagger
     integer                       :: iorecvstatus(MPI_STATUS_SIZE)
     integer                       :: ioastatus(MPI_STATUS_SIZE)
     integer                       :: igrecvstatus(MPI_STATUS_SIZE)
@@ -1508,17 +1593,18 @@ contains
       endif
 
       call block_shape_io(igrid, n_ghost, ixO^L, n_values)
-      ix_buffer(1) = n_values
-      ix_buffer(2:) = n_ghost
       if(stagger_grid) then
-        n_values_stagger = n_values - product([ ixOmax^D ] - [ ixOmin^D ] + 2)*nws
-        w_buffer(1:n_values_stagger) = pack(ps(igrid)%w(ixO^S, 1:nw), .true.)
-        {ixOmin^D = ixMlo^D - n_ghost(^D) - 1\}
-        {ixOmax^D = ixMhi^D + n_ghost(ndim+^D)\}
-        w_buffer(n_values_stagger+1:n_values) = pack(ps(igrid)%ws(ixO^S, 1:nws), .true.)
+        w_buffer(1:n_values) = pack(ps(igrid)%w(ixO^S, 1:nw), .true.)
+        {ixOsmin^D = ixOmin^D -1\}
+        {ixOsmax^D = ixOmax^D \}
+        n_values_stagger= count_ix(ixOs^L)*nws
+        w_buffer(n_values+1:n_values+n_values_stagger) = pack(ps(igrid)%ws(ixOs^S, 1:nws), .true.)
+        n_values=n_values+n_values_stagger
       else
         w_buffer(1:n_values) = pack(ps(igrid)%w(ixO^S, 1:nw), .true.)
       end if
+      ix_buffer(1) = n_values
+      ix_buffer(2:) = n_ghost
 
       if (mype /= 0) then
         call MPI_SEND(ix_buffer, 2*ndim+1, &
@@ -1749,7 +1835,7 @@ contains
              0, itag, icomm, iorecvstatus, ierrmpi)
 
         if(stagger_grid) then
-          n_values_stagger = n_values - count_ix(ixO^L) * nw_found
+          n_values_stagger = count_ix(ixO^L) * nw_found
           {ixOsmin^D = ixOmin^D - 1\}
           {ixOsmax^D = ixOmax^D\}
           w(ixO^S, 1:nw_found) = reshape(w_buffer(1:n_values_stagger), &
@@ -2090,7 +2176,6 @@ contains
     double precision, intent(out) :: volume    !< The total grid volume
     integer                       :: iigrid, igrid, iw
     double precision              :: wsum(nw+1)
-    double precision              :: dvolume(ixG^T)
     double precision              :: dsum_recv(1:nw+1)
 
     wsum(:) = 0
@@ -2099,20 +2184,13 @@ contains
     do iigrid = 1, igridstail
        igrid = igrids(iigrid)
 
-       ! Determine the volume of the grid cells
-       if (slab) then
-          dvolume(ixM^T) = {rnode(rpdx^D_,igrid)|*}
-       else
-          dvolume(ixM^T) = ps(igrid)%dvolume(ixM^T)
-       end if
-
        ! Store total volume in last element
-       wsum(nw+1) = wsum(nw+1) + sum(dvolume(ixM^T))
+       wsum(nw+1) = wsum(nw+1) + sum(ps(igrid)%dvolume(ixM^T))
 
        ! Compute the modes of the cell-centered variables, weighted by volume
        do iw = 1, nw
           wsum(iw) = wsum(iw) + &
-               sum(dvolume(ixM^T)*ps(igrid)%w(ixM^T,iw)**power)
+               sum(ps(igrid)%dvolume(ixM^T)*ps(igrid)%w(ixM^T,iw)**power)
        end do
     end do
 
@@ -2168,7 +2246,6 @@ contains
     double precision, intent(out) :: volume    !< The total grid volume
     integer                       :: iigrid, igrid, i^D
     double precision              :: wsum(2)
-    double precision              :: dvolume(ixG^T)
     double precision              :: dsum_recv(2)
 
     wsum(:) = 0
@@ -2177,19 +2254,12 @@ contains
     do iigrid = 1, igridstail
        igrid = igrids(iigrid)
 
-       ! Determine the volume of the grid cells
-       if (slab) then
-          dvolume(ixM^T) = {rnode(rpdx^D_,igrid)|*}
-       else
-          dvolume(ixM^T) = ps(igrid)%dvolume(ixM^T)
-       end if
-
        ! Store total volume in last element
-       wsum(2) = wsum(2) + sum(dvolume(ixM^T))
+       wsum(2) = wsum(2) + sum(ps(igrid)%dvolume(ixM^T))
 
        ! Compute the modes of the cell-centered variables, weighted by volume
        {do i^D = ixMlo^D, ixMhi^D\}
-       wsum(1) = wsum(1) + dvolume(i^D) * &
+       wsum(1) = wsum(1) + ps(igrid)%dvolume(i^D) * &
             func(ps(igrid)%w(i^D, :), nw)
        {end do\}
     end do

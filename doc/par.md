@@ -33,7 +33,7 @@ Further namelist are used to control optional modules. Most of these lists are
 not documented here, but the parameters are described in the corresponding
 modules:
 
-* `rc_list` (radiative cooling, see `mod_magnetofriction`)
+* `rc_list` (radiative cooling, see `mod_radiative_cooling`)
 * `tc_list` (thermal conduction, see `mod_thermal_conduction`)
 * `dust_list` (dust, see `mod_dust`)
 * `vc_list` (viscosity, see `mod_viscosity`)
@@ -57,7 +57,7 @@ The parameter file consists of a sequence of namelists, which look like this:
       ...
      /
 
-If you do not define a variable the default value is used. 
+If you do not define a variable the default value is used.
 
 The Fortran 90 standard for logical variable values is either `T` and `F` or
 `.true.` and `.false.`, but some compilers accept only one of them. Text between
@@ -82,12 +82,12 @@ or extra words in strings.
 name | type | default | description
 ---|---|---|---
 base_filename | string | 'data' | Base file name for simulation output, which will be followed by a 4-digit number
-restart_from_file | string | - | Resume from the snapshot data with this file name. 
+restart_from_file | string | - | Resume from the snapshot data with this file name.
 typefilelog | string | 'default' | Use 'regression_test' to do regression test and use the value 'special' to enable user-defined log output
 snapshotnext | integer | 0 | Start index for writing snapshots
 slicenext | integer | 0 | Start index for writing slices
 firstprocess | logical | F | If true, call `initonegrid_usr` upon restarting
-resetgrid | logical | F | If true, rebuild the AMR grid upon restarting
+reset_grid | logical | F | If true, rebuild the AMR grid upon restarting
 convert | logical | F | If true and filenameini and snapshotini are given, convert snapshots to other file formats
 convert_type | string | vtuBCCmpi | Which format to use when converting, options are: tecplot, tecplotCC, vtu, vtuCC, vtuB, vtuBCC, tecplotmpi, tecplotCCmpi, vtuBmpi, vtuBCCmpi, vtumpi,  vtuCCmpi, pvtumpi, pvtuCCmpi, tecline, teclinempi, onegrid
 slice_type | string | vtu | Which format to use when slicing, options are: csv, dat, vtu, vtuCC
@@ -113,17 +113,15 @@ By default, the logfile contains one line
 with a string that is meant to identify the coordinate names, the conserved
 variables (wnames) and other entries, and then follows a sequence of lines
 containing numbers: i.e. a single line per requested output time, containing the
-integer timestep counter _it_, the time _global_time_, the time step to be used in the
-next time advance _dt_, the domain integrated value of each conserved variable
+integer timestep counter `it`, the time `global_time`, the time step to be used in the
+next time advance `dt`, the domain integrated value of each conserved variable
 (nw real numbers, which allows to check perfect conservation across the grid
 tree when the boundary conditions imply it), the percentage of the domain
-covered by each allowed grid level (_refine_max_level_ real numbers between 0.0 and 1.0,
-with 1.0 indicating 100% coverage: when all _refine_max_level_ numbers are summed, we get
-1.0), and the number of grids per allowed grid level (hence, _refine_max_level_ integers).
-The logfile is by default saved as an ASCII file. 
-
-The order of saving snapshots, and regridding actions through the subroutine
-_resetgridtree_ is fixed: regrid happens after the advance by one timestep,
+covered by each allowed grid level (`refine_max_level` real numbers between 0.0 and 1.0,
+with 1.0 indicating 100% coverage: when all numbers are summed, we get
+1.0), and the number of grids per allowed grid level (hence, `refine_max_level` integers).
+The logfile is by default saved as an ASCII file.
+The order of saving snapshots, and regridding actions is fixed: regrid happens after the advance by one timestep,
 then regrid, then save the data. This has consequences for the optional
 variables beyond _nwflux_.
 
@@ -135,13 +133,14 @@ visualisation purposes. Such conversion of a single .dat file at a time is to be
 done with the same executable (or at least one compiled on a possibly different
  machine), on a single processor (i.e. using _mpirun
 -np 1 amrvac_). Only selected output types can be converted in parallel, namely
-those whose name contains _mpi_ as part of the _convert_type_ string. Currently,
-this includes the ASCII (binary) versions of _vtumpi_ (_vtuBmpi_) and _vtuCCmpi_
-(_vtuBCCmpi_) (corner versus cell center values), and similarly for tecplot 
-(_tecplotmpi_ or _tecplotCCmpi_). In addition, _pvtumpi_ (_pvtuBmpi_) and 
-_pvtuCCmpi_ (_pvtuBCCmpi_) are possible which will result in a _*.vtu_ file for each processor.
+those whose name contains 'mpi' as part of the `convert_type` string. Currently,
+this includes the ASCII (binary) versions of `vtumpi` (`vtuBmpi`) with values
+located at cell corners and `vtuCCmpi` (`vtuBCCmpi`) with values at cell centers,
+and similarly for tecplot (`tecplotmpi` or `tecplotCCmpi`). In addition,
+`pvtumpi` (`pvtuBmpi`) and `pvtuCCmpi` (`pvtuBCCmpi`) result in parallel output
+with one `*.vtu` file for each processor and a header file from master processor.
 
-In this conversion mode, the idea is to set restart_from_file together 
+In this conversion mode, the idea is to set `restart_from_file` together
 with `convert=T`. You can ask the code during
 conversion to change from conservative to primitive variable output by setting
 `saveprim=T`, and then the corresponding names for the primitive variables are
@@ -234,7 +233,7 @@ Example:
     &savelist
         itsave(1,1)=0
         itsave(1,2)=0
-        dtsave_log=0.01d0 
+        dtsave_log=0.01d0
         dtsave_dat=0.1d0
         dtsave_slice=0.05d0
         dtsave_collapsed=0.05d0
@@ -245,7 +244,7 @@ name | type | default | description
 ---|---|---|---
 `ditsave_log` | integer | `biginteger` | Repeatedly save information in a log file when `ditsave_log` time steps have passed
 `dtsave_dat` | double | `bigdouble` | Repeatedly save dat files when `dtsave_dat` simulation time has passed
-`itsave(SAVEINDEX,FILEINDEX)` | integer | 1 | Save on these time steps
+`itsave(SAVEINDEX,FILEINDEX)` | integer | biginteger | Save on these time steps
 `tsave(SAVEINDEX,FILEINDEX)` | double | `bigdouble` | Save on these times
 `nslices` | integer | 0 | Number of slices
 `slicedir(INTEGER)` | integer | - | Slice direction, see @ref slices.md
@@ -277,15 +276,27 @@ output is always saved after the stop condition has been fulfilled. If
     &stoplist
     	it_max =INTEGER
     	time_max =DOUBLE
+    	wall_time_max =DOUBLE
     	dtmin =DOUBLE
     	it_init =INTEGER
     	time_init =DOUBLE
     	reset_time =F | T
     	reset_it   =F | T
     /
+name | type | default | description
+---|---|---|---
+`it_max` | integer | `biginteger` | a run ends when the number of time steps reaches it
+`time_max` | double | `bigdouble` | a run ends when the physical time reaches it
+`wall_time_max` | double | `bigdouble` | a run ends when the wall time reaches it (in hours)
+`dtmin` | double | `bigdouble` | a run stops when time step falls smaller than it
+`it_init` | integer | 0 | set the initial number of time steps when start a new run
+`time_init` | double | 0 | set the initial time when start a new run
+`reset_time` | logical | F | when restart from a previous run, reset the time to the initial one if it is T
+`reset_it` | logical | F | when restart from a previous run, reset the number of time steps to the initial one if it is T
 
-You may use an upper limit `it_max` for the number of timesteps and/or the
-physical time, `time_max`. 
+You may use an upper limit `it_max` for the number of timesteps, and/or the
+physical time `time_max`, and/or the wall time 'wall_time_max' to end a run.
+The wall time means wall clock time recording real-world time.
 
 Numerical or physical instabilities may produce huge changes or very small
 time steps depending on the way `dt` is determined. These breakdowns can be
@@ -296,10 +307,10 @@ printed.
 
 You have to specify at least one of `time_max, it_max`. AMRVAC stops execution
 when any of the limits are exceeded. The initial time value `time_init` and integer
-time step counter `it_init` values, which are zero by default, can be specified 
-here. However, when a restart is performed from a previous .dat file, the values 
-in that file will be used unless you reset them to their initial values by 
-setting `reset_time=T`. If you want only to reset the iteration count 
+time step counter `it_init` values, which are zero by default, can be specified
+here. However, when a restart is performed from a previous .dat file, the values
+in that file will be used unless you reset them to their initial values by
+setting `reset_time=T`. If you want only to reset the iteration count
 without changing time, set `reset_it=T`.
 
 ## Methodlist {#par_methodlist}
@@ -311,7 +322,6 @@ without changing time, set `reset_it=T`.
     typepred1=nlevelshi strings from: 'default'|'hancock'|'tvdlf'|'hll'|'hllc'|'tvdmu'|'cd'|'fd'|'nul'
     limiter= nlevelshi strings from: 'minmod' | 'woodward' | 'superbee' | 'vanleer' | 'albada' | 'ppm' | 'mcbeta' | 'koren' | 'cada' | 'cada3' | 'mp5'
     gradient_limiter= nlevelshi strings from: 'minmod' | 'woodward' | 'superbee' | 'vanleer' | 'albada' | 'ppm' | 'mcbeta' | 'koren' | 'cada' | 'cada3'
-    typelimited= 'previous' | 'predictor'
     loglimit= nw logicals, all false by default
     flatsh = F | T
     flatcd = F | T
@@ -359,8 +369,8 @@ linear in the time step, which is good for getting a steady state, by setting
 `time_integrator='onestep'`.
 
 There is also a fourth order Runge-Kutta type method, when
-`time_integrator='fourstep'`. It can be used with _dimsplit=.true._ and
-_typelimited='original'_. These higher order time integration methods can be
+`time_integrator='fourstep'`. It can be used with _dimsplit=.true._.
+ These higher order time integration methods can be
 most useful in conjunction with higher order spatial discretizations.
 See also [discretization](discretization.md).
 
@@ -399,11 +409,6 @@ The `gradient_limiter` is the selection of a limiter to be used in computing
 gradients (or divergence of vector) when the typegrad=limited (or
 typediv=limited) is selected. It is thus only used in the gradientS
 (divvectorS) subroutines in geometry.t (and has effect for the MHD modules).
-
-The `typelimited` variable tells the TVD type methods what w should be used as
-a basis for the limited reconstruction. By default, the `original` value is used in 1D and
-for dimensional splitting, while the dimensionally unsplit multidimensional
-case (dimsplit=F) uses the `predictor` value.
 
 When having a gravitational stratification, one might benefit from performing linear
 reconstruction on the primitive variables log10(rho) and/or log10(p). This can
@@ -489,28 +494,28 @@ described in [methods](methods.md).
 
 Negative pressure or density caused by the numerical approximations can make the
 code crash. For HD and MHD modules this can be monitored
-or even cured by the handle_small_values subroutines in each substep of iteration. 
+or even cured by the handle_small_values subroutines in each substep of iteration.
 The control parameters `small_density, small_pressure, small_temperature` play a role here:
-they can be set to small positive values but not negative values, while their default is 0. If 
-`small_temperature` is positive, `small_pressure` is overwritten by the product of 
+they can be set to small positive values but not negative values, while their default is 0. If
+`small_temperature` is positive, `small_pressure` is overwritten by the product of
 `small_pressure` and `small_temperature`. If `check_small_values` is set to .true.,
 additional check for small values will be triggered in phys_to_primitive, phys_to_conserved,
 and source terms such as resistive terms in MHD.
 
 The actual treatment involves the _small_values_method_ parameter: Its default value
-'error' causes a full stop in the handle_small_values subroutine in the physics 
+'error' causes a full stop in the handle_small_values subroutine in the physics
 modules. In this way, you can use it for debugging purposes, to spot from where the actual
 negative pressure and unphysical value gets introduced. If it is somehow unavoidable in
 your simulations, then you may rerun with a recovery process turned on as
-follows.  When _small_values_method='replace'_, the parameters small_pressure, small_density 
-are used to replace any unphysical value and set momentum to be 0, as encoded in 
+follows.  When _small_values_method='replace'_, the parameters small_pressure, small_density
+are used to replace any unphysical value and set momentum to be 0, as encoded in
 `mod_small_values.t`. When you select _small_values_method='average'_, any unphysical value
 is replaced by averaging from a user-controlled environment about the faulty cells.
 The width of this environment is set by the integer _small_values_daverage_.
 
 ### Special process {#par_process}
-User controlled special process can be added to 
-each iteration. Subroutine usr_process_grid can be registered in 
+User controlled special process can be added to
+each iteration. Subroutine usr_process_grid can be registered in
 mod_usr.t to process for each grid. Subroutine usr_process_global can be registered
 in mod_usr.t to do global process. For example, you can do computations of
 non-local auxiliary variables (like the divergence of some vector fields, time integrals
@@ -521,7 +526,7 @@ on the cell center values, to limited reconstruction followed by differencing
 when computing gradients. They call either of _gradient_ ('central') or
 _gradientS_ ('limited') subroutines that are themselves found in the
 _geometry.t_ module. Similarly, a switch for the divergence of a vector is the
-`typediv` switch. When the 'limited' variant is used, one must set the 
+`typediv` switch. When the 'limited' variant is used, one must set the
 corresponding gradient_limiter array to select a limiter (per level).
 
 ## Boundlist {#par_boundlist}
@@ -531,16 +536,16 @@ corresponding gradient_limiter array to select a limiter (per level).
      typeboundary_min^D= 'cont'|'symm'|'asymm'|'periodic'|'special'|'noinflow'
      typeboundary_max^D= 'cont'|'symm'|'asymm'|'periodic'|'special'|'noinflow'
      internalboundary = F | T
-     typeghostfill= 'linear' | 'copy' 
+     typeghostfill= 'linear' | 'copy'
      prolongation_method= 'linear' | 'other' (no interpolation)
     /
 
-The boundary types have to be defined for each **conserved variable**, except for 
+The boundary types have to be defined for each **conserved variable**, except for
 psi (in GLM-MHD) and tracer fluids, at each physical edge of the grid. For 2D hydrodynamics they are:
-rho,m1,m2,e at the left boundary (typeboundary_min1); rho,m1,m2,e at the right 
-(typeboundary_max1); rho,m1,m2,e at the bottom (typeboundary_min2); rho,m1,m2,e 
-at the top boundary (typeboundary_max2). Boundary types of psi (in GLM-MHD) and 
-tracer fluids are automatically set to be the same as boundary type of density 
+rho,m1,m2,e at the left boundary (typeboundary_min1); rho,m1,m2,e at the right
+(typeboundary_max1); rho,m1,m2,e at the bottom (typeboundary_min2); rho,m1,m2,e
+at the top boundary (typeboundary_max2). Boundary types of psi (in GLM-MHD) and
+tracer fluids are automatically set to be the same as boundary type of density
 by default. Boundary types of dust density and dust momentum still must be set
 manually by user, if dust module is activated. The general
 subroutine devoted to the treatment of boundary conditions (either customized
@@ -578,7 +583,7 @@ lateral boundaries are periodic, we would write :
 The default number of ghost cell layers used to surround the grid (and in fact
 each grid at each level and location) is set by default to `nghostcells=2` and
 automatically increased if larger stencil is needed for high-order reconstructions.
-For example, when `limiter=mp5` it takes 3,  and `limiter=ppm` makes it 4. 
+For example, when `limiter=mp5` it takes 3,  and `limiter=ppm` makes it 4.
 
 The default boundary type is `cont` for all variables and edges, it means
 that the gradient (of the conservative variables) is kept zero by copying the
@@ -618,9 +623,9 @@ pole, i.e. displaced over pi instead of 2 pi. These are automatically
 recognized from the coordinate setting, and the corresponding range in angle
 phi must span 2 pi for cylindrical, and theta must then start at zero (to
 include the north pole) and/or end at pi (for the south pole) for spherical
-grids. The user just needs to set the typeboundary as typeboundary_min2=8*'pole' 
+grids. The user just needs to set the typeboundary as typeboundary_min2=8*'pole'
 and/or typeboundary_max2=8*'pole' in 3D spherical coordinates or typeboundary_min1=8*'pole'
-in cylindrical/polar coordinates, or use symmetry boundary (using symm and asymm combinations). 
+in cylindrical/polar coordinates, or use symmetry boundary (using symm and asymm combinations).
 
 The case of periodic boundaries can be handled with setting 'periodic' for all
 variables at both boundaries that make up a periodic pair. Hence triple
@@ -641,7 +646,7 @@ application. This is in principle only relevant for the momentum component
 locally perpendicular to the boundary (for others a continuous extrapolation
 is done). The _noinflow_ extrapolates values that are outwardly
 moving continuously, while clipping all values that are inwardly advecting
-momentum to zero. 
+momentum to zero.
 
 The `special` type is to be used for setting fixed values, or any time
 dependent or other more complicated boundary conditions, and results in a call
@@ -650,7 +655,7 @@ the _mod_usr.t_ module. The variables with
 `special` boundary type are updated last within a given boundary region,
 thus the subroutine may use the updated values of the other variables. The
 order of the variables is fixed by the equation module chosen, i.e. _rho m1 m2
-m3 e b1 b2 b3_ for 3D MHD. It is suggested to set all typeboundary entries 
+m3 e b1 b2 b3_ for 3D MHD. It is suggested to set all typeboundary entries
 for a certain boundary region to `special`  to consistently fill the
 boundary info for all variables in a user-defined manner.
 
@@ -712,16 +717,16 @@ second order is desired).
 
 ### refine_max_level, max_blocks, domain_nx^D, block_nx^D, xprobmin^D, xprobmax^D {#par_refine_max_level}
 
-`refine_max_level` indicates the maximum number of grid levels that can be used 
-during the simulation, including the base grid level. It is an integer value 
-which is maximally equal to the parameter _nlevelshi_ and minimally equal to 1. 
-The parameter _nlevelshi=20_ by default, a value set in _mod_global_parameters.t_, 
-so that if more than 20 levels are to be used, one must change this value and 
-recompile. Note that when _refine_max_level&gt;1_, it is possible that during 
-runtime, the highest grid level is temporarily lower than refine_max_level, and/or 
-that the coarsest grid is at a higher level than the base level. The number of 
-grid blocks in each processor has an upper limit defined by `max_blocks` which 
-is 4000 by default and can be set to higher numbers if too many blocks in a 
+`refine_max_level` indicates the maximum number of grid levels that can be used
+during the simulation, including the base grid level. It is an integer value
+which is maximally equal to the parameter _nlevelshi_ and minimally equal to 1.
+The parameter _nlevelshi=20_ by default, a value set in _mod_global_parameters.t_,
+so that if more than 20 levels are to be used, one must change this value and
+recompile. Note that when _refine_max_level&gt;1_, it is possible that during
+runtime, the highest grid level is temporarily lower than refine_max_level, and/or
+that the coarsest grid is at a higher level than the base level. The number of
+grid blocks in each processor has an upper limit defined by `max_blocks` which
+is 4000 by default and can be set to higher numbers if too many blocks in a
 processor are allocated.
 
 The computational domain is set by specifying the minimal and maximal
@@ -754,18 +759,18 @@ this scheme, the `amr_wavefilter` coefficient can be adjusted from its
 default value 0.01d0. You can set different values for the wavefilter
 coefficient per grid level. This error estimator is computationally efficient,
 and has shown similar accuracy to the Richardson approach on a variety of test
-problems. When `refine_criterion=3`, the original Lohner method is used. 
+problems. When `refine_criterion=3`, the original Lohner method is used.
 
-A call to the user defined subroutine _usr_refine_grid_ follows the error 
-estimator, making it possible to use this routine for augmented user-controlled 
+A call to the user defined subroutine _usr_refine_grid_ follows the error
+estimator, making it possible to use this routine for augmented user-controlled
 refinement, or even derefinement.
 
 Depending on the error estimator used, it is needed or advisable to
 additionally provide a buffer zone of a certain number of grid cells in width,
 which will surround cells that are flagged for refinement by any other means.
 It will thus trigger more finer grids. `nbufferx^D=2` is usually sufficient.
-It can never be greater than the block size. For Lohner scheme, the buffer 
-can actually be turned off completely by setting `nbufferx^D=0` which is 
+It can never be greater than the block size. For Lohner scheme, the buffer
+can actually be turned off completely by setting `nbufferx^D=0` which is
 default value.
 
 ### w_refine_weight, logflag, refine_threshold, derefine_ratio {#par_flags}
@@ -773,10 +778,10 @@ default value.
 In all error estimators mentioned above (except the refine_criterion=0 case), the
 comparison or evaluation is done only with a user-selected (sub)set of the
 conserved variables. The _nw_ variables (which may include auxiliary
-variables) can be used for error estimation, by setting corresponding weights 
-in the array _w_refine_weight_, which by default has the first element (corresponds 
+variables) can be used for error estimation, by setting corresponding weights
+in the array _w_refine_weight_, which by default has the first element (corresponds
 to density) as 1.d0 and rest elements as 0.d0. The weights w_refine_weight(:) must be
-positive values between 0.0d0 and 1.0d0, and must add to unity. 
+positive values between 0.0d0 and 1.0d0, and must add to unity.
 
 The Lohner error estimation (refine_criterion=3) may also decide to use
 differences in the log10(rho), and this is then done by setting the
@@ -786,14 +791,14 @@ throughout.
 
 In the comparison involving the above selected variables, when the total error
 exceeds the value set by `refine_threshold`, the grid is triggered for refining.
-Reversely, if the error drops below `derefine_ratio * refine_threshold`, the 
-grid is coarsened.  The user must always set a (problem dependent) value for 
-`refine_threshold` (below 1), while the default value for 
+Reversely, if the error drops below `derefine_ratio * refine_threshold`, the
+grid is coarsened.  The user must always set a (problem dependent) value for
+`refine_threshold` (below 1), while the default value for
 derefine_ratio=1.0d0/8.0d0 has shown to be a rather
 generally useful value. You can set threshold values that differ per
-refinement level. 
+refinement level.
 
-When subroutine _usr_refine_threshold_ is registered, user can use it to 
+When subroutine _usr_refine_threshold_ is registered, user can use it to
 modify refine_threshold depending on location of interest. For example, increase
 refine_threshold near quiet boundaries to use coarser blocks there or decrease it
 to use finer blocks in focused regions.
@@ -812,7 +817,7 @@ grid information (coarsen), or filling new finer level grids
 (prolongation). They are then used instead of the conservative variables,
 which may not be a wise choice, but is perhaps better behaved with respect to
 positivity of pressure etc. This is activated seperately for prolongation by
-`prolongprimitive=T`, and for coarsen by `coarsenprimitive=T`. 
+`prolongprimitive=T`, and for coarsen by `coarsenprimitive=T`.
 
 The parameters `tfixgrid, itfixgrid` are available to fix the AMR
 hierarchical grid from a certain time onwards (tfixgrid) or iteration (the it-
@@ -823,25 +828,33 @@ optimal for all times.The parameter `ditregrid` is introduced to reconstruct
 the whole AMR grids once every ditregrid iteration(s) instead of regridding
 once in every iteration by default.
 
-### `stretch_dim`, `stretch_uncentered` `qstretch_baselevel`, `nstretchedblocks_baselevel` {#par_stretched}
+### stretch_dim, stretch_uncentered, qstretch_baselevel, nstretchedblocks_baselevel {#par_stretched}
 
-We allow stretching of the grid, in combination with any coordinate system (cartesian/polar/cylindrical/spherical) you choose. You activate grid stretching by setting `stretch_dim(1:ndim)`, for example for the second dimension:
+We allow stretching of the grid, in combination with any coordinate system
+(cartesian/polar/cylindrical/spherical) you choose. You activate grid stretching
+by setting `stretch_dim(1:ndim)`, for example for the second dimension:
 
     stretch_dim(2) = 'none' | 'uni' | 'symm'
 
 * 'none' means don't stretch this dimension, which is the default.
-* 'uni' means unidirectional stretching, where the grid cells change by a constant factor from cell to cell. The factor for the lowest refinement level can be set by setting `qstretch_baselevel=1.01` (typical values are 1.01 to 1.05 or so, although any number larger than 1 is possible). 
-* 'symm' means symmetric stretching, which is e.g. useful for setting up periodic domain problems or so. You then specify how many blocks you want to have unstretched (uniform) in the middle. E.g., you may have set up 8 blocks along a dimension at level 1, and then you can ask nstretchedblocks_baselevel=2,4,6 or 8. 
+* 'uni' means unidirectional stretching, where the grid cells change by a
+constant factor from cell to cell. The factor for the lowest refinement level
+can be set by setting `qstretch_baselevel=1.01` (typical values are 1.01 to 1.05
+or so, although any number larger than 1 is possible).
+* 'symm' means symmetric stretching, which is e.g. useful for setting up
+periodic domain problems or so. You then specify how many blocks you want to
+have unstretched (uniform) in the middle. E.g., you may have set up 8 blocks
+along a dimension at level 1, and then you can ask nstretchedblocks_baselevel=2,4,6 or 8.
 
-Stretching can be useful for the radial coordinate in polar/spherical/cylindrical, or you can set the angle theta in 3D spherical to be stretched symmetrically, to leverage the CFL condition.
+Stretching can be useful for the radial coordinate in polar/spherical/cylindrical,
+or you can set the angle theta in 3D spherical to be stretched symmetrically,
+to leverage the CFL condition.
 
 The parameter `stretch_uncentered` (default: true) controls whether
 `mod_geometry.t` routines such as `divvector()` take into account that a cell
 face is not between stretched cell-centers. However, this is not yet taken into
 account in the reconstruction and symm/asymm boundary conditions, which may lead
 to issues, which can sometimes be avoided by setting `stretch_uncentered` to false.
-
-**Note**: the old syntax `stretched_grid=T` was equivalent to `stretch_dim(1) = 'uni'`
 
 ## Paramlist {#par_paramlist}
 
@@ -898,7 +911,7 @@ sharp discontinuities. It is normally inactive with a default value -1.
     &hd_list
       hd_energy= T | F
       hd_n_tracer= INTEGER
-      hd_gamma= DOUBLE 
+      hd_gamma= DOUBLE
       hd_adiab= DOUBLE
       hd_dust= F | T
       hd_thermal_conduction= F | T
@@ -915,11 +928,11 @@ sharp discontinuities. It is normally inactive with a default value -1.
     &mhd_list
      mhd_energy= T | F
      mhd_n_tracer= INTEGER
-     mhd_gamma= DOUBLE 
+     mhd_gamma= DOUBLE
      mhd_adiab= DOUBLE
      mhd_eta= DOUBLE
      mhd_eta_hyper= DOUBLE
-     mhd_etah= DOUBLE 
+     mhd_etah= DOUBLE
      mhd_glm_alpha= DOUBLE
      mhd_magnetofriction= F | T
      mhd_thermal_conduction= F | T
@@ -929,7 +942,8 @@ sharp discontinuities. It is normally inactive with a default value -1.
      mhd_viscosity= F | T
      mhd_particles= F | T
      mhd_4th_order= F | T
-     typedivbfix= 'linde'|'powel'|'glm1'|'glm2'|'glm3'|'lindejanhunen'|'lindepowel'|'lindeglm'|'none'
+     typedivbfix= 'linde'|'ct'|'glm'|'powel'|'lindejanhunen'|'lindepowel'|'lindeglm'|'multigrid'|'none'
+     type_ct='uct_contact'|'uct_hll'|'average'
      source_split_divb= F | T
      boundary_divbfix= 2*ndim logicals, all false by default
      divbdiff= DOUBLE between 0 and 2
@@ -947,10 +961,27 @@ sharp discontinuities. It is normally inactive with a default value -1.
 
 ### Magnetic field divergence fixes {#par_divbfix}
 
-Depending on `typedivbfix`, sources proportionate to the numerical monopole
-errors are added, in a source-split way, to momemtum, energy, and induction equation 
-(the 'powel' type), or to the induction equation alone (the 'janhunen' type). 
-The `divbwave` switch is effective for the Riemann type solvers for multi-D MHD only. 
+The upwind constrained transport methods  **typedivbfix='ct'** by Gardiner and Stone in _Journal of
+Computational Physics, 205, 509-539 (2005)_ **type_ct='uct_contact'** (default),
+or by Del Zanna, L., Zanotti, O., Bucciantini, N., & Londrillo, P. in _Astronomy &
+Astrophysics , 473, 11 (2007)_  **type_ct='uct_hll'**,
+using staggered grid for magnetic field, can preserve
+initial div B to round off errors. A simple non-upwinding version of ct
+is through averaging electric fields from
+neighbors **type_ct='average'**. And it only works with HLL, HLLC, and HLLD
+schemes in the current implementation. It works in Cartesian and non-Cartesian coordinates with or
+without grid stretching. It works with finite non-zero resistivity.
+Initial conditions and boundary conditions for
+magnetic field have to be given at corresponding cell faces instead, or vector potential
+is given at corresponding cell edges, see examples: **tests/mhd/solar_atmosphere_2.5D**.
+Note that when using AMR, the div B preserving prolongation for CT requires even
+number of ghost cell layers and odd number of ghost layers for some slope limiters, e.g.
+ mp5, is added by one to become even.
+
+In cell-center based magnetic fields, sources proportionate to the numerical monopole
+errors can be added, in a source-split way, to momemtum, energy, and induction equation
+(the 'powel' type), or to the induction equation alone (the 'janhunen' type) for cleaning divB errors.
+The `divbwave` switch is effective for the Riemann type solvers for multi-D MHD only.
 The default true value corresponds to Powell divergence wave which stabilizes the Riemann solver.
 
 Another source term strategy for monopole error control is choose 'linde' type
@@ -959,47 +990,62 @@ rate still compliant with the CFL limit on the time step. This is activated
 when `divbdiff` is set to a positive number, which should be less than 2,
 and again comes in various flavors depending on which equations receive source
 terms. The choice where only the induction equation gets modified, i.e.
-`typedivbdiff='ind'` can be used. 
+`typedivbdiff='ind'` can be used.
 
-GLM-MHD mixed hyperbolic and parabolic dampening of the divB error
-using an additional scalar variable _Psi_ (need an addition of the name and
-boundary condition type in your par-file). The algorithm is described by
-Dedner et al. in _Journal of Computational Physics 175, 645-673 (2002)
-doi:10.1006/jcph.2001.6961_. The three versions differ in the source terms 
-taken along. Thus 'glm1' corresponds 
-to _Equation (24)_ of Dedner et al and 'glm2'
-corresponds to _Equation (38)_ of this paper. The option 'glm3' adds no
-additional sources to the MHD system. We recommend the option
-'glm1'. For example: in your par-file,
+GLM-MHD mixed hyperbolic and parabolic dampening of the divB error using an
+additional scalar variable `Psi`.  The algorithm of 'glm' is described by
+Dedner et al. as _Equation (24)_ in
+_Journal of Computational Physics 175, 645-673 (2002) doi:10.1006/jcph.2001.6961_.
+You can choose 'lindejanhunen', 'lindepowel', or 'lindeglm' to use combined divb cleaning.
 
-    &mhd_list
-    typedivbfix='glm1'
-    ...
-
-in your `mod_usr.t`, add
-
-    if(mhd_glm) w(ixO^S,psi_)=0.d0
-
-in subroutine `usr_init_one_grid` and ( subroutine `usr_special_bc` if exists).
-Potential bug: with a pole boundary in cylindrical and spherical coordinates, GLM methods
-crash your run with negative pressure.
-
-Choose 'lindejanhunen', 'lindepowel', or 'lindeglm' to use combined divb cleaning.
+Projection scheme using multigrid Poisson solver by Teunissen and Keppens in
+_Computer Physics Communications 245, 1068, (2019)_ can be chosen as 'multigrid' to
+remove div B part of B.
 
 ### Magnetic field splitting strategy {#par_MFS}
 
 For MHD, we implemented the possibility to use a splitting strategy following
 Tanaka, where a time-invariant background magnetic field is handled
 exactly, so that one solves for perturbed magnetic field components instead.
-This field is taken into account when `B0field=T`, and the magnitude of this
-field is controlled using the variables `Bdip, Bquad, Boct, Busr`. The first
+This method work only with HLL or TVDLF schemes and non CT divb cleaning methods
+in the current implementation.
+The magnetic field splitting is activated by `B0field=T`, and the magnitude of
+the background magnetic field can be controlled using the parameters
+`Bdip, Bquad, Boct, Busr`. The first
 three are pre-implemented formulae for a dipole, quadrupole and octupole field
 in spherical coordinates only (the parameters set the strength of the dipole,
 quadrupole and octupole field). This is coded up in the module _set_B0.t_.
 This same module calls in addition the _usr_set_B0_ subroutine when
 `Busr` is non-zero, where it then should be used to quantify an additional
 time-independent field. This latter can be used for cartesian or
-cylindrical coordinates as well. User can possibly prescibe analytic current in 
-_usr_set_J0_ subroutine to significantly increase accuracy. Choose 
+cylindrical coordinates as well. User can possibly prescibe analytic current in
+_usr_set_J0_ subroutine to significantly increase accuracy. Choose
 `B0field_forcefree=T` when your background magnetic field is forcefree for better
 efficiency and accuracy.
+
+
+
+## Synthetic EUV emission {#par_euvlist}
+
+User can use this module to synthesize EUV emission based on the plasma parameters.
+Two types of data can be generated with module: 2D image of given EUV line and the
+spectra of the line. The data will be outputed into two .vtu files. User can activate
+the systhesis by set 'image = .true.' or 'spectrum = .true.'. It works only when the
+simulation is 3D currently.
+
+User can specify the emission line, light of sight direction, slit dirction for spectral
+observation and the slit location via parameters 'wavelength', 'direction_LOS',
+'direction_slit', 'location_slit', respectively. User can choose the resolution of the
+outputed image or spectra via 'resolution_euv'. The resolution will be changed to
+instrument resolution (AIA or IRIS) by setting 'resolution_euv= `instrument`'.
+
+    &euv_list
+      filename_euv= CHARACTER
+      image= F | T
+      spectrum= F | T
+      wavelength= 94 | 131 | 171 | 193 | 211 | 304 | 335 | 1394 | 1403 | 1338 | 1343 | 1397 | 1400 | 1401 | 1405 | 1349 | 1351
+      direction_LOS= 1 | 2 | 3
+      direction_slit= 1 | 2 | 3
+      location_slit= DOUBLE
+      resolution_euv= 'instrument' | 'data'
+    /

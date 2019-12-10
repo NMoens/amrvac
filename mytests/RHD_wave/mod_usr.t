@@ -12,7 +12,7 @@ module mod_usr
 
   double precision :: T0, a0, p0, ampl
 
-  double precision :: wavelength, frequency, tau_wave, wavenumber
+  double precision :: wvl, frequency, tau_wave, wavenumber
   double precision :: Boltzmann_number, energy_ratio, L_damp, r_Bo
 
   double precision :: A_rho, A_v, A_p, A_e, A_Er
@@ -57,15 +57,15 @@ contains
 
     tau_wave = 1.d3
 
-    wavelength = tau_wave/(rho0*fld_kappa0)
-    frequency = 2.d0*dpi*a0/wavelength
-    wavenumber = 2.d0*dpi/wavelength
+    wvl = tau_wave/(rho0*fld_kappa0)
+    frequency = 2.d0*dpi*a0/wvl
+    wavenumber = 2.d0*dpi/wvl
 
     Boltzmann_number = 4*rhd_gamma*a0*eg0/(const_c*Er0)
     r_Bo = a0/(const_c*Boltzmann_number)
 
     ! Choose independent normalization units if using dimensionless variables.
-    unit_length = wavelength ! cm
+    unit_length = wvl ! cm
     unit_velocity   = a0 ! K
     unit_numberdensity = rho0/((1.d0+4.d0*He_abundance)*mp_cgs) ! cm^-3
 
@@ -85,7 +85,7 @@ contains
     Er0 = Er0/unit_pressure
 
 
-    wavelength = wavelength/unit_length
+    wvl = wvl/unit_length
     frequency = frequency*unit_time
     wavenumber = wavenumber*unit_length
 
@@ -104,7 +104,7 @@ contains
       print*, 'unit_velocity', unit_velocity
       print*, '-----------------------------'
       print*, 'angular frequency', frequency
-      print*, 'wavelength', wavelength
+      print*, 'wvl', wvl
       print*, 'opt tickness 1 wvl', tau_wave
       print*, 'wave number', wavenumber
       print*, 'amplitude', ampl
@@ -145,7 +145,7 @@ contains
     w(ixI^S, r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
 
 
-    call get_rad_extravars(w, x, ixI^L, ixO^L)
+    call get_rad_extravars(w, w, x, ixI^L, ixO^L)
 
   end subroutine initial_conditions
 

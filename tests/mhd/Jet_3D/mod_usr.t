@@ -5,7 +5,7 @@ module mod_usr
 
   implicit none
 
-  ! Input values for 
+  ! Input values for
   !    Jet radius and initial Z-reach: Rjet, Zjet
   !    density and B factors: rhojet, rhocloud, apar, alfapar, pjet, B0, Bc, Bazi, npower
   !    perturbation in v at inlet: perturb_v, random_v, nmodes, ampl
@@ -69,7 +69,7 @@ contains
     integer :: ix
 
     printsettingformat='(1x,A50,ES15.7,A7)'
-    
+
     if(mype==0) then
       write(*,*) "Jet setup:"
       write(*,printsettingformat) "density in jet ",rhojet," input"
@@ -143,7 +143,7 @@ contains
     integer, intent(in) :: ixG^L, ix^L
     double precision, intent(in) :: x(ixG^S,1:ndim)
     double precision, intent(inout) :: w(ixG^S,1:nw)
-    
+
     double precision :: R(ixG^S),Z(ixG^S),hlpphi(ixG^S),hlpR(ixG^S)
     double precision :: cosphi(ixG^S),sinphi(ixG^S),scale,Bphi(ixG^S)
 
@@ -172,7 +172,7 @@ contains
 
     hlpphi(ix^S)=cosh(Z(ix^S)**npower)
     hlpR(ix^S)=(cosh(R(ix^S)**two))**2.0d0
-    ! axial field BZ 
+    ! axial field BZ
     w(ix^S,mag(3))= B0/(hlpphi(ix^S)*hlpR(ix^S)) +  Bc
 
     scale=npower*B0*Rjet/Zjet/2.0d0
@@ -329,7 +329,7 @@ contains
         do imode=1,nmodes
            psi(ixI^S)=psi(ixI^S) &
              +rand_ampl(imode)*dcos(dble(imode)*tmp(ixI^S)+rand_phase(imode)) &
-                   *dexp(-((dsqrt(x(ixI^S,1)**2+x(ixI^S,2)**2)-0.75d0*Rjet)/Rjet)**2) 
+                   *dexp(-((dsqrt(x(ixI^S,1)**2+x(ixI^S,2)**2)-0.75d0*Rjet)/Rjet)**2)
         enddo
         ! compute dpsi/dy
         idims=2
@@ -414,7 +414,7 @@ contains
        endif
     endif
 
-    if(all(R(ix^S) >= 13.0d0))then
+    if(any(R(ix^S) >= 8.0d0))then
        if(level>3) then
          refine=-1
          coarsen=1

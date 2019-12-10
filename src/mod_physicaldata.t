@@ -5,12 +5,16 @@ module mod_physicaldata
    type state
       !> ID of a grid block
       integer :: igrid=-1
+      !> index range of block array in cell centers
+      integer :: ixG^L
+      !> index range of block array in cell faces
+      integer :: ixGs^L
       !> location of w0-array, 0: cell center, ^D : cell interface in dimension ^D
       integer :: iw0=0
       !> Is e is internal energy or total energy
       logical :: e_is_internal=.false.
       !> If it face a physical boundary
-      logical :: is_physical_boundary(2*^ND)
+      logical, dimension(:), pointer :: is_physical_boundary(:) =>Null()
       !> Variables, normally cell center conservative values
       double precision, dimension(:^D&,:), allocatable :: w
       !> Variables, cell face values
@@ -20,21 +24,23 @@ module mod_physicaldata
       !> Variables, cell corner values
       double precision, dimension(:^D&,:), allocatable :: wc
       !> Time-independent magnetic field at cell center and cell interface
-      double precision, dimension(:^D&,:,:), allocatable :: B0
+      double precision, dimension(:^D&,:,:), pointer :: B0=>Null()
       !> Time-independent electric current density at cell center
-      double precision, dimension(:^D&,:), allocatable :: J0
+      double precision, dimension(:^D&,:), pointer :: J0=>Null()
       !> Cell-center positions
-      double precision, dimension(:^D&,:), allocatable :: x
+      double precision, dimension(:^D&,:), pointer :: x=>Null()
       !> Cell sizes in coordinate units
-      double precision, dimension(:^D&,:), allocatable :: dx
-      !> Cell sizes in length unit
-      double precision, dimension(:^D&,:), allocatable :: ds
+      double precision, dimension(:^D&,:), pointer :: dx=>Null()
+      !> Cell sizes at cell center in length unit
+      double precision, dimension(:^D&,:), pointer :: ds=>Null()
+      !> Cell sizes at cell face in length unit
+      double precision, dimension(:^D&,:), pointer :: dsC=>Null()
       !> Volumes of a cell
-      double precision, dimension(:^D&), allocatable :: dvolume
+      double precision, dimension(:^D&), pointer :: dvolume=>Null()
       !> Areas of cell-center surfaces
-      double precision, dimension(:^D&,:), allocatable :: surface
+      double precision, dimension(:^D&,:), pointer :: surface=>Null()
       !> Areas of cell-face surfaces
-      double precision, dimension(:^D&,:), allocatable :: surfaceC
+      double precision, dimension(:^D&,:), pointer :: surfaceC=>Null()
    end type state
 
 {^NOONED
@@ -45,7 +51,7 @@ module mod_physicaldata
       logical :: e_is_internal=.false.
       !> Variables, normally center
       double precision, dimension(:^DE&,:), allocatable :: w
-      !> Variables for the cornerpositions on the slice 
+      !> Variables for the cornerpositions on the slice
       double precision, dimension(:^DE&,:), allocatable :: wC
       !> Variables, normally center, one level coarser representative
       double precision, dimension(:^DE&,:), allocatable :: wcoarse
@@ -65,7 +71,7 @@ module mod_physicaldata
       double precision, dimension(:^DE&), allocatable :: dvolume
       !> Volumes of a cell, one level coarser representative
       double precision, dimension(:^DE&), allocatable :: dvolumecoarse
-      !> Areas of cell-center surfaces 
+      !> Areas of cell-center surfaces
       double precision, dimension(:^DE&,:), allocatable :: surface
       !> Areas of cell-face surfaces
       double precision, dimension(:^DE&,:), allocatable :: surfaceC
@@ -79,7 +85,7 @@ module mod_physicaldata
       logical :: e_is_internal=.false.
       !> Variables, normally center
       double precision, dimension(:), allocatable :: w
-      !> Variables for the cornerpositions on the slice 
+      !> Variables for the cornerpositions on the slice
       double precision, dimension(:), allocatable :: wC
       !> Variables, normally center, one level coarser representative
       double precision, dimension(:), allocatable :: wcoarse
@@ -97,8 +103,10 @@ module mod_physicaldata
       !> Variables old state
       double precision, dimension(:^D&,:), allocatable :: wold
    end type grid_field
-   !> Block pointer for using current block
-   type(state), pointer :: block
+   !> Block pointer for using one block and its previous state
+   type(state), pointer :: block, block0
+   !> buffer for pole boundary
+   type(state) :: pole_buf
 
    !> array of physical states for all blocks on my processor
    type(state), dimension(:), allocatable, target :: ps

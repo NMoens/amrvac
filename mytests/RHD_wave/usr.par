@@ -25,7 +25,7 @@
 /
 
  &methodlist
-   time_integrator = 'onestep'
+   time_integrator = 'twostep'
    flux_scheme     = 20*'tvdlf' !'tvdlf'/'hll'
    limiter         = 20*'koren' !'minmod'/'koren'
    check_small_values = .true.
@@ -37,7 +37,7 @@
 &boundlist
   !nghostcells  = 4
   typeboundary_min1 = 5*'cont'
-  typeboundary_max1 = 5*'cont'
+  typeboundary_max1 = 4*'cont','cont'
   typeboundary_min2 = 5*'periodic'
   typeboundary_max2 = 5*'periodic'
   internalboundary = T

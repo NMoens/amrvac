@@ -1,6 +1,7 @@
 !> Build up AMR
 subroutine settree
   use mod_global_parameters
+  use mod_fix_conserve
   use mod_advance, only: advance
 
   ! create and initialize grids on all levels > 1. On entry, all
@@ -30,12 +31,15 @@ subroutine settree
      end if
 
      call amr_coarsen_refine
-     
+
      if (.not.reset_grid) then
        ! if no finer level grids created: exit
        if (levmax/=levnew) exit
      end if
   end do
+
+  ! set up boundary flux conservation arrays
+  if(levmax>levmin) call allocateBflux
 
 end subroutine settree
 
@@ -43,15 +47,17 @@ end subroutine settree
 subroutine resettree
   use mod_global_parameters
   use mod_fix_conserve
+  use mod_amr_fct
 
-  if (levmax>levmin) call deallocateBflux
+  if(levmax>levmin) call deallocateBflux
+  if(stagger_grid) call deallocateBfaces
 
   call errest
 
   call amr_coarsen_refine
 
   ! set up boundary flux conservation arrays
-  if (levmax>levmin) call allocateBflux
+  if(levmax>levmin) call allocateBflux
 
 end subroutine resettree
 
@@ -71,7 +77,7 @@ subroutine resettree_convert
   end if
 
   do while(levmin<my_levmin.or.levmax>my_levmax)
-   call getbc(global_time,0.d0,ps,0,nwflux+nwaux)
+   call getbc(global_time,0.d0,ps,1,nwflux+nwaux)
    do iigrid=1,igridstail; igrid=igrids(iigrid);
       call forcedrefine_grid_io(igrid,ps(igrid)%w)
    end do

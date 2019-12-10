@@ -264,7 +264,9 @@ contains
     integer :: i,j,b
     integer :: NumberOfBlocks
     double precision :: x_perc
-    double precision :: rand(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2), fld_R(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
 
     NumberOfBlocks = domain_nx2/block_nx2
 
@@ -279,15 +281,19 @@ contains
       w(:,i,mom(2)) = rho_arr(j)*v_arr(j)
       w(:,i,e_) = e_arr(j)
       w(:,i,r_e) = Er_arr(j)
+
+      call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+         ixOmin2,ixOmax1,ixOmax2, kappa)
+      call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+         ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
+
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
+         (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,iw_rho))
+
+
     enddo
-
-    call get_rad_extravars(w, w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2)
-
-    ! call RANDOM_NUMBER(rand)
-    ! where (x(ixO^S,2) .lt. 6)
-    !   w(ixO^S,rho_) = w(ixO^S,rho_)*(one+1.d-1*rand(ixO^S))
-    ! endwhere
 
   end subroutine initial_conditions
 
@@ -307,13 +313,16 @@ contains
        c(ixImin1:ixImax1),d(ixImin1:ixImax1)
     double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2),&
         Press(ixImin1:ixImax1,ixImin2:ixImax2), kbTmu(ixImin1:ixImax1,&
-       ixImin2:ixImax2)
+       ixImin2:ixImax2), kappa
 
     integer :: i,j
 
     select case (iB)
 
     case(3)
+
+
+      kappa = kappa_b
 
       do i = ixBmax2, ixBmin2, -1
         w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
@@ -332,8 +341,8 @@ contains
         w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,&
            r_e) + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,&
            2)**2.d0) - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,&
-           rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) *3.d0*w(ixImin1:ixImax1,&
-           nghostcells+1,i_op)*sp_rho/(const_c/unit_velocity) * &
+           rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,&
+           r_e)) *3.d0*kappa*sp_rho/(const_c/unit_velocity) * &
            (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
         ! do j = ixImin1,ixImax1
         !   w(j,i,r_e) = min(1.5d0*sp_Er, w(j,i,r_e))
@@ -362,6 +371,7 @@ contains
      ixOmin2,ixOmax1,ixOmax2,iB,w,x)
 
     use mod_global_parameters
+    use mod_multigrid_coupling
     use mod_physics, only: phys_get_tgas
 
     integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
@@ -384,13 +394,11 @@ contains
           !> NEED SOME MPI-STUFF TO COMUNICATE CORRECT VALUES!!!!!!!!!!!!!!!!!!!!!!!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !
-          i = ixOmin2-1
-          tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i+1,&
-             2)**2.d0) - w(ixOmin1:ixOmax1,i+1,mom(2))/w(ixOmin1:ixOmax1,i+1,&
-             rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) *w(ixOmin1:ixOmax1,&
-             i+1,i_lambda)*w(ixOmin1:ixOmax1,i+1,i_op)*w(ixOmin1:ixOmax1,i+1,&
-             rho_)/(const_c/unit_velocity)
+          ! !
+          ! i = ixOmin2-1
+          ! tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i+1,2)**2.d0) &
+          ! - w(ixOmin1:ixOmax1,i+1,mom(2))/w(ixOmin1:ixOmax1,i+1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) &
+          ! *w(ixOmin1:ixOmax1,i+1,i_lambda)*w(ixOmin1:ixOmax1,i+1,i_op)*w(ixOmin1:ixOmax1,i+1,rho_)/(const_c/unit_velocity)
 
           !> Neumann:
           ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
@@ -404,13 +412,26 @@ contains
           ! i = ixOmin2-1
           ! call phys_get_tgas(w,x,ixI^L,ixO^L,Tgas)
           ! tot_bc_value(ixOmin1:ixOmax1) = (Tgas(ixOmin1:ixOmax1, i)*unit_temperature)**4*const_rad_a/unit_pressure
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
-          mg%bc(iB, mg_iphi)%bc_value = Er_arr(i)
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+          ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells)
           ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
 
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          ! print*, it, w(5,1:4,r_e)
+
 
         endif
+
+
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+        mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells)
+
+
+        ! > Continuous boundary conditions
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
+        !> Dirichlet boundary Conditions
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        ! mg%bc(iB, mg_iphi)%bc_value = 0.0
 
       case (4)
 
@@ -419,12 +440,10 @@ contains
           i = ixOmax2 +1
           ! tot_bc_value(ixOmin1:ixOmax1) = w(ixOmin1:ixOmax1,i-2,i_flux(2)) &
           ! *w(ixOmin1:ixOmax1,i-1,i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,rho_)/(const_c/unit_velocity)
-
-          tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i-1,&
-             2)**2.d0) - w(ixOmin1:ixOmax1,i-1,mom(2))/w(ixOmin1:ixOmax1,i-1,&
-             rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i-1,r_e)) *w(ixOmin1:ixOmax1,&
-             i-1,i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,&
-             rho_)/(const_c/unit_velocity)
+          !
+          ! tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i-1,2)**2.d0) &
+          ! - w(ixOmin1:ixOmax1,i-1,mom(2))/w(ixOmin1:ixOmax1,i-1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i-1,r_e)) &
+          ! *w(ixOmin1:ixOmax1,i-1,i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,rho_)/(const_c/unit_velocity)
 
           ! i = domain_nx2+3
           ! tot_bc_value2 = (L_0/(4.d0*dpi*r_arr(i-1)**2.d0) &
@@ -442,8 +461,8 @@ contains
           ! mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
 
           !> Fixed:
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
-          mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+          ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
           ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
           ! mg%bc(iB, mg_iphi)%bc_value = min(1.5*Er_arr(domain_nx2+3),max(sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1),0.5*Er_arr(domain_nx2+3)))
 
@@ -456,6 +475,13 @@ contains
           ! print*, it, mype, mg%bc(iB, mg_iphi)%bc_value
 
         endif
+
+
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+        mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -505,6 +531,7 @@ contains
        1:nw), x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
+    double precision :: rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndir)
     double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2),v(ixImin1:ixImax1,&
        ixImin2:ixImax2,2)
     double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
@@ -552,11 +579,11 @@ contains
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
-      call get_rad_extravars(w, wCT, x, ixImin1,ixImin2,ixImax1,ixImax2,&
-          ixOmin1,ixOmin2,ixOmax1,ixOmax2)
+      call fld_get_radflux(wCT, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+         ixOmin2,ixOmax1,ixOmax2, rad_flux)
       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,r_e) - qdt*two*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-         i_flux(rdir))/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+         ixOmin2:ixOmax2,r_e) - qdt*two*rad_flux(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,rdir)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     endif
 
     if (rhd_radiation_advection) then
@@ -668,6 +695,10 @@ contains
        ixImin2:ixImax2)
     double precision                   :: Tgas(ixImin1:ixImax1,&
        ixImin2:ixImax2),Trad(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision                   :: kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+    double precision                   :: rad_flux(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,1:ndim)
     integer                            :: idim
     double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: mass
@@ -676,12 +707,14 @@ contains
        ixOmin2:ixOmax2,2)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
-    call get_rad_extravars(w, w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2)
+    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, kappa)
+    call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, rad_flux)
 
-    g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       i_op)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       i_flux(2))/(const_c/unit_velocity)
+    g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       2)/(const_c/unit_velocity)
     g_grav(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
        const_G*mass/radius(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)**2*(unit_time**2/unit_length)
@@ -702,10 +735,6 @@ contains
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4) = 4*dpi*w(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,mom(2))*radius(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)**2 *unit_density*unit_velocity/M_sun*year
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5) = (w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,i_flux(2)) + w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       r_e)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(2))/w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rho_))*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)**2
 
   end subroutine specialvar_output
 
@@ -714,7 +743,7 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'Tgas Trad Gamma Mdot FtotR2'
+    varnames = 'Tgas Trad Gamma Mdot'
   end subroutine specialvarnames_output
 
 end module mod_usr

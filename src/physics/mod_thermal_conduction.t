@@ -3,12 +3,12 @@
 !> 10.07.2011 developed by Chun Xia and Rony Keppens
 !> 01.09.2012 moved to modules folder by Oliver Porth
 !> 13.10.2013 optimized further by Chun Xia
-!> 12.03.2014 implemented RKL2 super timestepping scheme to reduce iterations 
+!> 12.03.2014 implemented RKL2 super timestepping scheme to reduce iterations
 !> and improve stability and accuracy up to second order in time by Chun Xia.
 !> 23.08.2014 implemented saturation and perpendicular TC by Chun Xia
 !> 12.01.2017 modulized by Chun Xia
-!> 
-!> PURPOSE: 
+!>
+!> PURPOSE:
 !> IN MHD ADD THE HEAT CONDUCTION SOURCE TO THE ENERGY EQUATION
 !> S=DIV(KAPPA_i,j . GRAD_j T)
 !> where KAPPA_i,j = tc_k_para b_i b_j + tc_k_perp (I - b_i b_j)
@@ -16,7 +16,7 @@
 !> IN HD ADD THE HEAT CONDUCTION SOURCE TO THE ENERGY EQUATION
 !> S=DIV(tc_k_para . GRAD T)
 !> USAGE:
-!> 1. in mod_usr.t -> subroutine usr_init(), add 
+!> 1. in mod_usr.t -> subroutine usr_init(), add
 !>        unit_length=<your length unit>
 !>        unit_numberdensity=<your number density unit>
 !>        unit_velocity=<your velocity unit>
@@ -25,7 +25,7 @@
 !> 2. to switch on thermal conduction in the (m)hd_list of amrvac.par add:
 !>    (m)hd_thermal_conduction=.true.
 !> 3. in the tc_list of amrvac.par :
-!>    tc_perpendicular=.true.  ! (default .false.) turn on thermal conduction perpendicular to magnetic field 
+!>    tc_perpendicular=.true.  ! (default .false.) turn on thermal conduction perpendicular to magnetic field
 !>    tc_saturate=.false.  ! (default .true. ) turn off thermal conduction saturate effect
 !>    tc_dtpar=0.9/0.45/0.3 ! stable time step coefficient for 1D/2D/3D, decrease it for more stable run
 !>    tc_slope_limiter='MC' ! choose limiter for slope-limited anisotropic thermal conduction in MHD
@@ -78,7 +78,7 @@ module mod_thermal_conduction
   !> Whether to conserve fluxes at the current partial step
   logical :: fix_conserve_at_step = .true.
 
-  !> Name of slope limiter for transverse component of thermal flux 
+  !> Name of slope limiter for transverse component of thermal flux
   character(len=std_len), private  :: tc_slope_limiter
 
   procedure(thermal_conduction), pointer   :: phys_thermal_conduction => null()
@@ -94,7 +94,7 @@ module mod_thermal_conduction
 
     subroutine get_heatconduct(tmp,tmp1,tmp2,ixI^L,ixO^L,w,x,qvec)
       use mod_global_parameters
-      
+
       integer, intent(in) :: ixI^L, ixO^L
       double precision, intent(in) ::  x(ixI^S,1:ndim), w(ixI^S,1:nw)
       !! tmp store the heat conduction energy changing rate
@@ -104,10 +104,10 @@ module mod_thermal_conduction
 
     subroutine getdt_heatconduct(w,ixG^L,ix^L,dtnew,dx^D,x)
       use mod_global_parameters
-      
+
       integer, intent(in) :: ixG^L, ix^L
       double precision, intent(in) :: dx^D, x(ixG^S,1:ndim)
-      ! note that depending on small_values_method=='error' etc, w values may change 
+      ! note that depending on small_values_method=='error' etc, w values may change
       ! through call to getpthermal
       double precision, intent(inout) :: w(ixG^S,1:nw), dtnew
     end subroutine getdt_heatconduct
@@ -148,7 +148,7 @@ contains
     tc_k_perp=0.d0
 
     call tc_params_read(par_files)
-  
+
     phys_thermal_conduction => do_thermal_conduction
     if(physics_type=='hd') then
       phys_get_heatconduct   => hd_get_heatconduct
@@ -166,12 +166,12 @@ contains
     if(tc_k_para==0.d0 .and. tc_k_perp==0.d0) then
       if(SI_unit) then
         ! Spitzer thermal conductivity with SI units
-        tc_k_para=8.d-12*unit_temperature**3.5d0/unit_length/unit_density/unit_velocity**3 
+        tc_k_para=8.d-12*unit_temperature**3.5d0/unit_length/unit_density/unit_velocity**3
         ! thermal conductivity perpendicular to magnetic field
         tc_k_perp=4.d-30*unit_numberdensity**2/unit_magneticfield**2/unit_temperature**3*tc_k_para
       else
         ! Spitzer thermal conductivity with cgs units
-        tc_k_para=8.d-7*unit_temperature**3.5d0/unit_length/unit_density/unit_velocity**3 
+        tc_k_para=8.d-7*unit_temperature**3.5d0/unit_length/unit_density/unit_velocity**3
         ! thermal conductivity perpendicular to magnetic field
         tc_k_perp=4.d-10*unit_numberdensity**2/unit_magneticfield**2/unit_temperature**3*tc_k_para
       end if
@@ -186,11 +186,15 @@ contains
     use mod_global_parameters
     use mod_ghostcells_update
     use mod_fix_conserve
-    
+
     double precision :: omega1,cmu,cmut,cnu,cnut
     double precision, allocatable :: bj(:)
     integer:: iigrid, igrid,j
-    logical :: evenstep
+    logical :: evenstep, stagger_flag
+
+    ! not do fix conserve and getbc for staggered values if stagger is used
+    stagger_flag=stagger_grid
+    stagger_grid=.false.
 
     ! point bc mpi datatype to partial type for thermalconduction
     type_send_srl=>type_send_srl_p1
@@ -198,10 +202,10 @@ contains
     type_send_r=>type_send_r_p1
     type_recv_r=>type_recv_r_p1
     type_send_p=>type_send_p_p1
-    type_recv_p=>type_recv_p_p1 
+    type_recv_p=>type_recv_p_p1
     ! create bc mpi datatype for ghostcells update
     if(first) then
-      call create_bc_mpi_datatype(e_-1,1)
+      call create_bc_mpi_datatype(e_,1)
       first=.false.
     end if
 
@@ -215,7 +219,7 @@ contains
       ps2(igrid)%w=ps(igrid)%w
       ps3(igrid)%w=ps(igrid)%w
     end do
-    
+
     allocate(bj(0:s))
     bj(0)=1.d0/3.d0
     bj(1)=bj(0)
@@ -226,7 +230,7 @@ contains
       omega1=0.d0
       cmut=1.d0
     endif
-    
+
     !$OMP PARALLEL DO PRIVATE(igrid)
     do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
       block=>ps(igrid)
@@ -244,7 +248,7 @@ contains
       call fix_conserve(ps1,1,ndim,e_,1)
     end if
     bcphys=.false.
-    call getbc(global_time,0.d0,ps1,e_-1,1)
+    call getbc(global_time,0.d0,ps1,e_,1)
     if(s==1) then
       do iigrid=1,igridstail; igrid=igrids(iigrid);
         ps(igrid)%w(ixG^T,e_)=ps1(igrid)%w(ixG^T,e_)
@@ -257,6 +261,7 @@ contains
       type_send_p=>type_send_p_f
       type_recv_p=>type_recv_p_f
       bcphys=.true.
+      stagger_grid=stagger_flag
       deallocate(bj)
       return
     endif
@@ -284,7 +289,7 @@ contains
           call sendflux(1,ndim)
           call fix_conserve(ps2,1,ndim,e_,1)
         end if
-        call getbc(global_time,0.d0,ps2,e_-1,1)
+        call getbc(global_time,0.d0,ps2,e_,1)
         evenstep=.false.
       else
     !$OMP PARALLEL DO PRIVATE(igrid)
@@ -303,18 +308,18 @@ contains
           call sendflux(1,ndim)
           call fix_conserve(ps1,1,ndim,e_,1)
         end if
-        call getbc(global_time,0.d0,ps1,e_-1,1)
+        call getbc(global_time,0.d0,ps1,e_,1)
         evenstep=.true.
-      end if 
+      end if
     end do
     if(evenstep) then
       do iigrid=1,igridstail; igrid=igrids(iigrid);
         ps(igrid)%w(ixG^T,e_)=ps1(igrid)%w(ixG^T,e_)
-      end do 
+      end do
     else
       do iigrid=1,igridstail; igrid=igrids(iigrid);
         ps(igrid)%w(ixG^T,e_)=ps2(igrid)%w(ixG^T,e_)
-      end do 
+      end do
     end if
     deallocate(bj)
     ! point bc mpi data type back to full type for (M)HD
@@ -325,19 +330,22 @@ contains
     type_send_p=>type_send_p_f
     type_recv_p=>type_recv_p_f
     bcphys=.true.
-  
+
+    ! restore stagger_grid value
+    stagger_grid=stagger_flag
+
   end subroutine do_thermal_conduction
 
   subroutine evolve_stepj(igrid,qcmu,qcmut,qcnu,qcnut,qdt,ixI^L,ixO^L,w1,w2,w,x,wold)
     use mod_global_parameters
     use mod_fix_conserve
-    
+
     integer, intent(in) :: igrid,ixI^L,ixO^L
     double precision, intent(in) :: qcmu,qcmut,qcnu,qcnut,qdt
     double precision, intent(in) :: w1(ixI^S,1:nw),w(ixI^S,1:nw),wold(ixI^S,1:nw)
     double precision, intent(in) :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w2(ixI^S,1:nw)
-    
+
     double precision :: fC(ixI^S,1:1,1:ndim)
     double precision :: tmp(ixI^S),tmp1(ixI^S),tmp2(ixI^S)
 
@@ -345,10 +353,10 @@ contains
 
     w2(ixO^S,e_)=qcmu*w1(ixO^S,e_)+qcnu*w2(ixO^S,e_)+(1.d0-qcmu-qcnu)*w(ixO^S,e_)&
                 +qcmut*qdt*tmp(ixO^S)+qcnut*wold(ixO^S,e_)
-    
+
     if (fix_conserve_at_step) then
       fC=qcmut*qdt*fC
-      call storeflux(igrid,fC,1,ndim,1)
+      call store_flux(igrid,fC,1,ndim,1)
     end if
 
   end subroutine evolve_stepj
@@ -357,11 +365,11 @@ contains
     use mod_global_parameters
     use mod_fix_conserve
     use mod_small_values, only: small_values_method
-    
+
     integer, intent(in) :: igrid,ixI^L,ixO^L
     double precision, intent(in) :: qcmut, qdt, w(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(out) ::w1(ixI^S,1:nw),wold(ixI^S,1:nw)
-    
+
     double precision :: fC(ixI^S,1:1,1:ndim)
     double precision :: tmp(ixI^S),tmp1(ixI^S),tmp2(ixI^S)
     integer :: lowindex(ndim), ix^D
@@ -371,8 +379,8 @@ contains
     wold(ixO^S,e_)=qdt*tmp(ixO^S)
     ! update internal energy
     tmp1(ixO^S) = tmp1(ixO^S) + qcmut*wold(ixO^S,e_)
-    
-    ! ensure you never trigger negative pressure 
+
+    ! ensure you never trigger negative pressure
     ! hence code up energy change with respect to kinetic and magnetic
     ! part(nonthermal)
     if(small_values_method=='error') then
@@ -403,9 +411,9 @@ contains
 
     if (fix_conserve_at_step) then
       fC=qcmut*qdt*fC
-      call storeflux(igrid,fC,1,ndim,1)
+      call store_flux(igrid,fC,1,ndim,1)
     end if
-  
+
   end subroutine evolve_step1
 
   !> anisotropic thermal conduction with slope limited symmetric scheme
@@ -413,13 +421,13 @@ contains
   subroutine mhd_get_heatconduct(qd,tmp1,tmp2,ixI^L,ixO^L,w,x,qvec)
     use mod_global_parameters
     use mod_small_values, only: small_values_method
-    
+
     integer, intent(in) :: ixI^L, ixO^L
     double precision, intent(in) ::  x(ixI^S,1:ndim), w(ixI^S,1:nw)
     !! qd store the heat conduction energy changing rate
     double precision, intent(out) :: qd(ixI^S),tmp1(ixI^S),tmp2(ixI^S)
     double precision, dimension(ixI^S,1:ndim) :: qvec
-    
+
     double precision, dimension(ixI^S,1:ndir) :: mf,Bc,Bcf
     double precision, dimension(ixI^S,1:ndim) :: gradT
     double precision, dimension(ixI^S) :: Te,ka,kaf,ke,kef,qdd,qe,Binv,minq,maxq,Bnorm
@@ -535,8 +543,8 @@ contains
     do idims=1,ndim
       ixBmin^D=ixmin^D;
       ixBmax^D=ixmax^D-kr(idims,^D);
-      ixA^L=ixB^L+kr(idims,^D);
-      gradT(ixB^S,idims)=(Te(ixA^S)-Te(ixB^S))*dxinv(idims)
+      call gradientC(Te,ixI^L,ixB^L,idims,minq)
+      gradT(ixB^S,idims)=minq(ixB^S)
     end do
     if(tc_slope_limiter=='no') then
       ! calculate thermal conduction flux with symmetric scheme
@@ -566,8 +574,8 @@ contains
         ixAmax^D=ixOmax^D; ixAmin^D=ixBmin^D;
         {do ix^DB=0,1 \}
            if({ ix^D==0 .and. ^D==idims | .or.}) then
-             ixBmin^D=ixAmin^D-ix^D; 
-             ixBmax^D=ixAmax^D-ix^D; 
+             ixBmin^D=ixAmin^D-ix^D;
+             ixBmax^D=ixAmax^D-ix^D;
              qvec(ixA^S,idims)=qvec(ixA^S,idims)+gradT(ixB^S,idims)
            end if
         {end do\}
@@ -647,7 +655,7 @@ contains
                qd(ixB^S)=maxq(ixA^S)
              end where
              qvec(ixA^S,idims)=qvec(ixA^S,idims)+Bc(ixB^S,idims)**2*qd(ixB^S)
-             if(tc_perpendicular) qe(ixA^S)=qe(ixA^S)+qd(ixB^S) 
+             if(tc_perpendicular) qe(ixA^S)=qe(ixA^S)+qd(ixB^S)
            end if
         {end do\}
         qvec(ixA^S,idims)=kaf(ixA^S)*qvec(ixA^S,idims)*0.5d0**(ndim-1)
@@ -685,13 +693,66 @@ contains
     end if
 
     qd=0.d0
-    do idims=1,ndim
-      qvec(ix^S,idims)=dxinv(idims)*qvec(ix^S,idims)
-      ixB^L=ixO^L-kr(idims,^D);
-      qd(ixO^S)=qd(ixO^S)+qvec(ixO^S,idims)-qvec(ixB^S,idims)
-    end do
-    
+    if(slab_uniform) then
+      do idims=1,ndim
+        qvec(ix^S,idims)=dxinv(idims)*qvec(ix^S,idims)
+        ixB^L=ixO^L-kr(idims,^D);
+        qd(ixO^S)=qd(ixO^S)+qvec(ixO^S,idims)-qvec(ixB^S,idims)
+      end do
+    else
+      do idims=1,ndim
+        qvec(ix^S,idims)=qvec(ix^S,idims)*block%surfaceC(ix^S,idims)
+        ixB^L=ixO^L-kr(idims,^D);
+        qd(ixO^S)=qd(ixO^S)+qvec(ixO^S,idims)-qvec(ixB^S,idims)
+      end do
+      qd(ixO^S)=qd(ixO^S)/block%dvolume(ixO^S)
+    end if
+
   end subroutine mhd_get_heatconduct
+
+  !> Calculate gradient of a scalar q at cell interfaces in direction idir
+  subroutine gradientC(q,ixI^L,ixO^L,idir,gradq)
+    use mod_global_parameters
+    use mod_geometry
+
+    integer, intent(in)             :: ixI^L, ixO^L, idir
+    double precision, intent(in)    :: q(ixI^S)
+    double precision, intent(inout) :: gradq(ixI^S)
+    integer                         :: jxO^L
+
+    associate(x=>block%x)
+
+    jxO^L=ixO^L+kr(idir,^D);
+    select case(coordinate)
+    case(Cartesian)
+      gradq(ixO^S)=(q(jxO^S)-q(ixO^S))/dxlevel(idir)
+    case(Cartesian_stretched)
+      gradq(ixO^S)=(q(jxO^S)-q(ixO^S))/(x(jxO^S,idir)-x(ixO^S,idir))
+    case(spherical)
+      select case(idir)
+      case(1)
+        gradq(ixO^S)=(q(jxO^S)-q(ixO^S))/(x(jxO^S,1)-x(ixO^S,1))
+        {^NOONED
+      case(2)
+        gradq(ixO^S)=(q(jxO^S)-q(ixO^S))/( (x(jxO^S,2)-x(ixO^S,2))*x(ixO^S,1) )
+        }
+        {^IFTHREED
+      case(3)
+        gradq(ixO^S)=(q(jxO^S)-q(ixO^S))/( (x(jxO^S,3)-x(ixO^S,3))*x(ixO^S,1)*dsin(x(ixO^S,2)) )
+        }
+      end select
+    case(cylindrical)
+      if(idir==phi_) then
+        gradq(ixO^S)=(q(jxO^S)-q(ixO^S))/((x(jxO^S,phi_)-x(ixO^S,phi_))*x(ixO^S,r_))
+      else
+        gradq(ixO^S)=(q(jxO^S)-q(ixO^S))/(x(jxO^S,idir)-x(ixO^S,idir))
+      end if
+    case default
+      call mpistop('Unknown geometry')
+    end select
+
+    end associate
+  end subroutine gradientC
 
   function slope_limiter(f,ixI^L,ixO^L,idims,pm) result(lf)
     use mod_global_parameters
@@ -735,20 +796,20 @@ contains
     !and                        T=p/rho
     use mod_global_parameters
     use mod_physics
-    
+
     integer, intent(in) :: ixI^L, ixO^L
     double precision, intent(in) :: dx^D, x(ixI^S,1:ndim)
-    ! note that depending on small_values_method=='error' etc, w values may change 
+    ! note that depending on small_values_method=='error' etc, w values may change
     ! through call to getpthermal
     double precision, intent(inout) :: w(ixI^S,1:nw), dtnew
-    
+
     double precision :: dxinv(1:ndim),mf(ixI^S,1:ndir)
     double precision :: tmp2(ixI^S),tmp(ixI^S),Te(ixI^S),B2(ixI^S)
     double precision :: dtdiff_tcond, dtdiff_tsat
     integer          :: idim,ix^D
 
     ^D&dxinv(^D)=one/dx^D;
-    
+
     call phys_get_pthermal(w,x,ixI^L,ixO^L,tmp)
 
     !temperature
@@ -759,7 +820,7 @@ contains
     else
       tmp(ixO^S)=tc_k_para*dsqrt(Te(ixO^S)**5)/w(ixO^S,rho_)
     end if
-    
+
     ! B
     if(B0field) then
       mf(ixO^S,:)=w(ixO^S,iw_mag(:))+block%B0(ixO^S,:,0)
@@ -790,13 +851,13 @@ contains
       dtnew=min(dtnew,dtdiff_tcond)
     end do
     dtnew=dtnew/dble(ndim)
-  
+
   end subroutine mhd_getdt_heatconduct
 
   subroutine hd_get_heatconduct(qd,tmp1,tmp2,ixI^L,ixO^L,w,x,qvec)
     use mod_global_parameters
     use mod_small_values, only: small_values_method
-    
+
     integer, intent(in) :: ixI^L, ixO^L
     double precision, intent(in) ::  x(ixI^S,1:ndim), w(ixI^S,1:nw)
     !! tmp store the heat conduction energy changing rate
@@ -838,7 +899,7 @@ contains
        end if
     {end do\}
     end if
-    
+
     ! compute temperature before source addition
     Te(ixI^S)=tmp1(ixI^S)/w(ixI^S,rho_)*(tc_gamma-1.d0)
 
@@ -847,8 +908,8 @@ contains
     do idims=1,ndim
       ixBmin^D=ixmin^D;
       ixBmax^D=ixmax^D-kr(idims,^D);
-      ixA^L=ixB^L+kr(idims,^D);
-      gradT(ixB^S,idims)=(Te(ixA^S)-Te(ixB^S))*dxinv(idims)
+      call gradientC(Te,ixI^L,ixB^L,idims,ke)
+      gradT(ixB^S,idims)=ke(ixB^S)
     end do
     ! calculate thermal conduction flux with symmetric scheme
     do idims=1,ndim
@@ -888,7 +949,7 @@ contains
         ixBmax^D=ixCmax^D+ix^D;
         ke(ixC^S)=ke(ixC^S)+qd(ixB^S)
       {end do\}
-      ! cell corner saturation flux 
+      ! cell corner saturation flux
       ke(ixC^S)=0.5d0**ndim*ke(ixC^S)
       ! magnitude of cell corner conduction flux
       qd(ixC^S)=norm2(gradT(ixC^S,:),dim=ndim+1)
@@ -909,8 +970,8 @@ contains
       ixAmax^D=ixOmax^D; ixAmin^D=ixBmin^D;
       {do ix^DB=0,1 \}
          if({ ix^D==0 .and. ^D==idims | .or.}) then
-           ixBmin^D=ixAmin^D-ix^D; 
-           ixBmax^D=ixAmax^D-ix^D; 
+           ixBmin^D=ixAmin^D-ix^D;
+           ixBmax^D=ixAmax^D-ix^D;
            qvec(ixA^S,idims)=qvec(ixA^S,idims)+gradT(ixB^S,idims)
          end if
       {end do\}
@@ -918,11 +979,20 @@ contains
     end do
 
     qd=0.d0
-    do idims=1,ndim
-      qvec(ix^S,idims)=dxinv(idims)*qvec(ix^S,idims)
-      ixB^L=ixO^L-kr(idims,^D);
-      qd(ixO^S)=qd(ixO^S)+qvec(ixO^S,idims)-qvec(ixB^S,idims)
-    end do
+    if(slab_uniform) then
+      do idims=1,ndim
+        qvec(ix^S,idims)=dxinv(idims)*qvec(ix^S,idims)
+        ixB^L=ixO^L-kr(idims,^D);
+        qd(ixO^S)=qd(ixO^S)+qvec(ixO^S,idims)-qvec(ixB^S,idims)
+      end do
+    else
+      do idims=1,ndim
+        qvec(ix^S,idims)=qvec(ix^S,idims)*block%surfaceC(ix^S,idims)
+        ixB^L=ixO^L-kr(idims,^D);
+        qd(ixO^S)=qd(ixO^S)+qvec(ixO^S,idims)-qvec(ixB^S,idims)
+      end do
+      qd(ixO^S)=qd(ixO^S)/block%dvolume(ixO^S)
+    end if
 
   end subroutine hd_get_heatconduct
 
@@ -934,7 +1004,7 @@ contains
     integer, intent(in) :: ixI^L, ixO^L
     double precision, intent(in) :: dx^D, x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw), dtnew
-    
+
     double precision :: dxinv(1:ndim), tmp(ixI^S), Te(ixI^S)
     double precision :: dtdiff_tcond,dtdiff_tsat
     integer          :: idim,ix^D
@@ -945,7 +1015,7 @@ contains
 
     Te(ixO^S)=tmp(ixO^S)/w(ixO^S,rho_)
     tmp(ixO^S)=(tc_gamma-one)*tc_k_para*dsqrt((Te(ixO^S))**5)/w(ixO^S,rho_)
-    
+
     do idim=1,ndim
        ! dt< tc_dtpar * dx_idim**2/((gamma-1)*tc_k_para_idim/rho)
        dtdiff_tcond=tc_dtpar/maxval(tmp(ixO^S)*dxinv(idim)**2)
@@ -960,7 +1030,7 @@ contains
        dtnew=min(dtnew,dtdiff_tcond)
     end do
     dtnew=dtnew/dble(ndim)
-  
+
   end subroutine hd_getdt_heatconduct
 
 end module mod_thermal_conduction

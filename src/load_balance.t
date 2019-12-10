@@ -43,8 +43,14 @@ do ipe=0,npe-1; do Morton_no=Morton_start(ipe),Morton_stop(ipe)
    end if
 end do; end do
 
-if (irecv>0) call MPI_WAITALL(irecv,recvrequest,recvstatus,ierrmpi)
-if (isend>0) call MPI_WAITALL(isend,sendrequest,sendstatus,ierrmpi)
+if (irecv>0) then
+  call MPI_WAITALL(irecv,recvrequest,recvstatus,ierrmpi)
+  if(stagger_grid) call MPI_WAITALL(irecv,recvrequest_stg,recvstatus_stg,ierrmpi)
+end if
+if (isend>0) then
+  call MPI_WAITALL(isend,sendrequest,sendstatus,ierrmpi)
+  if(stagger_grid) call MPI_WAITALL(isend,sendrequest_stg,sendstatus_stg,ierrmpi)
+end if
 
 ! post processing
 do ipe=0,npe-1; do Morton_no=Morton_start(ipe),Morton_stop(ipe)
@@ -71,16 +77,6 @@ call MPI_ALLREDUCE(MPI_IN_PLACE,sfc_phybound,nleafs,MPI_INTEGER,&
 ! Update sfc array: igrid and ipe info in space filling curve
 call amr_Morton_order()
 
-!!$if (nwaux>0) then
-!!$   do Morton_no=Morton_start(mype),Morton_stop(mype)
-!!$      if (sfc(2,Morton_no)/=mype) then
-!!$         igrid=sfc_to_igrid(Morton_no)
-!!$         saveigrid=igrid
-!!$         call getaux(.true.,ps(igrid)%w,px(igrid)%x,ixG^LL,ixM^LL,"load_balance")
-!!$      end if
-!!$   end do
-!!$end if
-
 contains
 !=============================================================================
 ! internal procedures
@@ -103,6 +99,11 @@ end if
 call MPI_IRECV(ps(recv_igrid)%w,1,type_block_io,send_ipe,itag, &
                icomm,recvrequest(irecv),ierrmpi)
 }
+if(stagger_grid) then
+  itag=recv_igrid+max_blocks
+  call MPI_IRECV(ps(recv_igrid)%ws,1,type_block_io_stg,send_ipe,itag, &
+       icomm,recvrequest_stg(irecv),ierrmpi)
+end if
 
 end subroutine lb_recv
 !=============================================================================
@@ -122,6 +123,11 @@ end if
 call MPI_ISEND(ps(send_igrid)%w,1,type_block_io,recv_ipe,itag, &
                icomm,sendrequest(isend),ierrmpi)
 }
+if(stagger_grid) then
+  itag=recv_igrid+max_blocks
+  call MPI_ISEND(ps(send_igrid)%ws,1,type_block_io_stg,recv_ipe,itag, &
+                 icomm,sendrequest_stg(isend),ierrmpi)
+end if
 
 end subroutine lb_send
 !=============================================================================
@@ -140,7 +146,7 @@ integer :: ig^D, Morton_no, isfc
 Morton_no=0
 nglev1={ng^D(1)*}
 do isfc=1,nglev1
-   ig^D=sfc_iglevel1(^D,isfc)\ 
+   ig^D=sfc_iglevel1(^D,isfc)\
    call get_Morton_number(tree_root(ig^D))
 end do
 
@@ -162,12 +168,12 @@ if (tree%node%leaf) then
    Morton_no=Morton_no+1
    sfc(1,Morton_no)=tree%node%igrid
    sfc(2,Morton_no)=tree%node%ipe
-   if (tree%node%active) then 
-      sfc(3,Morton_no)=1 
-   else 
-      sfc(3,Morton_no)=0 
+   if (tree%node%active) then
+      sfc(3,Morton_no)=1
+   else
+      sfc(3,Morton_no)=0
    end if
-   igrid_to_sfc(tree%node%igrid)=Morton_no
+   if(tree%node%ipe==mype) igrid_to_sfc(tree%node%igrid)=Morton_no
 else
    {do ic^DB=1,2\}
       call get_Morton_number(tree%node%child(ic^D))
@@ -220,7 +226,7 @@ subroutine get_Morton_range_active
 use mod_forest
 use mod_global_parameters
 
-! Cut the sfc based on weighted decision.  
+! Cut the sfc based on weighted decision.
 ! Oliver Porth, 02.02.2012
 
 !!!Here you choose the weithts:!!
@@ -229,21 +235,21 @@ integer, parameter :: wa=3, wp=1
 
 ! wp : Weight for passive block
 ! wa : Weight for active block
-! wp=0 : balance load (active blocks) exactly and 
+! wp=0 : balance load (active blocks) exactly and
 ! don't care about memory imbalance
 ! wp=wa : balance memory exactly and don't care about load
 ! Maximum possible memory imbalance is X=wa/wp.
 
 ! If you run into memory issues, decrease this ratio.
-! Scaling should be better if you allow for higher ratio.  
-! Note also that passive cells still do regridding and boundary swap.  
+! Scaling should be better if you allow for higher ratio.
+! Note also that passive cells still do regridding and boundary swap.
 ! I have best results with a ratio 2:1, but it is problem dependent.
 ! It can't do magic though...
-! Best to make sure that the sfc is properly aligned with your problem. 
+! Best to make sure that the sfc is properly aligned with your problem.
 
 integer :: ipe, Morton_no
 integer :: Mtot, Mstop, Mcurr
-! For debugging: 
+! For debugging:
 integer :: nactive(0:npe-1),npassive(0:npe-1)
 !double precision, save :: ptasum=0
 !-----------------------------------------------------------------------------
@@ -253,7 +259,7 @@ if (allocated(sfc_phybound)) deallocate(sfc_phybound)
 }
 
 Mtot  = nleafs_active*wa+(nleafs-nleafs_active)*wp
-ipe = 0 
+ipe = 0
 Mcurr = 0
 
 nactive=0
@@ -266,13 +272,13 @@ do Morton_no=1,nleafs
    ! Build up mass:
    Mcurr = Mcurr + (wa*sfc(3,Morton_no)+wp*(1-sfc(3,Morton_no)))
 
-   if (sfc(3,Morton_no)==1) then 
+   if (sfc(3,Morton_no)==1) then
       nactive(ipe) = nactive(ipe) +1
       else
          npassive(ipe) = npassive(ipe) +1
       end if
 
-   if (Mcurr >= Mstop) then 
+   if (Mcurr >= Mstop) then
       Morton_stop(ipe) = Morton_no
       ipe = ipe +1
       if (ipe>=npe) exit

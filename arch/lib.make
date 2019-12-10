@@ -10,7 +10,7 @@ ifndef NDIM
 $(error build.make: NDIM is not set)
 endif
 
-SRC_DIRS := . modules amrvacio physics rho hd rhd mhd particle nonlinear
+SRC_DIRS := . modules amrvacio physics rho hd rhd mhd particle nonlinear rd
 SRC_DIRS := $(addprefix $(AMRVAC_DIR)/src/, $(SRC_DIRS))
 LIB_AMRVAC := libamrvac.a
 PPFLAGS :=
@@ -32,19 +32,19 @@ vpath %.t $(SRC_DIRS)
 
 OBJECTS := $(FOBJECTS:.t=.o) $(INCLUDES:.t=.o)
 
-# Include multigrid coupling
-ifneq ($(NDIM), 1)
-LIBOMGDIR := $(AMRVAC_DIR)/external_libs/octree-mg
-vpath %.f90 $(LIBOMGDIR)/src
+# # Include multigrid coupling
+# ifneq ($(NDIM), 1)
+# LIBOMGDIR := $(AMRVAC_DIR)/external_libs/octree-mg
+# vpath %.f90 $(LIBOMGDIR)/src
 
 # ifeq ($(NDIM), 3)
 # vpath %.f90 $(LIBOMGDIR)/poisson_3d_fft
 # include $(LIBOMGDIR)/poisson_3d_fft/definitions.make
 # endif
 
-include $(LIBOMGDIR)/src/definitions.make
-include $(LIBOMGDIR)/makerules.make
-endif
+# include $(LIBOMGDIR)/src/definitions.make
+# include $(LIBOMGDIR)/makerules.make
+# endif
 
 $(LIB_AMRVAC): $(OBJECTS)
 	$(RM) $@

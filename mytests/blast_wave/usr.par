@@ -20,7 +20,7 @@
 /
 
 &methodlist
-       time_integrator=  'threestep'
+       time_integrator=  'twostep'
        flux_scheme=    20*'hll'
        limiter= 20*'koren'
        small_values_method = 'replace'
@@ -35,11 +35,9 @@
 
 &meshlist
        refine_criterion=3
-       refine_max_level=1
-       w_refine_weight(1)=0.5d0
-       w_refine_weight(4)=0.5d0
-       domain_nx1=256
-       domain_nx2=256
+       refine_max_level=4
+       domain_nx1=512
+       domain_nx2=512
        block_nx1=64
        block_nx2=64
        iprob=1
@@ -66,7 +64,7 @@
 
 &fld_list
       fld_split = .false.
-      fld_kappa0 = 0.34d30
+      fld_kappa0 = 0.34d50
       fld_opacity_law = 'const'
       fld_diff_scheme = 'mg'
       fld_diff_testcase = .false.

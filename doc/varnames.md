@@ -17,10 +17,9 @@ ndir	| number of vector components (1, 2, 3)
 
 name | description
 ---|---
-`pw(igrid)%%w`    |	w - conservative variables
-`pw(igrid)%%wold` |	w at beginning of current time step
-`pw(igrid)%%x`    |	x - spatial variables
-`pw(igrid)%%wCT`  | fixed w to compute source terms and other terms from (so that the order in which they are added does not matter)
+`ps(igrid)%%w`    |	w - conservative variables
+`pso(igrid)%%w` |	w at beginning of current time step
+`ps(igrid)%%x`    |	x - spatial variables
 global_time	| time
 it | integer counter of temporal iterations
 qdt | the time step to be used in a subroutine/function
@@ -87,7 +86,7 @@ nghostcells | block boundary cells width in number of cells
 volume	| volume of mesh
 dvolume	| volume of cell
 surface	| surface of cell edge
-normal	| normalized normal vector of cell surface 
+normal	| normalized normal vector of cell surface
 
 ## I/O Related Tokens
 

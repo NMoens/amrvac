@@ -136,6 +136,7 @@ contains
   subroutine rhd_angmomfix(fC,x,wnew,ixI^L,ixO^L,idim)
     use mod_global_parameters
     use mod_dust, only: dust_n_species, dust_mom
+    use mod_geometry
     double precision, intent(in)       :: x(ixI^S,1:ndim)
     double precision, intent(inout)    :: fC(ixI^S,1:nwflux,1:ndim),  wnew(ixI^S,1:nw)
     integer, intent(in)                :: ixI^L, ixO^L
@@ -153,8 +154,8 @@ contains
 
     inv_volume(ixO^S) = 1.0d0/block%dvolume(ixO^S)
 
-    select case(typeaxial)
-    case ("cylindrical")
+    select case(coordinate)
+    case (cylindrical)
        do iw=1,nwflux
         isangmom = (iw==iw_mom(phi_))
         if (rhd_dust) &
@@ -168,10 +169,10 @@ contains
                 inv_volume(ixO^S)
         endif
       enddo
-     case ("spherical")
+     case (spherical)
       if (rhd_dust) &
         call mpistop("Error: rhd_angmomfix is not implemented &\\
-        &with dust and typeaxial=='sperical'")
+        &with dust and coordinate==sperical")
       do iw=1,nwflux
         if     (idim==r_ .and. (iw==iw_mom(2) .or. iw==iw_mom(phi_))) then
           fC(kxC^S,iw,idim)= fC(kxC^S,iw,idim)*(x(kxC^S,idim)+half*block%dx(kxC^S,idim))
@@ -311,7 +312,10 @@ contains
 
   subroutine rhd_check_params
     use mod_global_parameters
+    use mod_multigrid_coupling
     use mod_dust, only: dust_check_params
+
+    integer :: iB, idim
 
     if (.not. rhd_energy) then
        if (rhd_gamma <= 0.0d0) call mpistop ("Error: rhd_gamma <= 0")
@@ -326,6 +330,33 @@ contains
     small_r_e = small_e
 
     if (rhd_dust) call dust_check_params()
+
+    ! if (use_multigrid) then
+    !    ! Set boundary conditions for the multigrid solver
+    !    do iB = 1, 2*ndim
+    !       select case (typeboundary(r_e, iB))
+    !       case ('symm')
+    !          ! d/dx u = 0
+    !          mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
+    !          mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+    !       case ('asymm')
+    !          ! u = 0
+    !          mg%bc(r_e, mg_iphi)%bc_type = mg_bc_dirichlet
+    !          mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+    !       case ('cont')
+    !          ! d/dx u = 0
+    !          mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
+    !          mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+    !       case ('periodic')
+    !          ! Nothing to do here
+    !       case default
+    !          print *, "divb_multigrid warning: unknown b.c.: ", &
+    !               trim(typeboundary(r_e, iB))
+    !          mg%bc(r_e, mg_iphi)%bc_type = mg_bc_continuous
+    !          mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+    !       end select
+    !    end do
+    ! end if
 
   end subroutine rhd_check_params
 
@@ -850,6 +881,7 @@ contains
     use mod_global_parameters
     use mod_viscosity, only: visc_add_source_geom ! viscInDiv
     use mod_dust, only: dust_n_species, dust_mom, dust_rho, dust_small_to_zero, set_dusttozero, dust_min_rho
+    use mod_geometry
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: qdt, x(ixI^S, 1:ndim)
     double precision, intent(inout) :: wCT(ixI^S, 1:nw), w(ixI^S, 1:nw)
@@ -867,15 +899,15 @@ contains
        n_fluids = 1
     end if
 
-    select case (typeaxial)
-    case ("cylindrical")
+    select case (coordinate)
+    case (cylindrical)
        do ifluid = 0, n_fluids-1
           ! s[mr]=(pthermal+mphi**2/rho)/radius
           if (ifluid == 0) then
              ! gas
              irho  = rho_
              mr_   = mom(r_)
-             mphi_ = mom(phi_)
+             if(phi_>0) mphi_ = mom(phi_)
              call rhd_get_pthermal(wCT, x, ixI^L, ixO^L, source)
              minrho = 0.0d0
           else
@@ -903,12 +935,12 @@ contains
              w(ixO^S, mr_) = w(ixO^S, mr_) + qdt * source(ixO^S) / x(ixO^S, r_)
           end if
        end do
-    case ("spherical")
+    case (spherical)
        if (rhd_dust) then
           call mpistop("Dust geom source terms not implemented yet with spherical geometries")
        end if
        mr_   = mom(r_)
-       mphi_ = mom(phi_)
+       if(phi_>0) mphi_ = mom(phi_)
        h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
        ! s[mr]=((mtheta**2+mphi**2)/rho+2*p)/r
        call rhd_get_pthermal(wCT, x, ixI^L, ixO^L, pth)
@@ -1031,19 +1063,14 @@ contains
     logical, intent(inout) :: active
     double precision :: cmax(ixI^S)
 
-    call get_rad_extravars(w, wCT, x, ixI^L, ixO^L)
-
     !> Maybe this WCCT stuff is unnescecary, I just put it here
     !> because i want e.g. original fluxes for my radiation force
     !> sourceterms should be  w = w + dt WCT, so F should be wCT-F, not w-F
     if (fld_diff_scheme .eq. 'mg') call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
+    if (fld_diff_scheme .eq. 'mg') call set_mg_bounds(wCT, x, ixI^L, ixO^L)
 
     select case(rhd_radiation_formalism)
     case('fld')
-      !> diffusion
-      ! print*, it, 'Doing diffusion stuff'
-      if (rhd_radiation_diffusion) call get_fld_diffusion(qdt,ixI^L,ixO^L,wCT,w,x,&
-        rhd_energy,qsourcesplit,active)
       !> photon tiring, heating and cooling
       ! print*, it, 'Doing bisection stuff'
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
@@ -1139,12 +1166,12 @@ contains
       select case (small_values_method)
       case ("replace")
         if (small_values_fix_iw(rho_)) then
-          where(flag(ixO^S) /= 0) w(ixO^S,rho_) = small_density
+          where(flag(ixO^S) == rho_) w(ixO^S,rho_) = small_density
         end if
 
         do idir = 1, ndir
           if (small_values_fix_iw(mom(idir))) then
-            where(flag(ixO^S) /= 0) w(ixO^S, mom(idir)) = 0.0d0
+            where(flag(ixO^S) == rho_) w(ixO^S, mom(idir)) = 0.0d0
           end if
         end do
 

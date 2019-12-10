@@ -32,7 +32,7 @@ contains
     integer   :: ixLL^L,ixL^L,ixO^L,ixR^L,ixRR^L
     integer   :: hxL^L,hxC^L,hxR^L
     integer   :: kxLL^L,kxL^L,kxC^L,kxR^L,kxRR^L
-    !--------------------------------------------------------------------------
+
     ixOmin^D=ixmin^D-kr(idims,^D);ixOmax^D=ixmax^D+kr(idims,^D);!ixO[ixMmin1-1,ixMmax1+1]
     ixL^L=ixO^L-kr(idims,^D);                                   !ixL[ixMmin1-2,ixMmax1]
     ixLL^L=ixL^L-kr(idims,^D);                                  !ixLL[ixMmin1-3,ixMmax1-1]
@@ -103,8 +103,8 @@ contains
   subroutine PPMlimiter(ixI^L,ix^L,idims,w,wCT,wLC,wRC)
 
     ! references:
-    ! Mignone et al 2005, ApJS 160, 199, 
-    ! Miller and Colella 2002, JCP 183, 26 
+    ! Mignone et al 2005, ApJS 160, 199,
+    ! Miller and Colella 2002, JCP 183, 26
     ! Fryxell et al. 2000 ApJ, 131, 273 (Flash)
     ! baciotti Phd (http://www.aei.mpg.de/~baiotti/Baiotti_PhD.pdf)
     ! version : april 2009
@@ -116,7 +116,7 @@ contains
     integer, intent(in)             :: ixI^L, ix^L, idims
     double precision, intent(in)    :: w(ixI^S,1:nw),wCT(ixI^S,1:nw)
 
-    double precision, intent(inout) :: wRC(ixG^T,1:nw),wLC(ixG^T,1:nw) 
+    double precision, intent(inout) :: wRC(ixG^T,1:nw),wLC(ixG^T,1:nw)
 
     double precision,dimension(ixG^T,1:nwflux)  :: dwC,d2wC,ldw
     double precision,dimension(ixG^T,1:nwflux)  :: wMin,wMax,tmp
@@ -132,7 +132,7 @@ contains
     double precision, parameter :: betamin=0.75d0, betamax=0.85d0,&
          Zmin=0.25d0, Zmax=0.75d0,&
          eta1=20.0d0,eta2=0.05d0,eps=0.01d0,kappa=0.1d0
-    !--------------------------------------------------------------------------
+
     ixOmin^D=ixmin^D-kr(idims,^D);ixOmax^D=ixmax^D+kr(idims,^D);!ixO[ixMmin1-1,ixMmax1+1]
     ixL^L=ixO^L-kr(idims,^D);                                   !ixL[ixMmin1-2,ixMmax1]
     ixLL^L=ixL^L-kr(idims,^D);                                  !ixLL[ixMmin1-3,ixMmax1-1]
@@ -151,12 +151,12 @@ contains
     lxR^L=lxC^L+kr(idims,^D);                          ! lxR=[iMmin1-3,ixMmax1+4]
 
     dwC(lxC^S,1:nwflux)=w(lxR^S,1:nwflux)-w(lxC^S,1:nwflux)
-    ! Eq. 64,  Miller and Colella 2002, JCP 183, 26 
+    ! Eq. 64,  Miller and Colella 2002, JCP 183, 26
     d2wC(kxC^S,1:nwflux)=half*(w(kxR^S,1:nwflux)-w(kxL^S,1:nwflux))
     where(dwC(kxC^S,1:nwflux)*dwC(kxL^S,1:nwflux)>zero)
        ! Store the sign of dwC in wMin
        wMin(kxC^S,1:nwflux)= sign(one,d2wC(kxC^S,1:nwflux))
-       ! Eq. 65,  Miller and Colella 2002, JCP 183, 26 
+       ! Eq. 65,  Miller and Colella 2002, JCP 183, 26
        ldw(kxC^S,1:nwflux)= wMin(kxC^S,1:nwflux)*min(dabs(d2wC(kxC^S,1:nwflux)),&
             2.0d0*dabs(dwC(kxL^S,1:nwflux)),&
             2.0d0*dabs(dwC(kxC^S,1:nwflux)))
@@ -164,7 +164,7 @@ contains
        ldw(kxC^S,1:nwflux)=zero
     endwhere
 
-    ! Eq. 66,  Miller and Colella 2002, JCP 183, 26 
+    ! Eq. 66,  Miller and Colella 2002, JCP 183, 26
     wLC(ixO^S,1:nwflux)=wLC(ixO^S,1:nwflux)+half*dwC(ixO^S,1:nwflux)&
          +(ldw(ixO^S,1:nwflux)-ldw(ixR^S,1:nwflux))/6.0d0
 
@@ -176,7 +176,7 @@ contains
 
     ! Eq. B8, page 217, Mignone et al 2005, ApJS
     wRC(ixL^S,1:nwflux)=max(wMin(ixO^S,1:nwflux)&
-         ,min(wMax(ixO^S,1:nwflux),wRC(ixL^S,1:nwflux))) 
+         ,min(wMax(ixO^S,1:nwflux),wRC(ixL^S,1:nwflux)))
     wLC(ixO^S,1:nwflux)=max(wMin(ixO^S,1:nwflux)&
          ,min(wMax(ixO^S,1:nwflux),wLC(ixO^S,1:nwflux)))
 
@@ -293,7 +293,7 @@ contains
     double precision, intent(out) :: qMax(ixI^S),qMin(ixI^S)
 
     integer           :: ixs^L,ixsR^L,ixsL^L,idims,jdims,kdims,ishift,i,j
-    !-------------------------------------------------------------------------
+
     do ishift=1,nshift
       idims=1
       ixsR^L=ixO^L+ishift*kr(idims,^D);
@@ -345,7 +345,7 @@ contains
     double precision, intent(out) :: aMin(ixI^S)
 
     integer          :: ixs^L,ixsR^L,ixsL^L,idims,jdims,kdims,ishift,i,j
-    !-------------------------------------------------------------------------
+
     do ishift=1,nshift
       idims=1
       ixsR^L=ixO^L+ishift*kr(idims,^D);
@@ -389,7 +389,7 @@ contains
     double precision, intent(out) :: wMax(ixI^S,1:nwflux),wMin(ixI^S,1:nwflux)
 
     integer          :: ixs^L,ixsR^L,ixsL^L,idims,jdims,kdims,ishift,i,j
-    !-------------------------------------------------------------------------
+
     do ishift=1,nshift
       idims=1
       ixsR^L=ixO^L+ishift*kr(idims,^D);

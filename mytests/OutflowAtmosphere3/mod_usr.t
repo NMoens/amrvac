@@ -360,40 +360,6 @@ contains
 
     select case (iB)
       case (3)
-        if (x(5,ixImin2,2) .le. xprobmin2) then
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !> OMG THIS ROUTINE IS CALLED BY EVERY PROCESS, THUS BOUNDARY VALUES DEPEND ON WHICH PROCESSOR READS LAST!!!
-          !> NEED SOME MPI-STUFF TO COMUNICATE CORRECT VALUES!!!!!!!!!!!!!!!!!!!!!!!
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          ! !
-          ! i = ixOmin2-1
-          ! tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i+1,2)**2.d0) &
-          ! - w(ixOmin1:ixOmax1,i+1,mom(2))/w(ixOmin1:ixOmax1,i+1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i+1,r_e)) &
-          ! *w(ixOmin1:ixOmax1,i+1,i_lambda)*w(ixOmin1:ixOmax1,i+1,i_op)*w(ixOmin1:ixOmax1,i+1,rho_)/(const_c/unit_velocity)
-
-          !> Neumann:
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          ! mg%bc(iB, mg_iphi)%bc_value = 2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
-
-          !> Consflux:
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
-          ! mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
-
-          !> Fixed:
-          ! i = ixOmin2-1
-          ! call phys_get_tgas(w,x,ixI^L,ixO^L,Tgas)
-          ! tot_bc_value(ixOmin1:ixOmax1) = (Tgas(ixOmin1:ixOmax1, i)*unit_temperature)**4*const_rad_a/unit_pressure
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
-          ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells)
-          ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
-
-          ! print*, it, w(5,1:4,r_e)
-
-
-        endif
-
 
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
         mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells)
@@ -453,8 +419,11 @@ contains
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
         ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
 
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
-        mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+        ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
+
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_copy
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

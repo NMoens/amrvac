@@ -93,6 +93,9 @@ module m_octree_mg_2d
   !> Value to indicate a continuous boundary condition
   integer, parameter, public :: mg_bc_fixed = -14
 
+  !> Value to indicate copying de boundary from the first cell
+  integer, parameter, public :: mg_bc_copy = -15
+
   !> Special value that indicates there is no box
   integer, parameter, public :: mg_no_box = 0
   !> Special value that indicates there is a physical boundary
@@ -2522,6 +2525,10 @@ contains
     case (mg_bc_fixed)
       c0 = 1
       c1 = 0
+      c2 = 0
+    case (mg_bc_copy)
+      c0 = 0
+      c1 = 1
       c2 = 0
     case default
        error stop "bc_to_gc: unknown boundary condition"

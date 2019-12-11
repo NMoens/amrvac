@@ -353,12 +353,10 @@ contains
     case(4)
       do i = ixBmin2,ixBmax2
         !> Conserve gradE/rho
-        w(ixImin1:ixImax1,i,r_e) = w(ixImin1:ixImax1,i-1,&
-           rho_)/w(ixImin1:ixImax1,i-2,rho_) *(w(ixImin1:ixImax1,i-1,&
-           r_e) - w(ixImin1:ixImax1,i-2,r_e)) + w(ixImin1:ixImax1,i-1,r_e)
-        do j = ixImin1,ixImax1
-          w(j,i,r_e) = min(w(j,i,r_e),w(j,i-1,r_e))
-        enddo
+        w(ixImin1:ixImax1,i,r_e) = (x(ixImin1:ixImax1,i-1,&
+           2)**2*w(ixImin1:ixImax1,i-1,mom(2))/w(ixImin1:ixImax1,i-1,&
+           rho_))/(x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,i,&
+           mom(2))/w(ixImin1:ixImax1,i,rho_))*w(ixImin1:ixImax1,i-1,r_e)
       enddo
 
     case default
@@ -401,56 +399,14 @@ contains
 
       case (4)
 
-        if (x(5,ixImax2,2) .ge. xprobmax2) then
-
-          i = ixOmax2 +1
-          ! tot_bc_value(ixOmin1:ixOmax1) = w(ixOmin1:ixOmax1,i-2,i_flux(2)) &
-          ! *w(ixOmin1:ixOmax1,i-1,i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,rho_)/(const_c/unit_velocity)
-          !
-          ! tot_bc_value(ixOmin1:ixOmax1) = (L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,i-1,2)**2.d0) &
-          ! - w(ixOmin1:ixOmax1,i-1,mom(2))/w(ixOmin1:ixOmax1,i-1,rho_)*4.d0/3.d0*w(ixOmin1:ixOmax1,i-1,r_e)) &
-          ! *w(ixOmin1:ixOmax1,i-1,i_lambda)*w(ixOmin1:ixOmax1,i-1,i_op)*w(ixOmin1:ixOmax1,i-1,rho_)/(const_c/unit_velocity)
-
-          ! i = domain_nx2+3
-          ! tot_bc_value2 = (L_0/(4.d0*dpi*r_arr(i-1)**2.d0) &
-          ! - v_arr(i-1)*4.d0/3.d0*Er_arr(i-1)) &
-          ! *1.d0/3.d0*w(5,i_op)*rho_arr(i-1)/(const_c/unit_velocity)
-
-
-          ! !> Neumann
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-          ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
-          ! mg%bc(iB, mg_iphi)%bc_value = 2*sum(tot_bc_value)/(ixOmax1-ixOmin1)
-
-          !> Consflux:
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
-          ! mg%bc(iB, mg_iphi)%bc_value = sum(tot_bc_value)/(ixOmax1-ixOmin1)
-
-          !> Fixed:
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
-          ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
-          ! mg%bc(iB, mg_iphi)%bc_value = sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1)
-          ! mg%bc(iB, mg_iphi)%bc_value = min(1.5*Er_arr(domain_nx2+3),max(sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1),0.5*Er_arr(domain_nx2+3)))
-
-          ! print*, it, Er_arr(domain_nx2+3), sum(w(ixOmin1:ixOmax1,i,r_e))/(ixOmax1-ixOmin1), mg%bc(iB, mg_iphi)%bc_value
-
-
-          !> Continuous:
-          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-
-          ! print*, it, mype, mg%bc(iB, mg_iphi)%bc_value
-
-        endif
-
-
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        mg%bc(iB, mg_iphi)%bc_value = 0.d0
 
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
         ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
 
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_copy
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

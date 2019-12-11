@@ -209,6 +209,8 @@ module mod_fld
       call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
 
+      !> correct the flux at the outer bound
+      call correct_radflux_bounds(x, ixI^L, ixO^L, rad_flux)
 
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux
@@ -229,6 +231,20 @@ module mod_fld
     end if
 
   end subroutine get_fld_rad_force
+
+  subroutine correct_radflux_bounds(x, ixI^L, ixO^L, rad_flux)
+    use mod_global_parameters
+
+    integer, intent(in)              :: ixI^L, ixO^L
+    double precision, intent(in)     :: x(ixI^S,1:ndim)
+    double precision, intent(inout)  :: rad_flux(ixO^S,1:ndim)
+
+    !> Check outflowing bound:
+    if (any(x(:,ixImax2,2) .ge. xprobmax2)) then
+      rad_flux(ixOmin1:ixOmax1,ixOmax2,2) = rad_flux(ixOmin1:ixOmax1,ixOmax2-1,2)
+    endif
+
+  end subroutine correct_radflux_bounds
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
   !> This subroutine handles the energy exchange between gas and radiation
@@ -761,6 +777,9 @@ module mod_fld
          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
       case ('periodic')
         !> Do nothing
+
+      case ('noinflow')
+         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
       case ('special')
 
         if (.not. associated(usr_special_mg_bc)) call mpistop("Set special mg bound")
@@ -839,6 +858,7 @@ module mod_fld
     if (it == 0) print*, "ATTENTION RHD_GAMMA FAKE"
 
     !> calculate tensor div_v
+    !$OMP PARALLEL DO
     do i = 1,ndir
       do j = 1,ndim
         vel(ixI^S) = w(ixI^S,iw_mom(j))/w(ixI^S,iw_rho)
@@ -846,6 +866,7 @@ module mod_fld
         div_v(ixO^S,i,j) = grad_v(ixO^S)
       enddo
     enddo
+    !$OMP END PARALLEL DO
 
     call fld_get_eddington(w, x, ixI^L, ixO^L, edd)
 
@@ -891,6 +912,7 @@ module mod_fld
     c1(ixO^S) = (one + a2(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
     !> Loop over every cell for rootfinding method
+    !$OMP PARALLEL DO
     {do ix^D=ixOmin^D,ixOmax^D\ }
       select case(fld_interaction_method)
       case('Bisect')
@@ -903,6 +925,7 @@ module mod_fld
         call mpistop('root-method not known')
       end select
     {enddo\}
+    !$OMP END PARALLEL DO
 
     !> Update gas-energy in w, internal + kinetic
     w(ixO^S,iw_e) = e_gas(ixO^S) + half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)

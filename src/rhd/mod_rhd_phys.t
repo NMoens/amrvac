@@ -345,7 +345,7 @@ contains
              mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
           case ('cont')
              ! d/dx u = 0
-             mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+             mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
              mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
           case ('periodic')
              ! Nothing to do here

@@ -112,6 +112,8 @@ contains
           mg%bc(n, mg_iphi)%bc_value = 0.0_dp ! Not needed
        case ('periodic')
           ! Nothing to do here
+        case ('noinflow')
+          mg%bc(n, mg_iphi)%bc_type = mg_bc_continuous
        case default
           print *, "Not a standard: ", trim(typeboundary(iw, n))
           error stop "You have to set a user-defined boundary method"

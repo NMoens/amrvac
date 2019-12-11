@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./3output/const'
+  base_filename='./output/const'
   autoconvert      = F
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -13,8 +13,8 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   !ditsave_dat     = 100
-   !ditsave_log     = 100
+   !ditsave_dat     = 1
+   !ditsave_log     = 1
    dtsave_dat     = 0.5d-3
    dtsave_log     = 5.d-2
 /
@@ -50,8 +50,8 @@
    refine_criterion   = 3
    domain_nx1         = 256
    domain_nx2         = 2048
-   block_nx1          = 128
-   block_nx2          = 128
+   block_nx1          = 256
+   block_nx2          = 256
    xprobmin1       = -0.125d0
    xprobmax1       = 0.125d0
    xprobmin2       = 1.0d0

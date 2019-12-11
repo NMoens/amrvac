@@ -47,7 +47,7 @@ contains
     use mod_usr_methods
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("cylindrical")
+    call set_coordinate_system("spherical")
 
     !afdasfas
     usr_set_parameters => initglobaldata_usr
@@ -245,10 +245,9 @@ contains
       enddo
 
       do i = ixBmin1,ixBmax1
-        w(i,mom(1)) = min(w(i,mom(1)),one)
-        w(i,mom(1)) = max(w(i,mom(1)),-one)
+        w(i,mom(1)) = min(w(i,mom(1)),rho_bound*c_sound)
+        w(i,mom(1)) = max(w(i,mom(1)),-rho_bound*c_sound)
       enddo
-
 
     case default
       call mpistop("BC not specified")
@@ -326,7 +325,7 @@ contains
     w(ixO^S,i_g_cak) = g_CAK(ixO^S)
 
     ! finite disk correction
-    ! g_CAK(ixI^S) = g_CAK(ixI^S) * F_fd(ixI^S)
+    g_CAK(ixI^S) = g_CAK(ixI^S) * F_fd(ixI^S)
 
     ! effective gravity
     g_grav_sc(ixO^S) = G_dp*M_star/(x(ixO^S,1)**2)*(one-Gamma_e)

@@ -2517,6 +2517,7 @@ contains
        c0 = 0
        c1 = 2
        c2 = -1
+    !> Me, trying stuff
     case (mg_bc_consflux)
       dr = mg%dr(mg_neighb_dim(nb), mg%boxes(id)%lvl)
       c0 = 2 * dr * mg_neighb_high_pm(nb) ! This gives a + or - sign

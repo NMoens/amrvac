@@ -10,8 +10,8 @@
 /
 
  &savelist
-   !itsave(1,1)     = 0
-   !itsave(1,2)     = 0
+   itsave(1,1)     = 0
+   itsave(1,2)     = 0
    !ditsave_dat     = 1
    !ditsave_log     = 1
    dtsave_dat     = 0.2d0
@@ -26,8 +26,8 @@
 
  &methodlist
    time_integrator = 'twostep'
-   flux_scheme     = 20*'tvdlf' !'tvdlf'/'hll'
-   limiter         = 20*'koren' !'minmod'/'koren'
+   flux_scheme     = 20*'hll' !'tvdlf'/'hll'
+   limiter         = 20*'minmod' !'minmod'/'koren'
    check_small_values = .true.
    small_values_method = 'replace'
    small_pressure = 1.d-8
@@ -36,7 +36,7 @@
 
 &boundlist
   !nghostcells  = 4
-  typeboundary_min1 = 5*'cont'
+  typeboundary_min1 = 4*'cont','cont'
   typeboundary_max1 = 4*'cont','cont'
   typeboundary_min2 = 5*'periodic'
   typeboundary_max2 = 5*'periodic'

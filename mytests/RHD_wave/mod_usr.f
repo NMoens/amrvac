@@ -66,7 +66,7 @@ contains
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length = wvl ! cm
-    unit_velocity   = a0 ! K
+    unit_velocity   = a0 ! cm/s
     unit_numberdensity = rho0/((1.d0+4.d0*He_abundance)*mp_cgs) ! cm-3,cm-3
 
     unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
@@ -92,7 +92,7 @@ contains
 
     L_damp = const_c/unit_velocity*fld_kappa0/unit_opacity*rho0/frequency
 
-    ampl = 1.d-5
+    ampl = 0.0
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
@@ -136,6 +136,9 @@ contains
 
     double precision :: press(ixImin1:ixImax1,ixImin2:ixImax2),&
         temp(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2), fld_R(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
 
     ! Set initial values for w
     w(ixImin1:ixImax1,ixImin2:ixImax2, rho_) = rho0 + &
@@ -158,9 +161,15 @@ contains
        const_rad_a*(temp(ixImin1:ixImax1,&
        ixImin2:ixImax2)*unit_temperature)**4.d0/unit_pressure
 
+    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, kappa)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
 
-    call get_rad_extravars(w, w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
+       (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
 
   end subroutine initial_conditions
 

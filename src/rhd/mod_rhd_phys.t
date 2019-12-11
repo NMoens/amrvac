@@ -337,22 +337,22 @@ contains
           select case (typeboundary(r_e, iB))
           case ('symm')
              ! d/dx u = 0
-             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
-             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+             mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+             mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
           case ('asymm')
              ! u = 0
-             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_dirichlet
-             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+             mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+             mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
           case ('cont')
              ! d/dx u = 0
-             mg%bc(r_e, mg_iphi)%bc_type = mg_bc_neumann
-             mg%bc(r_e, mg_iphi)%bc_value = 0.0_dp
+             mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+             mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
           case ('periodic')
              ! Nothing to do here
           case default
              print *, "divb_multigrid warning: unknown b.c.: ", &
                   trim(typeboundary(r_e, iB))
-             call usr_special_mg_bc(global_time,ixI^L,ixO^L,iB,w,x)
+              mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
           end select
        end do
     end if

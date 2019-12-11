@@ -92,7 +92,7 @@ contains
 
     L_damp = const_c/unit_velocity*fld_kappa0/unit_opacity*rho0/frequency
 
-    ampl = 0.0
+    ampl = 1.d-5
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length

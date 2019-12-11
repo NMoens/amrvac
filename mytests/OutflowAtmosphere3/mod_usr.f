@@ -290,7 +290,7 @@ contains
       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
          (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
          ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,iw_rho))
+         ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
 
 
     enddo

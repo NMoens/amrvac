@@ -14,7 +14,7 @@
 /
 
 &stoplist
-       time_max        = 1.d-1
+       time_max        = 1.d0
        dtmin = 1.d-8
        !it_max = 25
 /
@@ -36,10 +36,10 @@
 &meshlist
        refine_criterion=3
        refine_max_level=4
-       domain_nx1=512
-       domain_nx2=512
-       block_nx1=64
-       block_nx2=64
+       domain_nx1=128
+       domain_nx2=128
+       block_nx1=32
+       block_nx2=32
        iprob=1
        xprobmin1=-1.d0
        xprobmax1=1.d0
@@ -48,7 +48,6 @@
 /
 
 &paramlist
-       typecourant='maxsum'
        courantpar=0.1d0
 /
 
@@ -64,9 +63,9 @@
 
 &fld_list
       fld_split = .false.
-      fld_kappa0 = 0.34d50
+      fld_kappa0 = 0.34d40
       fld_opacity_law = 'const'
       fld_diff_scheme = 'mg'
       fld_diff_testcase = .false.
-      fld_interaction_method = 'Newton'
+      fld_interaction_method = 'Halley'
 /

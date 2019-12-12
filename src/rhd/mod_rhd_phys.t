@@ -350,7 +350,7 @@ contains
           case ('periodic')
              ! Nothing to do here
           case default
-             print *, "divb_multigrid warning: unknown b.c.: ", &
+             print *, "divE_multigrid warning: unknown b.c.: ", &
                   trim(typeboundary(r_e, iB))
               mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
           end select

@@ -273,14 +273,12 @@ contains
       w(:,i,mom(2)) = rho_arr(j)*v_arr(j)
       w(:,i,e_) = e_arr(j)
       w(:,i,r_e) = Er_arr(j)
-
-      call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-      call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
-
-      w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
-
-
     enddo
+
+    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+
+    w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
 

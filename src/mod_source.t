@@ -38,12 +38,12 @@ contains
        qt=global_time+dt
     end if
 
-    if (physics_type .eq. 'rhd') then
-      !> SHOULD BE A .NOT. PRIOR CONDITION
-      if (prior .and. associated(global_radiation_source)) then
-        call global_radiation_source(dt, qt, src_active)
-      endif
-    endif
+    ! if (physics_type .eq. 'rhd') then
+    !   !> SHOULD BE A .NOT. PRIOR CONDITION
+    !   if (prior .and. associated(global_radiation_source)) then
+    !     call global_radiation_source(dt, qt, src_active)
+    !   endif
+    ! endif
 
     !$OMP PARALLEL DO PRIVATE(igrid,qdt,i^D)
     do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
@@ -52,6 +52,13 @@ contains
        call addsource1_grid(igrid,qdt,qt,ps(igrid)%w,src_active)
     end do
     !$OMP END PARALLEL DO
+
+    if (physics_type .eq. 'rhd') then
+      !> SHOULD BE A .NOT. PRIOR CONDITION
+      if (.not. prior .and. associated(global_radiation_source)) then
+        call global_radiation_source(dt, qt, src_active)
+      endif
+    endif
 
     if (.not. prior .and. associated(phys_global_source)) then
        call phys_global_source(dt, qt, src_active)

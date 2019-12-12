@@ -19,7 +19,7 @@
 /
 
  &stoplist
-   time_max = 4.d1
+   time_max = 1.d1
    dtmin = 2.0d-20
    !it_max = 50
 /

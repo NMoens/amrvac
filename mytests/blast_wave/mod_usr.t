@@ -26,8 +26,6 @@ contains
     ! Active the physics module
     call rhd_activate()
 
-    fld_kappa0 = fld_kappa0/unit_opacity
-
   end subroutine usr_init
 
   !> A routine for specifying initial conditions
@@ -43,6 +41,8 @@ contains
     double precision :: rbs,xc1,xc2
     double precision :: Temp(ixI^S)
     double precision :: local_rad_e
+
+    double precision :: kappa(ixO^S), lambda(ixO^S), fld_R(ixO^S)
 
     if (mype .eq. 0) then
       print*, 'unit_length',unit_length
@@ -71,9 +71,10 @@ contains
       w(ixI^S,e_)=5.d0
     endwhere
 
-    ! w(ixO^S,e_) = one + w(ixO^S,e_)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)
+    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
 
-    call get_rad_extravars(w, w, x, ixI^L, ixO^L)
+    w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
 

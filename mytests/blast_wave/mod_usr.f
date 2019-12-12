@@ -26,8 +26,6 @@ contains
     ! Active the physics module
     call rhd_activate()
 
-    fld_kappa0 = fld_kappa0/unit_opacity
-
   end subroutine usr_init
 
   !> A routine for specifying initial conditions
@@ -46,6 +44,10 @@ contains
     double precision :: rbs,xc1,xc2
     double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: local_rad_e
+
+    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2), fld_R(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
 
     if (mype .eq. 0) then
       print*, 'unit_length',unit_length
@@ -76,10 +78,15 @@ contains
       w(ixImin1:ixImax1,ixImin2:ixImax2,e_)=5.d0
     endwhere
 
-    ! w(ixO^S,e_) = one + w(ixO^S,e_)*100.d0*dexp(-(x(ixO^S,1)**2 + x(ixO^S,2)**2)/rbs**2)
+    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, kappa)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
 
-    call get_rad_extravars(w, w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
+       (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
 
   end subroutine initial_conditions
 

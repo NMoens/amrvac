@@ -47,7 +47,7 @@ module mod_fld
     character(len=8) :: fld_diff_scheme = 'adi'
 
     !> Which method to find the root for the energy interaction polynomial
-    character(len=8) :: fld_interaction_method = 'Bisect'
+    character(len=8) :: fld_interaction_method = 'Halley'
 
     !> Set Diffusion coefficient to unity
     logical :: fld_diff_testcase = .false.
@@ -200,7 +200,7 @@ module mod_fld
     double precision :: kappa(ixO^S)
     double precision :: rad_flux(ixO^S,1:ndir)
 
-    integer :: idir, i, jx^L
+    integer :: idir, i
 
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
@@ -239,10 +239,19 @@ module mod_fld
     double precision, intent(in)     :: x(ixI^S,1:ndim)
     double precision, intent(inout)  :: rad_flux(ixO^S,1:ndim)
 
+    {^IFTWOD
     !> Check outflowing bound:
-    if (any(x(:,ixImax2,2) .ge. xprobmax2)) then
+    if (x(nghostcells+1,ixImax2,2) .ge. xprobmax2) then
       rad_flux(ixOmin1:ixOmax1,ixOmax2,2) = rad_flux(ixOmin1:ixOmax1,ixOmax2-1,2)
     endif
+    }
+
+    {^IFTHREED
+    !> Check outflowing bound:
+    if (x(nghostcells+1,ixImax2,nghostcells+1,2) .ge. xprobmax2) then
+      rad_flux(ixOmin1:ixOmax1,ixOmax2,ixOmin3:ixOmax3,2) = rad_flux(ixOmin1:ixOmax1,ixOmax2-1,ixOmin3:ixOmax3,2)
+    endif
+    }
 
   end subroutine correct_radflux_bounds
 
@@ -672,7 +681,11 @@ module mod_fld
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
     call diffusion_solve_vcoeff(mg, qdt, 2, max_res)
-    call mg_copy_from_tree_gc(mg_iphi, iw_r_e)
+    ! call mg_copy_from_tree_gc(mg_iphi, iw_r_e)
+    call mg_copy_from_tree(mg_iphi, iw_r_e)
+
+    ! call MPI_STOP('CHECK THIS GC STUFF')
+
     active = .true.
 
   end subroutine Diffuse_E_rad_mg
@@ -749,6 +762,8 @@ module mod_fld
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
     use mod_multigrid_coupling
+    use mod_global_parameters
+    !if (.not. time_advance) call MPI_BARRIER(icomm,ierrmpi)
     call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
   end subroutine set_mg_diffcoef
 

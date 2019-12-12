@@ -1,0 +1,86 @@
+&testlist
+        teststr=''
+ /
+
+ &filelist
+        base_filename='./output/log_'
+        saveprim=F
+        autoconvert=T
+        convert_type='vtuBCCmpi'
+/
+
+ &savelist
+        itsave(1,1)=0
+        itsave(1,2)=0
+        ditsave_log=1000
+        dtsave_dat=1.d0
+        ! ditsave_dat=1
+ /
+
+ &stoplist
+        dtmin=1.D-14
+        time_max=20.d0
+        !it_max=3
+ /
+
+ &methodlist
+        time_integrator=  'onestep'
+        flux_scheme=    13*'hll'
+        limiter=13*'koren'
+        small_values_method='replace'
+        small_pressure=1.0d-11
+        small_density=1.0d-7
+        !typelimited='predictor'
+        !strictsmall=F
+        !strictgetaux=T
+        !typespherical=1
+        !angmomfix=.false.
+        !useprimitive=.true.
+        !tvdlfeps=1.0d0
+        !dimsplit=.false.
+        !sourcesplit=.false.
+        !sourceunsplit=.true
+        !fixprocess=.true.
+        !typepred1=    13*'hancock' ! TVDLF!
+        !fixsmall=T
+        !wnames=       'rho m1 m2 e'
+        !fileheadout=  'hd22'
+ /
+
+ &boundlist
+        nghostcells=    2
+        typeboundary_min1 = 5*'special'
+        typeboundary_max1 = 5*'noinflow'
+        typeboundary_min2 = 5*'noinflow'
+        typeboundary_max2 = 5*'noinflow'
+        typeboundary_min3 = 5*'noinflow'
+        typeboundary_max3 = 5*'noinflow'
+        internalboundary = F
+ /
+
+ &meshlist
+        refine_max_level=1
+        domain_nx1=64
+        domain_nx2=32
+        domain_nx3=32
+        block_nx1= 8
+        block_nx2= 8
+        block_nx3= 8
+        xprobmin1=-8.d0
+        xprobmax1=8.d0
+        xprobmin2=-4.d0
+        xprobmax2=4.d0
+        xprobmin3=-4.d0
+        xprobmax3=4.d0
+        refine_threshold   = 20*0.8d0
+        derefine_ratio     = 20*0.5d0
+ /
+
+ &paramlist
+        courantpar=0.5d0
+ /
+
+ &hd_list
+        hd_energy=T
+        hd_gamma=1.66667d0
+ /

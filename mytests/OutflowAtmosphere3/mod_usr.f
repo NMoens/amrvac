@@ -379,16 +379,36 @@ contains
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
         mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells)
 
-      case (4)
-
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
 
+      case (4)
+
+
+        !> End goes to zero
+        ! nothing
+
+        !> End keeps on rising :/
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+
+        !> Works, but is too cheaty
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
         mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
 
+        !>same as neumann
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_copy
+
+        !> goes to nan
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
+        !> goes to zero
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
+        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

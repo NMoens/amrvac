@@ -24,6 +24,7 @@
        flux_scheme=    20*'hll'
        limiter= 20*'koren'
        small_values_method = 'replace'
+       typesourcesplit = 'sfs'
 /
 
 &boundlist

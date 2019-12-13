@@ -911,7 +911,8 @@ module mod_fld
     divvP(ixO^S) = divvP(ixO^S)*w(ixO^S,iw_r_e)
 
     !> e_gas is the INTERNAL ENERGY without KINETIC ENERGY
-    e_gas(ixO^S) = w(ixO^S,iw_e) - half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
+    if (.not. block%e_is_internal) &
+      e_gas(ixO^S) = w(ixO^S,iw_e) - half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
     E_rad(ixO^S) = w(ixO^S,iw_r_e)
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -941,7 +942,8 @@ module mod_fld
     !$OMP END PARALLEL DO
 
     !> Update gas-energy in w, internal + kinetic
-    w(ixO^S,iw_e) = e_gas(ixO^S) + half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
+    if (.not. block%e_is_internal) &
+      w(ixO^S,iw_e) = e_gas(ixO^S) + half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
 
     !> advance E_rad
     E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S) + a3(ixO^S))

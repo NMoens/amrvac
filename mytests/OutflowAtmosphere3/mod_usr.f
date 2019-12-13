@@ -281,19 +281,17 @@ contains
       w(:,i,mom(2)) = rho_arr(j)*v_arr(j)
       w(:,i,e_) = e_arr(j)
       w(:,i,r_e) = Er_arr(j)
-
-      call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-         ixOmin2,ixOmax1,ixOmax2, kappa)
-      call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-         ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
-
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
-         (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
-
-
     enddo
+
+    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, kappa)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
+
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
+       (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
 
   end subroutine initial_conditions
 
@@ -344,6 +342,9 @@ contains
            rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,&
            r_e)) *3.d0*kappa*sp_rho/(const_c/unit_velocity) * &
            (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
+
+        ! w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
+
         ! do j = ixImin1,ixImax1
         !   w(j,i,r_e) = min(1.5d0*sp_Er, w(j,i,r_e))
         !   w(j,i,r_e) = max(0.5d0*sp_Er, w(j,i,r_e))
@@ -365,23 +366,12 @@ contains
   end subroutine boundary_conditions
 
 
-  subroutine mg_boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
-     ixOmin2,ixOmax1,ixOmax2,iB,w,x)
+  subroutine mg_boundary_conditions(iB)
 
     use mod_global_parameters
     use mod_multigrid_coupling
-    use mod_physics, only: phys_get_tgas
 
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixOmin1,ixOmin2,ixOmax1,ixOmax2, iB
-    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision, intent(in)    :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
-
-    double precision :: Tgas(ixImin1:ixImax1,ixImin2:ixImax2)
-
-    double precision :: tot_bc_value(ixOmin1:ixOmax1),tot_bc_value2
-    integer :: i
+    integer, intent(in)             :: iB
 
     select case (iB)
       case (3)
@@ -399,18 +389,18 @@ contains
 
       case (4)
 
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
 
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
         ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
 
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_copy
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
-        error stop "You have to set a user-defined boundary method"
+        error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
 

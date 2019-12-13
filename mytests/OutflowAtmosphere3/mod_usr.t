@@ -319,6 +319,9 @@ contains
         - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
         *3.d0*kappa*sp_rho/(const_c/unit_velocity) &
         * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
+
+        ! w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
+
         ! do j = ixImin1,ixImax1
         !   w(j,i,r_e) = min(1.5d0*sp_Er, w(j,i,r_e))
         !   w(j,i,r_e) = max(0.5d0*sp_Er, w(j,i,r_e))
@@ -338,20 +341,12 @@ contains
   end subroutine boundary_conditions
 
 
-  subroutine mg_boundary_conditions(qt,ixI^L,ixO^L,iB,w,x)
+  subroutine mg_boundary_conditions(iB)
 
     use mod_global_parameters
     use mod_multigrid_coupling
-    use mod_physics, only: phys_get_tgas
 
-    integer, intent(in)             :: ixI^L, ixO^L, iB
-    double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
-    double precision, intent(in)    :: w(ixI^S,1:nw)
-
-    double precision :: Tgas(ixI^S)
-
-    double precision :: tot_bc_value(ixOmin1:ixOmax1),tot_bc_value2
-    integer :: i
+    integer, intent(in)             :: iB
 
     select case (iB)
       case (3)
@@ -369,18 +364,18 @@ contains
 
       case (4)
 
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
 
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
         ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
 
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_copy
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
-        error stop "You have to set a user-defined boundary method"
+        error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
 

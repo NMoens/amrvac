@@ -75,7 +75,7 @@ module mod_fld
     public :: fld_get_radpress
     public :: fld_get_fluxlimiter
     public :: fld_get_opacity
-    public :: set_mg_bounds
+    ! public :: set_mg_bounds
 
   contains
 
@@ -681,10 +681,7 @@ module mod_fld
 
     call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
     call diffusion_solve_vcoeff(mg, qdt, 2, max_res)
-    ! call mg_copy_from_tree_gc(mg_iphi, iw_r_e)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
-
-    ! call MPI_STOP('CHECK THIS GC STUFF')
 
     active = .true.
 
@@ -767,51 +764,51 @@ module mod_fld
     call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
   end subroutine set_mg_diffcoef
 
-  !> Sets boundary conditions for multigrid, based on hydro-bounds
-  subroutine set_mg_bounds(w, x, ixI^L, ixO^L)
-    use mod_multigrid_coupling
-    use mod_global_parameters
-    use mod_usr_methods
-
-    integer, intent(in)          :: ixI^L, ixO^L
-    double precision, intent(in) :: w(ixI^S, 1:nw)
-    double precision, intent(in) :: x(ixI^S, 1:ndim)
-
-    integer :: iB
-
-    do iB = 1,2*ndim
-      select case (typeboundary(iw_r_e, iB))
-      case ('symm')
-         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-         mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
-      case ('asymm')
-         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-         mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
-      case ('cont')
-         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-         mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
-      case ('periodic')
-        !> Do nothing
-
-      case ('noinflow')
-         mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-      case ('special')
-
-        if (.not. associated(usr_special_mg_bc)) call mpistop("Set special mg bound")
-        call usr_special_mg_bc(global_time,ixI^L,ixO^L,iB,w,x)
-
-      case default
-         print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
-         error stop "You have to set a user-defined boundary method"
-      end select
-    enddo
-
-    ! print*, it, mype, mg%bc(iB, mg_iphi)%bc_value
-
-    ! print*, 'SETTING DIFF BOUNDS'
-
-
-  end subroutine set_mg_bounds
+  ! !> Sets boundary conditions for multigrid, based on hydro-bounds
+  ! subroutine set_mg_bounds(w, x, ixI^L, ixO^L)
+  !   use mod_multigrid_coupling
+  !   use mod_global_parameters
+  !   use mod_usr_methods
+  !
+  !   integer, intent(in)          :: ixI^L, ixO^L
+  !   double precision, intent(in) :: w(ixI^S, 1:nw)
+  !   double precision, intent(in) :: x(ixI^S, 1:ndim)
+  !
+  !   integer :: iB
+  !
+  !   do iB = 1,2*ndim
+  !     select case (typeboundary(iw_r_e, iB))
+  !     case ('symm')
+  !        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+  !        mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+  !     case ('asymm')
+  !        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+  !        mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+  !     case ('cont')
+  !        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+  !        mg%bc(iB, mg_iphi)%bc_value = 0.0_dp ! Not needed
+  !     case ('periodic')
+  !       !> Do nothing
+  !
+  !     case ('noinflow')
+  !        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+  !     case ('special')
+  !
+  !       if (.not. associated(usr_special_mg_bc)) call mpistop("Set special mg bound")
+  !       call usr_special_mg_bc(global_time,ixI^L,ixO^L,iB,w,x)
+  !
+  !     case default
+  !        print *, "Not a standard: ", trim(typeboundary(iw_r_e, iB))
+  !        error stop "You have to set a user-defined boundary method"
+  !     end select
+  !   enddo
+  !
+  !   ! print*, it, mype, mg%bc(iB, mg_iphi)%bc_value
+  !
+  !   ! print*, 'SETTING DIFF BOUNDS'
+  !
+  !
+  ! end subroutine set_mg_bounds
 
   subroutine get_diffusion_criterion(w, x, ixI^L, ixO^L)
     use mod_global_parameters

@@ -111,11 +111,9 @@ module mod_usr_methods
      !> Special boundary type for radiation hydrodynamics module, only used to
      !> set the boundary conditions for the radiation energy. Called every
      !> pseudo-timestep before every half step in the ADI flux_scheme
-     subroutine special_mg_bc(qt,ixI^L,ixO^L,iB,w,x)
+     subroutine special_mg_bc(iB)
        use mod_global_parameters
-       integer, intent(in)             :: ixI^L, ixO^L, iB
-       double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
-       double precision, intent(in)    :: w(ixI^S,1:nw)
+       integer, intent(in)             :: iB
      end subroutine special_mg_bc
 
     !> internal boundary, user defined

@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./2output/const'
+  base_filename='./output/const'
   autoconvert      = F
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -41,7 +41,7 @@
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 4*'special','special'
-  typeboundary_max2 = 4*'cont','special'
+  typeboundary_max2 = 5*'noinflow'
   internalboundary = T
 /
 

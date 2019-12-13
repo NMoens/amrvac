@@ -314,6 +314,7 @@ contains
     use mod_global_parameters
     use mod_multigrid_coupling
     use mod_dust, only: dust_check_params
+    use mod_usr_methods
 
     integer :: iB, idim
 
@@ -349,10 +350,13 @@ contains
              mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
           case ('periodic')
              ! Nothing to do here
+          case ('noinflow')
+             call usr_special_mg_bc(iB)
+          case ('special')
+             call usr_special_mg_bc(iB)
           case default
-             print *, "divE_multigrid warning: unknown b.c.: ", &
-                  trim(typeboundary(r_e, iB))
-              mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+             call mpistop("divE_multigrid warning: unknown b.c.: ", &
+                  trim(typeboundary(r_e, iB)))
           end select
        end do
     end if
@@ -1062,11 +1066,8 @@ contains
     logical, intent(inout) :: active
     double precision :: cmax(ixI^S)
 
-    !> Maybe this WCCT stuff is unnescecary, I just put it here
-    !> because i want e.g. original fluxes for my radiation force
-    !> sourceterms should be  w = w + dt WCT, so F should be wCT-F, not w-F
     if (fld_diff_scheme .eq. 'mg') call fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
-    if (fld_diff_scheme .eq. 'mg') call set_mg_bounds(wCT, x, ixI^L, ixO^L)
+    ! if (fld_diff_scheme .eq. 'mg') call set_mg_bounds(wCT, x, ixI^L, ixO^L)
 
     select case(rhd_radiation_formalism)
     case('fld')
@@ -1082,10 +1083,9 @@ contains
       call mpistop('Radiation formalism unknown')
     end select
 
-
+    !>  NOT necessary for calculation, just want to know the grid-dependent-timestep
     call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
     w(ixI^S,i_test) = cmax(ixI^S)
-
 
   end subroutine rhd_add_radiation_source
 

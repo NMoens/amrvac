@@ -30,7 +30,7 @@
    flux_scheme     = 20*'hll' !'tvdlf'/'hll'
    limiter         = 20*'minmod' !'minmod'/'koren'
    source_split_usr = .false.
-   typesourcesplit = 'ssf'
+   typesourcesplit = 'sfs'
    small_values_method = 'replace'
    small_pressure = 1.d-8
    small_density = 1.d-8

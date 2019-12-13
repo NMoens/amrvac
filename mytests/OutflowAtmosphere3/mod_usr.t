@@ -354,24 +354,16 @@ contains
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
         mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells)
 
-
-        ! > Continuous boundary conditions
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-
-        !> Dirichlet boundary Conditions
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-        ! mg%bc(iB, mg_iphi)%bc_value = 0.0
-
       case (4)
 
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
 
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
-        ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
+        mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
 
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_copy
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

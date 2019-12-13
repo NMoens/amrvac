@@ -258,7 +258,7 @@ contains
 
     select case (rhd_radiation_formalism)
     case('fld')
-      call fld_init(He_abundance, rhd_radiation_diffusion)
+      call fld_init(He_abundance, rhd_radiation_diffusion, rhd_gamma)
     case default
       call mpistop('Radiation formalism unknown')
     end select

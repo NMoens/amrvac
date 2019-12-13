@@ -2,7 +2,6 @@
 !> Module for including flux limited diffusion in hydrodynamics simulations
 !> Based on Turner and stone 2001
 module mod_fld
-    ! use mod_multigrid_coupling  !!!!< Is this necesary here?!?!?!
     implicit none
 
     !> source split or not
@@ -66,6 +65,9 @@ module mod_fld
     !> Index for Flux weighted opacities
     integer, allocatable, public :: i_opf(:)
 
+    !> A copy of rhd_Gamma
+    double precision, private, protected :: fld_gamma
+
     !> public methods
     !> these are called in mod_rhd_phys
     public :: get_fld_rad_force
@@ -110,14 +112,14 @@ module mod_fld
   !> Add extra variables to w-array, flux, kappa, eddington Tensor
   !> Lambda and R
   !> ...
-  subroutine fld_init(He_abundance, rhd_radiation_diffusion)
+  subroutine fld_init(He_abundance, rhd_radiation_diffusion, phys_gamma)
     use mod_global_parameters
     use mod_variables
     use mod_physics, only: global_radiation_source
     use mod_opacity, only: init_opal
     use mod_multigrid_coupling
 
-    double precision, intent(in) :: He_abundance
+    double precision, intent(in) :: He_abundance, phys_gamma
     logical, intent(in) :: rhd_radiation_diffusion
     double precision :: sigma_thomson
     integer :: idir,jdir
@@ -167,6 +169,9 @@ module mod_fld
 
     !> Need mean molecular weight
     fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
+
+    !> set rhd_gamma
+    fld_gamma = phys_gamma
 
     !> Dimensionless Boltzman constante sigma
     fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
@@ -865,10 +870,6 @@ module mod_fld
 
     integer :: i,j,idir,ix^D
 
-    double precision ::     rhd_gamma = 1.6666667d0
-
-    if (it == 0) print*, "ATTENTION RHD_GAMMA FAKE"
-
     !> calculate tensor div_v
     !$OMP PARALLEL DO
     do i = 1,ndir
@@ -916,7 +917,7 @@ module mod_fld
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
 
     !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*kappa(ixO^S)*w(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure))*((rhd_gamma-one)/w(ixO^S,iw_rho))**4.d0*dt
+    a1(ixO^S) = 4*kappa(ixO^S)*w(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure))*((fld_gamma-one)/w(ixO^S,iw_rho))**4.d0*dt
     a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*w(ixO^S,iw_rho)*dt
     a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
 

@@ -43,6 +43,7 @@ module mod_physics
   type(iw_methods) :: phys_iw_methods(max_nw)
 
   procedure(sub_check_params), pointer    :: phys_check_params           => null()
+  procedure(sub_set_mg_bounds), pointer   :: phys_set_mg_bounds          => null()
   procedure(sub_convert), pointer         :: phys_to_conserved           => null()
   procedure(sub_convert), pointer         :: phys_to_primitive           => null()
   procedure(sub_modify_wLR), pointer      :: phys_modify_wLR             => null()
@@ -54,7 +55,7 @@ module mod_physics
   procedure(sub_add_source_geom), pointer :: phys_add_source_geom        => null()
   procedure(sub_add_source), pointer      :: phys_add_source             => null()
   procedure(sub_global_rad_source), pointer   :: global_radiation_source     => null()
-  procedure(sub_global_source), pointer   :: phys_global_source     => null()
+  procedure(sub_global_source), pointer   :: phys_global_source          => null()
   procedure(sub_get_aux), pointer         :: phys_get_aux                => null()
   procedure(sub_check_w), pointer         :: phys_check_w                => null()
   procedure(sub_get_pthermal), pointer    :: phys_get_pthermal           => null()
@@ -71,6 +72,11 @@ module mod_physics
 
      subroutine sub_check_params
      end subroutine sub_check_params
+
+     subroutine sub_set_mg_bounds
+       use mod_global_parameters
+       use mod_usr_methods
+     end subroutine sub_set_mg_bounds
 
      subroutine sub_boundary_adjust
        use mod_global_parameters
@@ -274,6 +280,9 @@ contains
     if (.not. associated(phys_check_params)) &
          phys_check_params => dummy_check_params
 
+    if (.not. associated(phys_set_mg_bounds)) &
+         phys_set_mg_bounds => dummy_set_mg_bounds
+
     if (.not. associated(phys_to_conserved)) &
          call mpistop("Error: phys_to_conserved not defined")
 
@@ -341,6 +350,9 @@ contains
 
   subroutine dummy_check_params
   end subroutine dummy_check_params
+
+  subroutine dummy_set_mg_bounds
+  end subroutine dummy_set_mg_bounds
 
   subroutine dummy_modify_wLR(ixI^L, ixO^L, wLC, wRC, wLp, wRp, s, idir)
     use mod_global_parameters

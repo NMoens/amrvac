@@ -91,6 +91,7 @@ module mod_rhd_phys
   public :: rhd_to_primitive
   public :: rhd_get_tgas
   public :: rhd_get_trad
+  public :: rhd_set_mg_bounds
 
 contains
 
@@ -240,6 +241,7 @@ contains
     phys_to_conserved        => rhd_to_conserved
     phys_to_primitive        => rhd_to_primitive
     phys_check_params        => rhd_check_params
+    phys_set_mg_bounds       => rhd_set_mg_bounds
     phys_check_w             => rhd_check_w
     phys_get_pthermal        => rhd_get_pthermal
     phys_get_tgas            => rhd_get_tgas
@@ -312,11 +314,7 @@ contains
 
   subroutine rhd_check_params
     use mod_global_parameters
-    use mod_multigrid_coupling
     use mod_dust, only: dust_check_params
-    use mod_usr_methods
-
-    integer :: iB, idim
 
     if (.not. rhd_energy) then
        if (rhd_gamma <= 0.0d0) call mpistop ("Error: rhd_gamma <= 0")
@@ -332,36 +330,46 @@ contains
 
     if (rhd_dust) call dust_check_params()
 
-    if (use_multigrid) then
-       ! Set boundary conditions for the multigrid solver
-       do iB = 1, 2*ndim
-          select case (typeboundary(r_e, iB))
-          case ('symm')
-             ! d/dx u = 0
-             mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-             mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
-          case ('asymm')
-             ! u = 0
-             mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-             mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
-          case ('cont')
-             ! d/dx u = 0
-             mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-             mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
-          case ('periodic')
-             ! Nothing to do here
-          case ('noinflow')
-             call usr_special_mg_bc(iB)
-          case ('special')
-             call usr_special_mg_bc(iB)
-          case default
-             call mpistop("divE_multigrid warning: unknown b.c.: ", &
-                  trim(typeboundary(r_e, iB)))
-          end select
-       end do
-    end if
+    if (use_multigrid) call rhd_set_mg_bounds()
 
   end subroutine rhd_check_params
+
+  !> Set the boundaries for the diffusion of E
+  subroutine rhd_set_mg_bounds
+    use mod_global_parameters
+    use mod_multigrid_coupling
+    use mod_usr_methods
+
+    integer :: iB
+
+    ! Set boundary conditions for the multigrid solver
+    do iB = 1, 2*ndim
+       select case (typeboundary(r_e, iB))
+       case ('symm')
+          ! d/dx u = 0
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+       case ('asymm')
+          ! u = 0
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+       case ('cont')
+          ! d/dx u = 0
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+       case ('periodic')
+          ! Nothing to do here
+       case ('noinflow')
+          call usr_special_mg_bc(iB)
+       case ('special')
+          call usr_special_mg_bc(iB)
+       case default
+          call mpistop("divE_multigrid warning: unknown b.c.: ", &
+               trim(typeboundary(r_e, iB)))
+       end select
+    end do
+  end subroutine rhd_set_mg_bounds
+
 
   subroutine rhd_physical_units
     use mod_global_parameters

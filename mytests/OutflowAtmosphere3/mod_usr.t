@@ -292,7 +292,8 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: a(ixImin1:ixImax1),b(ixImin1:ixImax1),c(ixImin1:ixImax1),d(ixImin1:ixImax1)
-    double precision :: Temp(ixI^S), Press(ixI^S), kbTmu(ixI^S), kappa
+    double precision :: Temp(ixI^S), Press(ixI^S), kbTmu(ixI^S), kappa(ixBmin2:ixBmax2), gradE(ixImin1:ixImax1)
+    double precision :: F_star(ixBmin2:ixBmax2)
 
     integer :: i,j
 
@@ -300,8 +301,19 @@ contains
 
     case(3)
 
-
-      kappa = kappa_b
+      ! do i = ixBmax2, ixBmin2, -1
+      !   w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
+      ! enddo
+      !   gradE(ixImin1:ixImax1) = (w(ixImin1:ixImax1,3,r_e)-w(ixImin1:ixImax1,1,r_e))/(x(ixImin1:ixImax2,3,2)-x(ixImin1:ixImax2,1,2))
+      !   F_star(ixBmin2:ixBmax2) = L_0/(4*dpi*r_arr(ixBmin2:ixBmax2)**2)
+      !   kappa(ixBmin2:ixBmax2) = kappa_b + erf((x(5,ixBmin2:ixBmax2,2)-one)*100)*(kappa_0-kappa_b)
+      ! do i = ixBmax2, ixBmin2, -1
+      !   w(ixImin1:ixImax1,i,rho_) = -c/const_c*1.d0/3.d0/(kappa(i))*gradE/F_star(i)
+      !   w(ixImin1:ixImax1,i,mom(2)) = zero
+      !   w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i,rho_)*sp_sos
+      !   w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
+      !   + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
+      ! enddo
 
       do i = ixBmax2, ixBmin2, -1
         w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
@@ -317,15 +329,8 @@ contains
         w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
         + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
         - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
-        *3.d0*kappa*sp_rho/(const_c/unit_velocity) &
+        *3.d0*kappa_b*sp_rho/(const_c/unit_velocity) &
         * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
-
-        ! w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
-
-        ! do j = ixImin1,ixImax1
-        !   w(j,i,r_e) = min(1.5d0*sp_Er, w(j,i,r_e))
-        !   w(j,i,r_e) = max(0.5d0*sp_Er, w(j,i,r_e))
-        ! enddo
       enddo
 
     case(4)
@@ -348,42 +353,18 @@ contains
 
     integer, intent(in)             :: iB
 
+    integer :: ixOmax2
+
     select case (iB)
       case (3)
-
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
         mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells)
 
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
-
       case (4)
+        ixOmax2 = nghostcells+domain_nx2-2
 
-
-        !> End goes to zero
-        ! nothing
-
-        !> End keeps on rising :/
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
-
-        !> Works, but is too cheaty
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
-        mg%bc(iB, mg_iphi)%bc_value = Er_arr(domain_nx2+3)
-
-        !>same as neumann
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_copy
-
-        !> goes to nan
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-
-        !> goes to zero
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
-
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_consflux
-        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
-
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        mg%bc(iB, mg_iphi)%bc_value = (Er_arr(ixOmax2+1) - Er_arr(ixOmax2))/(r_arr(ixOmax2+1) - r_arr(ixOmax2))
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

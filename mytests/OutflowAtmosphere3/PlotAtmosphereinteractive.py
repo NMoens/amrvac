@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors
 
 import os, glob
+import copy
 import tkinter as tk
 from tkinter import filedialog
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -280,13 +281,31 @@ class Plotter:
         r = np.array(r)
 
         #> Define your variables here:
+        if varname == 'F2':
+            E = ad['r_e']
+            gradE = copy.deepcopy(E)
+
+            for i in range(nx):
+                gradE[i][1:-1] = (E[i][2:] - E[i][:-2])/(y[2:] - y[:-2])
+                gradE[i][0] = gradE[i][1]
+                gradE[i][-1] = gradE[i][-2]
+            return -ad['D']*gradE
+
         if varname == 'a2':
             p = (hd_gamma - 1)*(ad['e'] - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
             a2 = p/ad['rho']
             return a2
 
         if varname == 'g_rad':
-            grad = ad['Kappa']*ad['F2']/c_light*ds.units.unit_velocity
+            E = ad['r_e']
+            gradE = copy.deepcopy(E)
+
+            for i in range(nx):
+                gradE[i][1:-1] = (E[i][2:] - E[i][:-2])/(y[2:] - y[:-2])
+                gradE[i][0] = gradE[i][1]
+                gradE[i][-1] = gradE[i][-2]
+
+            grad = -ad['Kappa']*ad['D']*gradE/c_light*ds.units.unit_velocity
             return grad
 
         if varname == 'g_grav':
@@ -295,7 +314,15 @@ class Plotter:
             return ggrav
 
         if varname == 'Gamma':
-            grad = ad['Kappa']*ad['F2']/(c_light/ds.units.unit_velocity)
+            E = ad['r_e']
+            gradE = copy.deepcopy(E)
+
+            for i in range(nx):
+                gradE[i][1:-1] = (E[i][2:] - E[i][:-2])/(y[2:] - y[:-2])
+                gradE[i][0] = gradE[i][1]
+                gradE[i][-1] = gradE[i][-2]
+
+            grad = -ad['Kappa']*ad['D']*gradE/c_light*ds.units.unit_velocity
             ggrav = G_grav*M_star/(r*ds.units.unit_length)**2\
             *(ds.units.unit_time**2/ds.units.unit_length)
             Gamma = grad/ggrav
@@ -495,7 +522,7 @@ if __name__ == '__main__':
     ds = amrvac_reader.load_file(files[0])
     orig_variables = ds.get_varnames()
         #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
-    extra_vars = ['M_dot', 'T_gas', 'Av_rho',  'Av_v',  'Av_re']
+    extra_vars = ['F2', 'M_dot', 'T_gas', 'Av_rho',  'Av_v',  'Av_re']
     delete_vars = []
     variables = ds.get_varnames() #.extend(extra_vars)
     variables.extend(extra_vars)

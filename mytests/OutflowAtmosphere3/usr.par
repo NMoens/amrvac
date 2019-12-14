@@ -13,8 +13,8 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat     = 1
-   ditsave_log     = 1
+   !ditsave_dat     = 100
+   !ditsave_log     = 100
    dtsave_dat     = 0.5d-3
    dtsave_log     = 5.d-2
 /
@@ -22,7 +22,7 @@
  &stoplist
    time_max = 1.d0
    dtmin = 1.0d-20
-   it_max = 20
+   !it_max = 2000
 /
 
  &methodlist
@@ -41,7 +41,7 @@
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 5*'special'
-  typeboundary_max2 = 5*'noinflow'
+  typeboundary_max2 = 4*'cont','special'
   internalboundary = T
 /
 

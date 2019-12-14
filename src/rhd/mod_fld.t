@@ -215,7 +215,7 @@ module mod_fld
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
 
       !> correct the flux at the outer bound
-      call correct_radflux_bounds(x, ixI^L, ixO^L, rad_flux)
+      ! call correct_radflux_bounds(x, ixI^L, ixO^L, rad_flux)
 
       do idir = 1,ndir
         !> Radiation force = kappa*rho/c *Flux

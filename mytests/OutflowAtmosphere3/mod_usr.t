@@ -301,37 +301,40 @@ contains
 
     case(3)
 
-      ! do i = ixBmax2, ixBmin2, -1
-      !   w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
-      ! enddo
+      do i = 1, nghostcells
+        w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
+      enddo
       !   gradE(ixImin1:ixImax1) = (w(ixImin1:ixImax1,3,r_e)-w(ixImin1:ixImax1,1,r_e))/(x(ixImin1:ixImax2,3,2)-x(ixImin1:ixImax2,1,2))
       !   F_star(ixBmin2:ixBmax2) = L_0/(4*dpi*r_arr(ixBmin2:ixBmax2)**2)
       !   kappa(ixBmin2:ixBmax2) = kappa_b + erf((x(5,ixBmin2:ixBmax2,2)-one)*100)*(kappa_0-kappa_b)
-      ! do i = ixBmax2, ixBmin2, -1
-      !   w(ixImin1:ixImax1,i,rho_) = -c/const_c*1.d0/3.d0/(kappa(i))*gradE/F_star(i)
-      !   w(ixImin1:ixImax1,i,mom(2)) = zero
+      ! do i = 1, nghostcells
+      !   print*, it, gradE(ixImin1:3), F_star(i), kappa(i)
+      !   w(ixImin1:ixImax1,i,rho_) = dabs(c/const_c*1.d0/3.d0/(kappa(i))*gradE/F_star(i))
+      !   w(ixImin1:ixImax1,i,mom(1)) = zero
       !   w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i,rho_)*sp_sos
       !   w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
-      !   + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
+      !   + half*sp_sos**2*w(ixImin1:ixImax1,i,rho_)
       ! enddo
 
-      do i = ixBmax2, ixBmin2, -1
-        w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
-        w(ixImin1:ixImax1,i,mom(1)) = zero
-        w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
-        do j = ixImin1,ixImax1
-          ! w(j,i,mom(2)) = min(1.5d0*sp_rho*sp_sos, w(j,i,mom(2)))
-          w(j,i,mom(2)) = max(-0.d0*sp_rho*sp_sos, w(j,i,mom(2)))
-        enddo
-        w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
-        + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
 
-        w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
-        + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
-        - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
-        *3.d0*kappa_b*sp_rho/(const_c/unit_velocity) &
-        * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
-      enddo
+
+      ! do i = ixBmax2, ixBmin2, -1
+      !   w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
+      !   w(ixImin1:ixImax1,i,mom(1)) = zero
+      !   w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
+      !   do j = ixImin1,ixImax1
+      !     ! w(j,i,mom(2)) = min(1.5d0*sp_rho*sp_sos, w(j,i,mom(2)))
+      !     w(j,i,mom(2)) = max(-0.d0*sp_rho*sp_sos, w(j,i,mom(2)))
+      !   enddo
+      !   w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
+      !   + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
+      !
+      !   w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
+      !   + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
+      !   - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
+      !   *3.d0*kappa_b*sp_rho/(const_c/unit_velocity) &
+      !   * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
+      ! enddo
 
     case(4)
       do i = ixBmin2,ixBmax2

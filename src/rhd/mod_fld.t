@@ -680,6 +680,7 @@ module mod_fld
     logical, intent(inout)       :: active
     double precision             :: max_res
 
+    !> This one is probably not necessary 
     call set_mg_diffcoef()
 
     max_res = fld_diff_tol !1d-7/qdt
@@ -765,8 +766,11 @@ module mod_fld
   subroutine set_mg_diffcoef()
     use mod_multigrid_coupling
     use mod_global_parameters
-    !if (.not. time_advance) call MPI_BARRIER(icomm,ierrmpi)
-    call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
+    if (.not. time_advance)then
+      call mg_copy_to_tree(i_diff_mg, mg_iveps, .false., .false.)
+    else
+      call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
+    endif
   end subroutine set_mg_diffcoef
 
   ! !> Sets boundary conditions for multigrid, based on hydro-bounds

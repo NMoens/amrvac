@@ -1,30 +1,23 @@
 &filelist
        typefilelog='regression_test'
        base_filename='bw_3d'
-       saveprim=.false.
+       saveprim=.true.
        convert_type='vtuBCCmpi'
        autoconvert=.true.
 /
 
 &savelist
-       itsave(1,1)     = 0
-       itsave(1,2)     = 0
        dtsave_log      = 1.d-3
-       dtsave_dat      = 1.d-3
-       !ditsave_dat    = 1
 /
 
 &stoplist
-       time_max        = 1.d0
-       dtmin = 1.d-8
-       !it_max = 25
+       time_max        = 2.d-2
 /
 
 &methodlist
-       time_integrator=  'twostep'
-       flux_scheme=    20*'hll'
+       time_integrator=  'threestep'
+       flux_scheme=    20*'hllc'
        limiter= 20*'koren'
-       small_values_method = 'replace'
        typesourcesplit = 'sfs'
 /
 
@@ -34,17 +27,18 @@
        typeboundary_min2=6*'cont'
        typeboundary_max2=6*'cont'
        typeboundary_min3=6*'cont'
+       typeboundary_max3=6*'cont'
 /
 
 &meshlist
        refine_criterion=3
-       refine_max_level=4
-       domain_nx1=128
-       domain_nx2=128
-       domain_nx3=64
-       block_nx1=32
-       block_nx2=32
-       block_nx3=32
+       refine_max_level=3
+       domain_nx1=32
+       domain_nx2=32
+       domain_nx3=32
+       block_nx1=16
+       block_nx2=16
+       block_nx3=16
        iprob=1
        xprobmin1=-1.d0
        xprobmax1=1.d0

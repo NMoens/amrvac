@@ -1,29 +1,23 @@
 &filelist
+       typefilelog='regression_test'
        base_filename='bw_2d'
-       saveprim=.false.
+       saveprim=.true.
        convert_type='vtuBCCmpi'
        autoconvert=.true.
 /
 
 &savelist
-       itsave(1,1)     = 0
-       itsave(1,2)     = 0
        dtsave_log      = 1.d-3
-       dtsave_dat      = 1.d-3
-       !ditsave_dat    = 1
 /
 
 &stoplist
-       time_max        = 1.d0
-       dtmin = 1.d-8
-       !it_max = 25
+       time_max        = 5.d-2
 /
 
 &methodlist
-       time_integrator=  'twostep'
-       flux_scheme=    20*'hll'
+       time_integrator=  'threestep'
+       flux_scheme=    20*'hllc'
        limiter= 20*'koren'
-       small_values_method = 'replace'
        typesourcesplit = 'sfs'
 /
 
@@ -36,9 +30,9 @@
 
 &meshlist
        refine_criterion=3
-       refine_max_level=4
-       domain_nx1=128
-       domain_nx2=128
+       refine_max_level=3
+       domain_nx1=64
+       domain_nx2=64
        block_nx1=32
        block_nx2=32
        iprob=1
@@ -56,10 +50,6 @@
        rhd_energy = .true.
        rhd_gamma = 1.6666d0
        rhd_radiation_formalism = 'fld'
-       rhd_radiation_advection = .true.
-       rhd_radiation_force = .true.
-       rhd_energy_interact = .true.
-       rhd_radiation_diffusion = .true.
 /
 
 &fld_list

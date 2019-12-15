@@ -60,7 +60,7 @@ contains
 
     !> Have to do this in 2 steps to define boundary e_rad
     local_rad_e = const_rad_a/unit_pressure*unit_temperature**4.d0 &
-    *Temp(nghostcells+2,nghostcells+2)**4.d0
+    *Temp(nghostcells+2,nghostcells+2,nghostcells+2)**4.d0
 
     w(ixI^S,r_e) = local_rad_e
 

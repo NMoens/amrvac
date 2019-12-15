@@ -15,6 +15,8 @@ contains
     phys_diffuse_hllcd => rhd_diffuse_hllcd
     phys_get_lCD => rhd_get_lCD
     phys_get_wCD => rhd_get_wCD
+
+    call mpistop("Hold your bloody horses. hllc is not implemented for an rhd setup, try hll instead")
   end subroutine rhd_hllc_init
 
   subroutine rhd_diffuse_hllcd(ixI^L,ixO^L,idim,wLC,wRC,fLC,fRC,patchf)

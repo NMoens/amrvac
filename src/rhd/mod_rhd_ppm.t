@@ -14,6 +14,9 @@ contains
 
     phys_ppm_flatcd => rhd_ppm_flatcd
     phys_ppm_flatsh => rhd_ppm_flatsh
+
+    call mpistop("Hold your bloody horses. ppm is not implemented for an rhd setup, try hll instead")
+
   end subroutine rhd_ppm_init
 
   subroutine rhd_ppm_flatcd(ixI^L,ixO^L,ixL^L,ixR^L,w,d2w,drho,dp)

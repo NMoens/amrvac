@@ -54,6 +54,8 @@ contains
        end if
     end do
 
+    call mpistop("Hold your bloody horses. roe is not implemented for an rhd setup, try hll instead")
+
   end subroutine rhd_roe_init
 
   !> Calculate the Roe average of w, assignment of variables:

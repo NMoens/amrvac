@@ -22,8 +22,8 @@ contains
   !> This routine should set user methods, and activate the physics module
   subroutine usr_init()
 
-    ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    ! Choose coordinate system as 3D Cartesian with three components for vectors
+    call set_coordinate_system("Cartesian_3D")
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -130,20 +130,21 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    double precision :: press(ixI^S), temp(ixI^S)
+    double precision :: press(ixO^S), temp(ixO^S)
     double precision :: kappa(ixO^S), lambda(ixO^S), fld_R(ixO^S)
 
     ! Set initial values for w
-    w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1))
-    w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1))
-    w(ixI^S, mom(2)) = zero
-    w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1))
+    w(ixO^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixO^S,1))
+    w(ixO^S, mom(1)) = w(ixO^S, rho_)*A_v*dsin(wavenumber*x(ixO^S,1))
+    w(ixO^S, mom(2)) = zero
+    w(ixO^S, mom(3)) = zero
+    w(ixO^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixO^S,1))
 
-    press(ixI^S) = p0 + A_p*dsin(wavenumber*x(ixI^S,1))
-    temp(ixI^S) = (const_mp*fld_mu/const_kb)*press(ixI^S)/w(ixI^S, rho_)&
+    press(ixO^S) = p0 + A_p*dsin(wavenumber*x(ixO^S,1))
+    temp(ixO^S) = (const_mp*fld_mu/const_kb)*press(ixO^S)/w(ixO^S, rho_)&
     *(unit_pressure/unit_density)/unit_temperature
 
-    w(ixI^S, r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
+    w(ixO^S, r_e) = const_rad_a*(temp(ixO^S)*unit_temperature)**4.d0/unit_pressure
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
@@ -161,19 +162,20 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
 
-    double precision :: press(ixI^S), temp(ixI^S)
+    double precision :: press(ixO^S), temp(ixO^S)
 
-    where (x(ixI^S,1) .lt. one)
-      w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
-      w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
-      w(ixI^S, mom(2)) = zero
-      w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
+    where (x(ixO^S,1) .lt. one)
+      w(ixO^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixO^S,1)-frequency*global_time)
+      w(ixO^S, mom(1)) = w(ixO^S, rho_)*A_v*dsin(wavenumber*x(ixO^S,1)-frequency*global_time)
+      w(ixO^S, mom(2)) = zero
+      w(ixO^S, mom(3)) = zero
+      w(ixO^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixO^S,1)-frequency*global_time)
 
-      press(ixI^S) = p0 + A_p*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
-      temp(ixI^S) = (const_mp*fld_mu/const_kb)*press(ixI^S)/w(ixI^S, rho_)&
+      press(ixO^S) = p0 + A_p*dsin(wavenumber*x(ixO^S,1)-frequency*global_time)
+      temp(ixO^S) = (const_mp*fld_mu/const_kb)*press(ixO^S)/w(ixO^S, rho_)&
       *(unit_pressure/unit_density)/unit_temperature
 
-      w(ixI^S, r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
+      w(ixO^S, r_e) = const_rad_a*(temp(ixO^S)*unit_temperature)**4.d0/unit_pressure
     endwhere
 
   end subroutine Initialize_Wave

@@ -444,9 +444,6 @@ contains
       w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*wCT(ixO^S,r_e)*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))
     endif
 
-    ! Print out some information on Q:
-    ! print*, 'Q', 1.d0/3.d0*const_c/unit_velocity/(w(5,5,i_op)*w(5,5,rho_))*dt/(x(5,5,1) - x(4,5,1))**2
-
   end subroutine PseudoPlanar
 
   subroutine Opacity_stepfunction(ixI^L,ixO^L,w,x,kappa)

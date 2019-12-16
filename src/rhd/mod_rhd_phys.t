@@ -44,7 +44,8 @@ module mod_rhd_phys
   integer, public, protected              :: p_
 
   !> The adiabatic index
-  double precision, public, protected     :: rhd_gamma = 5.d0/3.0d0
+  !> Radiative gasses have a adiabatic index of 4/3, and not 5/3
+  double precision, public, protected     :: rhd_gamma = 4.d0/3.0d0
 
   !> The adiabatic constant
   double precision, public                :: rhd_adiab = 1.0d0

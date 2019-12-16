@@ -3,8 +3,8 @@
 /
 
 &filelist
-  base_filename='./3output/const'
-  autoconvert      = F
+  base_filename='./output/const'
+  autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
   nwauxio = 4
@@ -69,7 +69,7 @@
   He_abundance = 0.1d0
   rhd_gravity = .true.
   rhd_energy = .true.
-  rhd_gamma = 1.6666667d0
+  rhd_gamma = 1.3333d0
   rhd_radiation_formalism = 'fld'
   radio_acoustic_filter = .false.
   size_ra_filter = 2

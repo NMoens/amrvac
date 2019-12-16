@@ -49,7 +49,7 @@ module mod_multigrid_coupling
   public
 
   !> Data structure containing the multigrid tree.
-  type(mg_t) :: mg
+  type(mg_t), public :: mg
 
   !> If defined, this routine is called after a new multigrid tree is
   !> constructed.

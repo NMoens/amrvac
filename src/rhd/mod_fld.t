@@ -72,6 +72,7 @@ module mod_fld
     !> these are called in mod_rhd_phys
     public :: get_fld_rad_force
     public :: get_fld_energy_interact
+    public :: fld_radforce_get_dt
     public :: fld_init
     public :: fld_get_radflux
     public :: fld_get_radpress
@@ -261,6 +262,34 @@ module mod_fld
     }
 
   end subroutine correct_radflux_bounds
+
+  subroutine fld_radforce_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+    use mod_global_parameters
+    use mod_usr_methods
+
+    integer, intent(in)             :: ixI^L, ixO^L
+    double precision, intent(in)    :: dx^D, x(ixI^S,1:ndim), w(ixI^S,1:nw)
+    double precision, intent(inout) :: dtnew
+
+    double precision :: radiation_force(ixO^S,1:ndim)
+    double precision :: rad_flux(ixO^S,1:ndim)
+    double precision :: kappa(ixO^S)
+    double precision                :: dxinv(1:ndim), max_grad
+    integer                         :: idim
+
+    ^D&dxinv(^D)=one/dx^D;
+
+    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
+
+    do idim = 1, ndim
+      radiation_force(ixO^S,idim) = w(ixO^S,iw_rho)*kappa(ixO^S)*rad_flux(ixO^S,idim)/(const_c/unit_velocity)
+      max_grad = maxval(abs(radiation_force(ixO^S,idim)))
+      max_grad = max(max_grad, epsilon(1.0d0))
+      dtnew = min(dtnew, 1.0d0 / sqrt(max_grad * dxinv(idim)))
+    end do
+
+  end subroutine fld_radforce_get_dt
 
   !> w[iw]=w[iw]+qdt*S[wCT,qtC,x] where S is the source based on wCT within ixO
   !> This subroutine handles the energy exchange between gas and radiation

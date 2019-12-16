@@ -1110,6 +1110,7 @@ contains
     use mod_radiative_cooling, only: cooling_get_dt
     use mod_viscosity, only: viscosity_get_dt
     use mod_gravity, only: gravity_get_dt
+    use mod_fld, only: fld_radforce_get_dt
 
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: dx^D, x(ixI^S, 1:^ND)
@@ -1121,6 +1122,10 @@ contains
     if(rhd_dust) then
       call dust_get_dt(w, ixI^L, ixO^L, dtnew, dx^D, x)
     end if
+
+    if(rhd_radiation_force) then
+      call fld_radforce_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+    endif
 
     if(rhd_radiative_cooling) then
       call cooling_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)

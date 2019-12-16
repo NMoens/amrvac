@@ -26,9 +26,9 @@
 /
 
  &methodlist
-   time_integrator = 'twostep'
-   flux_scheme     = 20*'hll' !'tvdlf'/'hll'
-   limiter         = 20*'minmod' !'minmod'/'koren'
+   time_integrator = 'threestep'
+   flux_scheme     = 20*'hll'
+   limiter         = 20*'minmod'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
    small_values_method = 'replace'
@@ -61,7 +61,7 @@
  /
 
  &paramlist
-  courantpar       = 0.1d0
+  courantpar       = 0.05d0
   !dtpar           = 2.d-6
  /
 
@@ -72,7 +72,6 @@
   rhd_gamma = 1.3333d0
   rhd_radiation_formalism = 'fld'
   radio_acoustic_filter = .false.
-  size_ra_filter = 2
   rhd_radiation_force = .true.
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
@@ -86,6 +85,4 @@
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
   fld_diff_tol = 1.d-4
-  diff_coef_filter = .true.
-  size_D_filter = 2
   /

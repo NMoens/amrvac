@@ -54,8 +54,6 @@ contains
        end if
     end do
 
-    call mpistop("Hold your bloody horses. roe is not implemented for an rhd setup, try hll instead")
-
   end subroutine rhd_roe_init
 
   !> Calculate the Roe average of w, assignment of variables:
@@ -68,6 +66,8 @@ contains
     double precision, intent(inout) :: workroe(ixG^T, nworkroe)
     double precision, intent(in)    :: x(ixG^T, 1:^ND)
     integer                         :: idir
+
+    call mpistop("Hold your bloody horses. roe  not implemented, try hll")
 
     ! call average2(wL,wR,x,ix^L,idim,wroe,workroe(ixG^T,1),workroe(ixG^T,2))
     workroe(ix^S, 1) = sqrt(wL(ix^S,rho_))
@@ -305,6 +305,8 @@ contains
     double precision, intent(inout) :: wroe(ixG^T, nw)
     double precision, intent(inout) :: workroe(ixG^T, nworkroe)
     double precision, intent(in)    :: x(ixG^T, 1:^ND)
+
+    call mpistop("Hold your bloody horses. roe  not implemented, try hll")
 
     call average2_iso(wL,wR,x,ix^L,idim,wroe,workroe(ixG^T,1))
 

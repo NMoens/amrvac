@@ -16,8 +16,8 @@
 
 &methodlist
        time_integrator=  'threestep'
-       flux_scheme=    20*'hllc'
-       limiter= 20*'koren'
+       flux_scheme=    20*'hll'
+       limiter= 20*'minmod'
        typesourcesplit = 'sfs'
 /
 

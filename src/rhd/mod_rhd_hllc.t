@@ -16,7 +16,6 @@ contains
     phys_get_lCD => rhd_get_lCD
     phys_get_wCD => rhd_get_wCD
 
-    call mpistop("Hold your bloody horses. hllc is not implemented for an rhd setup, try hll instead")
   end subroutine rhd_hllc_init
 
   subroutine rhd_diffuse_hllcd(ixI^L,ixO^L,idim,wLC,wRC,fLC,fRC,patchf)
@@ -36,6 +35,8 @@ contains
     integer         , dimension(ixI^S), intent(inout)        :: patchf
 
     integer                                           :: ixOO^D,TxOO^L
+
+    call mpistop("Hold your bloody horses. hllc  not implemented, try hll")
 
     ! In a user-controlled region around any point with flux sign change between
     ! left and right, ensure fallback to TVDLF
@@ -84,6 +85,8 @@ contains
     !      +2: take right flux, no computation here
     !      +4: take TVDLF flux, no computation here
     !       1: compute the characteristic speed for the CD
+
+    call mpistop("Hold your bloody horses. hllc  not implemented, try hll")
 
     Cond_patchf(ixO^S)=(abs(patchf(ixO^S))==1)
 
@@ -174,6 +177,9 @@ contains
     integer         , dimension(ixI^S), intent(in)           :: patchf
 
     integer                                      :: n, iw, ix^D
+
+    call mpistop("Hold your bloody horses. hllc  not implemented, try hll")
+
 
     !-------------- auxiliary Speed and array-------------!
     {do ix^DB=ixOmin^DB,ixOmax^DB\}

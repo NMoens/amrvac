@@ -15,8 +15,6 @@ contains
     phys_ppm_flatcd => rhd_ppm_flatcd
     phys_ppm_flatsh => rhd_ppm_flatsh
 
-    call mpistop("Hold your bloody horses. ppm is not implemented for an rhd setup, try hll instead")
-
   end subroutine rhd_ppm_init
 
   subroutine rhd_ppm_flatcd(ixI^L,ixO^L,ixL^L,ixR^L,w,d2w,drho,dp)
@@ -25,6 +23,8 @@ contains
     integer, intent(in)             :: ixI^L, ixO^L, ixL^L, ixR^L
     double precision, intent(in)    :: w(ixI^S, nw), d2w(ixG^T, 1:nwflux)
     double precision, intent(inout) :: drho(ixG^T), dp(ixG^T)
+
+    call mpistop("Hold your bloody horses. ppm not implemented, try hll")
 
     if(rhd_energy) then
       drho(ixO^S) = rhd_gamma*abs(d2w(ixO^S, rho_))&
@@ -44,6 +44,8 @@ contains
     double precision, intent(in)    :: w(ixI^S, nw)
     double precision, intent(inout) :: drho(ixG^T), dp(ixG^T), dv(ixG^T)
     double precision                :: v(ixG^T)
+
+    call mpistop("Hold your bloody horses. ppm not implemented, try hll")
 
     if(rhd_energy) then
       ! eq. B15, page 218, Mignone and Bodo 2005, ApJS (beta1)

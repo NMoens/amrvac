@@ -29,6 +29,12 @@ contains
 
     src_active = .false.
 
+    if (physics_type .eq. 'rhd') then
+      !> SHOULD BE A .NOT. PRIOR CONDITION
+      if (typesourcesplit=='sf' .or. typesourcesplit=='ssf') &
+      call mpistop('FLD does not run with typesourcesplit sf or ssf, use a *s scheme')
+    endif
+
     if ((.not.prior).and.&
          (typesourcesplit=='sf' .or. typesourcesplit=='ssf')) return
 
@@ -50,7 +56,6 @@ contains
       !> SHOULD BE A .NOT. PRIOR CONDITION
       if (typesourcesplit=='sf' .or. typesourcesplit=='ssf') &
       call mpistop('FLD does not run with typesourcesplit sf or ssf, use a *s scheme')
-
       if (.not. prior .and. associated(global_radiation_source)) then
         call phys_set_mg_bounds()
         call global_radiation_source(dt, qt, src_active)

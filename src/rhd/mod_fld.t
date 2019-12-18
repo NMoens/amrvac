@@ -134,8 +134,8 @@ module mod_fld
 
     !> Set lineforce opacities as variable
     if (lineforce_opacities) then
-      allocate(i_opf(ndir))
-      do idir = 1,ndir
+      allocate(i_opf(ndim))
+      do idir = 1,ndim
         write(ind_1,'(I1)') idir
         cmp_f = 'k' // ind_1
         i_opf(idir) = var_set_extravar(cmp_f,cmp_f)
@@ -195,8 +195,6 @@ module mod_fld
     use mod_global_parameters
     use mod_usr_methods
 
-    use mod_physics, only: phys_get_pthermal  !needed to get temp
-
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: qdt, x(ixI^S,1:ndim)
     double precision, intent(in)    :: wCT(ixI^S,1:nw)
@@ -204,9 +202,10 @@ module mod_fld
     double precision, intent(inout) :: w(ixI^S,1:nw)
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
-    double precision :: radiation_force(ixO^S,1:ndim)
-    double precision :: kappa(ixO^S)
-    double precision :: rad_flux(ixO^S,1:ndir)
+
+    double precision :: radiation_forceCT(ixO^S,1:ndim)
+    double precision :: kappaCT(ixO^S)
+    double precision :: rad_fluxCT(ixO^S,1:ndim)
 
     integer :: idir, i
 
@@ -214,25 +213,25 @@ module mod_fld
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
 
-      call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
-      call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
+      call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappaCT)
+      call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_fluxCT)
 
       !> correct the flux at the outer bound
       ! call correct_radflux_bounds(x, ixI^L, ixO^L, rad_flux)
 
-      do idir = 1,ndir
+      do idir = 1,ndim
         !> Radiation force = kappa*rho/c *Flux
-        radiation_force(ixO^S,idir) = wCT(ixO^S,iw_rho)*kappa(ixO^S)*rad_flux(ixO^S,idir)/(const_c/unit_velocity)
+        radiation_forceCT(ixO^S,idir) = kappaCT(ixO^S)*rad_fluxCT(ixO^S,idir)/(const_c/unit_velocity)
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
-            + qdt * radiation_force(ixO^S,idir)
+            + qdt * wCT(ixO^S,iw_rho)*radiation_forceCT(ixO^S,idir)
 
         ! print*, it, 'Not Adding F_rad to kinetic energy'
         if (.not. block%e_is_internal) then
           !> Energy equation source term (kinetic energy)
           w(ixO^S,iw_e) = w(ixO^S,iw_e) &
-              + qdt * radiation_force(ixO^S,idir) * wCT(ixO^S,iw_mom(idir))/wCT(ixO^S,iw_rho)
+              + qdt * wCT(ixO^S,iw_mom(idir))*radiation_forceCT(ixO^S,idir)
         endif
       enddo
 
@@ -312,7 +311,7 @@ module mod_fld
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
       !> Add energy sourceterms
-      call Energy_interaction(w, x, ixI^L, ixO^L)
+      call Energy_interaction(w, wCT, x, ixI^L, ixO^L)
     end if
   end subroutine get_fld_energy_interact
 
@@ -424,7 +423,7 @@ module mod_fld
     ! if (lineforce_opacities) then
     !
     !   !> Set t
-    !   do idir = 1,ndir
+    !   do idir = 1,ndim
     !     vel(ixI^S) = w(ixI^S,iw_mom(idir))/w(ixI^S,iw_rho)
     !     call gradient(vel,ixI^L,ixO^L,idir,gradv)
     !     forceM(ixO^S) = Qbar/(one-alpha) &
@@ -469,8 +468,7 @@ module mod_fld
       normgrad2(ixO^S) = zero
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
-      do idir = 1,ndir
-        !> gradient or gradientS ?!?!?!?!?!?
+      do idir = 1,ndim
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
@@ -488,8 +486,7 @@ module mod_fld
       normgrad2(ixO^S) = zero
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
-      do idir = 1,ndir
-        !> gradient or gradientS ?!?!?!?!?!?
+      do idir = 1,ndim
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
@@ -508,8 +505,7 @@ module mod_fld
       normgrad2(ixO^S) = zero
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
-      do idir = 1,ndir
-        !> gradient or gradientS ?!?!?!?!?!?
+      do idir = 1,ndim
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
@@ -530,8 +526,7 @@ module mod_fld
       normgrad2(ixO^S) = zero
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
-      do idir = 1,ndir
-        !> gradient or gradientS ?!?!?!?!?!?
+      do idir = 1,ndim
         call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
         normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
@@ -596,7 +591,7 @@ module mod_fld
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out) :: rad_flux(ixO^S, 1:ndim)
-    double precision :: L_star, R_star
+
     double precision :: grad_r_e(ixI^S)
     double precision :: rad_e(ixI^S)
     double precision :: kappa(ixO^S), lambda(ixO^S), fld_R(ixO^S)
@@ -609,8 +604,7 @@ module mod_fld
 
     !> Calculate the Flux using the fld closure relation
     !> F = -c*lambda/(kappa*rho) *grad E
-    do idir = 1,ndir
-      !> gradient or gradientS ?!?!?!?!?!?
+    do idir = 1,ndim
       call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
       rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
@@ -639,8 +633,7 @@ module mod_fld
 
     rad_e(ixI^S) = w(ixI^S, iw_r_e)
     grad_r_e(ixO^S,:) = zero
-    do idir = 1,ndir
-      !> gradient or gradientS ?!?!?!?!?!?
+    do idir = 1,ndim
       call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
@@ -652,20 +645,20 @@ module mod_fld
     f(ixO^S) = lambda(ixO^S) + lambda(ixO^S)**two * fld_R(ixO^S)**two
     f(ixO^S) = one/two*(one-f(ixO^S)) + one/two*(3.d0*f(ixO^S) - one)
 
-    do idir = 1,ndir
+    do idir = 1,ndim
       eddington_tensor(ixO^S,idir,idir) = half*(one-f(ixO^S))
     enddo
 
-    do idir = 1,ndir
-      do jdir = 1,ndir
+    do idir = 1,ndim
+      do jdir = 1,ndim
         if (idir .ne. jdir) eddington_tensor(ixO^S,idir,jdir) = zero
         tnsr2(ixO^S,idir,jdir) =  half*(3.d0*f(ixO^S) - 1)&
         *grad_r_e(ixO^S,idir)*grad_r_e(ixO^S,jdir)/normgrad2(ixO^S)
       enddo
     enddo
 
-    do idir = 1,ndir
-      do jdir = 1,ndir
+    do idir = 1,ndim
+      do jdir = 1,ndim
         where ((tnsr2(ixO^S,idir,jdir) .eq. tnsr2(ixO^S,idir,jdir)) &
           .and. (normgrad2(ixO^S) .gt. smalldouble))
           eddington_tensor(ixO^S,idir,jdir) = eddington_tensor(ixO^S,idir,jdir) + tnsr2(ixO^S,idir,jdir)
@@ -816,18 +809,20 @@ module mod_fld
   !> These sourceterms are applied using the root-finding of a 4th order polynomial
   !> This routine loops over every cell in the domain
   !> and computes the coefficients of the polynomials in every cell
-  subroutine Energy_interaction(w, x, ixI^L, ixO^L)
+  subroutine Energy_interaction(w, wCT, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
     use mod_physics
 
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
+    double precision, intent(in)    :: wCT(ixI^S,1:nw)
     double precision, intent(inout) :: w(ixI^S,1:nw)
-    double precision :: div_v(ixI^S,1:ndir,1:ndir)
-    double precision :: edd(ixO^S,1:ndir,1:ndir)
+
+    double precision :: div_v(ixI^S,1:ndim,1:ndim)
+    double precision :: edd(ixO^S,1:ndim,1:ndim)
     double precision :: divvP(ixO^S)
-    double precision :: temperature(ixI^S), vel(ixI^S)
+    double precision :: vel(ixI^S)
     double precision :: a1(ixO^S), a2(ixO^S), a3(ixO^S)
     double precision :: c0(ixO^S), c1(ixO^S)
     double precision :: e_gas(ixO^S), E_rad(ixO^S)
@@ -838,16 +833,16 @@ module mod_fld
 
     !> calculate tensor div_v
     !$OMP PARALLEL DO
-    do i = 1,ndir
+    do i = 1,ndim
       do j = 1,ndim
-        vel(ixI^S) = w(ixI^S,iw_mom(j))/w(ixI^S,iw_rho)
+        vel(ixI^S) = wCT(ixI^S,iw_mom(j))/wCT(ixI^S,iw_rho)
         call gradient(vel,ixI^L,ixO^L,i,grad_v)
         div_v(ixO^S,i,j) = grad_v(ixO^S)
       enddo
     enddo
     !$OMP END PARALLEL DO
 
-    call fld_get_eddington(w, x, ixI^L, ixO^L, edd)
+    call fld_get_eddington(wCT, x, ixI^L, ixO^L, edd)
 
     !> VARIABLE NAMES DIV ARE ACTUALLY GRADIENTS
     {^IFONED
@@ -874,18 +869,19 @@ module mod_fld
                  + div_v(ixO^S,3,3)*edd(ixO^S,3,3)
     }
 
-    divvP(ixO^S) = divvP(ixO^S)*w(ixO^S,iw_r_e)
+    divvP(ixO^S) = divvP(ixO^S)*wCT(ixO^S,iw_r_e)
 
     !> e_gas is the INTERNAL ENERGY without KINETIC ENERGY
     if (.not. block%e_is_internal) &
-      e_gas(ixO^S) = w(ixO^S,iw_e) - half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
-    E_rad(ixO^S) = w(ixO^S,iw_r_e)
+      e_gas(ixO^S) = wCT(ixO^S,iw_e) - half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
 
-    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    E_rad(ixO^S) = wCT(ixO^S,iw_r_e)
+
+    call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
 
     !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*kappa(ixO^S)*w(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure))*((fld_gamma-one)/w(ixO^S,iw_rho))**4.d0*dt
-    a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*w(ixO^S,iw_rho)*dt
+    a1(ixO^S) = 4*kappa(ixO^S)*wCT(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure))*((fld_gamma-one)/wCT(ixO^S,iw_rho))**4.d0*dt
+    a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*wCT(ixO^S,iw_rho)*dt
     a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
 
     c0(ixO^S) = ((one + a2(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
@@ -907,15 +903,24 @@ module mod_fld
     {enddo\}
     !$OMP END PARALLEL DO
 
-    !> Update gas-energy in w, internal + kinetic
-    if (.not. block%e_is_internal) &
-      w(ixO^S,iw_e) = e_gas(ixO^S) + half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
-
     !> advance E_rad
     E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S) + a3(ixO^S))
 
+    !> w = w + dt f(wCT)
+    !> e_gas and E_rad ~ wCT + dt f(wCT)
+    !> dt f(wCT) = e_gas,E_rad - wCT
+    !> new w = w +  e_gas,E_rad - wCT
+
+    !> Beginning of module substracted wCT Ekin
+    !> So now add wCT Ekin
+
+    !> Update gas-energy in w, internal + kinetic
+    w(ixO^S,iw_e) = w(ixO^S,iw_e) + e_gas(ixO^S) - wCT(ixO^S,iw_e)
+    if (.not. block%e_is_internal) &
+      w(ixO^S,iw_e) = w(ixO^S,iw_e) + half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
+
     !> Update rad-energy in w
-    w(ixO^S,iw_r_e) = E_rad(ixO^S)
+    w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) + E_rad(ixO^S) - wCT(ixO^S,iw_r_e)
 
   end subroutine Energy_interaction
 

@@ -339,8 +339,7 @@ contains
       do i = ixBmax2, ixBmin2, -1
         w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
         w(ixImin1:ixImax1,i,mom(1)) = zero
-        w(ixImin1:ixImax1,i,mom(2)) = (x(ixImin1:ixImax1,i+1,&
-           2)/x(ixImin1:ixImax1,i,2))**2*w(ixImin1:ixImax1,i+1,mom(2))
+        w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i+1,mom(2))
         do j = ixImin1,ixImax1
           ! w(j,i,mom(2)) = min(1.5d0*sp_rho*sp_sos, w(j,i,mom(2)))
           w(j,i,mom(2)) = max(-0.d0*sp_rho*sp_sos, w(j,i,mom(2)))

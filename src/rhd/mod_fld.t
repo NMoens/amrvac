@@ -227,11 +227,12 @@ module mod_fld
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * wCT(ixO^S,iw_rho)*radiation_forceCT(ixO^S,idir)
 
-        ! print*, it, 'Not Adding F_rad to kinetic energy'
-        if (.not. block%e_is_internal) then
-          !> Energy equation source term (kinetic energy)
-          w(ixO^S,iw_e) = w(ixO^S,iw_e) &
-              + qdt * wCT(ixO^S,iw_mom(idir))*radiation_forceCT(ixO^S,idir)
+        if (rhd_energy) then
+          if (.not. block%e_is_internal) then
+            !> Energy equation source term (kinetic energy)
+            w(ixO^S,iw_e) = w(ixO^S,iw_e) &
+                + qdt * wCT(ixO^S,iw_mom(idir))*radiation_forceCT(ixO^S,idir)
+          endif
         endif
       enddo
 
@@ -311,7 +312,7 @@ module mod_fld
     if(qsourcesplit .eqv. fld_split) then
       active = .true.
       !> Add energy sourceterms
-      call Energy_interaction(w, wCT, x, ixI^L, ixO^L)
+      call Energy_interaction(w, w, x, ixI^L, ixO^L)
     end if
   end subroutine get_fld_energy_interact
 
@@ -906,21 +907,31 @@ module mod_fld
     !> advance E_rad
     E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S) + a3(ixO^S))
 
-    !> w = w + dt f(wCT)
-    !> e_gas and E_rad ~ wCT + dt f(wCT)
+    !> new w = w + dt f(wCT)
+    !> e_gas,E_rad = wCT + dt f(wCT)
     !> dt f(wCT) = e_gas,E_rad - wCT
     !> new w = w +  e_gas,E_rad - wCT
 
-    !> Beginning of module substracted wCT Ekin
-    !> So now add wCT Ekin
+    !> WAIT A SECOND?! DOES THIS EVEN WORK WITH THESE KIND OF IMPLICIT METHODS?
+    !> NOT QUITE SURE TO BE HONEST
+    !> IS IT POSSIBLE TO SHUT DOWN SOURCE SPLITTING FOR JUST THIS TERM?
+    !> FIX BY PERFORMING Energy_interaction on (w,w,...)
+
+    ! call mpistop('This still has to be fixed somehow')
 
     !> Update gas-energy in w, internal + kinetic
-    w(ixO^S,iw_e) = w(ixO^S,iw_e) + e_gas(ixO^S) - wCT(ixO^S,iw_e)
+    ! w(ixO^S,iw_e) = w(ixO^S,iw_e) + e_gas(ixO^S) - wCT(ixO^S,iw_e)
+    w(ixO^S,iw_e) = e_gas(ixO^S)
+
+    !> Beginning of module substracted wCT Ekin
+    !> So now add wCT Ekin
     if (.not. block%e_is_internal) &
       w(ixO^S,iw_e) = w(ixO^S,iw_e) + half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
 
+
     !> Update rad-energy in w
-    w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) + E_rad(ixO^S) - wCT(ixO^S,iw_r_e)
+    ! w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) + E_rad(ixO^S) - wCT(ixO^S,iw_r_e)
+    w(ixO^S,iw_r_e) = E_rad(ixO^S)
 
   end subroutine Energy_interaction
 

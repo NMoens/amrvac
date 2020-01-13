@@ -81,6 +81,9 @@ module mod_rhd_phys
   logical, protected :: radio_acoustic_filter = .false.
   integer, protected :: size_ra_filter = 1
 
+  !> kb/(m_p mu)* 1/a_rad**4,
+  double precision, public :: kbmpmua4
+
 
   ! Public methods
   public :: rhd_phys_init
@@ -314,6 +317,8 @@ contains
     nvector      = 1 ! No. vector vars
     allocate(iw_vector(nvector))
     iw_vector(1) = mom(1) - 1
+
+    kbmpmua4 = unit_pressure**(-3/4)*unit_density*const_kB/(const_mp*fld_mu)*const_rad_a**(-1/4)
 
   end subroutine rhd_phys_init
 
@@ -596,8 +601,8 @@ contains
         csoundL(ixO^S)=rhd_gamma*wLp(ixO^S,p_)/wLp(ixO^S,rho_)
         csoundR(ixO^S)=rhd_gamma*wRp(ixO^S,p_)/wRp(ixO^S,rho_)
       else
-        csoundL(ixO^S)=rhd_gamma*rhd_adiab*wLp(ixO^S,rho_)**(rhd_gamma-one)
-        csoundR(ixO^S)=rhd_gamma*rhd_adiab*wRp(ixO^S,rho_)**(rhd_gamma-one)
+        csoundL(ixO^S)=rhd_gamma*kbmpmua4*wLp(ixO^S,e_r)**(1/4)
+        csoundR(ixO^S)=rhd_gamma*kbmpmua4*wRp(ixO^S,e_r)**(1/4)
       end if
 
       dmean(ixO^S) = (tmp1(ixO^S)*csoundL(ixO^S)+tmp2(ixO^S)*csoundR(ixO^S)) * &
@@ -652,7 +657,8 @@ contains
       call rhd_get_ptot(w,x,ixI^L,ixO^L,csound2)
       csound2(ixO^S)=max(rhd_gamma,4.d0/3.d0)*csound2(ixO^S)/w(ixO^S,rho_)
     else
-      csound2(ixO^S)=rhd_gamma*rhd_adiab*w(ixO^S,rho_)**(rhd_gamma-one)
+      call rhd_get_ptot(w,x,ixI^L,ixO^L,csound2)
+      csound2(ixO^S)=max(rhd_gamma,4.d0/3.d0)*csound2(ixO^S)/w(ixO^S,rho_)
     end if
   end subroutine rhd_get_csound2
 
@@ -669,7 +675,7 @@ contains
        pth(ixO^S) = (rhd_gamma - 1.0d0) * (w(ixO^S, e_) - &
             rhd_kin_en(w, ixI^L, ixO^L))
     else
-       pth(ixI^S) = rhd_adiab * w(ixI^S, rho_)**rhd_gamma
+       pth(ixI^S) = kbmpmua4*w(ixI^S, e_r)**(1/4)/w(ixI^S, rho_)
     end if
 
   end subroutine rhd_get_pthermal
@@ -1086,14 +1092,16 @@ contains
 
     select case(rhd_radiation_formalism)
     case('fld')
-      !> photon tiring, heating and cooling
-      ! print*, it, 'Doing bisection stuff'
-      if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
-        rhd_energy,qsourcesplit,active)
       !> radiation force
       ! print*, it, 'Doing radforce stuff'
       if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
+      !> photon tiring, heating and cooling
+      ! print*, it, 'Doing bisection stuff'
+      if (rhd_energy) then
+      if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
+        rhd_energy,qsourcesplit,active)
+      endif
     case default
       call mpistop('Radiation formalism unknown')
     end select

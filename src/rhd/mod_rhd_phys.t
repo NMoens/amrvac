@@ -318,7 +318,10 @@ contains
     allocate(iw_vector(nvector))
     iw_vector(1) = mom(1) - 1
 
-    kbmpmua4 = unit_pressure**(-3/4)*unit_density*const_kB/(const_mp*fld_mu)*const_rad_a**(-1/4)
+    kbmpmua4 = unit_pressure**(-3./4)*unit_density*const_kB/(const_mp*fld_mu)*const_rad_a**(-1.d0/4)
+
+    if (.not. rhd_energy .and. rhd_energy_interact) &
+      call mpistop('Energy interact. not possible without gas energy eq.')
 
   end subroutine rhd_phys_init
 
@@ -601,8 +604,8 @@ contains
         csoundL(ixO^S)=rhd_gamma*wLp(ixO^S,p_)/wLp(ixO^S,rho_)
         csoundR(ixO^S)=rhd_gamma*wRp(ixO^S,p_)/wRp(ixO^S,rho_)
       else
-        csoundL(ixO^S)=rhd_gamma*kbmpmua4*wLp(ixO^S,e_r)**(1/4)
-        csoundR(ixO^S)=rhd_gamma*kbmpmua4*wRp(ixO^S,e_r)**(1/4)
+        csoundL(ixO^S)=rhd_gamma*kbmpmua4*wLp(ixO^S,r_e)**(1.d0/4)
+        csoundR(ixO^S)=rhd_gamma*kbmpmua4*wRp(ixO^S,r_e)**(1.d0/4)
       end if
 
       dmean(ixO^S) = (tmp1(ixO^S)*csoundL(ixO^S)+tmp2(ixO^S)*csoundR(ixO^S)) * &
@@ -675,7 +678,7 @@ contains
        pth(ixO^S) = (rhd_gamma - 1.0d0) * (w(ixO^S, e_) - &
             rhd_kin_en(w, ixI^L, ixO^L))
     else
-       pth(ixI^S) = kbmpmua4*w(ixI^S, e_r)**(1/4)/w(ixI^S, rho_)
+       pth(ixI^S) = kbmpmua4*w(ixI^S, r_e)**(1.d0/4)/w(ixI^S, rho_)
     end if
 
   end subroutine rhd_get_pthermal

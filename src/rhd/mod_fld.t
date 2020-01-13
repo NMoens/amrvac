@@ -227,13 +227,11 @@ module mod_fld
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * wCT(ixO^S,iw_rho)*radiation_forceCT(ixO^S,idir)
 
-        if (rhd_energy) then
-          if (.not. block%e_is_internal) then
+          if (energy .and. .not. block%e_is_internal) then
             !> Energy equation source term (kinetic energy)
             w(ixO^S,iw_e) = w(ixO^S,iw_e) &
                 + qdt * wCT(ixO^S,iw_mom(idir))*radiation_forceCT(ixO^S,idir)
           endif
-        endif
       enddo
 
     end if

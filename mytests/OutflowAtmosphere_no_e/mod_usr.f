@@ -36,7 +36,6 @@ module mod_usr
 
   integer :: int_r, int_v, int_re, int_dt
 
-
 contains
 
   !> This routine should set user methods, and activate the physics module

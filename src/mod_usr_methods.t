@@ -13,7 +13,7 @@ module mod_usr_methods
 
   ! Boundary condition related
   procedure(special_bc), pointer      :: usr_special_bc       => null()
-  procedure(special_mg_bc), pointer    :: usr_special_mg_bc     => null()
+  procedure(special_mg_bc), pointer   :: usr_special_mg_bc     => null()
   procedure(internal_bc), pointer     :: usr_internal_bc      => null()
 
   ! Output related
@@ -109,7 +109,7 @@ module mod_usr_methods
      end subroutine special_bc
 
      !> Special boundary type for radiation hydrodynamics module, only used to
-     !> set the boundary conditions for the radiation energy. 
+     !> set the boundary conditions for the radiation energy.
      subroutine special_mg_bc(iB)
        use mod_global_parameters
        integer, intent(in)             :: iB

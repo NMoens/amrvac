@@ -34,7 +34,7 @@ module mod_usr
   double precision :: sp_Er
   double precision :: Heff
 
-  integer :: int_r, int_v, int_re, int_dt
+  integer :: int_r, int_v, int_e, int_re, int_dt
 
 
 contains
@@ -77,6 +77,7 @@ contains
 
     int_r = var_set_extravar("int_r", "int_r")
     int_v = var_set_extravar("int_v", "int_v")
+    int_e = var_set_extravar("int_e", "int_e")
     int_re = var_set_extravar("int_re", "int_re")
     int_dt = var_set_extravar("int_dt", "int_dt")
 
@@ -94,7 +95,7 @@ contains
 
     !> Gamma at the base is one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
-    kappa_b = 0.99d0*4*dpi*const_G*M_star*const_c/L_0
+    kappa_b = 0.9d0*4*dpi*const_G*M_star*const_c/L_0
 
 
     allocate(r_arr(domain_nx2+2*nghostcells))
@@ -108,10 +109,10 @@ contains
     ! call ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
     call ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
 
-    sp_rho = M_dot/(4*dpi*R_star**2*sp_sos)
-    sp_T = fld_mu*mp_cgs/kB_cgs*sp_sos**2
-    sp_p = sp_sos**2*sp_rho
-    sp_Er = const_rad_a*sp_T**4.d0
+    sp_rho = rho_arr(1)!M_dot/(4*dpi*R_star**2*sp_sos)
+    sp_T = T_arr(1)!fld_mu*mp_cgs/kB_cgs*sp_sos**2
+    sp_p = p_arr(1) !sp_sos**2*sp_rho
+    sp_Er = Er_arr(1)!const_rad_a*sp_T**4.d0
 
     if (mype .eq. 0) then
       print*, 'soundspeed at sonic point', sp_sos
@@ -202,6 +203,7 @@ contains
     integer :: line
 
     OPEN(1,FILE='InputLuka/params_steep.txt')
+    ! OPEN(1,FILE='InputStan/params.txt')
     READ(1,*) dum, Gamma_0
     READ(1,*) dum, M_dot_ratio
     READ(1,*) dum, M_star
@@ -237,7 +239,7 @@ contains
     double precision, intent(out) :: T_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: p_arr(domain_nx2+2*nghostcells)
 
-    OPEN(1,FILE='InputLuka/structure_amrvac.txt')
+    OPEN(1,FILE='InputLuka/struct_steep.txt')
     do i = 1,domain_nx2+2*nghostcells
       READ(1,*) r_arr(i),v_arr(i),rho_arr(i),Er_arr(i)
     enddo
@@ -293,7 +295,7 @@ contains
 
     double precision :: a(ixImin1:ixImax1),b(ixImin1:ixImax1),c(ixImin1:ixImax1),d(ixImin1:ixImax1)
     double precision :: Temp(ixI^S), Press(ixI^S), kbTmu(ixI^S), kappa(ixBmin2:ixBmax2), gradE(ixImin1:ixImax1)
-    double precision :: F_star(ixBmin2:ixBmax2)
+    double precision :: F_star(ixBmin2:ixBmax2), delta_rho(ixImin1:ixImax1)
 
     integer :: i,j
 
@@ -301,38 +303,19 @@ contains
 
     case(3)
 
-      ! do i = 1, nghostcells
-      !   w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
-      ! enddo
-      ! !   gradE(ixImin1:ixImax1) = (w(ixImin1:ixImax1,3,r_e)-w(ixImin1:ixImax1,1,r_e))/(x(ixImin1:ixImax2,3,2)-x(ixImin1:ixImax2,1,2))
-      ! !   F_star(ixBmin2:ixBmax2) = L_0/(4*dpi*r_arr(ixBmin2:ixBmax2)**2)
-      ! !   kappa(ixBmin2:ixBmax2) = kappa_b + erf((x(5,ixBmin2:ixBmax2,2)-one)*100)*(kappa_0-kappa_b)
-      ! ! do i = 1, nghostcells
-      ! !   print*, it, gradE(ixImin1:3), F_star(i), kappa(i)
-      ! !   w(ixImin1:ixImax1,i,rho_) = dabs(c/const_c*1.d0/3.d0/(kappa(i))*gradE/F_star(i))
-      ! !   w(ixImin1:ixImax1,i,mom(1)) = zero
-      ! !   w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i,rho_)*sp_sos
-      ! !   w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
-      ! !   + half*sp_sos**2*w(ixImin1:ixImax1,i,rho_)
-      ! ! enddo
-
-
+      delta_rho(ixImin1:ixImax1) = rho_arr(nghostcells+1)/w(ixImin1:ixImax1,nghostcells+1,rho_)
       do i = ixBmax2, ixBmin2, -1
-        w(ixImin1:ixImax1,i,rho_) = sp_rho !M_dot/(4.d0*dpi*x(ixImin1:ixImax1,i,2)**2.d0*sp_sos)
-        w(ixImin1:ixImax1,i,mom(1)) = zero
-        w(ixImin1:ixImax1,i,mom(2)) = w(ixImin1:ixImax1,i+1,mom(2))
-        do j = ixImin1,ixImax1
-          ! w(j,i,mom(2)) = min(1.5d0*sp_rho*sp_sos, w(j,i,mom(2)))
-          w(j,i,mom(2)) = max(-0.d0*sp_rho*sp_sos, w(j,i,mom(2)))
-        enddo
-        w(ixImin1:ixImax1,i,e_) = sp_sos**2*w(ixImin1:ixImax1,i,rho_)/(rhd_gamma - one) &
-        + half*(w(ixImin1:ixImax1,i,mom(1))**2 + w(ixImin1:ixImax1,i,mom(2))**2)/w(ixImin1:ixImax1,i,rho_)
+        w(ixImin1:ixImax1,i,rho_) = delta_rho(ixImin1:ixImax1)*w(ixImin1:ixImax1,i,rho_)
+        ! w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
+        ! + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
+        ! - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
+        ! *3.d0*kappa_b*sp_rho/(const_c/unit_velocity) &
+        ! * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
+      enddo
 
-        w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
-        + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
-        - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
-        *3.d0*kappa_b*sp_rho/(const_c/unit_velocity) &
-        * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
+      do i = ixBmin2,ixBmax2
+        ! w(ixImin1:ixImax1,i,rho_) = rho_arr(i)
+        w(ixImin1:ixImax1,i,r_e) = Er_arr(i)
       enddo
 
     case(4)
@@ -361,6 +344,7 @@ contains
       case (3)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_fixed
         mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells)
+        ! call mpistop('The ghostcellvalues are probably shit')
 
         ! ixOmin2 = nghostcells-1
         !
@@ -371,7 +355,7 @@ contains
         ixOmax2 = nghostcells+domain_nx2-2
 
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = (Er_arr(ixOmax2+1) - Er_arr(ixOmax2))/(r_arr(ixOmax2+1) - r_arr(ixOmax2))
+        mg%bc(iB, mg_iphi)%bc_value = 0!(Er_arr(ixOmax2+1) - Er_arr(ixOmax2))/(r_arr(ixOmax2+1) - r_arr(ixOmax2))
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -411,8 +395,8 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: rad_flux(ixO^S,1:ndir)
-    double precision :: pth(ixI^S),v(ixI^S,2)
-    double precision :: radius(ixI^S)
+    double precision :: pth(ixI^S),v(ixO^S,2)
+    double precision :: radius(ixO^S)
     integer :: rdir, pdir
 
     rdir = 2
@@ -427,15 +411,17 @@ contains
     !> drho/dt = -2 rho v_r/r
     w(ixO^S,rho_) = w(ixO^S,rho_) - qdt*two*wCT(ixO^S,mom(rdir))/radius(ixO^S)
 
-    !> dm_r/dt = +rho*v_p**2/r -rho*v_p**2/r
+    call phys_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
+
+    !> dm_r/dt = +(rho*v_p**2 + pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
     w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) + qdt*wCT(ixO^S,rho_)*v(ixO^S,pdir)**two/x(ixO^S,rdir) &
-                                            - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/x(ixO^S,rdir)
+                                            - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/x(ixO^S,rdir) &
+                                            - qdt*pth(ixO^S)/x(ixO^S,rdir)
     w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*3*v(ixO^S,rdir)*v(ixO^S,pdir)*wCT(ixO^S,rho_)/x(ixO^S,rdir)
 
 
     !> de/dt = -2 (e+p)v_r/r
-    call phys_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
     w(ixO^S,e_) = w(ixO^S,e_) - qdt*two*(wCT(ixO^S,e_)+pth(ixO^S))*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))
 
     !> dEr/dt = -2 (E v_r + F_r)/r
@@ -443,19 +429,26 @@ contains
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
       w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*rad_flux(ixO^S,rdir)/radius(ixO^S)
     endif
-
     if (rhd_radiation_advection) then
       w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*wCT(ixO^S,r_e)*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))
     endif
+
+    ! if (x(1,ixImax2,2) > 1.5d0) then
+    !   print*, it,'------------------------------'
+    !   print*, w(5,5:10,r_e)
+    !   print*, qdt*two*rad_flux(5,5:10,rdir)/radius(5,5:10)
+    !   print*, qdt*two*wCT(5,5:10,r_e)*wCT(5,5:10,mom(rdir))/(wCT(5,5:10,rho_)*radius(5,5:10))
+    ! endif
 
   end subroutine PseudoPlanar
 
   subroutine Opacity_stepfunction(ixI^L,ixO^L,w,x,kappa)
     use mod_global_parameters
+    use mod_fld
+
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(out):: kappa(ixO^S)
-
 
     kappa(ixO^S) = kappa_b + erf((x(ixO^S,2)-one)*100)*(kappa_0-kappa_b)
 
@@ -500,6 +493,8 @@ contains
       + w(ixI^S,rho_)*dt
       w(ixI^S,int_v) =  w(ixI^S,int_v) &
       + w(ixI^S,mom(2))/w(ixI^S,rho_)*dt
+      w(ixI^S,int_e) = w(ixI^S,int_e) &
+      + w(ixI^S,e_)*dt
       w(ixI^S,int_re) = w(ixI^S,int_re) &
       + w(ixI^S,r_e)*dt
 
@@ -507,7 +502,9 @@ contains
     else
       w(ixI^S,int_r) = zero
       w(ixI^S,int_v) = zero
+      w(ixI^S,int_e) = zero
       w(ixI^S,int_re) = zero
+      w(ixI^S,int_dt) = zero
     endif
   end subroutine time_average_values
 

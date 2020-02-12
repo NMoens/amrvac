@@ -397,44 +397,6 @@ module mod_fld
       end select
   end subroutine fld_get_opacity
 
-  !> Set lineforce opacities
-  subroutine fld_get_lineopacity(w, x, ixI^L, ixO^L)
-    use mod_global_parameters
-    use mod_usr_methods
-    use mod_geometry
-
-    integer, intent(in)          :: ixI^L, ixO^L
-    double precision, intent(inout) :: w(ixI^S, 1:nw)
-    double precision, intent(in) :: x(ixI^S, 1:ndim)
-
-    double precision :: vel(ixI^S), gradv(ixI^S), forceM(ixI^S)
-    integer :: ix^D, idir
-
-    double precision, parameter :: Qbar = 2000.d0
-    double precision, parameter :: alpha = 0.6d0
-
-    !> Set lineforce opacities
-    !> Stevens & Kallman 1990
-    !> Will this work on initialisation? F depends on kappa, kappa_f depends on F
-    if (fld_opacity_law .ne. 'thomson') &
-      call mpistop('When using line-opacities, you should use a thomson opacity law')
-
-    ! if (lineforce_opacities) then
-    !
-    !   !> Set t
-    !   do idir = 1,ndim
-    !     vel(ixI^S) = w(ixI^S,iw_mom(idir))/w(ixI^S,iw_rho)
-    !     call gradient(vel,ixI^L,ixO^L,idir,gradv)
-    !     forceM(ixO^S) = Qbar/(one-alpha) &
-    !     *(gradv(ixO^S)/(w(ixO^S,iw_rho)*(const_c/unit_velocity)*Qbar*w(ixO^S,i_op)))**alpha
-    !     w(ixO^S,i_opf(idir)) = w(ixO^S,i_op)*forceM(ixO^S)
-    !   enddo
-    ! else
-    !   call mpistop("Lineforce opacities are not calculated")
-    ! endif
-
-  end subroutine fld_get_lineopacity
-
   !> Calculate fld flux limiter
   !> This subroutine calculates flux limiter lambda using the prescription
   !> stored in fld_fluxlimiter.

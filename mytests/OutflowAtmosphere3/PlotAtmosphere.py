@@ -8,6 +8,7 @@ def PlotSnapshot(file):
     ad = ds.load_all_data()
     rho = ad['lambda']
 
+
     bounds_x, bounds_y = ds.get_bounds()
 
     x,y = ds.get_coordinate_arrays()
@@ -17,5 +18,7 @@ def PlotSnapshot(file):
     print(x)
 
     return
+
+def TwoDtoOneD(field,)
 
 PlotSnapshot('BigSimComplete_pert/const0000.dat')

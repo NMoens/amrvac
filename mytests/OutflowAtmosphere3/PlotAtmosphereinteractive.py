@@ -289,7 +289,7 @@ class Plotter:
                 gradE[i][1:-1] = (E[i][2:] - E[i][:-2])/(y[2:] - y[:-2])
                 gradE[i][0] = gradE[i][1]
                 gradE[i][-1] = gradE[i][-2]
-            return -ad['D']*gradE
+            return -ad['D']*gradE*1*y**2
 
         if varname == 'a2':
             p = (hd_gamma - 1)*(ad['e'] - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
@@ -349,6 +349,10 @@ class Plotter:
             Av_v = ad['int_v']/ad['int_dt']
             return Av_v
 
+        if varname == 'Av_e':
+            Av_e = ad['int_e']/ad['int_dt']
+            return Av_e
+
         if varname == 'Av_re':
             Av_re = ad['int_re']/ad['int_dt']
             return Av_re
@@ -400,6 +404,9 @@ class Plotter:
         elif varname == 'Av_v':
             data = self.calc_myvariable(filepath, varname)
             data0 = ad0['m2']/ad0['rho']
+        elif varname == 'Av_e':
+            data = self.calc_myvariable(filepath, varname)
+            data0 = ad0['e']
         elif varname == 'Av_re':
             data = self.calc_myvariable(filepath, varname)
             data0 = ad0['r_e']
@@ -412,11 +419,8 @@ class Plotter:
             data = ad[varname]
             data0 = ad0[varname]
 
-
-
         if rel_diff:
             data = abs((data-data0)/data0)
-
 
         #Convert to pirmitive variables if necessary
         if prim_cons:
@@ -522,7 +526,7 @@ if __name__ == '__main__':
     ds = amrvac_reader.load_file(files[0])
     orig_variables = ds.get_varnames()
         #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
-    extra_vars = ['F2', 'M_dot', 'T_gas', 'Av_rho',  'Av_v',  'Av_re']
+    extra_vars = ['F2', 'M_dot', 'T_gas', 'Av_rho',  'Av_v', 'Av_e',  'Av_re']
     delete_vars = []
     variables = ds.get_varnames() #.extend(extra_vars)
     variables.extend(extra_vars)
@@ -530,6 +534,7 @@ if __name__ == '__main__':
     #Get rid of the following variables
     variables.remove('int_r')
     variables.remove('int_v')
+    variables.remove('int_e')
     variables.remove('int_re')
     variables.remove('int_dt')
 

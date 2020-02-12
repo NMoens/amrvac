@@ -13,10 +13,10 @@ i, r, v, rho, er = np.loadtxt(strc,skiprows = 2, unpack=True)
 
 Mdot = 4*np.pi*r**2*rho*v
 
-n_cells = 512
+n_cells = 256
 n_gh = 2
 R_min = 1.*rstar
-R_max = 1.5*rstar
+R_max = 11.*rstar
 
 inew = range(n_cells+2*n_gh)
 
@@ -47,8 +47,6 @@ gradEnew = interpolate.splev(my_amrvac_grid,spl_gradE, der=0)
 Flux_cmf = -gradE/rho[1:]*(r[1:]/R_min)**2
 Flux_ent = v[1:]*er[1:]*(r[1:]/R_min)**2
 Flux_obs = -gradE/rho[1:] + v[1:]*er[1:] #*(r[1:]/R_min)**2
-
-print(Flux_obs[-1]*100/Flux_obs[0])
 
 np.savetxt('structure_amrvac.txt',np.transpose([my_amrvac_grid,vnew,rhonew,ernew]))
 

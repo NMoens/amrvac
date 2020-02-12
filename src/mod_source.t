@@ -57,6 +57,7 @@ contains
       if (typesourcesplit=='sf' .or. typesourcesplit=='ssf') &
       call mpistop('FLD does not run with typesourcesplit sf or ssf, use a *s scheme')
       if (.not. prior .and. associated(global_radiation_source)) then
+        call getbc(qt,0.d0,ps,1,nwflux+nwaux,phys_req_diagonal)
         call phys_set_mg_bounds()
         call global_radiation_source(dt, qt, src_active)
       endif

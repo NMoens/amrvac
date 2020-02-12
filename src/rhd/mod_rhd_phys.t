@@ -1038,8 +1038,6 @@ contains
     integer :: idust, idim
     integer :: i
 
-    call rhd_add_radiation_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
-
     if(rhd_dust) then
       call dust_add_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
     end if
@@ -1073,6 +1071,8 @@ contains
          end if
       end if
     end if
+
+    call rhd_add_radiation_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
 
   end subroutine rhd_add_source
 

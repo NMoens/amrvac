@@ -138,7 +138,9 @@ class MyWindModel():
         self.fname = fname
         self.wg,self.p,self.x = np.loadtxt(self.fname,unpack=True)
         self.Gamma = Gamma
+        self.w = self.wg*(self.Gamma-1)
         self.m = m
+        self.eta = 4*self.p*np.sqrt(self.w)/(self.m*(1-self.x)**2)
 
     def SetStarParams(self,R,M,L):
         self.R = R*Rsun
@@ -149,7 +151,6 @@ class MyWindModel():
         self.v_esc = (2*G*self.M/self.R)**0.5
 
         self.r = self.R/(1-self.x)
-        self.w = self.wg*(self.Gamma-1)
         self.v = np.sqrt(self.w)*self.v_esc
         self.Prad = self.p*self.L/(4*np.pi*self.R**2*self.v_esc)
         self.rho = self.Mdot/(4*np.pi*self.r**2*self.v)
@@ -158,14 +159,17 @@ class MyWindModel():
         self.pg = kb*self.T/(mp*mu) *self.rho
         self.e = self.pg/(hd_gamma-1)+0.5*self.v**2*self.rho
 
+        self.Ltot = (1-self.m*(self.w+self.x))*self.L
+        self.Ladv = (self.m*self.eta)*self.L
+        self.Ldiff = (1-self.m*(self.w+self.x+self.eta))*self.L
 
 def SE_UNIFIED_profile(file,variable):
 
-    m = 1.3694919e-2
-    Gamma = 2.2044134
+    m = 0.1
+    Gamma = 2.0
 
     Mwm = MyWindModel(file,Gamma,m)
-    Mwm.SetStarParams(R,M,L,Mdot)
+    Mwm.SetStarParams(R,M,L)
 
     if variable == 'rho':
         data = Mwm.rho
@@ -180,6 +184,15 @@ def SE_UNIFIED_profile(file,variable):
 
     return Mwm.r, data
 
+
+def Get_SE_Luminosities(file):
+    m = 0.1
+    Gamma = 2.0
+
+    Mwm = MyWindModel(file,Gamma,m)
+    Mwm.SetStarParams(R,M,L)
+
+    return Mwm.r, Mwm.Ltot, Mwm.Ladv, Mwm.Ldiff
 
 ####################################################
 ### General stuff
@@ -259,12 +272,12 @@ def GetSEL(r,rho,v):
     LSE = L*Lsun - Mdot*(v**2/2 - G*M*Msun/r +G*M*Msun/(R*Rsun))
     return LSE
 
-r_A,rho_A = AMRVAC_profile('output/const0057.dat','rho')
-r_A,v_A = AMRVAC_profile('output/const0057.dat','v')
-r_A,p_A = AMRVAC_profile('output/const0057.dat','p')
-r_A,e_A = AMRVAC_profile('output/const0057.dat','e')
-r_A,re_A = AMRVAC_profile('output/const0057.dat','re')
-r_A, kappa_A = AMRVAC_profile('output/const0057.dat','kappa')
+r_A,rho_A = AMRVAC_profile('../output/const0157.dat','rho')
+r_A,v_A = AMRVAC_profile('../output/const0157.dat','v')
+r_A,p_A = AMRVAC_profile('../output/const0157.dat','p')
+r_A,e_A = AMRVAC_profile('../output/const0157.dat','e')
+r_A,re_A = AMRVAC_profile('../output/const0157.dat','re')
+r_A, kappa_A = AMRVAC_profile('../output/const0157.dat','kappa')
 Gamma_A = GetGamma(r_A,rho_A,re_A)
 m_A = Getm(r_A,rho_A,v_A,re_A,kappa_A)
 v,b = FitBetaLaw(r_A,v_A)
@@ -275,12 +288,12 @@ Heff_A = GetHeff(r_A,Gamma_A,a2_A)
 L_A = GetL(r_A,rho_A,v_A,re_A,kappa_A)
 F_A = GetRadflux(r_A,rho_A,re_A,kappa_A)
 
-r_As,rho_As = AMRVAC_single_profile('output/const0057.dat','rho')
-r_As,v_As = AMRVAC_single_profile('output/const0057.dat','v')
-r_As,p_As = AMRVAC_single_profile('output/const0057.dat','p')
-r_As,e_As = AMRVAC_single_profile('output/const0057.dat','e')
-r_As,re_As = AMRVAC_single_profile('output/const0057.dat','re')
-r_As, kappa_As = AMRVAC_single_profile('output/const0057.dat','kappa')
+r_As,rho_As = AMRVAC_single_profile('../output/const0157.dat','rho')
+r_As,v_As = AMRVAC_single_profile('../output/const0157.dat','v')
+r_As,p_As = AMRVAC_single_profile('../output/const0157.dat','p')
+r_As,e_As = AMRVAC_single_profile('../output/const0157.dat','e')
+r_As,re_As = AMRVAC_single_profile('../output/const0157.dat','re')
+r_As, kappa_As = AMRVAC_single_profile('../output/const0157.dat','kappa')
 Gamma_As = GetGamma(r_As,rho_As,re_As)
 m_As = Getm(r_As,rho_As,v_As,re_As,kappa_As)
 v,b = FitBetaLaw(r_As,v_As)
@@ -293,11 +306,12 @@ F_As = GetRadflux(r_As,rho_As,re_As,kappa_As)
 
 print('amrvac', v,b)
 
-r_S,rho_S = SE_UNIFIED_profile('My_model','rho')
-r_S,v_S = SE_UNIFIED_profile('My_model','v')
-r_S,p_S = SE_UNIFIED_profile('My_model','p')
-r_S,e_S = SE_UNIFIED_profile('My_model','e')
-r_S,re_S = SE_UNIFIED_profile('My_model','re')
+r_S,rho_S = SE_UNIFIED_profile('My_model2','rho')
+r_S,v_S = SE_UNIFIED_profile('My_model2','v')
+r_S,p_S = SE_UNIFIED_profile('My_model2','p')
+r_S,e_S = SE_UNIFIED_profile('My_model2','e')
+r_S,re_S = SE_UNIFIED_profile('My_model2','re')
+r_S,L_tot,L_adv,L_diff = Get_SE_Luminosities('My_model2')
 Gamma_S = GetGamma(r_S,rho_S,re_S)
 v,b = FitBetaLaw(r_S,v_S)
 v_fit_S = beta_law(r_S,v,b)
@@ -334,7 +348,7 @@ ax2.set_ylabel('v [km/s]')
 ax3.set_ylabel('e [erg/cm3]')
 ax4.set_ylabel('Erad [erg/cm3]')
 ax4.set_xlabel('r [R*]')
-ax1.set_xlim([1,1.6])
+ax1.set_xlim([1,11])
 
 plt.figure(2)
 
@@ -343,11 +357,9 @@ plt.plot(r_A/(R*Rsun),v_A,'r-',label='AMRVAC')
 plt.plot(r_S/(R*Rsun),v_S,'b-',label='SE_unified')
 
 plt.plot(r_A/(R*Rsun),np.sqrt(a2_A)/1e5,'r--',label='soundspeed')
-plt.plot(r_L/(R*Rsun),np.sqrt(a2_L)/1e5,'k--')
 plt.plot(r_S/(R*Rsun),np.sqrt(a2_S)/1e5,'b--')
 
 plt.plot(r_A/(R*Rsun),v_fit_A,'r.',label='betalaw')
-plt.plot(r_L/(R*Rsun),v_fit_L,'k.')
 plt.plot(r_S/(R*Rsun),v_fit_S,'b.')
 
 plt.xlabel('r [R*]')
@@ -420,6 +432,10 @@ plt.title('Luminosity')
 plt.plot(r_A/(R*Rsun),L_A/Lsun,'r-',label='AMRVAC')
 plt.plot(r_As/(R*Rsun),L_As/Lsun,'r.',label='AMRVAC')
 plt.plot(r_S/(R*Rsun),L_S/Lsun,'b-',label='SE_unified')
+plt.plot(r_S/(R*Rsun),L_tot/Lsun,'k-',label='SE_L_tot')
+plt.plot(r_S/(R*Rsun),L_adv/Lsun,'k.',label='SE_L_adv')
+plt.plot(r_S/(R*Rsun),L_diff/Lsun,'k--',label='SE_L_diff')
+
 
 
 plt.xlabel('r [R*]')

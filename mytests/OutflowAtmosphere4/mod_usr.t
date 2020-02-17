@@ -192,7 +192,7 @@ contains
     character :: dum
     integer :: line
 
-    OPEN(1,FILE='InputStan/params.txt')
+    OPEN(1,FILE='InputStan/params_G2_m0.8.txt')
     READ(1,*) dum, Gamma_0
     READ(1,*) dum, M_dot_ratio
     READ(1,*) dum, M_star
@@ -228,7 +228,7 @@ contains
     double precision, intent(out) :: T_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: p_arr(domain_nx2+2*nghostcells)
 
-    OPEN(1,FILE='InputStan/structure_amrvac.txt')
+    OPEN(1,FILE='InputStan/structure_amrvac_G2_m0.8.txt')
     do i = 1,domain_nx2+2*nghostcells
       READ(1,*) r_arr(i),v_arr(i),rho_arr(i),Er_arr(i)
     enddo

@@ -31,6 +31,7 @@ module mod_usr
   double precision :: T_base
 
   double precision :: dinflo
+  double precision :: error_b
 
   integer :: int_r, int_v, int_e, int_re, int_dt
 
@@ -89,7 +90,8 @@ contains
     integer :: i
 
     !> Set stellar mass and radius
-    call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base)
+    call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base,&
+       error_b)
 
     !> Gamma at the base is one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
@@ -185,16 +187,16 @@ contains
 
   end subroutine initglobaldata_usr
 
-  subroutine ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,&
-     rho_base)
+  subroutine ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base,&
+     error_b)
     use mod_global_parameters
     double precision, intent(out) :: M_star,R_star,Gamma_0
     double precision, intent(out) :: M_dot_ratio,M_dot,L_0
-    double precision, intent(out) :: rho_base
+    double precision, intent(out) :: rho_base, error_b
     character :: dum
     integer :: line
 
-    OPEN(1,FILE='InputStan/params.txt')
+    OPEN(1,FILE='InputStan/params_G2_m0.8.txt')
     READ(1,*) dum, Gamma_0
     READ(1,*) dum, M_dot_ratio
     READ(1,*) dum, M_star
@@ -203,7 +205,7 @@ contains
     READ(1,*)
     READ(1,*) dum, M_dot
     READ(1,*) dum, rho_base
-    READ(1,*)
+    READ(1,*) dum, error_b
     CLOSE(1)
 
     M_star = M_star*M_sun
@@ -230,7 +232,7 @@ contains
     double precision, intent(out) :: T_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: p_arr(domain_nx2+2*nghostcells)
 
-    OPEN(1,FILE='InputStan/structure_amrvac.txt')
+    OPEN(1,FILE='InputStan/structure_amrvac_G2_m0.8.txt')
     do i = 1,domain_nx2+2*nghostcells
       READ(1,*) r_arr(i),v_arr(i),rho_arr(i),Er_arr(i)
     enddo
@@ -500,7 +502,7 @@ contains
         M_cgs, L_cgs
 
     kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b + erf((x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,2)-one)*10)*(kappa_0-kappa_b)
+       ixOmin2:ixOmax2,2)-one)*error_b)*(kappa_0-kappa_b)
 
   end subroutine Opacity_stepfunction
 

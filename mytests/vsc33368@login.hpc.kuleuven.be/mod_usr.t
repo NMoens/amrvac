@@ -3,7 +3,7 @@ module mod_usr
   implicit none
   double precision :: beta, eta1, eta2, f, q
   double precision :: v_inf, v_esc
-  logical :: grav2, Finite_Disk
+  logical :: grav2
   double precision :: R_jet, h_jet, Mdot, Edot
   ! q : M_donor / M_accretor = M_primary / M_secondary
   ! f : filling factor defined w.r.t. dust condensation radius
@@ -13,12 +13,11 @@ module mod_usr
   double precision :: alpha, Gamma, Qbar, rho0
   ! CAK parameters
 
-  double precision :: Rd, gm1, gm2, Mdot4pi, a, Egg, csd
+  double precision :: Rd, gm2, Mdot4pi, a, Egg, csd
   double precision :: dr_smooth
 
-  double precision :: i_r
   double precision :: i_cak, i_rch1, i_rch2, i_rch3
-  double precision :: i_geff, i_cor1, i_cor2, i_cor3
+  double precision :: i_sct, i_cor1, i_cor2, i_cor3
 
 contains
 
@@ -40,9 +39,8 @@ contains
 
     call hd_activate()
 
-    i_r = var_set_extravar("r", "r")
     i_cak = var_set_extravar("CAK", "CAK")
-    i_geff = var_set_extravar("geff", "geff")
+    i_sct = var_set_extravar("sct", "sct")
     i_rch1 = var_set_extravar("rch1", "rch1")
     i_rch2 = var_set_extravar("rch2", "rch2")
     i_rch3 = var_set_extravar("rch3", "rch3")
@@ -62,7 +60,7 @@ contains
 
     namelist /jet_list/ R_jet, h_jet, Mdot, Edot
 
-    namelist /cak_list/ alpha, Gamma, Qbar, rho0, Finite_Disk
+    namelist /cak_list/ alpha, Gamma, Qbar, rho0
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -105,7 +103,7 @@ contains
     ! ------------------------------------------------------
 
     ! Sound speed @ dust condensation radius in units of aOmega
-    v_esc = dsqrt(2/(f*Egg)**2*q/(1+q))
+    v_esc = dsqrt(2/Rd**2*q/(1+q))
     v_inf = dsqrt(alpha/(1-alpha)) * v_esc
 
     csd=v_inf/eta2
@@ -135,14 +133,13 @@ contains
     ! Mdot4pi=csd*Rd**2.d0 ! css*Rs**2.d0
     Mdot4pi=rho0*csd*Rd**2.d0 ! css*Rs**2.d0
 
-    ! CAK Masslosrate, use this one to set density at base
-    if (Finite_Disk) Mdot4pi = Mdot4pi/(1+alpha)**(1.d0/alpha)
+    ! Density @ sonic point (effectively setting Mdot=1)
+    ! rhos=Mdot4pi/(Rs**2.d0*css) ! ie 1.
 
     ! S computed @ sonic point. Should yield Mach=1 @ sonic point.
     if (hd_adiab>0.d0) hd_adiab=((v_inf/eta2)**2.d0/hd_gamma) ! css**2.d0/(hd_gamma*1.d0**(hd_gamma-1.d0))
     ! hd_adiab=0.d0
 
-    gm1=(q/(1.d0+q))/(f*Egg)
     gm2=(1.d0/(1.d0+q))/(f*Egg)
 
     if (mype==0) then
@@ -166,8 +163,6 @@ contains
     w(ix^S,mom(2))= 0.d0
     w(ix^S,mom(3))= 0.d0
 
-    w(ix^S,i_r) = x(ix^S,1)
-
   end subroutine initonegrid_usr
 
   subroutine pt_grav_source(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
@@ -177,7 +172,7 @@ contains
     double precision, intent(in) :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision :: bbb, acc(ixI^S), cent_str(ixI^S,1:ndir), cor(ixI^S,1:ndir), roche(ixI^S,1:ndir)
-    double precision :: cak(ixO^S), g_eff(ixO^S)
+    double precision :: cak(ixO^S), e_scat(ixO^S)
     integer :: i
 
     integer :: ix^D
@@ -192,35 +187,34 @@ contains
       w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt * wCT(ixO^S,rho_  ) * cak(ixO^S)
       w(ixO^S,i_cak) = cak(ixO^S)
 
-      call get_g_eff(ixI^L,ixO^L,x,g_eff)
-      w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt * wCT(ixO^S,rho_  ) * g_eff(ixO^S)
-      w(ixO^S,i_geff) = g_eff(ixO^S)
+      call get_e_scat(ixI^L,ixO^L,x,e_scat)
+      w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt * wCT(ixO^S,rho_  ) * e_scat(ixO^S)
+      w(ixO^S,i_sct) = e_scat(ixO^S)
 
       ! ! Additional forces due to companion :
       ! ! Wobbling around center of mass + Gravity of companion
-      ! call get_roche_else(ixI^L,ixO^L,x,roche)
-      ! w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt * wCT(ixO^S,rho_  ) * roche(ixO^S,1)
-      ! w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt * wCT(ixO^S,rho_  ) * roche(ixO^S,2)
-      ! w(ixO^S,mom(3)) = w(ixO^S,mom(3)) + qdt * wCT(ixO^S,rho_  ) * roche(ixO^S,3)
-      ! w(ixO^S,i_rch1) = roche(ixO^S,1)
-      ! w(ixO^S,i_rch2) = roche(ixO^S,2)
-      ! w(ixO^S,i_rch3) = roche(ixO^S,3)
+      call get_roche_else(ixI^L,ixO^L,x,roche)
+      w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt * wCT(ixO^S,rho_  ) * roche(ixO^S,1)
+      w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt * wCT(ixO^S,rho_  ) * roche(ixO^S,2)
+      w(ixO^S,mom(3)) = w(ixO^S,mom(3)) + qdt * wCT(ixO^S,rho_  ) * roche(ixO^S,3)
+      w(ixO^S,i_rch1) = roche(ixO^S,1)
+      w(ixO^S,i_rch2) = roche(ixO^S,2)
+      w(ixO^S,i_rch3) = roche(ixO^S,3)
 
-      ! Cheaty Roche-lobe fix
-      ! {do ix^D = ixOmin^D,ixOmax^D\}
-      ! if (w(ix^D,mom(1)) .ne. w(ix^D,mom(1))) &
-      !   w(ixO^S,mom(1)) = wCT(ixO^S,mom(1))
-      ! ! gradv(ix^D) = dabs(gradv(ix^D))
-      ! {enddo\}
+      {do ix^D = ixOmin^D,ixOmax^D\}
+      if (w(ix^D,mom(1)) .ne. w(ix^D,mom(1))) &
+        w(ixO^S,mom(1)) = wCT(ixO^S,mom(1)) + qdt * wCT(ixO^S,rho_  ) * 1.d-1*roche(ixO^S,1)
+      ! gradv(ix^D) = dabs(gradv(ix^D))
+      {enddo\}
 
       ! Compute centrifugal centered @ the star and Coriolis and add them together
-      ! call get_coriolis(ixI^L,ixO^L,x,wCT,cor)
-      ! w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt * wCT(ixO^S,rho_  ) * cor(ixO^S,1)
-      ! w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt * wCT(ixO^S,rho_  ) * cor(ixO^S,2)
-      ! w(ixO^S,mom(3)) = w(ixO^S,mom(3)) + qdt * wCT(ixO^S,rho_  ) * cor(ixO^S,3)
-      ! w(ixO^S,i_cor1) = cor(ixO^S,1)
-      ! w(ixO^S,i_cor2) = cor(ixO^S,2)
-      ! w(ixO^S,i_cor3) = cor(ixO^S,3)
+      call get_coriolis(ixI^L,ixO^L,x,wCT,cor)
+      w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt * wCT(ixO^S,rho_  ) * cor(ixO^S,1)
+      w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt * wCT(ixO^S,rho_  ) * cor(ixO^S,2)
+      w(ixO^S,mom(3)) = w(ixO^S,mom(3)) + qdt * wCT(ixO^S,rho_  ) * cor(ixO^S,3)
+      w(ixO^S,i_cor1) = cor(ixO^S,1)
+      w(ixO^S,i_cor2) = cor(ixO^S,2)
+      w(ixO^S,i_cor3) = cor(ixO^S,3)
 
   end subroutine pt_grav_source
 
@@ -231,7 +225,7 @@ contains
     double precision, intent(in) :: w(ixG^S,1:nw)
     double precision, intent(inout) :: dtnew
 
-    double precision :: cak(ix^S), g_eff(ix^S), force(ixG^S,1:ndir), &
+    double precision :: cak(ix^S), e_scat(ix^S), force(ixG^S,1:ndir), &
       cent_str(ixG^S,1:ndir), cor(ixG^S,1:ndir), roche(ixG^S,1:ndir)
     integer :: i
 
@@ -239,13 +233,12 @@ contains
 
     ! call compute_beta(ixG^L,ix^L,x,acc)
     call get_cak_acc(ixG^L,ix^L,x,w,cak)
-    call get_g_eff(ixG^L,ix^L,x,g_eff)
+    call get_e_scat(ixG^L,ix^L,x,e_scat)
     ! Compute centrifugal centered @ the star and Coriolis and add them together
-    !call get_coriolis(ixG^L,ix^L,x,w,cor)
-    !call get_roche_else(ixG^L,ix^L,x,roche)
-    !force(ix^S,1:ndim)=cor(ix^S,1:ndim)+roche(ix^S,1:ndim)
-    ! force(ix^S,1)=force(ix^S,1)+cak(ix^S)+g_eff(ix^S)
-    force(ix^S,1)=cak(ix^S)+g_eff(ix^S)
+    call get_coriolis(ixG^L,ix^L,x,w,cor)
+    call get_roche_else(ixG^L,ix^L,x,roche)
+    force(ix^S,1:ndim)=cor(ix^S,1:ndim)+roche(ix^S,1:ndim)
+    force(ix^S,1)=force(ix^S,1)+cak(ix^S)+e_scat(ix^S)
     dtnew=min(dtnew,minval(dsqrt(block%dx(ix^S,1)/&
     dabs(force(ix^S,1)))),&
                   minval(dsqrt(block%dx(ix^S,1)*block%dx(ix^S,2)/&
@@ -271,13 +264,11 @@ contains
       ! w(ixB^S,mom(1))= Mdot4pi/x(ixB^S,1)**2.d0
 
       w(ixB^S,rho_)  = rho0
-
       do ii = ixBmax1,ixBmin1,-1
         do jj = ixGmin2,ixBmax2
           do kk = ixGmin3,ixGmax3
             w(ii,jj,kk,mom(1)) = w(ii+1,jj,kk,mom(1))
-            ! w(ii,jj,kk,mom(1)) = min(w(ii,jj,kk,mom(1)), 0.99*csd*rho0)
-            ! w(ii,jj,kk,mom(1)) = min(w(ii,jj,kk,mom(1)), -0.5*csd*rho0)
+            w(ii,jj,kk,mom(1)) = min(w(ii,jj,kk,mom(1)), 0.5*csd*rho0)
           end do
         end do
       end do
@@ -545,54 +536,31 @@ contains
 
   integer ix^D
   double precision :: vr(ixI^S), gradv(ixI^S)
-  double precision :: F_fd(ixO^S), beta_fd(ixO^S)
 
   vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
   call gradient(vr,ixI^L,ixO^L,1,gradv)
 
   {do ix^D = ixOmin^D,ixOmax^D\}
-  ! gradv(ix^D) = max(0.d0,gradv(ix^D))
-  gradv(ix^D) = dabs(gradv(ix^D))
+  gradv(ix^D) = max(0.d0,gradv(ix^D))
+  ! gradv(ix^D) = dabs(gradv(ix^D))
   {enddo\}
 
-  !> Finite disk correction
-  if (Finite_Disk) then
-  beta_fd(ixO^S) = (1 - (vr(ixO^S)/x(ixO^S,1))/gradv(ixO^S))*(1/x(ixO^S,1))**2
-  {do ix^D = ixOmin^D,ixOmax^D\}
-      if (beta_fd(ix^D) .ge. 1.) then
-        F_fd(ix^D) = 1./(1+alpha)
-      else if (beta_fd(ix^D).lt.-1.d10) then
-        F_fd(ix^D) = abs(beta)**alpha/(1+alpha)
-      else if (abs(beta_fd(ix^D)).gt.1.d-3) then
-        F_fd(ix^D) = (1.-(1.-beta_fd(ix^D))**(1+alpha))/(beta_fd(ix^D)*(1+alpha))
-      else
-        F_fd(ix^D) = 1.d0-0.5d0*alpha*beta_fd(ix^D)*(1.d0+0.333333d0*(1.-alpha)*beta_fd(ix^D))
-      end if
-      if (F_fd(ix^D) .lt. smalldouble) F_fd(ix^D) = one
-      if (F_fd(ix^D) .gt. 5.d0) F_fd(ix^D) = one
-  {enddo\}
-  else
-    F_fd(ix^D) = one
-  endif
 
-  g_cak(ixO^S) = (1.d0/(f*Egg)*q/(q+1))**(1-alpha) &
-  *Gamma*Qbar/(1-alpha)*(1.d0/Qbar)**alpha &
+  g_cak(ixO^S) = (1.d0/Rd*q/(q+1))**(1-alpha)*Gamma*Qbar/(1-alpha)*(1/Qbar)**alpha &
   *(((1-alpha)/(alpha*Gamma))*(1-Gamma)/(Gamma*Qbar))**(1-alpha) &
   *(x(ixO^S,1)**2*vr(ixO^S)*gradv(ixO^S))**alpha*1.d0/(x(ixO^S,1)**2)
-
-  g_cak(ixO^S) = g_cak(ixO^S)*F_fd(ixO^S)
   end subroutine get_cak_acc
   ! -------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  subroutine get_g_eff(ixI^L,ixO^L,x,grav)
+  subroutine get_e_scat(ixI^L,ixO^L,x,e_scat)
   use mod_global_parameters
   use mod_geometry
   integer, intent(in) :: ixI^L, ixO^L
   double precision, intent(in)  :: x(ixI^S,1:ndim)
-  double precision, intent(out) :: grav(ixO^S)
+  double precision, intent(out) :: e_scat(ixO^S)
 
-  grav(ixO^S) = -(1-Gamma)*gm/x(ixO^S,1)**2
-  end subroutine get_g_eff
+  e_scat(ixO^S) = Gamma*1.d0/Rd*q/(1+q)/x(ixO^S,1)**2
+  end subroutine get_e_scat
 
 end module mod_usr

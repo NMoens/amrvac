@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/const'
+  base_filename='./output/G2m08'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T

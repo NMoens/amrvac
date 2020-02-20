@@ -16,7 +16,7 @@ mu = 0.6
 clight = 2.99792458e10
 hd_gamma = 5.0/3.0
 
-m = 0.8
+m = 0.2
 Gamma = 2
 error_b = 10
 

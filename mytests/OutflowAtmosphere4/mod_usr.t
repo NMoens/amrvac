@@ -23,14 +23,14 @@ module mod_usr
   double precision :: M_dot_ratio
   double precision :: Gamma_0
   double precision :: kappa_0, kappa_b
-  double precision :: L_0
+  double precision :: L_0,L_vE
   double precision :: M_star
   double precision :: R_star
   double precision :: M_dot
   double precision :: rho_base
   double precision :: T_base
 
-  double precision :: dinflo
+  double precision :: dinflo,gradE
   double precision :: error_b
 
   integer :: int_r, int_v, int_e, int_re, int_dt
@@ -94,7 +94,7 @@ contains
 
     !> Gamma at the base is one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
-    kappa_b = 0.8d0*4*dpi*const_G*M_star*const_c/L_0
+    kappa_b = 0.9d0*4*dpi*const_G*M_star*const_c/L_0
 
     allocate(r_arr(domain_nx2+2*nghostcells))
     allocate(rho_arr(domain_nx2+2*nghostcells))
@@ -177,10 +177,15 @@ contains
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
     endif
 
-    !> Maybe try this one?
-    dinflo = -4*dpi*R_star**2*const_c/(unit_velocity*3*kappa_b*L_0)
+    L_vE = 4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+1)
+    !>Set bottom density from massloss rate
+
+    dinflo = M_dot/(4*dpi*R_star**2*(0.1d0))
+
+    dinflo = -4*dpi*R_star**2*const_c/(unit_velocity*3*kappa_b*(L_0-L_vE))
     dinflo = dinflo*(Er_arr(nghostcells+nghostcells)-Er_arr(nghostcells+1))/(r_arr(nghostcells+nghostcells)-r_arr(nghostcells+1))
-    print*, 'dinflo', dinflo/rho_arr(nghostcells+nghostcells)
+
+    gradE = -dinflo*kappa_0*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
   end subroutine initglobaldata_usr
 
@@ -192,7 +197,7 @@ contains
     character :: dum
     integer :: line
 
-    OPEN(1,FILE='InputStan/params_G2_m0.8.txt')
+    OPEN(1,FILE='InputStan/params_G2_m0.2.txt')
     READ(1,*) dum, Gamma_0
     READ(1,*) dum, M_dot_ratio
     READ(1,*) dum, M_star
@@ -228,7 +233,7 @@ contains
     double precision, intent(out) :: T_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: p_arr(domain_nx2+2*nghostcells)
 
-    OPEN(1,FILE='InputStan/structure_amrvac_G2_m0.8.txt')
+    OPEN(1,FILE='InputStan/structure_amrvac_G2_m0.2.txt')
     do i = 1,domain_nx2+2*nghostcells
       READ(1,*) r_arr(i),v_arr(i),rho_arr(i),Er_arr(i)
     enddo
@@ -282,9 +287,6 @@ contains
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    double precision :: a(ixImin1:ixImax1),b(ixImin1:ixImax1),c(ixImin1:ixImax1),d(ixImin1:ixImax1)
-    double precision :: Temp(ixI^S), Press(ixI^S), kbTmu(ixI^S), kappa(ixBmin2:ixBmax2), gradE(ixImin1:ixImax1)
-    double precision :: F_star(ixBmin2:ixBmax2), delta_rho(ixImin1:ixImax1)
 
     integer :: i,j
 
@@ -292,28 +294,22 @@ contains
 
     case(3)
 
-      ! delta_rho(ixImin1:ixImax1) = rho_arr(nghostcells+1)/w(ixImin1:ixImax1,nghostcells+1,rho_)
-      ! do i = ixBmax2, ixBmin2, -1
-        ! w(ixImin1:ixImax1,i,rho_) = delta_rho(ixImin1:ixImax1)*w(ixImin1:ixImax1,i,rho_)
-        ! w(ixImin1:ixImax1,i,r_e) =  w(ixImin1:ixImax1,i+2,r_e) &
-        ! + (L_0/(4.d0*dpi*x(ixImin1:ixImax1,i+1,2)**2.d0) &
-        ! - w(ixImin1:ixImax1,i+1,mom(2))/w(ixImin1:ixImax1,i+1,rho_)*4.d0/3.d0*w(ixImin1:ixImax1,i+1,r_e)) &
-        ! *3.d0*kappa_b*rho_base/(const_c/unit_velocity) &
-        ! * (x(ixImin1:ixImax1,i+2,2) - x(ixImin1:ixImax1,i,2))
-      ! enddo
+      L_vE = 4*dpi*R_star**2*4.d0/3.d0&
+      *sum(w(ixBmin1:ixBmax1,nghostcells,mom(2))/w(ixBmin1:ixBmax1,nghostcells,rho_)&
+      *w(ixBmin1:ixBmax1,nghostcells,r_e)) &
+      /(ixBmax1-ixBmin1)
+      gradE = -dinflo*kappa_0*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
-
-
-      do i = ixBmin2,ixBmax2
-        w(ixImin1:ixImax1,i,rho_) = dinflo!rho_arr(nghostcells + i)*3.1d0 !> Fudge factor to bind the subsonic structure
-        w(ixImin1:ixImax1,i,r_e) = Er_arr(nghostcells+i)  + (Er_arr(nghostcells+i) - Er_arr(nghostcells+i+1))
+      do i = ixBmax2,ixBmin2,-1
+        w(ixBmin1:ixBmax1,i,rho_) = dinflo!rho_arr(nghostcells + i)*3.1d0 !> Fudge factor to bind the subsonic structure
+        w(ixBmin1:ixBmax1,i,r_e) = w(ixBmin1:ixBmax1,nghostcells+1,r_e) - (x(ixBmin1:ixBmax1,nghostcells+1,2)-x(ixBmin1:ixBmax1,i,2))*gradE
       enddo
 
     case(4)
       do i = ixBmin2,ixBmax2
         !> Conserve gradE/rho
-        w(ixImin1:ixImax1,i,r_e) = (x(ixImin1:ixImax1,i-1,2)**2*w(ixImin1:ixImax1,i-1,mom(2))/w(ixImin1:ixImax1,i-1,rho_))&
-        /(x(ixImin1:ixImax1,i,2)**2*w(ixImin1:ixImax1,i,mom(2))/w(ixImin1:ixImax1,i,rho_))*w(ixImin1:ixImax1,i-1,r_e)
+        w(ixBmin1:ixBmax1,i,r_e) = (x(ixBmin1:ixBmax1,i-1,2)**2*w(ixBmin1:ixBmax1,i-1,mom(2))/w(ixBmin1:ixBmax1,i-1,rho_))&
+        /(x(ixBmin1:ixBmax1,i,2)**2*w(ixBmin1:ixBmax1,i,mom(2))/w(ixBmin1:ixBmax1,i,rho_))*w(ixBmin1:ixBmax1,i-1,r_e)
       enddo
 
     case default
@@ -333,8 +329,12 @@ contains
 
     select case (iB)
       case (3)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells+1)  + (Er_arr(nghostcells+2) - Er_arr(nghostcells+3))
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        mg%bc(iB, mg_iphi)%bc_value = gradE
+
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        ! ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells+1)  + (Er_arr(nghostcells+2) - Er_arr(nghostcells+3))
 
       case (4)
         ixOmax2 = nghostcells+domain_nx2-2
@@ -398,13 +398,11 @@ contains
 
     call phys_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
 
-    !> dm_r/dt = +(rho*v_p**2 + pth)/r -2 (rho*v_r**2 + pth)/r
+    !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
     w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) + qdt*wCT(ixO^S,rho_)*v(ixO^S,pdir)**two/x(ixO^S,rdir) &
-                                            - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/x(ixO^S,rdir) &
-                                            - qdt*pth(ixO^S)/x(ixO^S,rdir)
+                                            - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/x(ixO^S,rdir)
     w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*3*v(ixO^S,rdir)*v(ixO^S,pdir)*wCT(ixO^S,rho_)/x(ixO^S,rdir)
-
 
     !> de/dt = -2 (e+p)v_r/r
     w(ixO^S,e_) = w(ixO^S,e_) - qdt*two*(wCT(ixO^S,e_)+pth(ixO^S))*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 
-m = 0.8 #1.3694919e-2
+m = 0.2 #1.3694919e-2
 Gamma = 2 #2.2044134
 
 epsilon_in = 1.e-7

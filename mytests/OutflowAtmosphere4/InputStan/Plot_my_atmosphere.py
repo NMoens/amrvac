@@ -8,7 +8,14 @@ from scipy import special as sp
 R = 1
 M = 10
 L = 1.9e5
-Mdot = 8.3e-6
+Mdot = 0.00012015046769275339 #8.3e-6
+
+kappa_0 = 306.57376321732482
+kappa_b = 223.87947156182562
+
+m = 0.2
+Gamma = 2.0
+
 
 Rsun = 6.96e10
 Msun = 1.99e33
@@ -20,12 +27,14 @@ arad = 7.5646e-15
 kb = 1.380658e-16
 mp = 1.6726231e-24
 mu = 0.6
-hd_gamma = 4.0/3.0
+hd_gamma = 5.0/3.0
 
 unit_length=69599000000.0
 unit_numberdensity=2218242344693846.8
 unit_temperature=296199.82169650763
 
+
+print(Mdot*G*M*Msun*Msun/year/(R*Rsun*L*Lsun))
 
 v_esc = (2*G*M*Msun/(R*Rsun))**0.5
 print('v_esc',v_esc)
@@ -69,8 +78,7 @@ def AMRVAC_profile(file,variable):
 
     if variable == 'kappa':
         unit_kappa = 1/(ds.units.unit_length*ds.units.unit_density)
-        kappa_0 = 306.57376321732482
-        kappa_b = 128.78925554545540
+
         print(unit_kappa)
         data = kappa_b + sp.erf((y-1)*10)*(kappa_0-kappa_b)
         data = data*unit_kappa
@@ -155,7 +163,7 @@ class MyWindModel():
         self.Prad = self.p*self.L/(4*np.pi*self.R**2*self.v_esc)
         self.rho = self.Mdot/(4*np.pi*self.r**2*self.v)
         self.Erad = 3*self.Prad
-        self.T = (self.Erad/arad)**(1/4)
+        self.T = abs(self.Erad/arad)**(1./4)
         self.pg = kb*self.T/(mp*mu) *self.rho
         self.e = self.pg/(hd_gamma-1)+0.5*self.v**2*self.rho
 
@@ -164,9 +172,6 @@ class MyWindModel():
         self.Ldiff = (1-self.m*(self.w+self.x+self.eta))*self.L
 
 def SE_UNIFIED_profile(file,variable):
-
-    m = 0.1
-    Gamma = 2.0
 
     Mwm = MyWindModel(file,Gamma,m)
     Mwm.SetStarParams(R,M,L)
@@ -241,7 +246,7 @@ def FitBetaLaw(r,v):
     return vinf,beta
 
 def GetSoundSpeed2(re):
-    T = re**(1/4)/arad
+    T = abs(re)**(1/4)/arad
     a2 = kb*T/(mp*mu)
     return a2
 
@@ -266,10 +271,10 @@ def GetSEL(r,rho,v):
 
 def Getm(r,rho,v,L):
     Mdot = GetMdot(r,rho,v)
-    m_arr = Mdot*G*M*Msun/(R*Rsun*L)
+    m_arr = Mdot*G*M*Msun/(r*L)
     return m_arr
 
-amrvac_outfile = '../output/G2m020063.dat'
+amrvac_outfile = '../output/G2m020094.dat'
 SE_infile = 'model_G2_m0.2'
 
 r_A,rho_A = AMRVAC_profile(amrvac_outfile,'rho')
@@ -320,7 +325,7 @@ a2_S = GetSoundSpeed2(re_S)
 Heff_S = GetHeff(r_S,Gamma_S,a2_S)
 L_S = GetSEL(r_S,rho_S,v_S)
 m_S = Getm(r_S,rho_S,v_S,L_S)
-
+Mdot_S = GetMdot(r_S,rho_S,v_S)
 
 print('SE', v,b)
 
@@ -456,6 +461,7 @@ plt.title('m')
 plt.plot(r_A/(R*Rsun),m_A,'r-',label='AMRVAC')
 plt.plot(r_As/(R*Rsun),m_As,'r.',label='final')
 plt.plot(r_S/(R*Rsun),m_S,'b-',label='SE_unified')
+plt.plot(r_S/(R*Rsun),Mdot_S*G*M*Msun/(R*Rsun*L*Lsun),'b--',label='Input value')
 plt.xlim(min(r_A/(R*Rsun)),max(r_A/(R*Rsun)))
 
 plt.legend()

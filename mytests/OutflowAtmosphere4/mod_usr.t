@@ -56,7 +56,7 @@ contains
     usr_special_mg_bc => mg_boundary_conditions
 
     ! PseudoPlanar correction
-    usr_source => PseudoPlanar
+    usr_source_geom => PseudoPlanar
 
     ! Graviatational field
     usr_gravity => set_gravitation_field
@@ -170,9 +170,9 @@ contains
 
     if (mype .eq. 0) then
       print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
-      print*, 'Gamma_0 ', 'kappa_0'
+      print*, 'Gamma_0 ', 'kappa_0', 'kappa_b'
       print*, M_star, R_star,M_dot_ratio, M_dot, L_0
-      print*, Gamma_0, kappa_0
+      print*, Gamma_0, kappa_0, kappa_b
 
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
     endif
@@ -370,12 +370,12 @@ contains
 
   !> Calculate w(iw)=w(iw)+qdt*SOURCE[wCT,qtC,x] within ixO for all indices
   !> iw=iwmin...iwmax.  wCT is at time qCT
-  subroutine PseudoPlanar(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
+  subroutine PseudoPlanar(qdt,ixI^L,ixO^L, wCT,w,x) 
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
 
-    integer, intent(in)             :: ixI^L, ixO^L, iw^LIM
-    double precision, intent(in)    :: qdt, qtC, qt
+    integer, intent(in)             :: ixI^L, ixO^L
+    double precision, intent(in)    :: qdt
     double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
@@ -390,7 +390,7 @@ contains
     v(ixO^S,1) = wCT(ixO^S,mom(1))/wCT(ixO^S,rho_)
     v(ixO^S,2) = wCT(ixO^S,mom(2))/wCT(ixO^S,rho_)
 
-    radius(ixO^S) = x(ixO^S,2)
+    radius(ixO^S) = x(ixO^S,rdir)
 
     !> Correction for spherical fluxes:
     !> drho/dt = -2 rho v_r/r
@@ -400,9 +400,9 @@ contains
 
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
-    w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) + qdt*wCT(ixO^S,rho_)*v(ixO^S,pdir)**two/x(ixO^S,rdir) &
-                                            - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/x(ixO^S,rdir)
-    w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*3*v(ixO^S,rdir)*v(ixO^S,pdir)*wCT(ixO^S,rho_)/x(ixO^S,rdir)
+    w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) + qdt*wCT(ixO^S,rho_)*v(ixO^S,pdir)**two/radius(ixO^S) &
+                                            - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S)
+    w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*3*v(ixO^S,rdir)*v(ixO^S,pdir)*wCT(ixO^S,rho_)/radius(ixO^S)
 
     !> de/dt = -2 (e+p)v_r/r
     w(ixO^S,e_) = w(ixO^S,e_) - qdt*two*(wCT(ixO^S,e_)+pth(ixO^S))*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))
@@ -412,8 +412,14 @@ contains
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
       w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*rad_flux(ixO^S,rdir)/radius(ixO^S)
     endif
+
     if (rhd_radiation_advection) then
-      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*wCT(ixO^S,r_e)*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))
+      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*wCT(ixO^S,r_e)*v(ixO^S,rdir)/radius(ixO^S)
+    endif
+
+    !Not sure about this one
+    if (rhd_energy_interact) then
+      w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*two*v(ixO^S,rdir)*wCT(ixO^S,r_e)/(3*radius(ixO^S))
     endif
 
     ! if (x(1,ixImax2,2) > 1.5d0) then
@@ -472,9 +478,7 @@ contains
     double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-
-
-    if (it .gt. 5) then
+    if (global_time .gt. 0.5d0) then
       w(ixI^S,int_r) = w(ixI^S,int_r) &
       + w(ixI^S,rho_)*dt
       w(ixI^S,int_v) =  w(ixI^S,int_v) &

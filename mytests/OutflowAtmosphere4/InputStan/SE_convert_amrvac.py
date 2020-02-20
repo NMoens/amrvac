@@ -109,6 +109,9 @@ Lum_3 = -4*np.pi*r**2*clight/(3*kappa_0*rho)*np.gradient(er,r)
 Lum_4 = -4*np.pi*my_amrvac_grid**2*clight/(3*kappa_0*rhonew)*np.gradient(ernew,my_amrvac_grid)
 Lum_5 = -4*np.pi*r**2*clight/(3*kappa_prof*rho)*np.gradient(er,r)
 
+m_1 = np.ones(len(r))*m
+m_2 = Mdot*G*M/(R*Lum_1)
+m_3 = Mdot*G*M/(r*Lum_2)
 
 np.savetxt('structure_amrvac_G' + str(Gamma) + '_m' +str(m) + '.txt',np.transpose([my_amrvac_grid,vnew,rhonew,ernew]))
 
@@ -172,5 +175,11 @@ plt.xlabel('r/R')
 plt.ylabel('L/L_0')
 plt.legend()
 
+plt.figure()
+plt.title('m')
+plt.grid()
+plt.plot(r/R_min,m_1,'b--',label='base model')
+plt.plot(r/R_min,m_2,'r--',label='L drops')
+plt.plot(r/R_min,m_3,'k',label='L,r drops')
 
 plt.show()

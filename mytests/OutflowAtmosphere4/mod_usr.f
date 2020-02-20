@@ -56,7 +56,7 @@ contains
     usr_special_mg_bc => mg_boundary_conditions
 
     ! PseudoPlanar correction
-    usr_source => PseudoPlanar
+    usr_source_geom => PseudoPlanar
 
     ! Graviatational field
     usr_gravity => set_gravitation_field
@@ -172,9 +172,9 @@ contains
 
     if (mype .eq. 0) then
       print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
-      print*, 'Gamma_0 ', 'kappa_0'
+      print*, 'Gamma_0 ', 'kappa_0', 'kappa_b'
       print*, M_star, R_star,M_dot_ratio, M_dot, L_0
-      print*, Gamma_0, kappa_0
+      print*, Gamma_0, kappa_0, kappa_b
 
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
     endif
@@ -401,13 +401,13 @@ contains
   !> Calculate w(iw)=w(iw)+qdt*SOURCE[wCT,qtC,x] within ixO for all indices
   !> iw=iwmin...iwmax.  wCT is at time qCT
   subroutine PseudoPlanar(qdt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-     ixOmax1,ixOmax2,iwmin,iwmax,qtC,wCT,qt,w,x)
+     ixOmax1,ixOmax2, wCT,w,x) 
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
 
     integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixOmin1,ixOmin2,ixOmax1,ixOmax2, iwmin,iwmax
-    double precision, intent(in)    :: qdt, qtC, qt
+        ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)    :: qdt
     double precision, intent(in)    :: wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
        1:nw), x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
@@ -427,7 +427,7 @@ contains
        mom(2))/wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
 
     radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,2)
+       ixOmin2:ixOmax2,rdir)
 
     !> Correction for spherical fluxes:
     !> drho/dt = -2 rho v_r/r
@@ -438,16 +438,19 @@ contains
     call phys_get_pthermal(wCT,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2,pth)
 
-    !> dm_r/dt = +(rho*v_p**2 + pth)/r -2 (rho*v_r**2 + pth)/r
+    !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
-                                            !- qdt*pth(ixO^S)/x(ixO^S,rdir)
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(rdir)) = w(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,mom(rdir)) + qdt*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,pdir)**two/x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rdir) - qdt*2*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)**two/x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rdir) !w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(pdir)) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(pdir)) - qdt*3*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,pdir)*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)/x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)
-
+       rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       pdir)**two/radius(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2) - qdt*2*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rdir)**two/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(pdir)) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,mom(pdir)) - qdt*3*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rdir)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,pdir)*wCT(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rho_)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
     !> de/dt = -2 (e+p)v_r/r
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
@@ -464,12 +467,20 @@ contains
          ixOmin2:ixOmax2,r_e) - qdt*two*rad_flux(ixOmin1:ixOmax1,&
          ixOmin2:ixOmax2,rdir)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     endif
+
     if (rhd_radiation_advection) then
       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,&
          ixOmin2:ixOmax2,r_e) - qdt*two*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-         r_e)*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-         mom(rdir))/(wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-         rho_)*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
+         r_e)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)/radius(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)
+    endif
+
+    !Not sure about this one
+    if (rhd_energy_interact) then
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,r_e) + qdt*two*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         rdir)*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         r_e)/(3*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
     endif
 
     ! if (x(1,ixImax2,2) > 1.5d0) then
@@ -536,9 +547,7 @@ contains
        1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-
-
-    if (it .gt. 5) then
+    if (global_time .gt. 0.5d0) then
       w(ixImin1:ixImax1,ixImin2:ixImax2,int_r) = w(ixImin1:ixImax1,&
          ixImin2:ixImax2,int_r) + w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)*dt
       w(ixImin1:ixImax1,ixImin2:ixImax2,int_v) =  w(ixImin1:ixImax1,&

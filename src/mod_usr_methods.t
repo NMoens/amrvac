@@ -41,6 +41,7 @@ module mod_usr_methods
 
   ! Source terms
   procedure(source), pointer          :: usr_source           => null()
+  procedure(source_geom), pointer     :: usr_source_geom      => null()
   procedure(get_dt), pointer          :: usr_get_dt           => null()
   procedure(phys_gravity), pointer    :: usr_gravity          => null()
 
@@ -203,6 +204,14 @@ module mod_usr_methods
       double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
       double precision, intent(inout) :: w(ixI^S,1:nw)
     end subroutine source
+
+    subroutine source_geom(qdt,ixI^L,ixO^L,wCT,w,x)
+      use mod_global_parameters
+      integer, intent(in)             :: ixI^L, ixO^L
+      double precision, intent(in)    :: qdt
+      double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
+      double precision, intent(inout) :: w(ixI^S,1:nw)
+    end subroutine source_geom
 
     !> Limit "dt" further if necessary, e.g. due to the special source terms.
     !> The getdt_courant (CFL condition) and the getdt subroutine in the AMRVACPHYS

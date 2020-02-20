@@ -909,6 +909,7 @@ contains
     use mod_viscosity, only: visc_add_source_geom ! viscInDiv
     use mod_dust, only: dust_n_species, dust_mom, dust_rho, dust_small_to_zero, set_dusttozero, dust_min_rho
     use mod_geometry
+    use mod_usr_methods, only: usr_source_geom
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: qdt, x(ixI^S, 1:ndim)
     double precision, intent(inout) :: wCT(ixI^S, 1:nw), w(ixI^S, 1:nw)
@@ -1010,6 +1011,8 @@ contains
     end if
 
     if (rhd_viscosity) call visc_add_source_geom(qdt,ixI^L,ixO^L,wCT,w,x)
+
+    if (associated(usr_source_geom)) call usr_source_geom(qdt,ixI^L,ixO^L,wCT,w,x)
 
   end subroutine rhd_add_source_geom
 

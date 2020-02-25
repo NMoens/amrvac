@@ -56,7 +56,7 @@ contains
     usr_special_mg_bc => mg_boundary_conditions
 
     ! PseudoPlanar correction
-    usr_source_geom => PseudoPlanar
+    usr_source => PseudoPlanar
 
     ! Graviatational field
     usr_gravity => set_gravitation_field
@@ -180,7 +180,7 @@ contains
     L_vE = 4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+1)
     !>Set bottom density from massloss rate
 
-    dinflo = M_dot/(4*dpi*R_star**2*(0.1d0))
+    dinflo = M_dot/(4*dpi*R_star**2*(4.d0))
 
     dinflo = -4*dpi*R_star**2*const_c/(unit_velocity*3*kappa_b*(L_0-L_vE))
     dinflo = dinflo*(Er_arr(nghostcells+nghostcells)-Er_arr(nghostcells+1))/(r_arr(nghostcells+nghostcells)-r_arr(nghostcells+1))
@@ -294,6 +294,16 @@ contains
 
     case(3)
 
+      w(ixBmin1:ixBmax1,nghostcells,rho_) = dinflo
+      do i = ixBmax2-1,ixBmin2,-1
+        w(ixBmin1:ixBmax1,i,rho_) = 2*w(ixBmin1:ixBmax1,i+1,rho_) - w(ixBmin1:ixBmax1,i+2,rho_)
+      enddo
+
+      do i = ixBmax2,ixBmin2,-1
+        w(ixBmin1:ixBmax1,i,mom(2)) = w(ixBmin1:ixBmax1,i+1,mom(2))*(x(ixBmin1:ixBmax1,i+1,2)/x(ixBmin1:ixBmax1,i,2))**2
+        w(ixBmin1:ixBmax1,i,mom(1)) = zero
+      enddo
+
       L_vE = 4*dpi*R_star**2*4.d0/3.d0&
       *sum(w(ixBmin1:ixBmax1,nghostcells,mom(2))/w(ixBmin1:ixBmax1,nghostcells,rho_)&
       *w(ixBmin1:ixBmax1,nghostcells,r_e)) &
@@ -301,7 +311,6 @@ contains
       gradE = -dinflo*kappa_0*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
       do i = ixBmax2,ixBmin2,-1
-        w(ixBmin1:ixBmax1,i,rho_) = dinflo!rho_arr(nghostcells + i)*3.1d0 !> Fudge factor to bind the subsonic structure
         w(ixBmin1:ixBmax1,i,r_e) = w(ixBmin1:ixBmax1,nghostcells+1,r_e) - (x(ixBmin1:ixBmax1,nghostcells+1,2)-x(ixBmin1:ixBmax1,i,2))*gradE
       enddo
 
@@ -370,12 +379,12 @@ contains
 
   !> Calculate w(iw)=w(iw)+qdt*SOURCE[wCT,qtC,x] within ixO for all indices
   !> iw=iwmin...iwmax.  wCT is at time qCT
-  subroutine PseudoPlanar(qdt,ixI^L,ixO^L, wCT,w,x) 
+  subroutine PseudoPlanar(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
 
-    integer, intent(in)             :: ixI^L, ixO^L
-    double precision, intent(in)    :: qdt
+    integer, intent(in)             :: ixI^L, ixO^L, iw^LIM
+    double precision, intent(in)    :: qdt, qtC, qt
     double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
@@ -394,7 +403,7 @@ contains
 
     !> Correction for spherical fluxes:
     !> drho/dt = -2 rho v_r/r
-    w(ixO^S,rho_) = w(ixO^S,rho_) - qdt*two*wCT(ixO^S,mom(rdir))/radius(ixO^S)
+    w(ixO^S,rho_) = w(ixO^S,rho_) - qdt*two*wCT(ixO^S,rho_)*v(ixO^S,rdir))/radius(ixO^S)
 
     call phys_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
 
@@ -405,7 +414,7 @@ contains
     w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*3*v(ixO^S,rdir)*v(ixO^S,pdir)*wCT(ixO^S,rho_)/radius(ixO^S)
 
     !> de/dt = -2 (e+p)v_r/r
-    w(ixO^S,e_) = w(ixO^S,e_) - qdt*two*(wCT(ixO^S,e_)+pth(ixO^S))*wCT(ixO^S,mom(rdir))/(wCT(ixO^S,rho_)*radius(ixO^S))
+    w(ixO^S,e_) = w(ixO^S,e_) - qdt*two*(wCT(ixO^S,e_)+pth(ixO^S))*v(ixO^S,rdir)/radius(ixO^S)
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
@@ -540,6 +549,7 @@ contains
     w(ixO^S,nw+1) = Tgas(ixO^S)*unit_temperature
     w(ixO^S,nw+2) = Trad(ixO^S)*unit_temperature
     w(ixO^S,nw+3) = big_gamma(ixO^S)
+
     w(ixO^S,nw+4) = 4*dpi*w(ixO^S,mom(2))*radius(ixO^S)**2 &
     *unit_density*unit_velocity/M_sun*year
 

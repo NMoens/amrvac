@@ -56,7 +56,7 @@ contains
     usr_special_mg_bc => mg_boundary_conditions
 
     ! PseudoPlanar correction
-    usr_source_geom => PseudoPlanar
+    usr_source => PseudoPlanar
 
     ! Graviatational field
     usr_gravity => set_gravitation_field
@@ -183,7 +183,7 @@ contains
        1)
     !>Set bottom density from massloss rate
 
-    dinflo = M_dot/(4*dpi*R_star**2*(0.1d0))
+    dinflo = M_dot/(4*dpi*R_star**2*(4.d0))
 
     dinflo = -4*dpi*R_star**2*const_c/(unit_velocity*3*kappa_b*(L_0-L_vE))
     dinflo = dinflo*(Er_arr(nghostcells+nghostcells)-Er_arr(nghostcells+&
@@ -312,6 +312,18 @@ contains
 
     case(3)
 
+      w(ixBmin1:ixBmax1,nghostcells,rho_) = dinflo
+      do i = ixBmax2-1,ixBmin2,-1
+        w(ixBmin1:ixBmax1,i,rho_) = 2*w(ixBmin1:ixBmax1,i+1,&
+           rho_) - w(ixBmin1:ixBmax1,i+2,rho_)
+      enddo
+
+      do i = ixBmax2,ixBmin2,-1
+        w(ixBmin1:ixBmax1,i,mom(2)) = w(ixBmin1:ixBmax1,i+1,&
+           mom(2))*(x(ixBmin1:ixBmax1,i+1,2)/x(ixBmin1:ixBmax1,i,2))**2
+        w(ixBmin1:ixBmax1,i,mom(1)) = zero
+      enddo
+
       L_vE = 4*dpi*R_star**2*4.d0/3.d0*sum(w(ixBmin1:ixBmax1,nghostcells,&
          mom(2))/w(ixBmin1:ixBmax1,nghostcells,rho_)*w(ixBmin1:ixBmax1,&
          nghostcells,r_e)) /(ixBmax1-ixBmin1)
@@ -319,7 +331,6 @@ contains
          2*const_c/unit_velocity)
 
       do i = ixBmax2,ixBmin2,-1
-        w(ixBmin1:ixBmax1,i,rho_) = dinflo !rho_arr(nghostcells + i)*3.1d0 !> Fudge factor to bind the subsonic structure
         w(ixBmin1:ixBmax1,i,r_e) = w(ixBmin1:ixBmax1,nghostcells+1,&
            r_e) - (x(ixBmin1:ixBmax1,nghostcells+1,2)-x(ixBmin1:ixBmax1,i,&
            2))*gradE
@@ -401,13 +412,13 @@ contains
   !> Calculate w(iw)=w(iw)+qdt*SOURCE[wCT,qtC,x] within ixO for all indices
   !> iw=iwmin...iwmax.  wCT is at time qCT
   subroutine PseudoPlanar(qdt,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-     ixOmax1,ixOmax2, wCT,w,x) 
+     ixOmax1,ixOmax2,iwmin,iwmax,qtC,wCT,qt,w,x)
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
 
     integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixOmin1,ixOmin2,ixOmax1,ixOmax2
-    double precision, intent(in)    :: qdt
+        ixOmin1,ixOmin2,ixOmax1,ixOmax2, iwmin,iwmax
+    double precision, intent(in)    :: qdt, qtC, qt
     double precision, intent(in)    :: wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
        1:nw), x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
@@ -427,7 +438,7 @@ contains
        mom(2))/wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
 
     radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rdir)
+       ixOmin2:ixOmax2,rdir)  + half*dx(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
     !> Correction for spherical fluxes:
     !> drho/dt = -2 rho v_r/r
@@ -437,6 +448,13 @@ contains
 
     call phys_get_pthermal(wCT,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2,pth)
+
+    if (x(1,1,2) .lt. 1) then
+      print*, it, '===================================='
+      print*,  w(10,3:8,mom(rdir))*radius(10,3:8)**2
+      print*,  qdt*wCT(10,3:8,rho_)*v(10,3:8,pdir)**two/radius(10,3:8)
+      print*,  qdt*2*wCT(10,3:8,rho_)*v(10,3:8,rdir)**two/radius(10,3:8)
+    endif
 
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
@@ -455,9 +473,8 @@ contains
     !> de/dt = -2 (e+p)v_r/r
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        e_) - qdt*two*(wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       e_)+pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2))*wCT(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,mom(rdir))/(wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       rho_)*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
+       e_)+pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2))*v(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rdir)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
@@ -633,6 +650,7 @@ contains
        ixOmin2:ixOmax2)*unit_temperature
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3) = big_gamma(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)
+
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4) = 4*dpi*w(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,mom(2))*radius(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)**2 *unit_density*unit_velocity/M_sun*year

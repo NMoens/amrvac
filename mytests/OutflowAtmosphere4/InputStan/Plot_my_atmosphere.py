@@ -255,12 +255,27 @@ def GetHeff(r,Gamma,a2):
     H_eff = a2/g_eff
     return H_eff
 
-def GetL(r,rho,v,re,kappa):
+def GetL_tot(r,rho,v,re,kappa):
     #L = 4pr2F_obs
     #F_obs = F_cmf + 4/3 v Er
     F_cmf = GetRadflux(r,rho,re,kappa)
     F_obs = F_cmf + 4/3*v*re
     L = 4*np.pi*r**2*F_obs
+    return L
+
+def GetL_diff(r,rho,re,kappa):
+    #L = 4pr2F_obs
+    #F_obs = F_cmf + 4/3 v Er
+    F_cmf = GetRadflux(r,rho,re,kappa)
+    L = 4*np.pi*r**2*F_cmf
+    return L
+
+
+def GetL_adv(r,v,re):
+    #L = 4pr2F_obs
+    #F_obs = F_cmf + 4/3 v Er
+    F_adv = 4/3*v*re
+    L = 4*np.pi*r**2*F_adv
     return L
 
 def GetSEL(r,rho,v):
@@ -274,7 +289,7 @@ def Getm(r,rho,v,L):
     m_arr = Mdot*G*M*Msun/(r*L)
     return m_arr
 
-amrvac_outfile = '../output/G2m020094.dat'
+amrvac_outfile = '../Working_Output/G2m020094.dat'
 SE_infile = 'model_G2_m0.2'
 
 r_A,rho_A = AMRVAC_profile(amrvac_outfile,'rho')
@@ -289,9 +304,11 @@ v_fit_A = beta_law(r_A,v,b)
 tau_A = OptDepth(r_A,rho_A,v_A,kappa_A)
 a2_A = GetSoundSpeed2(re_A)
 Heff_A = GetHeff(r_A,Gamma_A,a2_A)
-L_A = GetL(r_A,rho_A,v_A,re_A,kappa_A)
+Ltot_A = GetL_tot(r_A,rho_A,v_A,re_A,kappa_A)
+Ldiff_A = GetL_diff(r_A,rho_A,re_A,kappa_A)
+Ladv_A = GetL_adv(r_A,v_A,re_A)
 F_A = GetRadflux(r_A,rho_A,re_A,kappa_A)
-m_A = Getm(r_A,rho_A,v_A,L_A)
+m_A = Getm(r_A,rho_A,v_A,Ltot_A)
 
 
 r_As,rho_As = AMRVAC_single_profile(amrvac_outfile,'rho')
@@ -306,9 +323,11 @@ v_fit_As = beta_law(r_As,v,b)
 tau_As = OptDepth(r_As,rho_As,v_As,kappa_As)
 a2_As = GetSoundSpeed2(re_As)
 Heff_As = GetHeff(r_As,Gamma_As,a2_As)
-L_As = GetL(r_As,rho_As,v_As,re_As,kappa_As)
+Ltot_As = GetL_tot(r_As,rho_As,v_As,re_As,kappa_As)
+Ldiff_As = GetL_diff(r_As,rho_As,re_As,kappa_As)
+Ladv_As = GetL_adv(r_As,v_As,re_As)
 F_As = GetRadflux(r_As,rho_As,re_As,kappa_As)
-m_As = Getm(r_As,rho_As,v_As,L_As)
+m_As = Getm(r_As,rho_As,v_As,Ltot_As)
 
 print('amrvac', v,b)
 
@@ -436,9 +455,11 @@ plt.legend()
 
 plt.figure(7)
 plt.title('Luminosity')
-plt.plot(r_A/(R*Rsun),L_A/Lsun,'r-',label='AMRVAC')
-plt.plot(r_As/(R*Rsun),L_As/Lsun,'r.',label='AMRVAC')
-plt.plot(r_S/(R*Rsun),L_S/Lsun,'b-',label='SE_unified')
+plt.plot(r_A/(R*Rsun),Ltot_A/Lsun,'r-',label='AMRVAC')
+plt.plot(r_A/(R*Rsun),Ladv_A/Lsun,'r.',label='AMRVAC')
+plt.plot(r_A/(R*Rsun),Ldiff_A/Lsun,'r--',label='AMRVAC')
+# plt.plot(r_As/(R*Rsun),Ltot_As/Lsun,'r.',label='AMRVAC')
+# plt.plot(r_S/(R*Rsun),L_S/Lsun,'b-',label='SE_unified')
 plt.plot(r_S/(R*Rsun),L_tot/Lsun,'k-',label='SE_L_tot')
 plt.plot(r_S/(R*Rsun),L_adv/Lsun,'k.',label='SE_L_adv')
 plt.plot(r_S/(R*Rsun),L_diff/Lsun,'k--',label='SE_L_diff')

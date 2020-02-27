@@ -92,9 +92,9 @@ contains
     !> Set stellar mass and radius
     call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base,error_b)
 
-    !> Gamma at the base is one!
+    !> Gamma at the base is below one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
-    kappa_b = 0.9d0*4*dpi*const_G*M_star*const_c/L_0
+    kappa_b = 0.95*4*dpi*const_G*M_star*const_c/L_0
 
     allocate(r_arr(domain_nx2+2*nghostcells))
     allocate(rho_arr(domain_nx2+2*nghostcells))
@@ -180,11 +180,7 @@ contains
     L_vE = 4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+1)
     !>Set bottom density from massloss rate
 
-    dinflo = M_dot/(4*dpi*R_star**2*(4.d0))
-
-    dinflo = -4*dpi*R_star**2*const_c/(unit_velocity*3*kappa_b*(L_0-L_vE))
-    dinflo = dinflo*(Er_arr(nghostcells+nghostcells)-Er_arr(nghostcells+1))/(r_arr(nghostcells+nghostcells)-r_arr(nghostcells+1))
-
+    dinflo = M_dot/(4*dpi*R_star**2*(0.9d0))
     gradE = -dinflo*kappa_0*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
   end subroutine initglobaldata_usr
@@ -255,6 +251,7 @@ contains
     integer :: NumberOfBlocks
     double precision :: x_perc
     double precision :: kappa(ixO^S), lambda(ixO^S), fld_R(ixO^S)
+    double precision :: pert(ixO^S)
 
     NumberOfBlocks = domain_nx2/block_nx2
 
@@ -275,6 +272,12 @@ contains
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
 
     w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
+
+    ! call RANDOM_NUMBER(pert(ixO^S))
+    !
+    ! where ((x(ixO^S,2) .lt. 3.d0) .and. (x(ixO^S,2) .gt. 1.1d0))
+    !   w(ixO^S,rho_) = w(ixO^S,rho_) * (1.d0 + 1.d1*pert(ixO^S))
+    ! end where
 
   end subroutine initial_conditions
 
@@ -396,21 +399,22 @@ contains
     rdir = 2
     pdir = 1
 
-    v(ixO^S,1) = wCT(ixO^S,mom(1))/wCT(ixO^S,rho_)
-    v(ixO^S,2) = wCT(ixO^S,mom(2))/wCT(ixO^S,rho_)
+    v(ixO^S,rdir) = wCT(ixO^S,mom(rdir))/wCT(ixO^S,rho_)
+    v(ixO^S,pdir) = wCT(ixO^S,mom(pdir))/wCT(ixO^S,rho_)
 
-    radius(ixO^S) = x(ixO^S,rdir)
+    radius(ixO^S) = x(ixO^S,rdir) ! + half*block%dx(ixO^S,rdir)
 
     !> Correction for spherical fluxes:
     !> drho/dt = -2 rho v_r/r
-    w(ixO^S,rho_) = w(ixO^S,rho_) - qdt*two*wCT(ixO^S,rho_)*v(ixO^S,rdir))/radius(ixO^S)
+    w(ixO^S,rho_) = w(ixO^S,rho_) - qdt*two*wCT(ixO^S,rho_)*v(ixO^S,rdir)/radius(ixO^S)
 
     call phys_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
 
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
-    w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) + qdt*wCT(ixO^S,rho_)*v(ixO^S,pdir)**two/radius(ixO^S) &
-                                            - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S)
+    w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S) &
+                                            + qdt*wCT(ixO^S,rho_)*v(ixO^S,pdir)**two/radius(ixO^S)
+
     w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*3*v(ixO^S,rdir)*v(ixO^S,pdir)*wCT(ixO^S,rho_)/radius(ixO^S)
 
     !> de/dt = -2 (e+p)v_r/r
@@ -427,16 +431,10 @@ contains
     endif
 
     !Not sure about this one
-    if (rhd_energy_interact) then
-      w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*two*v(ixO^S,rdir)*wCT(ixO^S,r_e)/(3*radius(ixO^S))
-    endif
-
-    ! if (x(1,ixImax2,2) > 1.5d0) then
-    !   print*, it,'------------------------------'
-    !   print*, w(5,5:10,r_e)
-    !   print*, qdt*two*rad_flux(5,5:10,rdir)/radius(5,5:10)
-    !   print*, qdt*two*wCT(5,5:10,r_e)*wCT(5,5:10,mom(rdir))/(wCT(5,5:10,rho_)*radius(5,5:10))
+    ! if (rhd_energy_interact) then
+    !   w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*two*v(ixO^S,rdir)*wCT(ixO^S,r_e)/(3*radius(ixO^S))
     ! endif
+
   end subroutine PseudoPlanar
 
   subroutine Opacity_stepfunction(ixI^L,ixO^L,w,x,kappa)

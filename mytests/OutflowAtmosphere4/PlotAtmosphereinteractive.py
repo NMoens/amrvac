@@ -289,7 +289,7 @@ class Plotter:
                 gradE[i][1:-1] = (E[i][2:] - E[i][:-2])/(y[2:] - y[:-2])
                 gradE[i][0] = gradE[i][1]
                 gradE[i][-1] = gradE[i][-2]
-            return -ad['D']*gradE*1*y**2
+            return -ad['D']*gradE*1 #*y**2
 
         if varname == 'a2':
             p = (hd_gamma - 1)*(ad['e'] - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))

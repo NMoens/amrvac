@@ -18,7 +18,7 @@ hd_gamma = 5.0/3.0
 
 m = 0.2
 Gamma = 2
-error_b = 10
+error_b = 5
 
 R = 1*Rsun
 M = 10*Msun

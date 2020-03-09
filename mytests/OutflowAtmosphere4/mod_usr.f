@@ -95,7 +95,7 @@ contains
 
     !> Gamma at the base is below one!
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
-    kappa_b = 0.95*4*dpi*const_G*M_star*const_c/L_0
+    kappa_b = 0.95d0*4*dpi*const_G*M_star*const_c/L_0
 
     allocate(r_arr(domain_nx2+2*nghostcells))
     allocate(rho_arr(domain_nx2+2*nghostcells))
@@ -183,9 +183,18 @@ contains
        1)
     !>Set bottom density from massloss rate
 
-    dinflo = M_dot/(4*dpi*R_star**2*(0.9d0))
-    gradE = -dinflo*kappa_0*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
+    !d100 v+29
+    !d20 v+8
+    !d15 v+8 and rising
+    !d10 v+11 ???! oscillating
+    !d80
+    !d7 v-0.3 and settling down
+    !d5 v-0.5
 
+    dinflo = 7.d0*M_dot/(4*dpi*R_star**2)
+    gradE = -dinflo*kappa_b*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
+
+    print*, dinflo*unit_density
   end subroutine initglobaldata_usr
 
   subroutine ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base,&
@@ -307,7 +316,9 @@ contains
        1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-
+    double precision :: local_kappa, kappa(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
+    double precision :: Temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2),&
+        pth(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
     integer :: i,j
 
     select case (iB)
@@ -327,20 +338,34 @@ contains
       enddo
 
       where (w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) .lt. zero)
-        w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = zero
+         w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = zero
       end where
+
+      call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixBmin1,&
+         ixBmin2,ixBmax1,ixBmax2, kappa)
+      local_kappa = sum(kappa(ixBmin1:ixBmax1,nghostcells))/(ixBmax1-ixBmin1)
 
       L_vE = 4*dpi*R_star**2*4.d0/3.d0*sum(w(ixBmin1:ixBmax1,nghostcells,&
          mom(2))/w(ixBmin1:ixBmax1,nghostcells,rho_)*w(ixBmin1:ixBmax1,&
          nghostcells,r_e)) /(ixBmax1-ixBmin1)
-      gradE = -dinflo*kappa_0*(L_0-L_vE)/(4*dpi*R_star**&
+      gradE = -dinflo*local_kappa*(L_0-L_vE)/(4*dpi*R_star**&
          2*const_c/unit_velocity)
 
       do i = ixBmax2,ixBmin2,-1
         w(ixBmin1:ixBmax1,i,r_e) = w(ixBmin1:ixBmax1,nghostcells+1,&
-           r_e) - (x(ixBmin1:ixBmax1,nghostcells+1,2)-x(ixBmin1:ixBmax1,i,&
-           2))*gradE
+           r_e) - (x(ixBmin1:ixBmax1,i+1,2)-x(ixBmin1:ixBmax1,i,2))*gradE
       enddo
+
+      Temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = (w(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2,r_e)*unit_pressure/const_rad_a)**&
+         0.25d0/unit_temperature
+      pth(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = Temp(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2)*w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_)
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = pth(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2)/(rhd_gamma-1) + half*w(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2,mom(2))*w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_)
+
+      ! print*,it, w(5,2,e_),pth(5,2)/(rhd_gamma-1) + half*w(5,2,mom(2))*w(5,2,rho_)
 
     case(4)
       do i = ixBmin2,ixBmax2
@@ -516,8 +541,9 @@ contains
     double precision :: x_perc, Gamma_e(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
         M_cgs, L_cgs
 
-    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b + erf((x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,2)-one)*error_b)*(kappa_0-kappa_b)
+    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_b + &
+       (1.d0+erf((x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       2)-one)*error_b-error_b/2.d0))*(kappa_0-kappa_b)/2.d0
 
   end subroutine Opacity_stepfunction
 

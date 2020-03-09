@@ -30,8 +30,8 @@ mu = 0.6
 hd_gamma = 5.0/3.0
 
 unit_length=69599000000.0
-unit_numberdensity=2218242344693846.8
-unit_temperature=296199.82169650763
+unit_numberdensity=2218242342924238.2
+unit_temperature=296199.82122247218 
 
 
 print(Mdot*G*M*Msun*Msun/year/(R*Rsun*L*Lsun))
@@ -289,7 +289,8 @@ def Getm(r,rho,v,L):
     m_arr = Mdot*G*M*Msun/(r*L)
     return m_arr
 
-amrvac_outfile = '../Working_Output/G2m020094.dat'
+# amrvac_outfile = '../output/G2m020094.dat'
+amrvac_outfile = '../output/G2m02_a0.10040.dat'
 SE_infile = 'model_G2_m0.2'
 
 r_A,rho_A = AMRVAC_profile(amrvac_outfile,'rho')
@@ -354,18 +355,18 @@ ax2.grid()
 ax3.grid()
 ax4.grid()
 
-ax1.semilogy(r_A/(R*Rsun),rho_A,'r',label='AMRVAC')
-ax1.semilogy(r_As/(R*Rsun),rho_As,'r.',label='final')
-ax1.semilogy(r_S/(R*Rsun),rho_S,'b',label='SE_Unified')
-ax2.plot(r_A/(R*Rsun),v_A/1e5,'r')
-ax2.plot(r_As/(R*Rsun),v_As/1e5,'r.')
-ax2.plot(r_S/(R*Rsun),v_S/1e5,'b')
-ax3.semilogy(r_A/(R*Rsun),e_A,'r')
-ax3.semilogy(r_As/(R*Rsun),e_As,'r.')
-ax3.semilogy(r_S/(R*Rsun),e_S,'b')
-ax4.plot(r_A/(R*Rsun),re_A,'r')
-ax4.plot(r_As/(R*Rsun),re_As,'r.')
-ax4.plot(r_S/(R*Rsun),re_S,'b')
+ax1.loglog(r_A/(R*Rsun),rho_A,'r',label='AMRVAC')
+ax1.loglog(r_As/(R*Rsun),rho_As,'r.',label='final')
+ax1.loglog(r_S/(R*Rsun),rho_S,'b',label='SE_Unified')
+ax2.semilogx(r_A/(R*Rsun),v_A/1e5,'r')
+ax2.semilogx(r_As/(R*Rsun),v_As/1e5,'r.')
+ax2.semilogx(r_S/(R*Rsun),v_S/1e5,'b')
+ax3.semilogx(r_A/(R*Rsun),e_A,'r')
+ax3.semilogx(r_As/(R*Rsun),e_As,'r.')
+ax3.semilogx(r_S/(R*Rsun),e_S,'b')
+ax4.loglog(r_A/(R*Rsun),re_A,'r')
+ax4.loglog(r_As/(R*Rsun),re_As,'r.')
+ax4.loglog(r_S/(R*Rsun),re_S,'b')
 
 ax1.legend()
 ax1.set_title('Conserved quantities')
@@ -484,6 +485,16 @@ plt.plot(r_As/(R*Rsun),m_As,'r.',label='final')
 plt.plot(r_S/(R*Rsun),m_S,'b-',label='SE_unified')
 plt.plot(r_S/(R*Rsun),Mdot_S*G*M*Msun/(R*Rsun*L*Lsun),'b--',label='Input value')
 plt.xlim(min(r_A/(R*Rsun)),max(r_A/(R*Rsun)))
+
+
+plt.figure(10)
+plt.title('Mdot')
+plt.plot(r_A/(R*Rsun),GetMdot(r_A,rho_A,v_A),'r-',label='AMRVAC')
+plt.plot(r_As/(R*Rsun),GetMdot(r_As,rho_As,v_As),'r.',label='final')
+plt.plot(r_S/(R*Rsun),GetMdot(r_S,rho_S,v_S),'b-',label='SE_unified')
+plt.plot(r_S/(R*Rsun),Mdot_S,'b--',label='Input value')
+# plt.xlim(min(r_A/(R*Rsun)),max(r_A/(R*Rsun)))
+
 
 plt.legend()
 

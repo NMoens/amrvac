@@ -36,8 +36,8 @@ from ipywidgets import widgets, interactive
 # press shift i
 
 unit_length=69599000000.0
-unit_numberdensity=729723637293892.50
-unit_temperature=189666.48683552662
+unit_numberdensity=2218242342924238.2
+unit_temperature=296199.82122247218
 
 c_light = 2.99792458e10
 a_rad = 7.5657e-15
@@ -46,6 +46,8 @@ k_b = 1.380648520e-16
 m_p = 1.6737236e-24
 mu = 0.6
 M_sun = 1.9891000e33
+
+
 M_star = 1e1*M_sun
 
 hd_gamma = 1.66667
@@ -322,7 +324,7 @@ class Plotter:
                 gradE[i][0] = gradE[i][1]
                 gradE[i][-1] = gradE[i][-2]
 
-            grad = -ad['Kappa']*ad['D']*gradE/c_light*ds.units.unit_velocity
+            grad = -gradE/(3*ad['rho'])
             ggrav = G_grav*M_star/(r*ds.units.unit_length)**2\
             *(ds.units.unit_time**2/ds.units.unit_length)
             Gamma = grad/ggrav
@@ -512,9 +514,6 @@ class Plotter:
             plt.title(varname + '   at T=' + str(round(time,4)) )
         plt.draw()
 
-
-
-
 if __name__ == '__main__':
     root = tk.Tk()
     root.withdraw()
@@ -522,13 +521,13 @@ if __name__ == '__main__':
     # dir_path = filedialog.askdirectory()
     dir_path = os.getcwd() + '/output/'
 
-    files = list(glob.glob(os.path.join(dir_path, 'G2m02*.dat')))
+    files = list(glob.glob(os.path.join(dir_path, 'G2m02_highres*.dat')))
     files.sort()
 
     ds = amrvac_reader.load_file(files[0])
     orig_variables = ds.get_varnames()
         #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
-    extra_vars = ['F2', 'M_dot', 'T_gas', 'Av_rho',  'Av_v', 'Av_e',  'Av_re']
+    extra_vars = ['F2', 'Gamma', 'M_dot', 'T_gas', 'Av_rho',  'Av_v', 'Av_e',  'Av_re']
     delete_vars = []
     variables = ds.get_varnames() #.extend(extra_vars)
     variables.extend(extra_vars)

@@ -18,7 +18,9 @@ hd_gamma = 5.0/3.0
 
 m = 0.2
 Gamma = 2
-error_b = 5
+error_b = 100.0
+# error_b = 5 #this is used in the grids
+
 
 R = 1*Rsun
 M = 10*Msun
@@ -27,7 +29,7 @@ L = 1.9e5*Lsun
 n_cells = 256
 n_gh = 2
 R_min = 1.*R
-R_max = 11.*R
+R_max = 2.*R
 
 Mdot = m*R*L/(G*M) #8.3e-6*Msun/year
 
@@ -57,6 +59,46 @@ def GetProfiles():
 strc = os.getcwd() + '/struct_steep.txt'
 r,rho,v,pg,er = GetProfiles()
 
+# def GetSonicPoint(r,rho,v,er):
+#     #Find the sonic point (where v == sqrt(kb T/mp mu))
+#     T = (er/arad)**0.25
+#     a_s = kb*T/(mp*mu)
+#     sonic_fit = v - a_s
+#     i_sp = 10 #np.argmin(abs(sonic_fit))
+#
+#     #Get values at Sonic point
+#     r_sp = r[i_sp]
+#     rho_sp = rho[i_sp]
+#     v_sp = v[i_sp]
+#     er_sp = er[i_sp]
+#
+#     #Integrate downwards into hydrostatic core
+#     # dE = Gamma rho G M / (lambda r**2) dx
+#     dx = r[i_sp+1] - r[i_sp]
+#     nx_constv = int((r_sp-0.5*r[0])/dx)
+#
+#     print(0.1*r[0],r_sp, nx_constv)
+#
+#     r_constv = np.linspace(0.5*r[0],r_sp, nx_constv)
+#     rho_constv = np.ones(len(r_constv))*rho_sp
+#     v_constv = np.ones(len(r_constv))*v_sp
+#     er_constv = er_sp - 3*rho_sp*G*M*(1/r_sp - 1/r_constv)
+#
+#     #concatenate constant velocity region with SE region
+#     r = np.concatenate((r_constv[:-1],r[i_sp:]))
+#     rho = np.concatenate((rho_constv[:-1],rho[i_sp:]))
+#     v = np.concatenate((v_constv[:-1],v[i_sp:]))
+#     er = np.concatenate((er_constv[:-1],er[i_sp:]))
+#
+#     return r, rho, v, er
+#
+# r, rho, v, er = GetSonicPoint(r,rho,v,er)
+
+# plt.figure()
+# plt.plot(r,er)
+# plt.show()
+# exit()
+
 dx = (R_max - R_min)/(n_cells)
 my_amrvac_grid = np.linspace(R_min - (n_gh-0.5)*dx,R_max + (n_gh-0.5)*dx,n_cells+2*n_gh)
 # my_amrvac_grid = np.linspace(R_min - (n_gh-0.5)*dx + (n_gh-1)*dx,R_max + (n_gh-0.5)*dx + (n_gh-1)*dx,n_cells+2*n_gh)
@@ -66,11 +108,6 @@ vnew = interpolate.splev(my_amrvac_grid, spl_v, der=0,  ext=3)
 
 spl_rho = interpolate.splrep(r, rho, s=0)
 rhonew = interpolate.splev(my_amrvac_grid, spl_rho, der=0,  ext=3)
-
-
-#Stuff below is questionable and should be looked at
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 
 # vnew[0:2] = v[0]
 # rhonew[0:2] = Mdot/(4*np.pi*my_amrvac_grid[0:2]**2*vnew[0:2])
@@ -84,16 +121,22 @@ gradE = (er[1:] - er[:-1])/(r[1:] - r[:-1])
 spl_gradE = interpolate.splrep(r[:-1],gradE, s=0)
 gradEnew = interpolate.splev(my_amrvac_grid,spl_gradE, der=0, ext=3)
 
+################################################################################
+################################################################################
+
+
+
+################################################################################
+################################################################################
 
 L_cmf = L - Mdot*(v**2/2 + M*G/R - M*G/r)
 L_cmfnew = L - Mdot*(vnew**2/2 + M*G/R - M*G/my_amrvac_grid)
 
-
 kappa_b = 4*np.pi*G*M*clight/L
 kappa_0 = 4*np.pi*G*M*clight*Gamma/L
 
-kappa_prof = kappa_b + np.erf((r-R)/R*error_b)*(kappa_0-kappa_b)
-kappa_profnew = kappa_b + np.erf((my_amrvac_grid-R)/R*error_b)*(kappa_0-kappa_b)
+kappa_prof = kappa_b + (1+np.erf((r-R)/R*error_b-error_b/2))*(kappa_0-kappa_b)/2
+kappa_profnew = kappa_b + (1+np.erf((my_amrvac_grid-R)/R*error_b-error_b/2))*(kappa_0-kappa_b)/2
 
 F = -clight/(3*kappa_prof*rho)*np.gradient(er,r)
 Fnew = -clight/(3*kappa_profnew*rhonew)*np.gradient(ernew,my_amrvac_grid)

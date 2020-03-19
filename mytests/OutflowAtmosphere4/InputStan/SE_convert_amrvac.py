@@ -18,7 +18,7 @@ hd_gamma = 5.0/3.0
 
 m = 0.2
 Gamma = 2
-error_b = 100.0
+error_b = 10.0
 # error_b = 5 #this is used in the grids
 
 
@@ -29,7 +29,7 @@ L = 1.9e5*Lsun
 n_cells = 256
 n_gh = 2
 R_min = 1.*R
-R_max = 2.*R
+R_max = 11.*R
 
 Mdot = m*R*L/(G*M) #8.3e-6*Msun/year
 

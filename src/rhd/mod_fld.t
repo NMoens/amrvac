@@ -216,9 +216,6 @@ module mod_fld
       call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappaCT)
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_fluxCT)
 
-      !> correct the flux at the outer bound
-      ! call correct_radflux_bounds(x, ixI^L, ixO^L, rad_flux)
-
       do idir = 1,ndim
         !> Radiation force = kappa*rho/c *Flux
         radiation_forceCT(ixO^S,idir) = kappaCT(ixO^S)*rad_fluxCT(ixO^S,idir)/(const_c/unit_velocity)
@@ -246,10 +243,16 @@ module mod_fld
     double precision, intent(inout)  :: rad_flux(ixO^S,1:ndim)
 
     {^IFTWOD
-    !> Check outflowing bound:
-    if (x(nghostcells+1,ixImax2,2) .ge. xprobmax2) then
-      rad_flux(ixOmin1:ixOmax1,ixOmax2,2) = rad_flux(ixOmin1:ixOmax1,ixOmax2-1,2)
+    ! !> Check outflowing bound:
+    ! if (x(nghostcells+1,ixImax2,2) .ge. xprobmax2) then
+    !   rad_flux(ixOmin1:ixOmax1,ixOmax2,2) = rad_flux(ixOmin1:ixOmax1,ixOmax2-1,2)
+    ! endif
+
+    !> Inflowing bound:
+    if (x(nghostcells+1,ixImin2,2) .le. xprobmin2) then
+      rad_flux(ixOmin1:ixOmax1,ixOmin2,2) = rad_flux(ixOmin1:ixOmax1,ixOmin2+1,2)*(x(ixOmin1:ixOmax1,ixOmin2+1,2)/x(ixOmin1:ixOmax1,ixOmin2,2))**2
     endif
+
     }
 
     {^IFTHREED
@@ -569,6 +572,19 @@ module mod_fld
       call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
       rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
+
+    ! if (x(1,1,2) .lt. 1.d0) then
+    !   print*, it
+    !   print*, 'gradE', -grad_r_e(5,nghostcells+1:nghostcells+6)
+    !   ! print*, 'kappa', kappa(5,nghostcells+1:nghostcells+6)
+    !   print*, 'rho', w(5,nghostcells+1:nghostcells+6,iw_rho)
+    !   ! print*, 'D', 1/(kappa(5,nghostcells+1:nghostcells+6)*w(5,nghostcells+1:nghostcells+6,iw_rho))
+    !   ! print*, 'F:',-grad_r_e(5,nghostcells+1:nghostcells+6) &
+    !   ! /(w(5,nghostcells+1:nghostcells+6,iw_rho)*kappa(5,nghostcells+1:nghostcells+6))
+    !   ! print*, 'F', rad_flux(5,nghostcells+1:nghostcells+6,2)
+    !   print*, 'G', grad_r_e(5,nghostcells+1:nghostcells+6) &
+    !   /w(5,nghostcells+1:nghostcells+6,iw_rho)*x(5,nghostcells+1:nghostcells+6,2)
+    ! endif
 
   end subroutine fld_get_radflux
 

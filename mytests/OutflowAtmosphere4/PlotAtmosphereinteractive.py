@@ -519,9 +519,9 @@ if __name__ == '__main__':
     root.withdraw()
 
     # dir_path = filedialog.askdirectory()
-    dir_path = os.getcwd() + '/output/'
+    dir_path = os.getcwd() + '/test_slopelims/'
 
-    files = list(glob.glob(os.path.join(dir_path, 'G2m02_highres*.dat')))
+    files = list(glob.glob(os.path.join(dir_path, 'G2m02_ppm00*.dat')))
     files.sort()
 
     ds = amrvac_reader.load_file(files[0])

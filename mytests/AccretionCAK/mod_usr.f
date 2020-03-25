@@ -551,8 +551,9 @@ contains
   ! speed(ixO^S) = 1.d0/eta2 + (1.d0-1.d0/eta2) * (1.d0-Rd/x(ixO^S,1))**beta
   ! speed(ixO^S) = eta1/eta2 + (eta1-eta1/eta2) * (1.d0-Rd/x(ixO^S,1))**beta
 
-  speed(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3) = csd + (v_inf-csd)* &
+  speed(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3) = csd + (eta2-csd)* &
      (1.d0-Rd/x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,1))**beta
+  ! speed(ixO^S) = csd + (v_inf-csd)* (1.d0-Rd/x(ixO^S,1))**beta
 
   end subroutine compute_beta
   ! -----------------------------------------------------------------------------------

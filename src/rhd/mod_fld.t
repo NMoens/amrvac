@@ -235,34 +235,34 @@ module mod_fld
 
   end subroutine get_fld_rad_force
 
-  subroutine correct_radflux_bounds(x, ixI^L, ixO^L, rad_flux)
-    use mod_global_parameters
-
-    integer, intent(in)              :: ixI^L, ixO^L
-    double precision, intent(in)     :: x(ixI^S,1:ndim)
-    double precision, intent(inout)  :: rad_flux(ixO^S,1:ndim)
-
-    {^IFTWOD
-    ! !> Check outflowing bound:
-    ! if (x(nghostcells+1,ixImax2,2) .ge. xprobmax2) then
-    !   rad_flux(ixOmin1:ixOmax1,ixOmax2,2) = rad_flux(ixOmin1:ixOmax1,ixOmax2-1,2)
-    ! endif
-
-    !> Inflowing bound:
-    if (x(nghostcells+1,ixImin2,2) .le. xprobmin2) then
-      rad_flux(ixOmin1:ixOmax1,ixOmin2,2) = rad_flux(ixOmin1:ixOmax1,ixOmin2+1,2)*(x(ixOmin1:ixOmax1,ixOmin2+1,2)/x(ixOmin1:ixOmax1,ixOmin2,2))**2
-    endif
-
-    }
-
-    {^IFTHREED
-    !> Check outflowing bound:
-    if (x(nghostcells+1,ixImax2,nghostcells+1,2) .ge. xprobmax2) then
-      rad_flux(ixOmin1:ixOmax1,ixOmax2,ixOmin3:ixOmax3,2) = rad_flux(ixOmin1:ixOmax1,ixOmax2-1,ixOmin3:ixOmax3,2)
-    endif
-    }
-
-  end subroutine correct_radflux_bounds
+  ! subroutine correct_radflux_bounds(x, ixI^L, ixO^L, rad_flux)
+  !   use mod_global_parameters
+  !
+  !   integer, intent(in)              :: ixI^L, ixO^L
+  !   double precision, intent(in)     :: x(ixI^S,1:ndim)
+  !   double precision, intent(inout)  :: rad_flux(ixO^S,1:ndim)
+  !
+  !   {^IFTWOD
+  !   ! !> Check outflowing bound:
+  !   ! if (x(nghostcells+1,ixImax2,2) .ge. xprobmax2) then
+  !   !   rad_flux(ixOmin1:ixOmax1,ixOmax2,2) = rad_flux(ixOmin1:ixOmax1,ixOmax2-1,2)
+  !   ! endif
+  !
+  !   !> Inflowing bound:
+  !   if (x(nghostcells+1,ixImin2,2) .le. xprobmin2) then
+  !     rad_flux(ixOmin1:ixOmax1,ixOmin2,2) = rad_flux(ixOmin1:ixOmax1,ixOmin2+1,2)*(x(ixOmin1:ixOmax1,ixOmin2+1,2)/x(ixOmin1:ixOmax1,ixOmin2,2))**2
+  !   endif
+  !
+  !   }
+  !
+  !   {^IFTHREED
+  !   !> Check outflowing bound:
+  !   if (x(nghostcells+1,ixImax2,nghostcells+1,2) .ge. xprobmax2) then
+  !     rad_flux(ixOmin1:ixOmax1,ixOmax2,ixOmin3:ixOmax3,2) = rad_flux(ixOmin1:ixOmax1,ixOmax2-1,ixOmin3:ixOmax3,2)
+  !   endif
+  !   }
+  !
+  ! end subroutine correct_radflux_bounds
 
   subroutine fld_radforce_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
     use mod_global_parameters

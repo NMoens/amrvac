@@ -410,7 +410,8 @@ contains
   ! speed(ixO^S) = 1.d0/eta2 + (1.d0-1.d0/eta2) * (1.d0-Rd/x(ixO^S,1))**beta
   ! speed(ixO^S) = eta1/eta2 + (eta1-eta1/eta2) * (1.d0-Rd/x(ixO^S,1))**beta
 
-  speed(ixO^S) = csd + (v_inf-csd)* (1.d0-Rd/x(ixO^S,1))**beta
+  speed(ixO^S) = csd + (eta2-csd)* (1.d0-Rd/x(ixO^S,1))**beta
+  ! speed(ixO^S) = csd + (v_inf-csd)* (1.d0-Rd/x(ixO^S,1))**beta
 
   end subroutine compute_beta
   ! -----------------------------------------------------------------------------------
@@ -592,7 +593,7 @@ contains
   double precision, intent(in)  :: x(ixI^S,1:ndim)
   double precision, intent(out) :: grav(ixO^S)
 
-  grav(ixO^S) = -(1-Gamma)*gm/x(ixO^S,1)**2
+  grav(ixO^S) = -(1-Gamma)*gm1/x(ixO^S,1)**2
   end subroutine get_g_eff
 
 end module mod_usr

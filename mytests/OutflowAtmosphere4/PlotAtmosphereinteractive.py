@@ -293,6 +293,34 @@ class Plotter:
                 gradE[i][-1] = gradE[i][-2]
             return -ad['D']*gradE*1 #*y**2
 
+        if varname == 'L_cmf':
+            E = ad['r_e']
+            gradE = copy.deepcopy(E)
+
+            for i in range(nx):
+                gradE[i][1:-1] = (E[i][2:] - E[i][:-2])/(y[2:] - y[:-2])
+                gradE[i][0] = gradE[i][1]
+                gradE[i][-1] = gradE[i][-2]
+            return -4*np.pi*ad['D']*gradE*1*y**2
+
+        if varname == 'L_adv':
+            F = 4./3. * ad['r_e']*ad['m2']/ad['rho']
+            return 4*np.pi*F
+
+
+        if varname == 'L_obs':
+            E = ad['r_e']
+            gradE = copy.deepcopy(E)
+
+            F = 4./3. * ad['r_e']*ad['m2']/ad['rho']
+
+            for i in range(nx):
+                gradE[i][1:-1] = (E[i][2:] - E[i][:-2])/(y[2:] - y[:-2])
+                gradE[i][0] = gradE[i][1]
+                gradE[i][-1] = gradE[i][-2]
+            return 4*np.pi*F-4*np.pi*ad['D']*gradE*1*y**2
+
+
         if varname == 'a2':
             p = (hd_gamma - 1)*(ad['e'] - (0.5*(ad['m1']**2+ad['m2']**2)/ad['rho']))
             a2 = p/ad['rho']
@@ -358,14 +386,6 @@ class Plotter:
         if varname == 'Av_re':
             Av_re = ad['int_re']/ad['int_dt']
             return Av_re
-
-        if varname == 'Gamma_weighted':
-            grad = ad['Kappa']*ad['F2']/(c_light/ds.units.unit_velocity)
-            ggrav = G_grav*M_star/(r*ds.units.unit_length)**2\
-            *(ds.units.unit_time**2/ds.units.unit_length)
-            Gamma = grad/ggrav
-            Gamma_w = Gamma*1./3./ad['Lambda']
-            return Gamma_w
 
         if varname == 'tau':
             dy = (max(y) - min(y))/ny
@@ -519,15 +539,15 @@ if __name__ == '__main__':
     root.withdraw()
 
     # dir_path = filedialog.askdirectory()
-    dir_path = os.getcwd() + '/test_slopelims/'
+    dir_path = os.getcwd() + '/output/'
 
-    files = list(glob.glob(os.path.join(dir_path, 'G2m02_ppm00*.dat')))
+    files = list(glob.glob(os.path.join(dir_path, 'G2m02_2L*.dat')))
     files.sort()
 
     ds = amrvac_reader.load_file(files[0])
     orig_variables = ds.get_varnames()
         #> I HAD TO DEFINE THIS FUNCTION IN NIELS' TOOLS
-    extra_vars = ['F2', 'Gamma', 'M_dot', 'T_gas', 'Av_rho',  'Av_v', 'Av_e',  'Av_re']
+    extra_vars = ['F2', 'Gamma', 'M_dot', 'L_cmf', 'L_adv', 'L_obs', 'Av_rho',  'Av_v', 'Av_e',  'Av_re']
     delete_vars = []
     variables = ds.get_varnames() #.extend(extra_vars)
     variables.extend(extra_vars)

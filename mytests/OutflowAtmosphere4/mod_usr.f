@@ -30,7 +30,7 @@ module mod_usr
   double precision :: rho_base
   double precision :: T_base
 
-  double precision :: dinflo,gradE
+  double precision :: dinflo,gradE,gradE_out
   double precision :: error_b
 
   integer :: int_r, int_v, int_e, int_re, int_dt
@@ -93,10 +93,9 @@ contains
     call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base,&
        error_b)
 
-
     !> Gamma at the base is below one!
-    Gamma_b = 0.95d0
-    kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
+    Gamma_b = 0.9d0
+    kappa_0 = 2*Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
 
     allocate(r_arr(domain_nx2+2*nghostcells))
@@ -181,18 +180,11 @@ contains
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
     endif
 
-    L_vE = zero !4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+1)
+    L_vE = 4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+&
+       1)
     !>Set bottom density from massloss rate
 
-    !d100 v+29
-    !d20 v+8
-    !d15 v+8 and rising
-    !d10 v+11 ???! oscillating
-    !d8 v+7 and oscillating
-    !d7 v-0.3 and settling down
-    !d5 v-0.5
-
-    dinflo = 160.d0*M_dot/(4*dpi*R_star**2)
+    dinflo = 35.0d0*M_dot/(4*dpi*R_star**2)
     gradE = -dinflo*kappa_b*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
     print*, dinflo*unit_density
@@ -297,10 +289,12 @@ contains
        ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
 
-    ! call RANDOM_NUMBER(pert(ixO^S))
-    !
+    pert(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = dsin(2*dpi*x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,2))
+
     ! where ((x(ixO^S,2) .lt. 3.d0) .and. (x(ixO^S,2) .gt. 1.1d0))
-    !   w(ixO^S,rho_) = w(ixO^S,rho_) * (1.d0 + 1.d1*pert(ixO^S))
+      ! w(ixO^S,rho_) = w(ixO^S,rho_) * (1.d0 + 0.1d0*pert(ixO^S))
     ! end where
 
   end subroutine initial_conditions
@@ -340,7 +334,7 @@ contains
       do i = ixBmax2,ixBmin2,-1
         w(ixBmin1:ixBmax1,i,mom(2)) = w(ixBmin1:ixBmax1,i+1,&
            mom(2))*(x(ixBmin1:ixBmax1,i+1,2)/x(ixBmin1:ixBmax1,i,2))**2
-        w(ixBmin1:ixBmax1,i,mom(1)) = zero
+        w(ixBmin1:ixBmax1,i,mom(1)) = w(ixBmin1:ixBmax1,i+1,mom(1))
       enddo
 
       where (w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) .lt. zero)
@@ -356,13 +350,11 @@ contains
          ixBmin2:ixBmax2,2)**2*4.d0/3.d0*w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
          mom(2))/w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_)*w(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2,r_e)
-
-      ! gradE_l(ixB^S) = -w(ixB^S,rho_)*kappa(ixB^S)*(3.d0*unit_velocity/const_c)*(L_0-L_vE_l(ixB^S))/(4.d0*dpi*x(ixB^S,2)**2.d0)
       gradE_l(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = -w(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2,rho_)*kappa(ixBmin1:ixBmax1,&
-         ixBmin2:ixBmax2)*(3.d0*unit_velocity/const_c)*(L_0)/(4.d0*dpi*x(&
-         ixBmin1:ixBmax1,ixBmin2:ixBmax2,2)**2.d0)
-
+         ixBmin2:ixBmax2)*(3.d0*unit_velocity/const_c)*(L_0-&
+         L_vE_l(ixBmin1:ixBmax1,ixBmin2:ixBmax2))/(4.d0*dpi*x(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2,2)**2.d0)
       gradE = sum(gradE_l(ixBmin1:ixBmax1,nghostcells))/(ixBmax1-ixBmin1)
 
       do i = ixBmax2-1,ixBmin2,-1
@@ -382,30 +374,6 @@ contains
          ixBmin2:ixBmax2)/(rhd_gamma-1) + half*w(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2,mom(2))**2/w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_)
 
-      ! print*,it, w(5,2,e_),pth(5,2)/(rhd_gamma-1) + half*w(5,2,mom(2))*w(5,2,rho_)
-
-      print*, it
-      print*, 'rho', w(5,1:5,rho_)
-      print*, 'v', w(5,1:5,mom(2))/w(5,1:5,rho_)
-      print*, 'm', w(5,1:5,mom(2))
-
-      ! print*, gradE/dinflo*R_star**2, '|', gradE_l(5,1:nghostcells)/w(5,1:nghostcells,rho_)*x(5,1:nghostcells,2)**2
-
-      ! print*, 'L_star       ','|      ', 'L_v       ', 'L_obs       ', '|      ', 'L_v + L_obs'
-
-     !  print*, L_0, &
-     !   '|', &
-     !    L_vE_l(5,nghostcells), &
-     !   '+', &
-     !   -4*dpi*x(5,nghostcells,2)**2*const_c/(3.d0*unit_velocity)&
-     !  /(kappa(5,nghostcells)*w(5,nghostcells,rho_)) &
-     !  *(w(5,nghostcells+1,r_e) - w(5,nghostcells-1,r_e))/(x(5,nghostcells+1,2)-x(5,nghostcells-1,2)), &
-     !  '|',&
-     !  -4*dpi*x(5,nghostcells,2)**2*const_c/(3.d0*unit_velocity)&
-     ! /(kappa(5,nghostcells)*w(5,nghostcells,rho_)) &
-     ! *(w(5,nghostcells+1,r_e) - w(5,nghostcells-1,r_e))/(x(5,nghostcells+1,2)-x(5,nghostcells-1,2)) &
-     !  + L_vE_l(5,nghostcells)
-
     case(4)
       do i = ixBmin2,ixBmax2
         !> Conserve gradE/rho
@@ -414,6 +382,10 @@ contains
            rho_))/(x(ixBmin1:ixBmax1,i,2)**2*w(ixBmin1:ixBmax1,i,&
            mom(2))/w(ixBmin1:ixBmax1,i,rho_))*w(ixBmin1:ixBmax1,i-1,r_e)
       enddo
+
+      gradE_out = sum(w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,&
+         ixBmin2-2,r_e))/(ixBmax1-ixBmin1)/dxlevel(2)
+      ! print*, gradE_out
 
     case default
       call mpistop('boundary not known')
@@ -443,7 +415,7 @@ contains
         ixOmax2 = nghostcells+domain_nx2-2
 
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0 !(Er_arr(ixOmax2+1) - Er_arr(ixOmax2))/(r_arr(ixOmax2+1) - r_arr(ixOmax2))
+        mg%bc(iB, mg_iphi)%bc_value = min(gradE_out,0.d0) !0
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -496,7 +468,8 @@ contains
     double precision :: rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndir)
     double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2),v(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,2)
-    double precision :: radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+    double precision :: radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+         pert(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     integer :: rdir, pdir
 
     rdir = 2
@@ -557,10 +530,22 @@ contains
          ixOmin2:ixOmax2)
     endif
 
-    !Not sure about this one
-    ! if (rhd_energy_interact) then
-    !   w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*two*v(ixO^S,rdir)*wCT(ixO^S,r_e)/(3*radius(ixO^S))
-    ! endif
+    ! Not sure about this one
+    if (rhd_energy_interact) then
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,r_e) - qdt*two*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         rdir)*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         r_e)/(3*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
+    endif
+
+    if (it == 127060) then
+      pert(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = dsin(2*dpi*x(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(&
+         ixOmin1:ixOmax1,ixOmin2:ixOmax2,2))
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,rho_) * (1.d0 + 0.1d0*pert(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2))
+    endif
 
   end subroutine PseudoPlanar
 

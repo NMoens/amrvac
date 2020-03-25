@@ -30,7 +30,7 @@ module mod_usr
   double precision :: rho_base
   double precision :: T_base
 
-  double precision :: dinflo,gradE
+  double precision :: dinflo,gradE,gradE_out
   double precision :: error_b
 
   integer :: int_r, int_v, int_e, int_re, int_dt
@@ -92,10 +92,9 @@ contains
     !> Set stellar mass and radius
     call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base,error_b)
 
-
     !> Gamma at the base is below one!
-    Gamma_b = 0.95d0
-    kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
+    Gamma_b = 0.9d0
+    kappa_0 = 2*Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
 
     allocate(r_arr(domain_nx2+2*nghostcells))
@@ -179,18 +178,10 @@ contains
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
     endif
 
-    L_vE = zero!4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+1)
+    L_vE = 4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+1)
     !>Set bottom density from massloss rate
 
-    !d100 v+29
-    !d20 v+8
-    !d15 v+8 and rising
-    !d10 v+11 ???! oscillating
-    !d8 v+7 and oscillating
-    !d7 v-0.3 and settling down
-    !d5 v-0.5
-
-    dinflo = 160.d0*M_dot/(4*dpi*R_star**2)
+    dinflo = 35.0d0*M_dot/(4*dpi*R_star**2)
     gradE = -dinflo*kappa_b*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
     print*, dinflo*unit_density
@@ -284,10 +275,10 @@ contains
 
     w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
-    ! call RANDOM_NUMBER(pert(ixO^S))
-    !
+    pert(ixO^S) = dsin(2*dpi*x(ixO^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixO^S,2))
+
     ! where ((x(ixO^S,2) .lt. 3.d0) .and. (x(ixO^S,2) .gt. 1.1d0))
-    !   w(ixO^S,rho_) = w(ixO^S,rho_) * (1.d0 + 1.d1*pert(ixO^S))
+      ! w(ixO^S,rho_) = w(ixO^S,rho_) * (1.d0 + 0.1d0*pert(ixO^S))
     ! end where
 
   end subroutine initial_conditions
@@ -319,7 +310,7 @@ contains
 
       do i = ixBmax2,ixBmin2,-1
         w(ixBmin1:ixBmax1,i,mom(2)) = w(ixBmin1:ixBmax1,i+1,mom(2))*(x(ixBmin1:ixBmax1,i+1,2)/x(ixBmin1:ixBmax1,i,2))**2
-        w(ixBmin1:ixBmax1,i,mom(1)) = zero
+        w(ixBmin1:ixBmax1,i,mom(1)) = w(ixBmin1:ixBmax1,i+1,mom(1))
       enddo
 
       where (w(ixB^S,mom(2)) .lt. zero)
@@ -331,10 +322,7 @@ contains
       call fld_get_opacity(w, x, ixI^L, ixB^L, kappa)
 
       L_vE_l(ixB^S) = 4*dpi*x(ixB^S,2)**2*4.d0/3.d0*w(ixB^S,mom(2))/w(ixB^S,rho_)*w(ixB^S,r_e)
-
-      ! gradE_l(ixB^S) = -w(ixB^S,rho_)*kappa(ixB^S)*(3.d0*unit_velocity/const_c)*(L_0-L_vE_l(ixB^S))/(4.d0*dpi*x(ixB^S,2)**2.d0)
-      gradE_l(ixB^S) = -w(ixB^S,rho_)*kappa(ixB^S)*(3.d0*unit_velocity/const_c)*(L_0)/(4.d0*dpi*x(ixB^S,2)**2.d0)
-
+      gradE_l(ixB^S) = -w(ixB^S,rho_)*kappa(ixB^S)*(3.d0*unit_velocity/const_c)*(L_0-L_vE_l(ixB^S))/(4.d0*dpi*x(ixB^S,2)**2.d0)
       gradE = sum(gradE_l(ixBmin1:ixBmax1,nghostcells))/(ixBmax1-ixBmin1)
 
       do i = ixBmax2-1,ixBmin2,-1
@@ -347,36 +335,15 @@ contains
       pth(ixB^S) = Temp(ixB^S)*w(ixB^S,rho_)
       w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1) + half*w(ixB^S,mom(2))**2/w(ixB^S,rho_)
 
-      ! print*,it, w(5,2,e_),pth(5,2)/(rhd_gamma-1) + half*w(5,2,mom(2))*w(5,2,rho_)
-
-      print*, it
-      print*, 'rho', w(5,1:5,rho_)
-      print*, 'v', w(5,1:5,mom(2))/w(5,1:5,rho_)
-      print*, 'm', w(5,1:5,mom(2))
-
-      ! print*, gradE/dinflo*R_star**2, '|', gradE_l(5,1:nghostcells)/w(5,1:nghostcells,rho_)*x(5,1:nghostcells,2)**2
-
-      ! print*, 'L_star       ','|      ', 'L_v       ', 'L_obs       ', '|      ', 'L_v + L_obs'
-
-     !  print*, L_0, &
-     !   '|', &
-     !    L_vE_l(5,nghostcells), &
-     !   '+', &
-     !   -4*dpi*x(5,nghostcells,2)**2*const_c/(3.d0*unit_velocity)&
-     !  /(kappa(5,nghostcells)*w(5,nghostcells,rho_)) &
-     !  *(w(5,nghostcells+1,r_e) - w(5,nghostcells-1,r_e))/(x(5,nghostcells+1,2)-x(5,nghostcells-1,2)), &
-     !  '|',&
-     !  -4*dpi*x(5,nghostcells,2)**2*const_c/(3.d0*unit_velocity)&
-     ! /(kappa(5,nghostcells)*w(5,nghostcells,rho_)) &
-     ! *(w(5,nghostcells+1,r_e) - w(5,nghostcells-1,r_e))/(x(5,nghostcells+1,2)-x(5,nghostcells-1,2)) &
-     !  + L_vE_l(5,nghostcells)
-
     case(4)
       do i = ixBmin2,ixBmax2
         !> Conserve gradE/rho
         w(ixBmin1:ixBmax1,i,r_e) = (x(ixBmin1:ixBmax1,i-1,2)**2*w(ixBmin1:ixBmax1,i-1,mom(2))/w(ixBmin1:ixBmax1,i-1,rho_))&
         /(x(ixBmin1:ixBmax1,i,2)**2*w(ixBmin1:ixBmax1,i,mom(2))/w(ixBmin1:ixBmax1,i,rho_))*w(ixBmin1:ixBmax1,i-1,r_e)
       enddo
+
+      gradE_out = sum(w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,ixBmin2-2,r_e))/(ixBmax1-ixBmin1)/dxlevel(2)
+      ! print*, gradE_out
 
     case default
       call mpistop('boundary not known')
@@ -406,7 +373,7 @@ contains
         ixOmax2 = nghostcells+domain_nx2-2
 
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0!(Er_arr(ixOmax2+1) - Er_arr(ixOmax2))/(r_arr(ixOmax2+1) - r_arr(ixOmax2))
+        mg%bc(iB, mg_iphi)%bc_value = min(gradE_out,0.d0) !0
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -447,7 +414,7 @@ contains
 
     double precision :: rad_flux(ixO^S,1:ndir)
     double precision :: pth(ixI^S),v(ixO^S,2)
-    double precision :: radius(ixO^S)
+    double precision :: radius(ixO^S),  pert(ixO^S)
     integer :: rdir, pdir
 
     rdir = 2
@@ -484,9 +451,14 @@ contains
       w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*wCT(ixO^S,r_e)*v(ixO^S,rdir)/radius(ixO^S)
     endif
 
-    !Not sure about this one
-    ! if (rhd_energy_interact) then
-    !   w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*two*v(ixO^S,rdir)*wCT(ixO^S,r_e)/(3*radius(ixO^S))
+    ! Not sure about this one
+    if (rhd_energy_interact) then
+      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*v(ixO^S,rdir)*wCT(ixO^S,r_e)/(3*radius(ixO^S))
+    endif
+
+    ! if (it == 127060) then
+    !   pert(ixO^S) = dsin(2*dpi*x(ixO^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixO^S,2))
+    !   w(ixO^S,rho_) = w(ixO^S,rho_) * (1.d0 + 0.1d0*pert(ixO^S))
     ! endif
 
   end subroutine PseudoPlanar

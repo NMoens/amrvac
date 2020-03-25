@@ -148,9 +148,9 @@ Gamma_4 = kappa_profnew*L_cmfnew/(4*np.pi*G*M*clight)
 
 Lum_1 = np.ones(len(r))*L
 Lum_2 = L_cmf
-Lum_3 = -4*np.pi*r**2*clight/(3*kappa_0*rho)*np.gradient(er,r)
-Lum_4 = -4*np.pi*my_amrvac_grid**2*clight/(3*kappa_0*rhonew)*np.gradient(ernew,my_amrvac_grid)
-Lum_5 = -4*np.pi*r**2*clight/(3*kappa_prof*rho)*np.gradient(er,r)
+Lum_3 = 4*np.pi*r**2*F
+Lum_4 = 4*np.pi*my_amrvac_grid**2*Fnew
+Lum_5 = 4*np.pi*r**2*F
 
 m_1 = np.ones(len(r))*m
 m_2 = Mdot*G*M/(R*Lum_1)
@@ -185,6 +185,14 @@ plt.semilogy(my_amrvac_grid/R_min,rhonew,'bx')
 plt.xlim([0,10])
 
 plt.figure()
+plt.title('Flux')
+plt.plot(r/R_min,F,'r')
+plt.plot(my_amrvac_grid/R_min,Fnew,'bx')
+plt.plot(r/R_min,F*(r/R_min)**2,'r--')
+plt.plot(my_amrvac_grid/R_min,Fnew*(my_amrvac_grid/R_min)**2,'b--')
+plt.xlim([0,10])
+
+plt.figure()
 plt.title('opacity')
 plt.plot(r/R_min,kappa_b*np.ones(len(r)),'b--')
 plt.plot(r/R_min,kappa_0*np.ones(len(r)),'k--')
@@ -199,7 +207,7 @@ plt.plot(r/R_min,Gamma_2,'k',label='Stans model')
 plt.plot(r/R_min,Gamma_3,'r',label='bound')
 plt.plot(my_amrvac_grid/R_min,  Gamma_4  ,'rx',label='Amrvac')
 plt.xlim([1,10])
-plt.ylim([0.8,2.5])
+plt.ylim([0.8,1.2*Gamma])
 plt.xlabel('r/R')
 plt.ylabel('Gamma')
 plt.legend()

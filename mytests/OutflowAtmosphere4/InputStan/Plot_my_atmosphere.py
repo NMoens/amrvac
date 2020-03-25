@@ -31,7 +31,7 @@ hd_gamma = 5.0/3.0
 
 unit_length=69599000000.0
 unit_numberdensity=2218242342924238.2
-unit_temperature=296199.82122247218 
+unit_temperature=296199.82122247218
 
 
 print(Mdot*G*M*Msun*Msun/year/(R*Rsun*L*Lsun))
@@ -290,7 +290,7 @@ def Getm(r,rho,v,L):
     return m_arr
 
 # amrvac_outfile = '../output/G2m020094.dat'
-amrvac_outfile = '../output/G2m02_a0.10040.dat'
+amrvac_outfile = '../output/G2m02_L0080.dat'
 SE_infile = 'model_G2_m0.2'
 
 r_A,rho_A = AMRVAC_profile(amrvac_outfile,'rho')

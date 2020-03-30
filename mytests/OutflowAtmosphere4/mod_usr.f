@@ -95,7 +95,7 @@ contains
 
     !> Gamma at the base is below one!
     Gamma_b = 0.9d0
-    kappa_0 = 2*Gamma_0*4*dpi*const_G*M_star*const_c/L_0
+    kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
 
     allocate(r_arr(domain_nx2+2*nghostcells))
@@ -184,7 +184,7 @@ contains
        1)
     !>Set bottom density from massloss rate
 
-    dinflo = 35.0d0*M_dot/(4*dpi*R_star**2)
+    dinflo = 20.0d0*M_dot/(4*dpi*R_star**2)
     gradE = -dinflo*kappa_b*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
     print*, dinflo*unit_density
@@ -315,7 +315,8 @@ contains
         gradE_l(ixBmin1:ixBmax1,ixBmin2:ixBmax2), L_vE_l(ixBmin1:ixBmax1,&
        ixBmin2:ixBmax2)
     double precision :: Temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2),&
-        pth(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
+        pth(ixBmin1:ixBmax1,ixBmin2:ixBmax2),pert(ixBmin1:ixBmax1,&
+       ixBmin2:ixBmax2), ppsource(ixBmin1:ixBmax1,ixBmin2:ixBmax2,1:nw)
     integer :: i,j
 
     select case (iB)
@@ -330,12 +331,16 @@ contains
            rho_)) - dlog(w(ixBmin1:ixBmax1,i+2,rho_)))
       enddo
 
-
       do i = ixBmax2,ixBmin2,-1
         w(ixBmin1:ixBmax1,i,mom(2)) = w(ixBmin1:ixBmax1,i+1,&
            mom(2))*(x(ixBmin1:ixBmax1,i+1,2)/x(ixBmin1:ixBmax1,i,2))**2
         w(ixBmin1:ixBmax1,i,mom(1)) = w(ixBmin1:ixBmax1,i+1,mom(1))
       enddo
+
+        ! pert(ixb^S) = dsin(2*dpi*x(ixB^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixB^S,2)-2*dpi*global_time)
+        ! w(ixB^S,rho_) = w(ixB^S,rho_) * (1.d0 + 0.1d0*pert(ixB^S))
+        ! w(ixB^S,mom(2)) = w(ixB^S,mom(2)) * (1.d0 + 0.1d0*pert(ixB^S))
+
 
       where (w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) .lt. zero)
          w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = zero !abs(w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)))
@@ -385,35 +390,24 @@ contains
 
       gradE_out = sum(w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,&
          ixBmin2-2,r_e))/(ixBmax1-ixBmin1)/dxlevel(2)
-      ! print*, gradE_out
 
     case default
       call mpistop('boundary not known')
     end select
   end subroutine boundary_conditions
 
-
   subroutine mg_boundary_conditions(iB)
-
     use mod_global_parameters
     use mod_multigrid_coupling
 
     integer, intent(in)             :: iB
 
-    integer :: ixOmax2
-
     select case (iB)
       case (3)
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         mg%bc(iB, mg_iphi)%bc_value = gradE
 
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        ! ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells+1)  + (Er_arr(nghostcells+2) - Er_arr(nghostcells+3))
-
       case (4)
-        ixOmax2 = nghostcells+domain_nx2-2
-
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         mg%bc(iB, mg_iphi)%bc_value = min(gradE_out,0.d0) !0
 
@@ -464,6 +458,37 @@ contains
     double precision, intent(in)    :: wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
        1:nw), x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    double precision :: ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:nw)
+
+    call PseudoPlanarSource(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+       ixOmax1,ixOmax2,wCT,x,ppsource,.false.)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rho_) + qdt*ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rho_)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(1)) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,mom(1)) + qdt*ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       mom(1))
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(2)) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,mom(2)) + qdt*ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       mom(2))
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       e_) + qdt*ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       r_e) + qdt*ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e)
+
+  end subroutine PseudoPlanar
+
+  subroutine PseudoPlanarSource(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+     ixOmin2,ixOmax1,ixOmax2,w,x,source,boundary)
+    use mod_global_parameters
+
+    integer, intent(in)           :: ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)  :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw),&
+        x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
+    double precision, intent(out) :: source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       1:nw)
+    logical, intent(in) :: boundary
 
     double precision :: rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndir)
     double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2),v(ixOmin1:ixOmax1,&
@@ -472,82 +497,79 @@ contains
          pert(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     integer :: rdir, pdir
 
+    source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:nw) = zero
+
     rdir = 2
     pdir = 1
 
-    v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir) = wCT(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,mom(rdir))/wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
-    v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,pdir) = wCT(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,mom(pdir))/wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
+    v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,mom(rdir))/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
+    v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,pdir) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,mom(pdir))/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
 
     radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = x(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,rdir) !+ half*block%dx(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)
 
     !> Correction for spherical fluxes:
     !> drho/dt = -2 rho v_r/r
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rho_) - qdt*two*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)/radius(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = -two*w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rdir)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
-    call phys_get_pthermal(wCT,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2,pth)
+    pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = (rhd_gamma-1) *(w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,e_) - half*sum(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+        mom(:))**2, dim=ndim+1) / w(ixOmin1:ixOmax1,ixOmin2:ixOmax2, rho_))
 
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(rdir)) = w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,mom(rdir)) - qdt*2*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       rdir)**two/radius(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2) + qdt*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+    source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(rdir)) = - 2*w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rdir)**two/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2) + w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rho_)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        pdir)**two/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(pdir)) = w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,mom(pdir)) - qdt*3*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       rdir)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,pdir)*wCT(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rho_)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+    source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(pdir)) = - 3*v(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rdir)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       pdir)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)/radius(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
 
     !> de/dt = -2 (e+p)v_r/r
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       e_) - qdt*two*(wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       e_)+pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2))*v(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rdir)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+    source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = - two*(w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,e_)+pth(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2))*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rdir)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
-      call fld_get_radflux(wCT, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-         ixOmin2,ixOmax1,ixOmax2, rad_flux)
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,r_e) - qdt*two*rad_flux(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,rdir)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+      if (boundary) then
+        rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+           rdir) = L_0/(4.d0*dpi*x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)**2)
+      else
+        call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+           ixOmin2,ixOmax1,ixOmax2, rad_flux)
+      endif
+      source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = source(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,r_e) - two*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         rdir)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     endif
 
     if (rhd_radiation_advection) then
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,r_e) - qdt*two*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+      source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = source(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,r_e) - two*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
          r_e)*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rdir)/radius(ixOmin1:ixOmax1,&
          ixOmin2:ixOmax2)
     endif
 
     ! Not sure about this one
     if (rhd_energy_interact) then
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,r_e) - qdt*two*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-         rdir)*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+      source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = source(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,r_e) - two*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         rdir)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
          r_e)/(3*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
     endif
 
-    if (it == 127060) then
-      pert(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = dsin(2*dpi*x(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(&
-         ixOmin1:ixOmax1,ixOmin2:ixOmax2,2))
-      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = w(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,rho_) * (1.d0 + 0.1d0*pert(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2))
-    endif
+  end subroutine PseudoPlanarSource
 
-  end subroutine PseudoPlanar
 
   subroutine Opacity_stepfunction(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
      ixOmin2,ixOmax1,ixOmax2,w,x,kappa)

@@ -94,7 +94,7 @@ contains
 
     !> Gamma at the base is below one!
     Gamma_b = 0.9d0
-    kappa_0 = 2*Gamma_0*4*dpi*const_G*M_star*const_c/L_0
+    kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
 
     allocate(r_arr(domain_nx2+2*nghostcells))
@@ -181,7 +181,7 @@ contains
     L_vE = 4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+1)
     !>Set bottom density from massloss rate
 
-    dinflo = 35.0d0*M_dot/(4*dpi*R_star**2)
+    dinflo = 20.0d0*M_dot/(4*dpi*R_star**2)
     gradE = -dinflo*kappa_b*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
     print*, dinflo*unit_density
@@ -293,7 +293,7 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: kappa(ixB^S), gradE_l(ixB^S), L_vE_l(ixB^S)
-    double precision :: Temp(ixB^S), pth(ixB^S)
+    double precision :: Temp(ixB^S), pth(ixB^S),pert(ixB^S), ppsource(ixB^S,1:nw)
     integer :: i,j
 
     select case (iB)
@@ -307,11 +307,15 @@ contains
         w(ixBmin1:ixBmax1,i,rho_) = dexp(2*dlog(w(ixBmin1:ixBmax1,i+1,rho_)) - dlog(w(ixBmin1:ixBmax1,i+2,rho_)))
       enddo
 
-
       do i = ixBmax2,ixBmin2,-1
         w(ixBmin1:ixBmax1,i,mom(2)) = w(ixBmin1:ixBmax1,i+1,mom(2))*(x(ixBmin1:ixBmax1,i+1,2)/x(ixBmin1:ixBmax1,i,2))**2
         w(ixBmin1:ixBmax1,i,mom(1)) = w(ixBmin1:ixBmax1,i+1,mom(1))
       enddo
+
+        ! pert(ixb^S) = dsin(2*dpi*x(ixB^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixB^S,2)-2*dpi*global_time)
+        ! w(ixB^S,rho_) = w(ixB^S,rho_) * (1.d0 + 0.1d0*pert(ixB^S))
+        ! w(ixB^S,mom(2)) = w(ixB^S,mom(2)) * (1.d0 + 0.1d0*pert(ixB^S))
+
 
       where (w(ixB^S,mom(2)) .lt. zero)
          w(ixB^S,mom(2)) = zero ! abs(w(ixB^S,mom(2)))
@@ -343,35 +347,24 @@ contains
       enddo
 
       gradE_out = sum(w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,ixBmin2-2,r_e))/(ixBmax1-ixBmin1)/dxlevel(2)
-      ! print*, gradE_out
 
     case default
       call mpistop('boundary not known')
     end select
   end subroutine boundary_conditions
 
-
   subroutine mg_boundary_conditions(iB)
-
     use mod_global_parameters
     use mod_multigrid_coupling
 
     integer, intent(in)             :: iB
 
-    integer :: ixOmax2
-
     select case (iB)
       case (3)
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         mg%bc(iB, mg_iphi)%bc_value = gradE
 
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        ! ! mg%bc(iB, mg_iphi)%bc_value = Er_arr(nghostcells+1)  + (Er_arr(nghostcells+2) - Er_arr(nghostcells+3))
-
       case (4)
-        ixOmax2 = nghostcells+domain_nx2-2
-
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         mg%bc(iB, mg_iphi)%bc_value = min(gradE_out,0.d0) !0
 
@@ -411,57 +404,78 @@ contains
     double precision, intent(in)    :: qdt, qtC, qt
     double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision :: ppsource(ixO^S,1:nw)
+
+    call PseudoPlanarSource(ixI^L,ixO^L,wCT,x,ppsource,.false.)
+    w(ixO^S,rho_) = w(ixO^S,rho_) + qdt*ppsource(ixO^S,rho_)
+    w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt*ppsource(ixO^S,mom(1))
+    w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt*ppsource(ixO^S,mom(2))
+    w(ixO^S,e_) = w(ixO^S,e_) + qdt*ppsource(ixO^S,e_)
+    w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*ppsource(ixO^S,r_e)
+
+  end subroutine PseudoPlanar
+
+  subroutine PseudoPlanarSource(ixI^L,ixO^L,w,x,source,boundary)
+    use mod_global_parameters
+
+    integer, intent(in)           :: ixI^L, ixO^L
+    double precision, intent(in)  :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
+    double precision, intent(out) :: source(ixO^S,1:nw)
+    logical, intent(in) :: boundary
 
     double precision :: rad_flux(ixO^S,1:ndir)
     double precision :: pth(ixI^S),v(ixO^S,2)
     double precision :: radius(ixO^S),  pert(ixO^S)
     integer :: rdir, pdir
 
+    source(ixO^S,1:nw) = zero
+
     rdir = 2
     pdir = 1
 
-    v(ixO^S,rdir) = wCT(ixO^S,mom(rdir))/wCT(ixO^S,rho_)
-    v(ixO^S,pdir) = wCT(ixO^S,mom(pdir))/wCT(ixO^S,rho_)
+    v(ixO^S,rdir) = w(ixO^S,mom(rdir))/w(ixO^S,rho_)
+    v(ixO^S,pdir) = w(ixO^S,mom(pdir))/w(ixO^S,rho_)
 
     radius(ixO^S) = x(ixO^S,rdir) ! + half*block%dx(ixO^S,rdir)
 
     !> Correction for spherical fluxes:
     !> drho/dt = -2 rho v_r/r
-    w(ixO^S,rho_) = w(ixO^S,rho_) - qdt*two*wCT(ixO^S,rho_)*v(ixO^S,rdir)/radius(ixO^S)
+    source(ixO^S,rho_) = -two*w(ixO^S,rho_)*v(ixO^S,rdir)/radius(ixO^S)
 
-    call phys_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
+    pth(ixO^S) = (rhd_gamma-1) &
+    *(w(ixO^S,e_) - half*sum(w(ixO^S, mom(:))**2, dim=ndim+1) / w(ixO^S, rho_))
 
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
-    w(ixO^S,mom(rdir)) = w(ixO^S,mom(rdir)) - qdt*2*wCT(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S) &
-                                            + qdt*wCT(ixO^S,rho_)*v(ixO^S,pdir)**two/radius(ixO^S)
+    source(ixO^S,mom(rdir)) = - 2*w(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S) &
+                              + w(ixO^S,rho_)*v(ixO^S,pdir)**two/radius(ixO^S)
 
-    w(ixO^S,mom(pdir)) = w(ixO^S,mom(pdir)) - qdt*3*v(ixO^S,rdir)*v(ixO^S,pdir)*wCT(ixO^S,rho_)/radius(ixO^S)
+    source(ixO^S,mom(pdir)) = - 3*v(ixO^S,rdir)*v(ixO^S,pdir)*w(ixO^S,rho_)/radius(ixO^S)
 
     !> de/dt = -2 (e+p)v_r/r
-    w(ixO^S,e_) = w(ixO^S,e_) - qdt*two*(wCT(ixO^S,e_)+pth(ixO^S))*v(ixO^S,rdir)/radius(ixO^S)
+    source(ixO^S,e_) = - two*(w(ixO^S,e_)+pth(ixO^S))*v(ixO^S,rdir)/radius(ixO^S)
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
-      call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
-      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*rad_flux(ixO^S,rdir)/radius(ixO^S)
+      if (boundary) then
+        rad_flux(ixO^S,rdir) = L_0/(4.d0*dpi*x(ixO^S,rdir)**2)
+      else
+        call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
+      endif
+      source(ixO^S,r_e) = source(ixO^S,r_e) - two*rad_flux(ixO^S,rdir)/radius(ixO^S)
     endif
 
     if (rhd_radiation_advection) then
-      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*wCT(ixO^S,r_e)*v(ixO^S,rdir)/radius(ixO^S)
+      source(ixO^S,r_e) = source(ixO^S,r_e) - two*w(ixO^S,r_e)*v(ixO^S,rdir)/radius(ixO^S)
     endif
 
     ! Not sure about this one
     if (rhd_energy_interact) then
-      w(ixO^S,r_e) = w(ixO^S,r_e) - qdt*two*v(ixO^S,rdir)*wCT(ixO^S,r_e)/(3*radius(ixO^S))
+      source(ixO^S,r_e) = source(ixO^S,r_e) - two*v(ixO^S,rdir)*w(ixO^S,r_e)/(3*radius(ixO^S))
     endif
 
-    ! if (it == 127060) then
-    !   pert(ixO^S) = dsin(2*dpi*x(ixO^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixO^S,2))
-    !   w(ixO^S,rho_) = w(ixO^S,rho_) * (1.d0 + 0.1d0*pert(ixO^S))
-    ! endif
+  end subroutine PseudoPlanarSource
 
-  end subroutine PseudoPlanar
 
   subroutine Opacity_stepfunction(ixI^L,ixO^L,w,x,kappa)
     use mod_global_parameters

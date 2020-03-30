@@ -259,7 +259,7 @@ contains
     }
 
     ! Whether diagonal ghost cells are required for the physics
-    phys_req_diagonal = .false.
+    phys_req_diagonal = .true.
 
     ! derive units from basic units
     call rhd_physical_units()

@@ -20,7 +20,7 @@
 /
 
  &stoplist
-   time_max = 7.d0
+   time_max = 6.99d0
    dtmin = 1.0d-20
    !it_max = 50000
 /
@@ -84,4 +84,5 @@
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
   fld_diff_tol = 1.d-4
+  fld_bisect_tol = 1.d-8
   /

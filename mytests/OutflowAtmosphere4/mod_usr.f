@@ -133,24 +133,24 @@ contains
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
 
-    if (mype .eq. 0) then
-      print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
-      print*, 'Gamma_0 ', 'kappa_0 ', 'kappa_b'
-      print*, M_star, R_star,M_dot_ratio, M_dot, L_0
-      print*, Gamma_0, kappa_0, kappa_b
-
-      print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
-
-      print*, 'unit_length', unit_length
-      print*, 'unit_density', unit_density
-      print*, 'unit_numberdensity', unit_numberdensity
-      print*, 'unit_pressure', unit_pressure
-      print*, 'unit_temperature', unit_temperature
-      print*, 'unit_radflux', unit_radflux
-      print*, 'unit_opacity', unit_opacity
-      print*, 'unit_time', unit_time
-      print*, 'unit_velocity', unit_velocity
-    endif
+    ! if (mype .eq. 0) then
+    !   print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
+    !   print*, 'Gamma_0 ', 'kappa_0 ', 'kappa_b'
+    !   print*, M_star, R_star,M_dot_ratio, M_dot, L_0
+    !   print*, Gamma_0, kappa_0, kappa_b
+    !
+    !   print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
+    !
+    !   print*, 'unit_length', unit_length
+    !   print*, 'unit_density', unit_density
+    !   print*, 'unit_numberdensity', unit_numberdensity
+    !   print*, 'unit_pressure', unit_pressure
+    !   print*, 'unit_temperature', unit_temperature
+    !   print*, 'unit_radflux', unit_radflux
+    !   print*, 'unit_opacity', unit_opacity
+    !   print*, 'unit_time', unit_time
+    !   print*, 'unit_velocity', unit_velocity
+    ! endif
 
     !> Make all parameters dimensionless
     M_star = M_star/(unit_density*unit_length**3.d0)
@@ -171,14 +171,14 @@ contains
     T_arr = T_arr/unit_temperature
     p_arr = p_arr/unit_pressure
 
-    if (mype .eq. 0) then
-      print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
-      print*, 'Gamma_0 ', 'kappa_0 ', 'kappa_b'
-      print*, M_star, R_star,M_dot_ratio, M_dot, L_0
-      print*, Gamma_0, kappa_0, kappa_b
-
-      print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
-    endif
+    ! if (mype .eq. 0) then
+    !   print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
+    !   print*, 'Gamma_0 ', 'kappa_0 ', 'kappa_b'
+    !   print*, M_star, R_star,M_dot_ratio, M_dot, L_0
+    !   print*, Gamma_0, kappa_0, kappa_b
+    !
+    !   print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
+    ! endif
 
     L_vE = 4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+&
        1)
@@ -410,7 +410,7 @@ contains
 
       case (4)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0! gradE_out
+        mg%bc(iB, mg_iphi)%bc_value = gradE_out
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

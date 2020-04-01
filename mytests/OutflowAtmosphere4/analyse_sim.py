@@ -15,13 +15,13 @@ L = 1.9e5
 Rsun = 6.96e10
 Msun = 1.99e33
 Lsun = 3.9e33
-G = 6.67259e-8
+G = 6.67191e-8
 c = 2.99792458e10
-year = 356.25*24*60*60
-arad = 7.5646e-15
-kb = 1.380658e-16
-mp = 1.6726231e-24
-mu = 0.6
+year = 3.1536e7
+arad = 7.5657e-15
+kb = 1.380648520e-16
+mp = 1.6737236e-24
+mu = 0.60869565217391308
 hd_gamma = 5.0/3.0
 
 def AMRVAC_single_profile(file,variable):
@@ -119,65 +119,138 @@ def Get_sonic_point(r,v,a):
     return r_sp, v_sp
 
 
-folder = 'grid4_output'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_d20.00'+str(100)+'.dat'
+folder = 'output'
+# amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_d20.00'+str(100)+'.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_3L00'+str(36)+'.dat'
 
 r0,Mdot0 = AMRVAC_single_profile(amrvac_outfile0,'Mdot')
 r0,rho0 = AMRVAC_single_profile(amrvac_outfile0,'rho')
 r0,v0 = AMRVAC_single_profile(amrvac_outfile0,'v')
 r0,p0 = AMRVAC_single_profile(amrvac_outfile0,'p')
+r0,e0 = AMRVAC_single_profile(amrvac_outfile0,'e')
 r0,Er0 = AMRVAC_single_profile(amrvac_outfile0,'re')
 r0,a0 = AMRVAC_single_profile(amrvac_outfile0,'a')
 r0,Gamma0 = AMRVAC_single_profile(amrvac_outfile0,'Gamma')
 r_sp0, v_sp0 = Get_sonic_point(r0,v0,a0)
 
-
-#Energy=energy density*volume
-#volume element ~ r**2
-U_pot = -rho0*G*M*Msun/r0 *r0**2
-# U_pot = U_pot - min(U_pot)
-E_k = 1./2.*rho0*v0**2 *r0**2
-E_int = p0/(hd_gamma-1) *r0**2
-E_rad = Er0 *r0**2
-E_tot = U_pot + E_k + E_int + E_rad
-
-
 #photon-tiring term:
 gradV = np.gradient(v0,r0)
-Ptt = gradV*Er0/3
-Ptt_pp = 2./3.*v0*Er0/r0
+Ptt = gradV*Er0/3/Er0
+Ptt_pp = 2./3.*v0*Er0/r0/Er0
 Ptt_ppc = Ptt + Ptt_pp
 
-
-#Heating and cooling terms:
+#Heating and cooling terms, relative to Er:
 error_b = 10.0
 kappa_b = 0.61885728378588867
 kappa_0 = 1.3752384084130858
 kappa = kappa_b + (1+np.erf((r0-R)/R*error_b-error_b/2))*(kappa_0-kappa_b)/2
 Tg = p0*mp*mu/(kb*rho0)
-cool = c*kappa*rho0*arad*Tg**4
-heat = c*kappa*rho0*Er0
-q_dot = heat-cool
+cool = c*kappa*rho0*arad*Tg**4/Er0
+heat = c*kappa*rho0*Er0/Er0
+q_dot = -heat+cool
 
-# plt.figure()
-# plt.semilogy(r0/Rsun,U_pot,'r--',label='Potential energy')
-# plt.semilogy(r0/Rsun,E_k,'g--',label='Kinetic energy')
-# plt.semilogy(r0/Rsun,E_int,'b--',label='Internal energy')
-# plt.semilogy(r0/Rsun,E_rad,'c--',label='Radiation energy')
-# plt.semilogy(r0/Rsun,E_tot,'k-',label='Total energy')
-# plt.legend()
+#Advection flux Div(Ev + F), relative to Er
+F = -c/(3*kappa*rho0)*np.gradient(Er0,r0)
+Div_sph_F = 1/r0**2*np.gradient(r0**2*F,r0)/Er0
+Div_sph_Ev = 1/r0**2*np.gradient(r0**2*Er0*v0,r0)/Er0
+
+#PseudoPlanar correction for advection flux
+DivF = np.gradient(F,r0)/Er0
+DivEv = np.gradient(Er0*v0,r0)/Er0
+ppc_DivF = -2*F/r0/Er0
+ppc_DivEv = -2*v0*Er0/r0/Er0
+DivF_ppc = DivF - ppc_DivF
+DivEv_ppc = DivEv - ppc_DivEv
+
+#Steady state Continuity equation:
+div_rhov = np.gradient(rho0*v0,r0)/rho0
+div_sph_rhov = 1/r0**2*np.gradient(r0**2*rho0*v0,r0)/rho0
+ppc_rhov = -2*rho0*v0/r0/rho0
+
+#Steady state momentum equation:
+div_vrhov_p = np.gradient(rho0*v0**2+p0,r0)/(rho0*v0)
+ppc_vrhov_p = -2*(rho0*v0**2+p0)/r0/(rho0*v0)
+g_rad_grav = rho0*(kappa*F/c-G*M*Msun/r0**2)/(rho0*v0)
+
+#Steady state gas-energy equation:
+div_ev_pv = np.gradient(e0*v0+p0*v0,r0)/e0
+ppc_ev_pv = -2*(e0*v0+p0*v0)/r0/e0
+vg_rad_grav = v0*rho0*(kappa*F/c-G*M*Msun/r0**2)/e0
+e_qdot = -cool+heat
+
+#Steady state radiation-energy equation:
+div_F_Ev = np.gradient(F+Er0*v0,r0)/Er0
+ppc_F_Ev = -2*(F+Er0*v0)/r0/Er0
 
 plt.figure()
+plt.title('Photon tiring term')
 plt.plot(r0/Rsun,Ptt,'r-',label='photon-tiring term')
 plt.plot(r0/Rsun,Ptt_pp,'b-',label='pseudo-planar correction')
 plt.plot(r0/Rsun,Ptt_ppc,'k-',label='pseudo-planar corrected \n photon-tiring term')
 plt.legend()
 
 plt.figure()
-plt.semilogy(r0/Rsun,cool,'r-',label='cooling term')
-plt.semilogy(r0/Rsun,heat,'b-',label='heating term')
-plt.semilogy(r0/Rsun,q_dot,'k-',label='Net energy exch for gas')
+plt.title('Heating and Cooling')
+# plt.plot(r0/Rsun,cool,'r-',label='cooling term')
+# plt.plot(r0/Rsun,heat,'b-',label='heating term')
+# plt.plot(r0/Rsun,abs(q_dot),'k-',label='|Net energy exch for gas|')
+plt.plot(r0/Rsun,abs(heat/cool),'k--',label='ratio')
 plt.legend()
 
+plt.figure()
+plt.title('Radiation energy source terms')
+plt.plot(r0/Rsun,q_dot,'r.',label='cooling-heating')
+plt.plot(r0/Rsun,Ptt_ppc,'r--',label='photon tiring term')
+plt.plot(r0/Rsun,Div_sph_F,'b.',label='$\\nabla \cdot \\vec{F}$')
+plt.plot(r0/Rsun,Div_sph_Ev,'b--',label='$\\nabla \cdot E\\vec{v}$')
+plt.plot(r0/Rsun,Div_sph_F+Div_sph_Ev-q_dot-Ptt_ppc,'k-',label='$\\nabla \cdot (Ev+F)$ \n $= \dot{q} - \\nabla v : P$')
+plt.legend()
+
+plt.figure()
+plt.title('PseudoPlanar correction E_rad')
+plt.plot(r0/Rsun,DivF,'r.',label='$\\nabla_c \cdot F$')
+plt.plot(r0/Rsun,DivEv,'b.',label='$\\nabla_c \cdot \\vec{v}E$')
+plt.plot(r0/Rsun,Div_sph_F,'r--',label='$\\nabla_{sph} \cdot F$')
+plt.plot(r0/Rsun,Div_sph_Ev,'b--',label='$\\nabla_{sph} \cdot \\vec{v}E$')
+plt.plot(r0/Rsun,ppc_DivF,'r-.',label='$S_{ppc}^F$')
+plt.plot(r0/Rsun,ppc_DivEv,'b-.',label='$S_{ppc}^{Ev}$')
+plt.plot(r0/Rsun,DivEv_ppc - Div_sph_F,'r-',label='$\\nabla_c \cdot F + S_{ppc}^F - \\nabla_{sph} \cdot \\vec{F}$')
+plt.plot(r0/Rsun,DivF_ppc - Div_sph_Ev,'b-',label='$\\nabla_c \cdot Ev + S_{ppc}^{vE} - \\nabla_{sph} \cdot \\vec{v}E$')
+plt.plot(r0/Rsun,DivEv_ppc - Div_sph_F+DivF_ppc - Div_sph_Ev,'k-.',label='total')
+plt.legend()
+
+plt.figure()
+plt.title('Steady state continuity equation')
+plt.plot(r0/Rsun,div_rhov,'r',label='$\\nabla \cdot (\\rho v)$')
+plt.plot(r0/Rsun,div_sph_rhov,'k-.',label='$\\nabla_s \cdot (\\rho v)$')
+plt.plot(r0/Rsun,ppc_rhov,'b',label='$S_{ppc}^{\\rho}$')
+plt.plot(r0/Rsun,div_rhov-ppc_rhov,'k',label='total')
+plt.legend()
+
+plt.figure()
+plt.title('Steady state momentum equation')
+plt.plot(r0/Rsun,div_vrhov_p,'r',label='$\\nabla(v\\rho v + p)$')
+plt.plot(r0/Rsun,ppc_vrhov_p,'b',label='$S_{ppc}^{v \\rho}$')
+plt.plot(r0/Rsun,g_rad_grav,'g',label='$g_{rad}-g_{grav}$')
+plt.plot(r0/Rsun,div_vrhov_p-ppc_vrhov_p-g_rad_grav,'k',label='total')
+plt.legend()
+
+plt.figure()
+plt.title('Steady state gas-energy equation')
+plt.plot(r0/Rsun,div_ev_pv,'r',label='$\\nabla(ev+pv)$')
+plt.plot(r0/Rsun,ppc_ev_pv,'b',label='$S_{ppc}^e$')
+plt.plot(r0/Rsun,vg_rad_grav,'g',label='$vg_{rad}-vg_{grav}$')
+plt.plot(r0/Rsun,e_qdot,'c',label='$\dot{q}$')
+plt.plot(r0/Rsun,div_ev_pv-ppc_ev_pv-vg_rad_grav-e_qdot,'k',label='total')
+plt.legend()
+
+plt.figure()
+plt.title('Steady state radiation-energy equation')
+plt.plot(r0/Rsun,div_F_Ev,'r',label='$\\nabla(Ev+F)$')
+plt.plot(r0/Rsun,ppc_F_Ev,'b',label='$S_{ppc}^E$')
+plt.plot(r0/Rsun,Ptt_ppc,'g',label='$\\nabla_s v: P$')
+plt.plot(r0/Rsun,q_dot,'c',label='$-\dot{q}$')
+plt.plot(r0/Rsun,div_F_Ev-ppc_F_Ev+Ptt_ppc-q_dot,'k',label='total')
+plt.legend()
 
 plt.show()

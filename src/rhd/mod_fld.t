@@ -170,7 +170,7 @@ module mod_fld
 
     !> Need mean molecular weight
     fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
-
+    
     !> set rhd_gamma
     fld_gamma = phys_gamma
 
@@ -816,11 +816,12 @@ module mod_fld
                  + div_v(ixO^S,3,3)*edd(ixO^S,3,3)
     }
 
-    divvP(ixO^S) = divvP(ixO^S)*wCT(ixO^S,iw_r_e)
-
     !> e_gas is the INTERNAL ENERGY without KINETIC ENERGY
-    if (.not. block%e_is_internal) &
+    if (.not. block%e_is_internal) then
       e_gas(ixO^S) = wCT(ixO^S,iw_e) - half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
+    else
+      e_gas(ixO^S) = wCT(ixO^S,iw_e)
+    endif
 
     E_rad(ixO^S) = wCT(ixO^S,iw_r_e)
 
@@ -829,13 +830,12 @@ module mod_fld
     !> Calculate coefficients for polynomial
     a1(ixO^S) = 4*kappa(ixO^S)*wCT(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure))*((fld_gamma-one)/wCT(ixO^S,iw_rho))**4.d0*dt
     a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*wCT(ixO^S,iw_rho)*dt
-    a3(ixO^S) = divvP(ixO^S)/E_rad(ixO^S)*dt
+    a3(ixO^S) = divvP(ixO^S)*dt
 
     c0(ixO^S) = ((one + a2(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a2(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
     !> Loop over every cell for rootfinding method
-    !$OMP PARALLEL DO
     {do ix^D=ixOmin^D,ixOmax^D\ }
       select case(fld_interaction_method)
       case('Bisect')
@@ -848,7 +848,6 @@ module mod_fld
         call mpistop('root-method not known')
       end select
     {enddo\}
-    !$OMP END PARALLEL DO
 
     !> advance E_rad
     E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S) + a3(ixO^S))
@@ -871,9 +870,11 @@ module mod_fld
 
     !> Beginning of module substracted wCT Ekin
     !> So now add wCT Ekin
-    if (.not. block%e_is_internal) &
+    if (.not. block%e_is_internal) then
       w(ixO^S,iw_e) = w(ixO^S,iw_e) + half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
-
+    else
+      w(ixO^S,iw_e) = w(ixO^S,iw_e)
+    endif
 
     !> Update rad-energy in w
     ! w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) + E_rad(ixO^S) - wCT(ixO^S,iw_r_e)

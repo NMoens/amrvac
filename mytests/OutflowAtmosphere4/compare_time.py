@@ -212,7 +212,7 @@ plt.ylabel('Mdot')
 plt.ylim([-5e-5,5e-4])
 plt.legend()
 
-plt.savefig('figs/d_mdot')
+plt.savefig('figs/time_mdot')
 
 plt.figure(2)
 plt.title('rho(dinflo)')
@@ -233,7 +233,7 @@ plt.xlabel('r/R')
 plt.ylabel('rho')
 plt.legend()
 
-# plt.savefig('figs/d_rho')
+plt.savefig('figs/time_rho')
 
 plt.figure(3)
 plt.title('v(dinflo)')
@@ -263,7 +263,7 @@ plt.xlabel('r/R')
 plt.ylabel('v')
 plt.legend()
 
-# plt.savefig('figs/d_v')
+plt.savefig('figs/time_v')
 
 plt.figure(4)
 plt.title('Gamma(dinflo)')
@@ -280,11 +280,12 @@ plt.vlines(r_sp2/r0[0],max(Gamma1),min(Gamma5),'b')
 plt.vlines(r_sp3/r0[0],max(Gamma1),min(Gamma5),'g')
 plt.vlines(r_sp4/r0[0],max(Gamma1),min(Gamma5),'m')
 plt.vlines(r_sp5/r0[0],max(Gamma1),min(Gamma5),'c')
+plt.ylim([0.8,1.2])
 plt.xlabel('r/R')
 plt.ylabel('Gamma')
 plt.legend()
 
-# plt.savefig('figs/d_gamma')
+plt.savefig('figs/time_gamma')
 
 plt.show()
 #=============================================================================================

@@ -25,8 +25,6 @@ module mod_fld
     !> Number for splitting the diffusion module
     double precision, public :: diff_crit
 
-    double precision :: fld_max_fracdt = 50.d0
-
     !> Index for testvariable
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!! DELETE WHEN DONE
@@ -93,7 +91,7 @@ module mod_fld
     integer                      :: n
 
     namelist /fld_list/ fld_kappa0, fld_split, &
-    fld_bisect_tol, fld_diff_testcase, fld_diff_tol, fld_max_fracdt,&
+    fld_bisect_tol, fld_diff_testcase, fld_diff_tol,&
     fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
     diff_coef_filter, size_D_filter, flux_lim_filter, size_L_filter, &
     lineforce_opacities

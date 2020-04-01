@@ -7,11 +7,16 @@ module mod_usr
 
   implicit none
 
-  double precision :: rho1 = 1.2d0
-  double precision :: v1 = 1.d6
-  double precision :: T1 = 1.d7
-  double precision :: T2 = 2.d7
-  double precision :: wdth = 24.d0
+  double precision :: ri = 8.d11
+  double precision :: ro =  8.7d11
+  double precision :: rho1 = 7.78d-10
+  double precision :: T1 = 1.d1
+  !subcritical:
+  double precision :: v1 = 6.d5
+  ! ! supercritical:
+  ! double precision :: v1 = 16.d5
+
+
 
 contains
 
@@ -40,11 +45,10 @@ contains
 
   subroutine initglobaldata_usr
     use mod_global_parameters
-    use mod_fld
 
     unit_velocity = v1 !r_arr(nghostcells) ! cm
     unit_numberdensity = rho1/((1.d0+4.d0*He_abundance)*const_mp)
-    unit_length = wdth
+    unit_length = ri
 
     !> Remaining units
     unit_density=(1.d0+4.d0*He_abundance)*const_mp*unit_numberdensity
@@ -69,21 +73,19 @@ contains
     double precision :: temp(ixI^S), pth(ixI^S)
     double precision :: kappa(ixO^S), fld_R(ixO^S), lambda(ixO^S)
 
-    temp(ixI^S) = T1 + (T2-T1)*dexp(-(x(ixI^S,1)*unit_length)**2.d0/(2*wdth**2))
-    w(ixI^S,rho_) = rho1*T1/temp(ixI^S) &
-    + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) &
-    * (T1**4.d0/temp(ixI^S) - temp(ixI^S)**3.d0)
-    w(ixI^S,mom(1)) = w(ixI^S,rho_)*v1
-    w(ixI^S,mom(2)) = 0.d0
+    temp(ixI^S) = T1 + 75.d0*(x(ixI^S,1)*unit_length-ri)/(ro-ri)
+    w(ixI^S,rho_) = rho1
+    w(ixI^S,mom(:)) = 0.d0
     pth(ixI^S) = const_kB*temp(ixI^S)*w(ixI^S,rho_) &
     /(const_mp*fld_mu)
-    w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0) + half*w(ixI^S,rho_)*v1**2
+    w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0)
     w(ixI^S,r_e) = const_rad_a*temp(ixI^S)**4.d0
 
+
     w(ixI^S,rho_) = w(ixI^S,rho_)/unit_density
-    w(ixI^S,mom(:)) = w(ixI^S,mom(:))/(unit_density*unit_velocity)
     w(ixI^S,e_) = w(ixI^S,e_)/unit_pressure
     w(ixI^S,r_e) = w(ixI^S,r_e)/unit_pressure
+
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
@@ -92,34 +94,28 @@ contains
 
   end subroutine initial_conditions
 
+
   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
     use mod_global_parameters
     use mod_fld
-
 
     integer, intent(in)             :: ixI^L, ixB^L, iB
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    double precision :: temp(ixB^S), pth(ixB^S)
+    double precision :: eta_1, Tp, pth
+
+    eta_1 = (rhd_gamma-1.d0)/(rhd_gamma+1.d0)
+    Tp = const_mp*eta_1*v1**2/(2.d0*const_kB*(1.d0-eta_1)**2)
+    pth = const_kB*Tp/(fld_mu*const_mp)*rho1
 
     select case (iB)
-    case(1,2)
-      temp(ixB^S) = T1 + (T2-T1)*dexp(-(x(ixB^S,1)*unit_length)**2.d0/(2*wdth**2))
-      w(ixB^S,rho_) = rho1*T1/temp(ixB^S) &
-      + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) &
-      * (T1**4.d0/temp(ixB^S) - temp(ixB^S)**3.d0)
-      w(ixB^S,mom(1)) = w(ixB^S,rho_)*v1
+    case(1)
+      w(ixB^S,rho_) = rho1/unit_density
+      w(ixB^S,mom(1)) = rho1*v1/(unit_density*unit_velocity)
       w(ixB^S,mom(2)) = 0.d0
-      pth(ixB^S) = const_kB*temp(ixB^S)*w(ixB^S,rho_) &
-      /(const_mp*fld_mu)
-      w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1.d0) + half*w(ixB^S,rho_)*v1**2
-      w(ixB^S,r_e) = const_rad_a*temp(ixB^S)**4.d0
-
-      w(ixB^S,rho_) = w(ixB^S,rho_)/unit_density
-      w(ixB^S,mom(:)) = w(ixB^S,mom(:))/(unit_density*unit_velocity)
-      w(ixB^S,e_) = w(ixB^S,e_)/unit_pressure
-      w(ixB^S,r_e) = w(ixB^S,r_e)/unit_pressure
+      w(ixB^S,e_) = (pth/(rhd_gamma-1) + half*rho1*v1**2)/unit_pressure
+      w(ixB^S,r_e) = const_rad_a*Tp/unit_pressure
 
     case default
       call mpistop('boundary not known')
@@ -133,18 +129,19 @@ contains
     use mod_multigrid_coupling
 
     integer, intent(in)             :: iB
+    double precision :: eta_1, Tp
+
+    eta_1 = (rhd_gamma-1.d0)/(rhd_gamma+1.d0)
+    Tp = const_mp*eta_1*v1**2/(2.d0*const_kB*(1.d0-eta_1)**2)
 
     select case (iB)
     case (1)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
-    case (2)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+      mg%bc(iB, mg_iphi)%bc_value = const_rad_a*Tp/unit_pressure
 
-      case default
-        print *, "Not a standard: ", trim(typeboundary(r_e, iB))
-        error stop "Set special bound for this Boundary "
+    case default
+      print *, "Not a standard: ", trim(typeboundary(r_e, iB))
+      error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
 

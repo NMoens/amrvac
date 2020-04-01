@@ -84,6 +84,9 @@ module mod_rhd_phys
   !> kb/(m_p mu)* 1/a_rad**4,
   double precision, public :: kbmpmua4
 
+  !> Use the speed of light to calculate the timestep
+  logical :: dt_c = .false.
+
 
   ! Public methods
   public :: rhd_phys_init
@@ -1130,25 +1133,30 @@ contains
 
     dtnew = bigdouble
 
-    if(rhd_dust) then
-      call dust_get_dt(w, ixI^L, ixO^L, dtnew, dx^D, x)
-    end if
+    if (.not. dt_c) then
 
-    if(rhd_radiation_force) then
-      call fld_radforce_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+      if(rhd_dust) then
+        call dust_get_dt(w, ixI^L, ixO^L, dtnew, dx^D, x)
+      end if
+
+      if(rhd_radiation_force) then
+        call fld_radforce_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+      endif
+
+      if(rhd_radiative_cooling) then
+        call cooling_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+      end if
+
+      if(rhd_viscosity) then
+        call viscosity_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+      end if
+
+      if(rhd_gravity) then
+        call gravity_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+      end if
+    else
+      dtnew = min(dx^D*unit_velocity/const_c)
     endif
-
-    if(rhd_radiative_cooling) then
-      call cooling_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
-    end if
-
-    if(rhd_viscosity) then
-      call viscosity_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
-    end if
-
-    if(rhd_gravity) then
-      call gravity_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
-    end if
 
   end subroutine rhd_get_dt
 

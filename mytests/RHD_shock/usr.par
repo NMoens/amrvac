@@ -48,8 +48,8 @@
    refine_criterion   = 3
    domain_nx1         = 256
    domain_nx2         = 64
-   block_nx1          = 64
-   block_nx2          = 64
+   block_nx1          = 32
+   block_nx2          = 32
    xprobmin1       = -0.5d0
    xprobmax1       = 0.5d0
    xprobmin2       = 0.d0
@@ -64,7 +64,7 @@
  /
 
  &rhd_list
-  He_abundance = 0.1d0
+  He_abundance = 0.0d0
   rhd_gravity = .false.
   rhd_energy = .true.
   rhd_gamma = 1.6667d0

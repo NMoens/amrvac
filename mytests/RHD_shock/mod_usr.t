@@ -56,6 +56,9 @@ contains
     Er1 = const_rad_a*T1**4
     Er2 = const_rad_a*T2**4
 
+    print*, 'M_1: ', v1/dsqrt(const_kB*T1/(const_mp*fld_mu))
+    print*, 'M_2: ', v2/dsqrt(const_kB*T2/(const_mp*fld_mu))
+
     unit_velocity = v1 !r_arr(nghostcells) ! cm
     unit_numberdensity = rho1/((1.d0+4.d0*He_abundance)*const_mp)
     unit_length = 1.d5

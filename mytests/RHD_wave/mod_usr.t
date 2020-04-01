@@ -34,6 +34,9 @@ contains
     ! Drive the wave using an internal boundary
     usr_internal_bc => Initialize_Wave
 
+    ! Boundary conditions
+    ! usr_special_bc => boundary_conditions
+    ! usr_special_mg_bc => mg_boundary_conditions
     ! Specify other user routines, for a list see mod_usr_methods.t
     ! ...
 
@@ -91,7 +94,7 @@ contains
 
     L_damp = const_c/unit_velocity*fld_kappa0/unit_opacity*rho0/frequency
 
-    ampl = 1.d-5
+    ampl = 1.d-2
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
@@ -177,5 +180,41 @@ contains
     endwhere
 
   end subroutine Initialize_Wave
+
+  subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
+    use mod_global_parameters
+    use mod_fld
+
+    integer, intent(in)             :: ixI^L, ixB^L, iB
+    double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+
+    select case (iB)
+    case(2)
+      w(ixB^S,r_e) = Er0
+
+    case default
+      call mpistop('boundary not known')
+    end select
+  end subroutine boundary_conditions
+
+
+  subroutine mg_boundary_conditions(iB)
+
+    use mod_global_parameters
+    use mod_multigrid_coupling
+
+    integer, intent(in)             :: iB
+
+    select case (iB)
+    case (2)
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+      mg%bc(iB, mg_iphi)%bc_value = Er0
+
+    case default
+      print *, "Not a standard: ", trim(typeboundary(r_e, iB))
+      error stop "Set special bound for this Boundary "
+    end select
+  end subroutine mg_boundary_conditions
 
 end module mod_usr

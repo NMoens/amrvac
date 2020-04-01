@@ -135,9 +135,9 @@ contains
 
     if (mype .eq. 0) then
       print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
-      print*, 'Gamma_0 ', 'kappa_0'
+      print*, 'Gamma_0 ', 'kappa_0 ', 'kappa_b'
       print*, M_star, R_star,M_dot_ratio, M_dot, L_0
-      print*, Gamma_0, kappa_0
+      print*, Gamma_0, kappa_0, kappa_b
 
       print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
 
@@ -173,7 +173,7 @@ contains
 
     if (mype .eq. 0) then
       print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
-      print*, 'Gamma_0 ', 'kappa_0', 'kappa_b'
+      print*, 'Gamma_0 ', 'kappa_0 ', 'kappa_b'
       print*, M_star, R_star,M_dot_ratio, M_dot, L_0
       print*, Gamma_0, kappa_0, kappa_b
 
@@ -388,8 +388,9 @@ contains
            mom(2))/w(ixBmin1:ixBmax1,i,rho_))*w(ixBmin1:ixBmax1,i-1,r_e)
       enddo
 
-      gradE_out = sum(w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,&
-         ixBmin2-2,r_e))/(ixBmax1-ixBmin1)/dxlevel(2)
+      gradE_out = sum((w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,&
+         ixBmin2-2,r_e))/(x(ixBmin1:ixBmax1,ixBmin2-1,2) - x(ixBmin1:ixBmax1,&
+         ixBmin2-2,2)))/(ixBmax1-ixBmin1)
 
     case default
       call mpistop('boundary not known')
@@ -409,7 +410,7 @@ contains
 
       case (4)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = min(gradE_out,0.d0) !0
+        mg%bc(iB, mg_iphi)%bc_value = 0.d0! gradE_out
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -563,7 +564,7 @@ contains
     ! Not sure about this one
     if (rhd_energy_interact) then
       source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = source(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2,r_e) - two*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         ixOmin2:ixOmax2,r_e) + two*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
          rdir)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
          r_e)/(3*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
     endif

@@ -210,7 +210,7 @@ plt.ylabel('Mdot')
 plt.ylim([-5e-5,5e-4])
 plt.legend()
 
-# plt.savefig('figs/d_mdot')
+plt.savefig('figs/d_mdot')
 
 plt.figure(2)
 plt.title('rho(dinflo)')
@@ -231,7 +231,7 @@ plt.xlabel('r/R')
 plt.ylabel('rho')
 plt.legend()
 
-# plt.savefig('figs/d_rho')
+plt.savefig('figs/d_rho')
 
 plt.figure(3)
 plt.title('v(dinflo)')
@@ -261,7 +261,7 @@ plt.xlabel('r/R')
 plt.ylabel('v')
 plt.legend()
 
-# plt.savefig('figs/d_v')
+plt.savefig('figs/d_v')
 
 plt.figure(4)
 plt.title('Gamma(dinflo)')
@@ -282,7 +282,7 @@ plt.xlabel('r/R')
 plt.ylabel('Gamma')
 plt.legend()
 
-# plt.savefig('figs/d_gamma')
+plt.savefig('figs/d_gamma')
 
 plt.figure(5)
 plt.title('Mdot(dinflo)')
@@ -297,7 +297,7 @@ plt.plot([d1,d5],[max(Mdot1*year/Msun),max(Mdot5*year/Msun)],'k--')
 plt.xlabel('dinflo')
 plt.ylabel('Mdot')
 
-# plt.savefig('figs/d_mdot_fit')
+plt.savefig('figs/d_mdot_fit')
 
 #=============================================================================================
 
@@ -377,7 +377,7 @@ plt.ylabel('Mdot')
 plt.ylim([-5e-5,5e-4])
 plt.legend()
 
-# plt.savefig('figs/g_mdot')
+plt.savefig('figs/g_mdot')
 
 plt.figure(7)
 plt.title('rho(Gamma_in)')
@@ -392,7 +392,7 @@ plt.xlabel('r/R')
 plt.ylabel('rho')
 plt.legend()
 
-# plt.savefig('figs/g_rho')
+plt.savefig('figs/g_rho')
 
 plt.figure(8)
 plt.title('v(Gamma_in)')
@@ -416,7 +416,7 @@ plt.xlabel('r/R')
 plt.ylabel('v')
 plt.legend()
 
-# plt.savefig('figs/g_v')
+plt.savefig('figs/g_v')
 
 plt.figure(9)
 plt.title('Gamma(Gamma_in)')
@@ -431,7 +431,7 @@ plt.xlabel('r/R')
 plt.ylabel('Gamma')
 plt.legend()
 
-# plt.savefig('figs/g_gamma')
+plt.savefig('figs/g_gamma')
 
 plt.figure(10)
 plt.title('Mdot(Gamma_in)')
@@ -446,6 +446,6 @@ plt.plot([g1,g5],[max(Mdot1*year/Msun),max(Mdot5*year/Msun)],'k--')
 plt.xlabel('Gamma_in')
 plt.ylabel('Mdot')
 
-# plt.savefig('figs/g_mdot_fit')
+plt.savefig('figs/g_mdot_fit')
 
 plt.show()

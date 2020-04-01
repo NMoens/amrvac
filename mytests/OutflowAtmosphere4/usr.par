@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./grid4_output/G2m02_d20.0'
+  base_filename='./output/G2m02_3L'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T

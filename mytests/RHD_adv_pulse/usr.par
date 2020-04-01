@@ -36,8 +36,8 @@
 /
 
 &boundlist
-  typeboundary_min1 = 5*'periodic'
-  typeboundary_max1 = 5*'periodic'
+  typeboundary_min1 = 5*'special'
+  typeboundary_max1 = 5*'special'
   typeboundary_min2 = 5*'periodic'
   typeboundary_max2 = 5*'periodic'
   internalboundary = T

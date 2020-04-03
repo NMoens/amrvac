@@ -10,8 +10,6 @@ module mod_fld
     !> Opacity per unit of unit_density
     double precision, public :: fld_kappa0 = 0.34d0
 
-    double precision, public :: fld_sigma_0
-
     !> mean particle mass
     double precision, public :: fld_mu = 0.6d0
 
@@ -170,12 +168,9 @@ module mod_fld
 
     !> Need mean molecular weight
     fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
-    
+
     !> set rhd_gamma
     fld_gamma = phys_gamma
-
-    !> Dimensionless Boltzman constante sigma
-    fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
 
     !> Read in opacity table if necesary
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
@@ -192,11 +187,11 @@ module mod_fld
     use mod_constants
     use mod_global_parameters
     use mod_usr_methods
+    use mod_geometry
 
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: qdt, x(ixI^S,1:ndim)
     double precision, intent(in)    :: wCT(ixI^S,1:nw)
-    double precision                :: wCCT(ixI^S,1:nw)
     double precision, intent(inout) :: w(ixI^S,1:nw)
     logical, intent(in) :: energy,qsourcesplit
     logical, intent(inout) :: active
@@ -205,7 +200,12 @@ module mod_fld
     double precision :: kappaCT(ixO^S)
     double precision :: rad_fluxCT(ixO^S,1:ndim)
 
-    integer :: idir, i
+    double precision :: div_v(ixI^S,1:ndim,1:ndim)
+    double precision :: edd(ixO^S,1:ndim,1:ndim)
+    double precision :: nabla_vP(ixO^S)
+    double precision :: vel(ixI^S), grad_v(ixI^S)
+
+    integer :: idir, i, j
 
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_split) then
@@ -222,12 +222,54 @@ module mod_fld
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * wCT(ixO^S,iw_rho)*radiation_forceCT(ixO^S,idir)
 
-          if (energy .and. .not. block%e_is_internal) then
-            !> Energy equation source term (kinetic energy)
-            w(ixO^S,iw_e) = w(ixO^S,iw_e) &
-                + qdt * wCT(ixO^S,iw_mom(idir))*radiation_forceCT(ixO^S,idir)
-          endif
+        if (energy .and. .not. block%e_is_internal) then
+          !> Energy equation source term (kinetic energy)
+          w(ixO^S,iw_e) = w(ixO^S,iw_e) &
+              + qdt * wCT(ixO^S,iw_mom(idir))*radiation_forceCT(ixO^S,idir)
+        endif
       enddo
+
+      !> Photon tiring
+      !> calculate tensor div_v
+      !$OMP PARALLEL DO
+      do i = 1,ndim
+        do j = 1,ndim
+          vel(ixI^S) = wCt(ixI^S,iw_mom(j))/wCt(ixI^S,iw_rho)
+          call gradient(vel,ixI^L,ixO^L,i,grad_v)
+          div_v(ixO^S,i,j) = grad_v(ixO^S)
+        enddo
+      enddo
+      !$OMP END PARALLEL DO
+
+      call fld_get_eddington(wCt, x, ixI^L, ixO^L, edd)
+
+      !> VARIABLE NAMES DIV ARE ACTUALLY GRADIENTS
+      {^IFONED
+      nabla_vP(ixO^S) = div_v(ixO^S,1,1)*edd(ixO^S,1,1)  &
+      }
+
+      {^IFTWOD
+      !>eq 34 Turner and stone (Only 2D)
+      nabla_vP(ixO^S) = div_v(ixO^S,1,1)*edd(ixO^S,1,1)  &
+                   + div_v(ixO^S,1,2)*edd(ixO^S,1,2)  &
+                   + div_v(ixO^S,2,1)*edd(ixO^S,2,1)  &
+                   + div_v(ixO^S,2,2)*edd(ixO^S,2,2)
+      }
+
+      {^IFTHREED
+      nabla_vP(ixO^S) = div_v(ixO^S,1,1)*edd(ixO^S,1,1)  &
+                   + div_v(ixO^S,1,2)*edd(ixO^S,1,2)  &
+                   + div_v(ixO^S,1,3)*edd(ixO^S,1,3)  &
+                   + div_v(ixO^S,2,1)*edd(ixO^S,2,1)  &
+                   + div_v(ixO^S,2,2)*edd(ixO^S,2,2)  &
+                   + div_v(ixO^S,2,3)*edd(ixO^S,2,3)  &
+                   + div_v(ixO^S,3,1)*edd(ixO^S,3,1)  &
+                   + div_v(ixO^S,3,2)*edd(ixO^S,3,2)  &
+                   + div_v(ixO^S,3,3)*edd(ixO^S,3,3)
+      }
+
+      w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) &
+          - qdt * nabla_vP(ixO^S)*wCt(ixO^S,iw_r_e)
 
     end if
 
@@ -766,55 +808,12 @@ module mod_fld
     double precision, intent(in)    :: wCT(ixI^S,1:nw)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    double precision :: div_v(ixI^S,1:ndim,1:ndim)
-    double precision :: edd(ixO^S,1:ndim,1:ndim)
-    double precision :: divvP(ixO^S)
-    double precision :: vel(ixI^S)
-    double precision :: a1(ixO^S), a2(ixO^S), a3(ixO^S)
+    double precision :: a1(ixO^S), a2(ixO^S)
     double precision :: c0(ixO^S), c1(ixO^S)
     double precision :: e_gas(ixO^S), E_rad(ixO^S)
-    double precision :: grad_v(ixI^S)
     double precision :: kappa(ixO^S)
 
     integer :: i,j,idir,ix^D
-
-    !> calculate tensor div_v
-    !$OMP PARALLEL DO
-    do i = 1,ndim
-      do j = 1,ndim
-        vel(ixI^S) = wCT(ixI^S,iw_mom(j))/wCT(ixI^S,iw_rho)
-        call gradient(vel,ixI^L,ixO^L,i,grad_v)
-        div_v(ixO^S,i,j) = grad_v(ixO^S)
-      enddo
-    enddo
-    !$OMP END PARALLEL DO
-
-    call fld_get_eddington(wCT, x, ixI^L, ixO^L, edd)
-
-    !> VARIABLE NAMES DIV ARE ACTUALLY GRADIENTS
-    {^IFONED
-    divvP(ixO^S) = div_v(ixO^S,1,1)*edd(ixO^S,1,1)  &
-    }
-
-    {^IFTWOD
-    !>eq 34 Turner and stone (Only 2D)
-    divvP(ixO^S) = div_v(ixO^S,1,1)*edd(ixO^S,1,1)  &
-                 + div_v(ixO^S,1,2)*edd(ixO^S,1,2)  &
-                 + div_v(ixO^S,2,1)*edd(ixO^S,2,1)  &
-                 + div_v(ixO^S,2,2)*edd(ixO^S,2,2)
-    }
-
-    {^IFTHREED
-    divvP(ixO^S) = div_v(ixO^S,1,1)*edd(ixO^S,1,1)  &
-                 + div_v(ixO^S,1,2)*edd(ixO^S,1,2)  &
-                 + div_v(ixO^S,1,3)*edd(ixO^S,1,3)  &
-                 + div_v(ixO^S,2,1)*edd(ixO^S,2,1)  &
-                 + div_v(ixO^S,2,2)*edd(ixO^S,2,2)  &
-                 + div_v(ixO^S,2,3)*edd(ixO^S,2,3)  &
-                 + div_v(ixO^S,3,1)*edd(ixO^S,3,1)  &
-                 + div_v(ixO^S,3,2)*edd(ixO^S,3,2)  &
-                 + div_v(ixO^S,3,3)*edd(ixO^S,3,3)
-    }
 
     !> e_gas is the INTERNAL ENERGY without KINETIC ENERGY
     if (.not. block%e_is_internal) then
@@ -828,12 +827,12 @@ module mod_fld
     call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
 
     !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*kappa(ixO^S)*wCT(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure))*((fld_gamma-one)/wCT(ixO^S,iw_rho))**4.d0*dt
+    a1(ixO^S) = 4*kappa(ixO^S)*wCT(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)&
+    /(unit_velocity*unit_pressure))*((fld_gamma-one)/wCT(ixO^S,iw_rho))**4.d0*dt
     a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*wCT(ixO^S,iw_rho)*dt
-    a3(ixO^S) = divvP(ixO^S)*dt
 
-    c0(ixO^S) = ((one + a2(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
-    c1(ixO^S) = (one + a2(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
+    c0(ixO^S) = ((one + a2(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/a1(ixO^S)
+    c1(ixO^S) = (one + a2(ixO^S))/a1(ixO^S)
 
     !> Loop over every cell for rootfinding method
     {do ix^D=ixOmin^D,ixOmax^D\ }
@@ -850,7 +849,7 @@ module mod_fld
     {enddo\}
 
     !> advance E_rad
-    E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S) + a3(ixO^S))
+    E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S))
 
     !> new w = w + dt f(wCT)
     !> e_gas,E_rad = wCT + dt f(wCT)

@@ -184,7 +184,7 @@ contains
     dinflo = 20.0d0*M_dot/(4*dpi*R_star**2)
     gradE = -dinflo*kappa_b*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
-    print*, dinflo*unit_density
+    ! print*, dinflo*unit_density
   end subroutine initglobaldata_usr
 
   subroutine ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base,error_b)

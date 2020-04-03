@@ -1098,16 +1098,14 @@ contains
 
     select case(rhd_radiation_formalism)
     case('fld')
-      !> radiation force
-      ! print*, it, 'Doing radforce stuff'
-      if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
-        rhd_energy,qsourcesplit,active)
       !> photon tiring, heating and cooling
-      ! print*, it, 'Doing bisection stuff'
       if (rhd_energy) then
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
       endif
+      !> radiation force
+      if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
+        rhd_energy,qsourcesplit,active)
     case default
       call mpistop('Radiation formalism unknown')
     end select

@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/G2m02_3L'
+  base_filename='./output/G2m02_4L'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -20,7 +20,7 @@
 /
 
  &stoplist
-   time_max = 6.99d0
+   time_max = 3.d0
    dtmin = 1.0d-20
    !it_max = 50000
 /
@@ -78,7 +78,8 @@
  /
 
  &fld_list
-  fld_split = .true.
+  fld_Eint_split = .false.
+  fld_Radforce_split = .false
   fld_opacity_law = 'special'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'

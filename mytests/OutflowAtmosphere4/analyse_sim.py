@@ -22,7 +22,7 @@ arad = 7.5657e-15
 kb = 1.380648520e-16
 mp = 1.6737236e-24
 mu = 0.60869565217391308
-hd_gamma = 5.0/3.0
+hd_gamma = 1.6667
 
 def AMRVAC_single_profile(file,variable):
     ds = amrvac_reader.load_file(file)
@@ -114,14 +114,13 @@ def Get_sonic_point(r,v,a):
     i_sp = np.argmin(fitness)
     r_sp = rnew[i_sp]
     v_sp = itp.splev(r_sp,tck_v)
-    print(r_sp, v_sp)
 
     return r_sp, v_sp
 
 
 folder = 'output'
-# amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_d20.00'+str(100)+'.dat'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_3L00'+str(36)+'.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_3L0060.dat'
+# amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_3L00'+str(36)+'.dat'
 
 r0,Mdot0 = AMRVAC_single_profile(amrvac_outfile0,'Mdot')
 r0,rho0 = AMRVAC_single_profile(amrvac_outfile0,'rho')
@@ -145,6 +144,7 @@ kappa_b = 0.61885728378588867
 kappa_0 = 1.3752384084130858
 kappa = kappa_b + (1+np.erf((r0-R)/R*error_b-error_b/2))*(kappa_0-kappa_b)/2
 Tg = p0*mp*mu/(kb*rho0)
+Tr = (Er0/arad)**0.25
 cool = c*kappa*rho0*arad*Tg**4/Er0
 heat = c*kappa*rho0*Er0/Er0
 q_dot = -heat+cool
@@ -191,10 +191,17 @@ plt.legend()
 
 plt.figure()
 plt.title('Heating and Cooling')
-# plt.plot(r0/Rsun,cool,'r-',label='cooling term')
-# plt.plot(r0/Rsun,heat,'b-',label='heating term')
-# plt.plot(r0/Rsun,abs(q_dot),'k-',label='|Net energy exch for gas|')
-plt.plot(r0/Rsun,abs(heat/cool),'k--',label='ratio')
+plt.semilogy(r0/Rsun,cool,'r-',label='cooling term')
+plt.semilogy(r0/Rsun,heat,'b-',label='heating term')
+plt.semilogy(r0/Rsun,abs(q_dot),'k-',label='|Net energy exch for gas|')
+# plt.plot(r0/Rsun,abs(heat/cool),'k--',label='ratio')
+plt.legend()
+
+plt.figure()
+plt.title('Temperature')
+# plt.plot(r0/Rsun,Tg,'r-',label='Gas Temp')
+# plt.plot(r0/Rsun,Tr,'b-',label='Radiation Temp')
+plt.plot(r0/Rsun,abs(Tg-Tr)/Tg,'k--',label='Relative difference')
 plt.legend()
 
 plt.figure()
@@ -251,6 +258,13 @@ plt.plot(r0/Rsun,ppc_F_Ev,'b',label='$S_{ppc}^E$')
 plt.plot(r0/Rsun,Ptt_ppc,'g',label='$\\nabla_s v: P$')
 plt.plot(r0/Rsun,q_dot,'c',label='$-\dot{q}$')
 plt.plot(r0/Rsun,div_F_Ev-ppc_F_Ev+Ptt_ppc-q_dot,'k',label='total')
+plt.legend()
+
+plt.figure()
+plt.title('Steady state total energy')
+plt.plot(r0/Rsun,div_ev_pv-ppc_ev_pv-vg_rad_grav,'r',label='Gas')
+plt.plot(r0/Rsun,div_F_Ev-ppc_F_Ev+Ptt_ppc,'b',label='Radiation')
+plt.plot(r0/Rsun,div_ev_pv-ppc_ev_pv-vg_rad_grav-e_qdot+div_F_Ev-ppc_F_Ev+Ptt_ppc-q_dot,'k',label='total')
 plt.legend()
 
 plt.show()

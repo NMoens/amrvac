@@ -4,13 +4,12 @@
 module mod_fld
     implicit none
 
-    !> source split or not
-    logical :: fld_split = .false.
+    !> source split for energy interact and radforce:
+    logical :: fld_Eint_split = .false.
+    logical :: fld_Radforce_split = .false.
 
     !> Opacity per unit of unit_density
     double precision, public :: fld_kappa0 = 0.34d0
-
-    double precision, public :: fld_sigma_0
 
     !> mean particle mass
     double precision, public :: fld_mu = 0.6d0
@@ -90,7 +89,7 @@ module mod_fld
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /fld_list/ fld_kappa0, fld_split, &
+    namelist /fld_list/ fld_kappa0, fld_Eint_split, fld_Radforce_split, &
     fld_bisect_tol, fld_diff_testcase, fld_diff_tol,&
     fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
     diff_coef_filter, size_D_filter, flux_lim_filter, size_L_filter, &
@@ -170,12 +169,9 @@ module mod_fld
 
     !> Need mean molecular weight
     fld_mu = (1.+4*He_abundance)/(2.+3.*He_abundance)
-    
+
     !> set rhd_gamma
     fld_gamma = phys_gamma
-
-    !> Dimensionless Boltzman constante sigma
-    fld_sigma_0 = const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
 
     !> Read in opacity table if necesary
     if (fld_opacity_law .eq. 'opal') call init_opal(He_abundance)
@@ -208,7 +204,7 @@ module mod_fld
     integer :: idir, i
 
     !> Calculate and add sourceterms
-    if(qsourcesplit .eqv. fld_split) then
+    if(qsourcesplit .eqv. fld_Radforce_split) then
       active = .true.
 
       call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappaCT)
@@ -280,7 +276,7 @@ module mod_fld
     logical, intent(inout) :: active
 
     !> Calculate and add sourceterms
-    if(qsourcesplit .eqv. fld_split) then
+    if(qsourcesplit .eqv. fld_Eint_split) then
       active = .true.
       !> Add energy sourceterms
       call Energy_interaction(w, w, x, ixI^L, ixO^L)
@@ -774,7 +770,7 @@ module mod_fld
     double precision :: c0(ixO^S), c1(ixO^S)
     double precision :: e_gas(ixO^S), E_rad(ixO^S)
     double precision :: grad_v(ixI^S)
-    double precision :: kappa(ixO^S)
+    double precision :: kappa(ixO^S), sigma_b
 
     integer :: i,j,idir,ix^D
 
@@ -782,14 +778,14 @@ module mod_fld
     !$OMP PARALLEL DO
     do i = 1,ndim
       do j = 1,ndim
-        vel(ixI^S) = wCT(ixI^S,iw_mom(j))/wCT(ixI^S,iw_rho)
+        vel(ixI^S) = w(ixI^S,iw_mom(j))/w(ixI^S,iw_rho)
         call gradient(vel,ixI^L,ixO^L,i,grad_v)
         div_v(ixO^S,i,j) = grad_v(ixO^S)
       enddo
     enddo
     !$OMP END PARALLEL DO
 
-    call fld_get_eddington(wCT, x, ixI^L, ixO^L, edd)
+    call fld_get_eddington(w, x, ixI^L, ixO^L, edd)
 
     !> VARIABLE NAMES DIV ARE ACTUALLY GRADIENTS
     {^IFONED
@@ -818,20 +814,22 @@ module mod_fld
 
     !> e_gas is the INTERNAL ENERGY without KINETIC ENERGY
     if (.not. block%e_is_internal) then
-      e_gas(ixO^S) = wCT(ixO^S,iw_e) - half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
+      e_gas(ixO^S) = w(ixO^S,iw_e) - half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
     else
-      e_gas(ixO^S) = wCT(ixO^S,iw_e)
+      e_gas(ixO^S) = w(ixO^S,iw_e)
     endif
 
-    E_rad(ixO^S) = wCT(ixO^S,iw_r_e)
+    E_rad(ixO^S) = w(ixO^S,iw_r_e)
 
     call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
 
-    !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*kappa(ixO^S)*wCT(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)/(unit_velocity*unit_pressure))*((fld_gamma-one)/wCT(ixO^S,iw_rho))**4.d0*dt
-    a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*wCT(ixO^S,iw_rho)*dt
-    a3(ixO^S) = divvP(ixO^S)*dt
+    sigma_b = const_rad_a*const_c/4.d0*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
 
+    !> Calculate coefficients for polynomial
+    a1(ixO^S) = 4*kappa(ixO^S)*sigma_b*(fld_gamma-one)**4/w(ixO^S,iw_rho)**3*dt
+    a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*w(ixO^S,iw_rho)*dt
+    a3(ixO^S) = divvP(ixO^S)*dt
+    
     c0(ixO^S) = ((one + a2(ixO^S) + a3(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
     c1(ixO^S) = (one + a2(ixO^S) + a3(ixO^S))/(a1(ixO^S)*(one + a3(ixO^S)))
 
@@ -850,7 +848,7 @@ module mod_fld
     {enddo\}
 
     !> advance E_rad
-    E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S) + a3(ixO^S))
+    E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + w(ixO^S,iw_r_e))/(one + a2(ixO^S) + a3(ixO^S))
 
     !> new w = w + dt f(wCT)
     !> e_gas,E_rad = wCT + dt f(wCT)

@@ -301,11 +301,11 @@ class Plotter:
                 gradE[i][1:-1] = (E[i][2:] - E[i][:-2])/(y[2:] - y[:-2])
                 gradE[i][0] = gradE[i][1]
                 gradE[i][-1] = gradE[i][-2]
-            return -4*np.pi*ad['D']*gradE*1*y**2
+            return -4*np.pi*ad['D']*gradE*y**2
 
         if varname == 'L_adv':
             F = 4./3. * ad['r_e']*ad['m2']/ad['rho']
-            return 4*np.pi*F
+            return 4*np.pi*F*y**2
 
 
         if varname == 'L_obs':
@@ -318,7 +318,7 @@ class Plotter:
                 gradE[i][1:-1] = (E[i][2:] - E[i][:-2])/(y[2:] - y[:-2])
                 gradE[i][0] = gradE[i][1]
                 gradE[i][-1] = gradE[i][-2]
-            return 4*np.pi*F-4*np.pi*ad['D']*gradE*1*y**2
+            return 4*np.pi*(F-ad['D']*gradE)*y**2
 
 
         if varname == 'a2':

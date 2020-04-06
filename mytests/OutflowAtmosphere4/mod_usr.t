@@ -123,8 +123,8 @@ contains
     unit_temperature = T_base
 
     !> Remaining units
-    unit_density=(1.d0+4.d0*He_abundance)*mp_cgs*unit_numberdensity
-    unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*kB_cgs*unit_temperature
+    unit_density=(1.d0+4.d0*He_abundance)*const_mp*unit_numberdensity
+    unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*const_kb*unit_temperature
     unit_velocity=dsqrt(unit_pressure/unit_density)
     unit_time=unit_length/unit_velocity
 
@@ -293,8 +293,10 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: kappa(ixB^S), gradE_l(ixB^S), L_vE_l(ixB^S)
-    double precision :: Temp(ixB^S), pth(ixB^S),pert(ixB^S), ppsource(ixB^S,1:nw)
+    double precision :: Temp(ixI^S), pth(ixI^S),pert(ixB^S)
     integer :: i,j
+
+    double precision :: cool(ixI^S), heat(ixI^S)
 
     select case (iB)
 
@@ -335,9 +337,30 @@ contains
       enddo
       w(ixBmin1:ixBmax1,nghostcells,r_e) = dexp(half*(dlog(w(ixBmin1:ixBmax1,nghostcells-1,r_e))+dlog(w(ixBmin1:ixBmax1,nghostcells+1,r_e))))
 
-      Temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0/unit_temperature
-      pth(ixB^S) = Temp(ixB^S)*w(ixB^S,rho_)
-      w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1) + half*w(ixB^S,mom(2))**2/w(ixB^S,rho_)
+      ! Temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0
+      ! pth(ixB^S) = Temp(ixB^S)*w(ixB^S,rho_)*const_kb/(const_mp*fld_mu)*unit_density/unit_pressure
+      ! w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1) + half*(w(ixB^S,mom(1))**2+w(ixB^S,mom(2))**2)/w(ixB^S,rho_)
+
+      do i = ixBmax2,ixBmin2,-1
+        w(ixBmin1:ixBmax1,i,e_) = dexp(2*dlog(w(ixBmin1:ixBmax1,i+1,e_)) - dlog(w(ixBmin1:ixBmax1,i+2,e_)))
+      enddo
+
+
+      ! !>>>>>>>>>>>>>>
+      ! if (x(1,1,2) .lt. 1) then
+      !   pth(ixI^S) = (w(ixI^S,e_) - half/w(ixI^S,rho_)*w(ixI^S,mom(2))**2) &
+      !   *(rhd_gamma -1)
+      !   temp(ixI^S) = pth(ixI^S)/w(ixI^S,rho_)
+      !   cool(ixI^S) = temp(ixI^S)
+      !
+      !   temp(ixI^S) = (w(ixI^S,r_e)*unit_pressure/const_rad_a)**(1.d0/4.d0)/unit_temperature
+      !   heat(ixI^S) = temp(ixI^S)
+      !
+      !   print*, it,'-------------------------------------------------------------'
+      !   print*, cool(5,1:6)
+      !   print*, heat(5,1:6)
+      !   print*, cool(5,1:6) - heat(5,1:6)
+      ! endif
 
     case(4)
       do i = ixBmin2,ixBmax2

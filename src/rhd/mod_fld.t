@@ -812,6 +812,7 @@ module mod_fld
     double precision :: c0(ixO^S), c1(ixO^S)
     double precision :: e_gas(ixO^S), E_rad(ixO^S)
     double precision :: kappa(ixO^S)
+    double precision :: sigma_b
 
     integer :: i,j,idir,ix^D
 
@@ -826,10 +827,11 @@ module mod_fld
 
     call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
 
+    sigma_b = const_rad_a*const_c/4.d0*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
+
     !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*kappa(ixO^S)*wCT(ixO^S,iw_rho)*(const_sigma*(unit_temperature**4.d0)&
-    /(unit_velocity*unit_pressure))*((fld_gamma-one)/wCT(ixO^S,iw_rho))**4.d0*dt
-    a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*wCT(ixO^S,iw_rho)*dt
+    a1(ixO^S) = 4*kappa(ixO^S)*sigma_b*(fld_gamma-one)**4/w(ixO^S,iw_rho)**3*dt
+    a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*w(ixO^S,iw_rho)*dt
 
     c0(ixO^S) = ((one + a2(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/a1(ixO^S)
     c1(ixO^S) = (one + a2(ixO^S))/a1(ixO^S)

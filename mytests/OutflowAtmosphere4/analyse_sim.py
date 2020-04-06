@@ -61,6 +61,10 @@ def AMRVAC_single_profile(file,variable):
         data = ad['r_e']
         data = data*ds.units.unit_pressure
 
+    if variable == 'D':
+        data = ad['D']
+        data = data*ds.units.unit_velocity*ds.units.unit_length
+
     if variable == 'a':
         rho = ad['rho']
         v = ad['m2']/ad['rho']
@@ -118,9 +122,9 @@ def Get_sonic_point(r,v,a):
     return r_sp, v_sp
 
 
-folder = 'output'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_3L0060.dat'
-# amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_3L00'+str(36)+'.dat'
+# folder = 'output'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/grid4_output/G2m02_d20.00'+str(100)+'.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/output/G2m02_3L00'+str(36)+'.dat'
 
 r0,Mdot0 = AMRVAC_single_profile(amrvac_outfile0,'Mdot')
 r0,rho0 = AMRVAC_single_profile(amrvac_outfile0,'rho')
@@ -129,6 +133,7 @@ r0,p0 = AMRVAC_single_profile(amrvac_outfile0,'p')
 r0,e0 = AMRVAC_single_profile(amrvac_outfile0,'e')
 r0,Er0 = AMRVAC_single_profile(amrvac_outfile0,'re')
 r0,a0 = AMRVAC_single_profile(amrvac_outfile0,'a')
+r0,Diff1 = AMRVAC_single_profile(amrvac_outfile0,'D')
 r0,Gamma0 = AMRVAC_single_profile(amrvac_outfile0,'Gamma')
 r_sp0, v_sp0 = Get_sonic_point(r0,v0,a0)
 
@@ -139,10 +144,10 @@ Ptt_pp = 2./3.*v0*Er0/r0/Er0
 Ptt_ppc = Ptt + Ptt_pp
 
 #Heating and cooling terms, relative to Er:
-error_b = 10.0
+error_b = 10.0#*R*Rsun
 kappa_b = 0.61885728378588867
 kappa_0 = 1.3752384084130858
-kappa = kappa_b + (1+np.erf((r0-R)/R*error_b-error_b/2))*(kappa_0-kappa_b)/2
+kappa = kappa_b + (1 + np.erf((r0/(R*Rsun) - 1)*error_b-error_b/2))*(kappa_0-kappa_b)/2
 Tg = p0*mp*mu/(kb*rho0)
 Tr = (Er0/arad)**0.25
 cool = c*kappa*rho0*arad*Tg**4/Er0
@@ -150,7 +155,8 @@ heat = c*kappa*rho0*Er0/Er0
 q_dot = -heat+cool
 
 #Advection flux Div(Ev + F), relative to Er
-F = -c/(3*kappa*rho0)*np.gradient(Er0,r0)
+Diff2 = c/(3*kappa*rho0)
+F = -Diff2*np.gradient(Er0,r0)
 Div_sph_F = 1/r0**2*np.gradient(r0**2*F,r0)/Er0
 Div_sph_Ev = 1/r0**2*np.gradient(r0**2*Er0*v0,r0)/Er0
 
@@ -181,6 +187,17 @@ e_qdot = -cool+heat
 #Steady state radiation-energy equation:
 div_F_Ev = np.gradient(F+Er0*v0,r0)/Er0
 ppc_F_Ev = -2*(F+Er0*v0)/r0/Er0
+
+#mass loss parameter
+Mdot = 4*np.pi*r0**2*rho0*v0
+L_adv = 4*np.pi*r0**2*(4./3.*Er0*v0)
+L_cmf = 4*np.pi*r0**2*F
+L_obs = L_adv+L_cmf
+
+m = Mdot*G*M*Msun/(r0*L_obs)
+m1 = Mdot[0]*G*M*Msun/(r0[0]*L_obs[0])
+m2 = max(Mdot)*G*M*Msun/(r0[0]*L_obs[0])
+
 
 plt.figure()
 plt.title('Photon tiring term')
@@ -265,6 +282,23 @@ plt.title('Steady state total energy')
 plt.plot(r0/Rsun,div_ev_pv-ppc_ev_pv-vg_rad_grav,'r',label='Gas')
 plt.plot(r0/Rsun,div_F_Ev-ppc_F_Ev+Ptt_ppc,'b',label='Radiation')
 plt.plot(r0/Rsun,div_ev_pv-ppc_ev_pv-vg_rad_grav-e_qdot+div_F_Ev-ppc_F_Ev+Ptt_ppc-q_dot,'k',label='total')
+plt.legend()
+
+plt.title('Opacity')
+plt.plot(r0/Rsun,kappa,'r.')
+
+plt.figure()
+plt.title('check diffusion coefficient')
+plt.plot(r0/Rsun,Diff1/1e20,'r-',label='amrvac readout: $D$')
+plt.plot(r0/Rsun,Diff2/1e20,'b-',label='recalculated: $\\frac{c\\lambda}{\\kappa \\rho}$')
+plt.plot(r0/Rsun,Diff1/Diff2-1,'k--', label='relative difference')
+plt.legend()
+
+plt.figure()
+plt.title('mass loss parameter')
+plt.plot(r0/Rsun,m,'r',label= 'Local value' )
+plt.hlines(m1,r0[0]/Rsun,r0[-1]/Rsun,'r','--',label= 'Value at first cell')
+plt.hlines(m2,r0[0]/Rsun,r0[-1]/Rsun,'b','--',label= 'Value using max(Mdot)')
 plt.legend()
 
 plt.show()

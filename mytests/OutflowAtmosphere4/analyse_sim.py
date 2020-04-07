@@ -123,8 +123,8 @@ def Get_sonic_point(r,v,a):
 
 
 # folder = 'output'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/grid4_output/G2m02_d20.00'+str(100)+'.dat'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/output/G2m02_3L00'+str(36)+'.dat'
+# amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/grid4_output/G2m02_d20.00'+str(100)+'.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/output/G2m02_set_e0052.dat'
 
 r0,Mdot0 = AMRVAC_single_profile(amrvac_outfile0,'Mdot')
 r0,rho0 = AMRVAC_single_profile(amrvac_outfile0,'rho')
@@ -137,6 +137,15 @@ r0,Diff1 = AMRVAC_single_profile(amrvac_outfile0,'D')
 r0,Gamma0 = AMRVAC_single_profile(amrvac_outfile0,'Gamma')
 r_sp0, v_sp0 = Get_sonic_point(r0,v0,a0)
 
+
+#Energy-balance
+E_grav = 4*np.pi*r0**2* G*M*Msun*rho0/r0
+E_int = 4*np.pi*r0**2* p0/(hd_gamma-1)
+E_kin = 4*np.pi*r0**2* 1./2*rho0*v0**2
+E_rad = 4*np.pi*r0**2* Er0
+E_tot = E_grav+E_int+E_kin+E_rad
+
+
 #photon-tiring term:
 gradV = np.gradient(v0,r0)
 Ptt = gradV*Er0/3/Er0
@@ -147,11 +156,11 @@ Ptt_ppc = Ptt + Ptt_pp
 error_b = 10.0#*R*Rsun
 kappa_b = 0.61885728378588867
 kappa_0 = 1.3752384084130858
-kappa = kappa_b + (1 + np.erf((r0/(R*Rsun) - 1)*error_b-error_b/2))*(kappa_0-kappa_b)/2
+kappa = kappa_b + (1. + np.erf((r0/(R*Rsun) - 1.)*error_b-error_b/2.))*(kappa_0-kappa_b)/2.
 Tg = p0*mp*mu/(kb*rho0)
 Tr = (Er0/arad)**0.25
-cool = c*kappa*rho0*arad*Tg**4/Er0
-heat = c*kappa*rho0*Er0/Er0
+cool = 0.*c*kappa*rho0*arad*Tg**4/Er0
+heat = 0.*c*kappa*rho0*Er0/Er0
 q_dot = -heat+cool
 
 #Advection flux Div(Ev + F), relative to Er
@@ -188,16 +197,26 @@ e_qdot = -cool+heat
 div_F_Ev = np.gradient(F+Er0*v0,r0)/Er0
 ppc_F_Ev = -2*(F+Er0*v0)/r0/Er0
 
-#mass loss parameter
-Mdot = 4*np.pi*r0**2*rho0*v0
+#Luminosities
 L_adv = 4*np.pi*r0**2*(4./3.*Er0*v0)
 L_cmf = 4*np.pi*r0**2*F
 L_obs = L_adv+L_cmf
 
+#mass loss parameter
+Mdot = 4*np.pi*r0**2*rho0*v0
 m = Mdot*G*M*Msun/(r0*L_obs)
 m1 = Mdot[0]*G*M*Msun/(r0[0]*L_obs[0])
-m2 = max(Mdot)*G*M*Msun/(r0[0]*L_obs[0])
+m2 = max(Mdot)*G*M*Msun/(r0[0]*max(L_obs))
 
+
+plt.figure()
+plt.title('Total energy in shell')
+plt.plot(r0/Rsun,E_grav,'k--',label='Graviational potential energy')
+plt.plot(r0/Rsun,E_int,'b--',label='Internal gas energy')
+plt.plot(r0/Rsun,E_kin,'b-',label='Kinetic gas energy')
+plt.plot(r0/Rsun,E_rad,'r-',label='Radiation energy')
+plt.plot(r0/Rsun,E_tot,'k-',label='Total energy')
+plt.legend()
 
 plt.figure()
 plt.title('Photon tiring term')
@@ -206,18 +225,18 @@ plt.plot(r0/Rsun,Ptt_pp,'b-',label='pseudo-planar correction')
 plt.plot(r0/Rsun,Ptt_ppc,'k-',label='pseudo-planar corrected \n photon-tiring term')
 plt.legend()
 
-plt.figure()
-plt.title('Heating and Cooling')
-plt.semilogy(r0/Rsun,cool,'r-',label='cooling term')
-plt.semilogy(r0/Rsun,heat,'b-',label='heating term')
-plt.semilogy(r0/Rsun,abs(q_dot),'k-',label='|Net energy exch for gas|')
-# plt.plot(r0/Rsun,abs(heat/cool),'k--',label='ratio')
-plt.legend()
+# plt.figure()
+# plt.title('Heating and Cooling')
+# plt.semilogy(r0/Rsun,cool,'r-',label='cooling term')
+# plt.semilogy(r0/Rsun,heat,'b-',label='heating term')
+# plt.semilogy(r0/Rsun,abs(q_dot),'k-',label='|Net energy exch for gas|')
+# # plt.plot(r0/Rsun,abs(heat/cool),'k--',label='ratio')
+# plt.legend()
 
 plt.figure()
 plt.title('Temperature')
-# plt.plot(r0/Rsun,Tg,'r-',label='Gas Temp')
-# plt.plot(r0/Rsun,Tr,'b-',label='Radiation Temp')
+plt.plot(r0/Rsun,Tg,'r-',label='Gas Temp')
+plt.plot(r0/Rsun,Tr,'b-',label='Radiation Temp')
 plt.plot(r0/Rsun,abs(Tg-Tr)/Tg,'k--',label='Relative difference')
 plt.legend()
 
@@ -284,6 +303,7 @@ plt.plot(r0/Rsun,div_F_Ev-ppc_F_Ev+Ptt_ppc,'b',label='Radiation')
 plt.plot(r0/Rsun,div_ev_pv-ppc_ev_pv-vg_rad_grav-e_qdot+div_F_Ev-ppc_F_Ev+Ptt_ppc-q_dot,'k',label='total')
 plt.legend()
 
+plt.figure()
 plt.title('Opacity')
 plt.plot(r0/Rsun,kappa,'r.')
 
@@ -295,10 +315,18 @@ plt.plot(r0/Rsun,Diff1/Diff2-1,'k--', label='relative difference')
 plt.legend()
 
 plt.figure()
+plt.title('Luminosities')
+plt.hlines(L*Lsun,min(r0/Rsun),max(r0)/Rsun,'k','--',label='Stellar Lum')
+plt.plot(r0/Rsun,L_cmf,'b-',label='Co-moving frame')
+plt.plot(r0/Rsun,L_adv,'r-',label='Advected')
+plt.plot(r0/Rsun,L_obs,'k-',label='Observers frame')
+plt.legend()
+
+plt.figure()
 plt.title('mass loss parameter')
 plt.plot(r0/Rsun,m,'r',label= 'Local value' )
 plt.hlines(m1,r0[0]/Rsun,r0[-1]/Rsun,'r','--',label= 'Value at first cell')
-plt.hlines(m2,r0[0]/Rsun,r0[-1]/Rsun,'b','--',label= 'Value using max(Mdot)')
+plt.hlines(m2,r0[0]/Rsun,r0[-1]/Rsun,'b','--',label= 'Value using max(Mdot,L)')
 plt.legend()
 
 plt.show()

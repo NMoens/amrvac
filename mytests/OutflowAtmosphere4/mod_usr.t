@@ -57,6 +57,7 @@ contains
 
     ! PseudoPlanar correction
     usr_source => PseudoPlanar
+    usr_internal_bc => reset_egas
 
     ! Graviatational field
     usr_gravity => set_gravitation_field
@@ -337,30 +338,13 @@ contains
       enddo
       w(ixBmin1:ixBmax1,nghostcells,r_e) = dexp(half*(dlog(w(ixBmin1:ixBmax1,nghostcells-1,r_e))+dlog(w(ixBmin1:ixBmax1,nghostcells+1,r_e))))
 
-      ! Temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0
-      ! pth(ixB^S) = Temp(ixB^S)*w(ixB^S,rho_)*const_kb/(const_mp*fld_mu)*unit_density/unit_pressure
-      ! w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1) + half*(w(ixB^S,mom(1))**2+w(ixB^S,mom(2))**2)/w(ixB^S,rho_)
+      Temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0
+      pth(ixB^S) = Temp(ixB^S)*w(ixB^S,rho_)*const_kb/(const_mp*fld_mu)*unit_density/unit_pressure
+      w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1) + half*(w(ixB^S,mom(1))**2+w(ixB^S,mom(2))**2)/w(ixB^S,rho_)
 
-      do i = ixBmax2,ixBmin2,-1
-        w(ixBmin1:ixBmax1,i,e_) = dexp(2*dlog(w(ixBmin1:ixBmax1,i+1,e_)) - dlog(w(ixBmin1:ixBmax1,i+2,e_)))
-      enddo
-
-
-      ! !>>>>>>>>>>>>>>
-      ! if (x(1,1,2) .lt. 1) then
-      !   pth(ixI^S) = (w(ixI^S,e_) - half/w(ixI^S,rho_)*w(ixI^S,mom(2))**2) &
-      !   *(rhd_gamma -1)
-      !   temp(ixI^S) = pth(ixI^S)/w(ixI^S,rho_)
-      !   cool(ixI^S) = temp(ixI^S)
-      !
-      !   temp(ixI^S) = (w(ixI^S,r_e)*unit_pressure/const_rad_a)**(1.d0/4.d0)/unit_temperature
-      !   heat(ixI^S) = temp(ixI^S)
-      !
-      !   print*, it,'-------------------------------------------------------------'
-      !   print*, cool(5,1:6)
-      !   print*, heat(5,1:6)
-      !   print*, cool(5,1:6) - heat(5,1:6)
-      ! endif
+      ! do i = ixBmax2,ixBmin2,-1
+      !   w(ixBmin1:ixBmax1,i,e_) = dexp(2*dlog(w(ixBmin1:ixBmax1,i+1,e_)) - dlog(w(ixBmin1:ixBmax1,i+2,e_)))
+      ! enddo
 
     case(4)
       do i = ixBmin2,ixBmax2
@@ -439,8 +423,37 @@ contains
 
   end subroutine PseudoPlanar
 
+  !> internal boundary, user defined
+  !> This subroutine can be used to artificially overwrite ALL conservative
+  !> variables in a user-selected region of the mesh, and thereby act as
+  !> an internal boundary region. It is called just before external (ghost cell)
+  !> boundary regions will be set by the BC selection. Here, you could e.g.
+  !> want to introduce an extra variable (nwextra, to be distinguished from nwaux)
+  !> which can be used to identify the internal boundary region location.
+  !> Its effect should always be local as it acts on the mesh.
+  subroutine reset_egas(level,qt,ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+
+    integer, intent(in)             :: ixI^L,ixO^L,level
+    double precision, intent(in)    :: qt
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision, intent(in)    :: x(ixI^S,1:ndim)
+
+    double precision :: Temp(ixI^S),pth(ixI^S)
+
+    if (rhd_energy_interact) call mpistop('Resetting e_gas but e_interact true')
+
+    Temp(ixI^S) = (w(ixI^S,r_e)*unit_pressure/const_rad_a)**0.25d0/unit_temperature
+    pth(ixI^S) = Temp(ixI^S)*w(ixI^S,rho_)
+    w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0) &
+    + half*sum(w(ixI^S, mom(:))**2, dim=ndim+1)/w(ixI^S, rho_)
+
+  end subroutine reset_egas
+
+
   subroutine PseudoPlanarSource(ixI^L,ixO^L,w,x,source,boundary)
     use mod_global_parameters
+    use mod_physics, only: phys_get_pthermal
 
     integer, intent(in)           :: ixI^L, ixO^L
     double precision, intent(in)  :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
@@ -466,8 +479,10 @@ contains
     !> drho/dt = -2 rho v_r/r
     source(ixO^S,rho_) = -two*w(ixO^S,rho_)*v(ixO^S,rdir)/radius(ixO^S)
 
-    pth(ixO^S) = (rhd_gamma-1) &
-    *(w(ixO^S,e_) - half*sum(w(ixO^S, mom(:))**2, dim=ndim+1) / w(ixO^S, rho_))
+    ! pth(ixO^S) = (rhd_gamma-1) &
+    ! *(w(ixO^S,e_) - half*sum(w(ixO^S, mom(:))**2, dim=ndim+1) / w(ixO^S, rho_))
+
+    call phys_get_pthermal(w,x,ixI^L,ixO^L,pth)
 
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r

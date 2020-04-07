@@ -297,6 +297,11 @@ contains
       call radiative_cooling_init(rhd_gamma,He_abundance)
     end if
 
+    if (rhd_energy_interact) then
+      if (.not. rhd_energy) &
+           call mpistop("energy interaction needs rhd_energy=T")
+    end if
+
     ! Initialize viscosity module
     if (rhd_viscosity) call viscosity_init(phys_wider_stencil,phys_req_diagonal)
 
@@ -323,9 +328,6 @@ contains
 
     kbmpmua4 = unit_pressure**(-3./4)*unit_density*const_kB/(const_mp*fld_mu)*const_rad_a**(-1.d0/4)
 
-    if (.not. rhd_energy .and. rhd_energy_interact) &
-      call mpistop('Energy interact. not possible without gas energy eq.')
-
   end subroutine rhd_phys_init
 
   subroutine rhd_check_params
@@ -342,7 +344,7 @@ contains
        small_e = small_pressure/(rhd_gamma - 1.0d0)
     end if
 
-    small_r_e = small_e
+    small_r_e = small_pressure/(rhd_gamma - 1.0d0)
 
     if (rhd_dust) call dust_check_params()
 
@@ -681,7 +683,8 @@ contains
        pth(ixO^S) = (rhd_gamma - 1.0d0) * (w(ixO^S, e_) - &
             rhd_kin_en(w, ixI^L, ixO^L))
     else
-       pth(ixI^S) = kbmpmua4*w(ixI^S, r_e)**(1.d0/4)/w(ixI^S, rho_)
+       pth(ixI^S) = (w(ixI^S,r_e)*unit_pressure/const_rad_a)**0.25d0&
+       /unit_temperature*w(ixI^S, rho_)
     end if
 
   end subroutine rhd_get_pthermal
@@ -775,10 +778,7 @@ contains
 
     call rhd_get_pthermal(w, x, ixI^L, ixO^L, pth)
 
-    mu = (1.d0+4.d0*He_abundance)/(2.d0+3.d0*He_abundance)
-
-    tgas(ixI^S) = pth(ixI^S)/w(ixI^S,rho_)*const_mp*mu/const_kB &
-    *unit_pressure/(unit_density*unit_temperature)
+    tgas(ixI^S) = pth(ixI^S)/w(ixI^S,rho_)
 
   end subroutine rhd_get_tgas
 
@@ -792,8 +792,8 @@ contains
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out):: trad(ixI^S)
 
-    trad(ixI^S) = (w(ixI^S,r_e)&
-    /(const_rad_a*unit_temperature**4.d0/unit_pressure))**(1.d0/4.d0)
+    trad(ixI^S) = (w(ixI^S,r_e)*unit_pressure&
+    /const_rad_a)**(1.d0/4.d0)/unit_temperature
 
   end subroutine rhd_get_trad
 

@@ -185,7 +185,7 @@ contains
        1)
     !>Set bottom density from massloss rate
 
-    dinflo = 20.0d0*M_dot/(4*dpi*R_star**2)
+    dinflo = 40.0d0*M_dot/(4*dpi*R_star**2)
     gradE = -dinflo*kappa_b*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
     ! print*, dinflo*unit_density
@@ -321,7 +321,8 @@ contains
     integer :: i,j
 
     double precision :: cool(ixImin1:ixImax1,ixImin2:ixImax2),&
-        heat(ixImin1:ixImax1,ixImin2:ixImax2)
+        heat(ixImin1:ixImax1,ixImin2:ixImax2), loggrad(ixBmin1:ixBmax1,&
+       ixBmin2:ixBmax2)
 
     select case (iB)
 
@@ -341,8 +342,13 @@ contains
         w(ixBmin1:ixBmax1,i,mom(1)) = w(ixBmin1:ixBmax1,i+1,mom(1))
       enddo
 
-        ! pert(ixb^S) = dsin(2*dpi*x(ixB^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixB^S,2)-2*dpi*global_time)
-        ! w(ixB^S,rho_) = w(ixB^S,rho_) * (1.d0 + 0.1d0*pert(ixB^S))
+        pert(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = dsin(3*2*dpi*x(ixBmin1:ixBmax1,&
+           ixBmin2:ixBmax2,1)/(xprobmax1-&
+           xprobmin1))*dsin(2*dpi*x(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+           2)-3*2*dpi*global_time)
+        w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_) = w(ixBmin1:ixBmax1,&
+           ixBmin2:ixBmax2,rho_) * (1.d0 + 0.1d0*pert(ixBmin1:ixBmax1,&
+           ixBmin2:ixBmax2))
         ! w(ixB^S,mom(2)) = w(ixB^S,mom(2)) * (1.d0 + 0.1d0*pert(ixB^S))
 
 
@@ -400,6 +406,12 @@ contains
       gradE_out = sum((w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,&
          ixBmin2-2,r_e))/(x(ixBmin1:ixBmax1,ixBmin2-1,2) - x(ixBmin1:ixBmax1,&
          ixBmin2-2,2)))/(ixBmax1-ixBmin1)
+
+      gradE_out = sum((w(ixBmin1:ixBmax1,ixBmin2,r_e)-w(ixBmin1:ixBmax1,&
+         ixBmin2-1,r_e))/(x(ixBmin1:ixBmax1,ixBmin2,2) - x(ixBmin1:ixBmax1,&
+         ixBmin2-1,2)))/(ixBmax1-ixBmin1)
+
+
 
     case default
       call mpistop('boundary not known')

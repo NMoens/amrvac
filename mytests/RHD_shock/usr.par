@@ -14,12 +14,12 @@
    itsave(1,2)     = 0
    !ditsave_dat     = 500
    !ditsave_log     = 1
-   dtsave_dat     = 0.05d0
+   dtsave_dat     = 0.5d0
    dtsave_log     = 1.d0
 /
 
  &stoplist
-   time_max = 1.d0
+   time_max = 20.d0
    dtmin = 1.0d-20
    !it_max = 50000
 /
@@ -67,17 +67,18 @@
   He_abundance = 0.0d0
   rhd_gravity = .false.
   rhd_energy = .true.
-  rhd_gamma = 1.6667d0
+  rhd_gamma = 1.4d0
   rhd_radiation_formalism = 'fld'
   radio_acoustic_filter = .false.
   rhd_radiation_force = .true.
-  rhd_energy_interact = .true.
+  rhd_energy_interact = .false.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
  /
 
  &fld_list
-  fld_split = .true.
+  fld_Eint_split = .false.
+  fld_Radforce_split = .false.
   fld_opacity_law = 'const'
   fld_kappa0 = 0.4d0
   fld_diff_scheme = 'mg'

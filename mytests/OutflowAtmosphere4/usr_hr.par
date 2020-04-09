@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/G2m02_highres'
+  base_filename='./hr_output/G2m02_'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -42,7 +42,7 @@
   typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 'special','special','special','special','special'
   typeboundary_max2 = 4*'cont','special'
-  internalboundary = T
+  internalboundary = F
 /
 
  &meshlist
@@ -79,7 +79,8 @@
  /
 
  &fld_list
-  fld_split = .true.
+  fld_Eint_split = .false.
+  fld_Radforce_split = .false
   fld_opacity_law = 'special'
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'

@@ -12,7 +12,7 @@ module mod_usr
   double precision :: v1 = 1.d9
   double precision :: v2 = 1.458d8
   double precision :: T1 = 1.d4
-  double precision :: T2 = 4.29d7
+  double precision :: T2 = 4.239d7 !16183.059056910781 !
 
   double precision :: p1,p2,eg1,eg2,Er1,Er2
 
@@ -45,19 +45,28 @@ contains
     use mod_global_parameters
     use mod_fld
 
+    double precision :: k1,k2, my_gamma
     integer :: i
 
-    p1 = const_kB*T1/(const_mp*fld_mu)*rho1
-    p2 = const_kB*T2/(const_mp*fld_mu)*rho2
+    p1 = const_kB*T1*rho1/(const_mp*fld_mu)
+    p2 = const_kB*T2*rho2/(const_mp*fld_mu)
 
-    eg1 = p1/(rhd_gamma) + half*v1**2*rho1
-    eg2 = p2/(rhd_gamma) + half*v2**2*rho2
+    eg1 = p1/(rhd_gamma-1.d0) + half*v1*v1*rho1
+    eg2 = p2/(rhd_gamma-1.d0) + half*v2*v2*rho2
 
-    Er1 = const_rad_a*T1**4
-    Er2 = const_rad_a*T2**4
+    Er1 = const_rad_a*T1**4.d0
+    Er2 = const_rad_a*T2**4.d0
 
-    print*, 'M_1: ', v1/dsqrt(const_kB*T1/(const_mp*fld_mu))
-    print*, 'M_2: ', v2/dsqrt(const_kB*T2/(const_mp*fld_mu))
+    print*, 'M_1: ', v1/dsqrt(rhd_gamma*p1/rho1)
+    print*, 'M_2: ', v2/dsqrt(rhd_gamma*p2/rho2)
+
+    print*, 'RHD-quantity: ', 'Left', ' | ', 'Right'
+    print*, 'density', rho1, ' | ', rho2
+    print*, 'velocity', v1, ' | ', v2
+    print*, 'momentum', rho1*v1, ' | ', rho2*v2
+    print*, 'gas pressure', p1, ' | ', p2
+    print*, 'gas energy', eg1, ' | ', eg2
+    print*, 'radiation energy', Er1, ' | ', Er2
 
     unit_velocity = v1 !r_arr(nghostcells) ! cm
     unit_numberdensity = rho1/((1.d0+4.d0*He_abundance)*const_mp)
@@ -90,6 +99,22 @@ contains
     Er1 = Er1/unit_pressure
     Er2 = Er2/unit_pressure
 
+
+    print*, 'RHD-fluxes: ', 'Left', ' | ', 'Right'
+    print*, 'density', rho1*v1, ' | ', rho2*v2
+    print*, 'momentum', rho1*v1*v1 + p1 + Er1/3, ' | ', rho2*v2*v2 + p2 + Er2/3
+    print*, 'gas energy', p1*v1 + eg1*v1, ' | ', p2*v2 + eg2*v2
+    print*, 'radiation energy', Er1*v1, ' | ', Er2*v2
+
+    ! k1 = v1*v1*rho1/2
+    ! k2 = v2*v2*rho2/2
+    !
+    ! my_gamma = 1 + (v1*p1 - v2*p2)/(v2*p2 - v1*p1 + v2*k2 -v1*k1)
+    !
+    ! print*,my_gamma
+    ! print*, 1.d4/(v2/v1)**0.25
+    !
+    ! stop
   end subroutine initglobaldata_usr
 
 

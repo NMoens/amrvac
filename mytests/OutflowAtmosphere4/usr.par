@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/G2m02_set_e_p'
+  base_filename='./output/G2m02_hm'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -41,7 +41,7 @@
   typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 5*'special'
   typeboundary_max2 = 4*'cont','special'
-  internalboundary = T
+  internalboundary = F
 /
 
  &meshlist
@@ -72,7 +72,7 @@
   rhd_radiation_formalism = 'fld'
   radio_acoustic_filter = .false.
   rhd_radiation_force = .true.
-  rhd_energy_interact = .false.
+  rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
  /

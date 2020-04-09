@@ -28,6 +28,11 @@ The physics-dependent namelists include:
 * @ref par_nonlinearlist (see also `mod_nonlinear_phys`)
 * @ref par_hdlist (see also `mod_hd_phys`)
 * @ref par_mhdlist (see also `mod_mhd_phys`)
+* @ref par_rhdlist (see also `mod_rhd_phys`)
+
+For the rhd setup, an additional module is needed to handle the FLD-closure relation and diffusion:
+
+* @ref par_fldlist (flux limited diffusion, see `mod_fld`)
 
 Further namelist are used to control optional modules. Most of these lists are
 not documented here, but the parameters are described in the corresponding
@@ -39,6 +44,7 @@ modules:
 * `vc_list` (viscosity, see `mod_viscosity`)
 * `grav_list` (gravity, see `mod_gravity`)
 * `mf_list` (magnetofriction, see `mod_magnetofriction`)
+
 
 ## An example for a namelist
 
@@ -958,6 +964,51 @@ sharp discontinuities. It is normally inactive with a default value -1.
      He_abundance= DOUBLE from 0 to 1
      SI_unit= F | T
     /
+
+## RHD list {#par_rhdlist}
+
+    &rhd_list
+    rhd_energy= T | F
+    rhd_pressure= 'Trad' | 'adiabatic'
+    rhd_n_tracer= INTEGER
+    rhd_gamma= DOUBLE
+    rhd_adiab= DOUBLE
+    rhd_dust= F | T
+    rhd_thermal_conduction= F | T
+    rhd_radiative_cooling= F | T
+    rhd_viscosity= F | T
+    rhd_gravity= F | T
+    He_abundance= DOUBLE from 0 to 1
+    SI_unit= F | T
+    rhd_particles= F | T
+    rhd_radiation_formalism= 'fld'
+    rhd_radiation_force= T | F
+    rhd_energy_interact= T | F
+    rhd_radiation_diffusion= T | F
+    rhd_radiation_advection= T | F
+    radio_acoustic_filter= F | T
+    size_ra_filter= INTEGER from 1 to nghostcells
+    /
+
+## FLD list {#par_fldlist}
+
+    &fld_list
+    fld_kappa0= DOUBLE
+    fld_Eint_split= F | T
+    fld_Radforce_split= F | T
+    fld_bisect_tol= DOUBLE
+    fld_diff_testcase= F | T
+    fld_diff_tol= DOUBLE
+    fld_opacity_law= 'const' | 'opal' | 'kramers' | 'special'
+    fld_fluxlimiter= 'Diffusion' | 'FreeStream' | 'Minerbo' | 'Pomraning' | 'Pomraning2'
+    fld_diff_scheme= 'mg'
+    fld_interaction_method= 'Halley' | 'Newton' | 'Bisection'
+    diff_coef_filter= F | T
+    size_D_filter= INTEGER
+    flux_lim_filter= F | T
+    size_L_filter= Integer
+    /
+
 
 ### Magnetic field divergence fixes {#par_divbfix}
 

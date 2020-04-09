@@ -123,8 +123,8 @@ def Get_sonic_point(r,v,a):
 
 
 # folder = 'output'
-# amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/grid4_output/G2m02_d20.00'+str(100)+'.dat'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/output/G2m02_set_e0052.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/grid4_output/G2m02_d20.000'+str(60)+'.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/output/G2m02_hm0040.dat'
 
 r0,Mdot0 = AMRVAC_single_profile(amrvac_outfile0,'Mdot')
 r0,rho0 = AMRVAC_single_profile(amrvac_outfile0,'rho')
@@ -201,13 +201,17 @@ ppc_F_Ev = -2*(F+Er0*v0)/r0/Er0
 L_adv = 4*np.pi*r0**2*(4./3.*Er0*v0)
 L_cmf = 4*np.pi*r0**2*F
 L_obs = L_adv+L_cmf
+L_max = max(L_obs)
+Mdot_max = max(4*np.pi*r0**2*rho0*v0)
+L_drop = L_max - Mdot_max*(rho0*v0**2/r0 - G*M*Msun/r0 + G*M*Msun/(R*Rsun))
+
 
 #mass loss parameter
 Mdot = 4*np.pi*r0**2*rho0*v0
 m = Mdot*G*M*Msun/(r0*L_obs)
 m1 = Mdot[0]*G*M*Msun/(r0[0]*L_obs[0])
 m2 = max(Mdot)*G*M*Msun/(r0[0]*max(L_obs))
-
+m3 = Mdot*G*M*Msun/(r0[0]*max(L_obs))
 
 plt.figure()
 plt.title('Total energy in shell')
@@ -320,6 +324,7 @@ plt.hlines(L*Lsun,min(r0/Rsun),max(r0)/Rsun,'k','--',label='Stellar Lum')
 plt.plot(r0/Rsun,L_cmf,'b-',label='Co-moving frame')
 plt.plot(r0/Rsun,L_adv,'r-',label='Advected')
 plt.plot(r0/Rsun,L_obs,'k-',label='Observers frame')
+plt.plot(r0/Rsun,L_drop,'g--',label='predicted tiring')
 plt.legend()
 
 plt.figure()
@@ -327,6 +332,7 @@ plt.title('mass loss parameter')
 plt.plot(r0/Rsun,m,'r',label= 'Local value' )
 plt.hlines(m1,r0[0]/Rsun,r0[-1]/Rsun,'r','--',label= 'Value at first cell')
 plt.hlines(m2,r0[0]/Rsun,r0[-1]/Rsun,'b','--',label= 'Value using max(Mdot,L)')
+plt.plot(r0/Rsun,m3,'b',label= 'Local value' )
 plt.legend()
 
 plt.show()

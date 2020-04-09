@@ -65,6 +65,9 @@ module mod_rhd_phys
   !> Formalism to treat radiation
   character(len=8), public :: rhd_radiation_formalism = 'fld'
 
+  !> In the case of no rhd_energy, how to compute pressure
+  character(len=8), public :: rhd_pressure = 'Trad'
+
   !> Treat radiation fld_Rad_force
   logical, public, protected :: rhd_radiation_force = .true.
 
@@ -110,7 +113,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /rhd_list/ rhd_energy, rhd_n_tracer, rhd_gamma, rhd_adiab, &
+    namelist /rhd_list/ rhd_energy, rhd_pressure, rhd_n_tracer, rhd_gamma, rhd_adiab, &
     rhd_dust, rhd_thermal_conduction, rhd_radiative_cooling, rhd_viscosity, &
     rhd_gravity, He_abundance, SI_unit, rhd_particles, rhd_radiation_formalism,&
     rhd_radiation_force, rhd_energy_interact, rhd_radiation_diffusion, &
@@ -334,7 +337,7 @@ contains
     use mod_global_parameters
     use mod_dust, only: dust_check_params
 
-    if (.not. rhd_energy) then
+    if (.not. rhd_energy .and. rhd_pressure == 'adiabatic') then
        if (rhd_gamma <= 0.0d0) call mpistop ("Error: rhd_gamma <= 0")
        if (rhd_adiab < 0.0d0) call mpistop  ("Error: rhd_adiab < 0")
        small_pressure= rhd_adiab*small_density**rhd_gamma
@@ -376,7 +379,7 @@ contains
        case ('cont')
           ! d/dx u = 0
           mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+          ! mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
        case ('periodic')
           ! Nothing to do here
        case ('noinflow')
@@ -609,8 +612,14 @@ contains
         csoundL(ixO^S)=rhd_gamma*wLp(ixO^S,p_)/wLp(ixO^S,rho_)
         csoundR(ixO^S)=rhd_gamma*wRp(ixO^S,p_)/wRp(ixO^S,rho_)
       else
-        csoundL(ixO^S)=rhd_gamma*kbmpmua4*wLp(ixO^S,r_e)**(1.d0/4)
-        csoundR(ixO^S)=rhd_gamma*kbmpmua4*wRp(ixO^S,r_e)**(1.d0/4)
+        select case (rhd_pressure)
+        case ('Trad')
+          csoundL(ixO^S)=rhd_gamma*kbmpmua4*wLp(ixO^S,r_e)**(1.d0/4)
+          csoundR(ixO^S)=rhd_gamma*kbmpmua4*wRp(ixO^S,r_e)**(1.d0/4)
+        case ('adiabatic')
+          csoundL(ixO^S)=rhd_gamma*rhd_adiab*wLp(ixO^S,rho_)**(rhd_gamma-one)
+          csoundR(ixO^S)=rhd_gamma*rhd_adiab*wRp(ixO^S,rho_)**(rhd_gamma-one)
+        end select
       end if
 
       dmean(ixO^S) = (tmp1(ixO^S)*csoundL(ixO^S)+tmp2(ixO^S)*csoundR(ixO^S)) * &
@@ -683,8 +692,15 @@ contains
        pth(ixO^S) = (rhd_gamma - 1.0d0) * (w(ixO^S, e_) - &
             rhd_kin_en(w, ixI^L, ixO^L))
     else
-       pth(ixI^S) = (w(ixI^S,r_e)*unit_pressure/const_rad_a)**0.25d0&
-       /unit_temperature*w(ixI^S, rho_)
+      select case (rhd_pressure)
+      case ('Trad')
+        pth(ixI^S) = (w(ixI^S,r_e)*unit_pressure/const_rad_a)**0.25d0&
+        /unit_temperature*w(ixI^S, rho_)
+      case ('adiabatic')
+        pth(ixO^S) = rhd_adiab * w(ixO^S, rho_)**rhd_gamma
+      case default
+        call mpistop('rhd_pressure unknown, use Trad or adiabatic')
+      end select
     end if
 
   end subroutine rhd_get_pthermal

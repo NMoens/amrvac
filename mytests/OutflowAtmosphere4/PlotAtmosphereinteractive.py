@@ -540,8 +540,9 @@ if __name__ == '__main__':
 
     # dir_path = filedialog.askdirectory()
     dir_path = os.getcwd() + '/output/'
+    # '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/grid4_output/G2m02_d20.00'+str(100)+'.dat'
 
-    files = list(glob.glob(os.path.join(dir_path, 'G2m02_set_e_p*.dat')))
+    files = list(glob.glob(os.path.join(dir_path, 'G2m02_hm*.dat')))
     files.sort()
 
     ds = amrvac_reader.load_file(files[0])

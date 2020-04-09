@@ -71,7 +71,7 @@
   rhd_radiation_formalism = 'fld'
   radio_acoustic_filter = .false.
   rhd_radiation_force = .true.
-  rhd_energy_interact = .false.
+  rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
  /

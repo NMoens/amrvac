@@ -67,7 +67,7 @@
   He_abundance = 0.0d0
   rhd_gravity = .false.
   rhd_energy = .true.
-  rhd_gamma = 1.6667d0
+  rhd_gamma = 1.4d0
   rhd_radiation_formalism = 'fld'
   radio_acoustic_filter = .false.
   rhd_radiation_force = .true.
@@ -77,7 +77,8 @@
  /
 
  &fld_list
-  fld_split = .true.
+  fld_Eint_split = .false.
+  fld_Radforce_split = .false.
   fld_opacity_law = 'const'
   fld_kappa0 = 0.4d0
   fld_diff_scheme = 'mg'

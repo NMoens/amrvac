@@ -60,6 +60,10 @@ contains
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
 
+    rho1 = rho1/unit_density
+    v1 = v1/unit_velocity
+    T1 = T1/unit_temperature
+
   end subroutine initglobaldata_usr
 
 
@@ -80,26 +84,16 @@ contains
         fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2), lambda(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)
 
-    temp(ixImin1:ixImax1,ixImin2:ixImax2) = T1 + 75.d0*(x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,1)*unit_length-ri)/(ro-ri)
+    temp(ixImin1:ixImax1,ixImin2:ixImax2) = T1 + 75.d0*x(ixImin1:ixImax1,&
+       ixImin2:ixImax2,1)/(7.d10/unit_length)/unit_temperature
     w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho1
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = 0.d0
-    pth(ixImin1:ixImax1,ixImin2:ixImax2) = const_kB*temp(ixImin1:ixImax1,&
-       ixImin2:ixImax2)*w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       rho_) /(const_mp*fld_mu)
+    pth(ixImin1:ixImax1,ixImin2:ixImax2) = temp(ixImin1:ixImax1,&
+       ixImin2:ixImax2)*w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
     w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = pth(ixImin1:ixImax1,&
        ixImin2:ixImax2)/(rhd_gamma-1.d0)
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = const_rad_a*temp(ixImin1:ixImax1,&
-       ixImin2:ixImax2)**4.d0
-
-
-    w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = w(ixImin1:ixImax1,&
-       ixImin2:ixImax2,rho_)/unit_density
-    w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       e_)/unit_pressure
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       r_e)/unit_pressure
-
+    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = const_rad_a*(temp(ixImin1:ixImax1,&
+       ixImin2:ixImax2)*unit_temperature)**4.d0/unit_pressure
 
     call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2, kappa)
@@ -128,18 +122,19 @@ contains
     double precision :: eta_1, Tp, pth
 
     eta_1 = (rhd_gamma-1.d0)/(rhd_gamma+1.d0)
-    Tp = const_mp*eta_1*v1**2/(2.d0*const_kB*(1.d0-eta_1)**2)
-    pth = const_kB*Tp/(fld_mu*const_mp)*rho1
+    Tp = const_mp*eta_1*(v1*unit_velocity)**2/(2.d0*const_kB*(1.d0-&
+       eta_1)**2)/unit_temperature
+    pth = Tp*rho1
 
     select case (iB)
     case(1)
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_) = rho1/unit_density
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = &
-         rho1*v1/(unit_density*unit_velocity)
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_) = rho1
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = rho1*v1
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = 0.d0
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = (pth/(rhd_gamma-1) + &
-         half*rho1*v1**2)/unit_pressure
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = const_rad_a*Tp/unit_pressure
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = pth/(rhd_gamma-1) + &
+         half*rho1*v1**2
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = &
+         const_rad_a*(Tp*unit_temperature)**4.d0/unit_pressure
 
     case default
       call mpistop('boundary not known')

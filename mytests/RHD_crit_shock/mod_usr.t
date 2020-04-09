@@ -59,6 +59,10 @@ contains
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
 
+    rho1 = rho1/unit_density
+    v1 = v1/unit_velocity
+    T1 = T1/unit_temperature
+
   end subroutine initglobaldata_usr
 
 
@@ -73,19 +77,12 @@ contains
     double precision :: temp(ixI^S), pth(ixI^S)
     double precision :: kappa(ixO^S), fld_R(ixO^S), lambda(ixO^S)
 
-    temp(ixI^S) = T1 + 75.d0*(x(ixI^S,1)*unit_length-ri)/(ro-ri)
+    temp(ixI^S) = T1 + 75.d0*x(ixI^S,1)/(7.d10/unit_length)/unit_temperature
     w(ixI^S,rho_) = rho1
     w(ixI^S,mom(:)) = 0.d0
-    pth(ixI^S) = const_kB*temp(ixI^S)*w(ixI^S,rho_) &
-    /(const_mp*fld_mu)
+    pth(ixI^S) = temp(ixI^S)*w(ixI^S,rho_)
     w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0)
-    w(ixI^S,r_e) = const_rad_a*temp(ixI^S)**4.d0
-
-
-    w(ixI^S,rho_) = w(ixI^S,rho_)/unit_density
-    w(ixI^S,e_) = w(ixI^S,e_)/unit_pressure
-    w(ixI^S,r_e) = w(ixI^S,r_e)/unit_pressure
-
+    w(ixI^S,r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
@@ -106,16 +103,16 @@ contains
     double precision :: eta_1, Tp, pth
 
     eta_1 = (rhd_gamma-1.d0)/(rhd_gamma+1.d0)
-    Tp = const_mp*eta_1*v1**2/(2.d0*const_kB*(1.d0-eta_1)**2)
-    pth = const_kB*Tp/(fld_mu*const_mp)*rho1
+    Tp = const_mp*eta_1*(v1*unit_velocity)**2/(2.d0*const_kB*(1.d0-eta_1)**2)/unit_temperature
+    pth = Tp*rho1
 
     select case (iB)
     case(1)
-      w(ixB^S,rho_) = rho1/unit_density
-      w(ixB^S,mom(1)) = rho1*v1/(unit_density*unit_velocity)
+      w(ixB^S,rho_) = rho1
+      w(ixB^S,mom(1)) = rho1*v1
       w(ixB^S,mom(2)) = 0.d0
-      w(ixB^S,e_) = (pth/(rhd_gamma-1) + half*rho1*v1**2)/unit_pressure
-      w(ixB^S,r_e) = const_rad_a*Tp/unit_pressure
+      w(ixB^S,e_) = pth/(rhd_gamma-1) + half*rho1*v1**2
+      w(ixB^S,r_e) = const_rad_a*(Tp*unit_temperature)**4.d0/unit_pressure
 
     case default
       call mpistop('boundary not known')

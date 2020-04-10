@@ -442,7 +442,7 @@ module mod_fld
     case('FreeStream')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = zero
+      normgrad2(ixO^S) = smalldouble
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
@@ -460,7 +460,7 @@ module mod_fld
     case('Pomraning')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = zero
+      normgrad2(ixO^S) = smalldouble
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
@@ -479,7 +479,7 @@ module mod_fld
     case('Pomraning2')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = zero
+      normgrad2(ixO^S) = smalldouble
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
@@ -500,7 +500,7 @@ module mod_fld
     case('Minerbo')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = zero
+      normgrad2(ixO^S) = smalldouble
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim

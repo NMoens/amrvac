@@ -117,7 +117,7 @@ contains
     rhd_dust, rhd_thermal_conduction, rhd_radiative_cooling, rhd_viscosity, &
     rhd_gravity, He_abundance, SI_unit, rhd_particles, rhd_radiation_formalism,&
     rhd_radiation_force, rhd_energy_interact, rhd_radiation_diffusion, &
-    rhd_radiation_advection, radio_acoustic_filter, size_ra_filter
+    rhd_radiation_advection, radio_acoustic_filter, size_ra_filter, dt_c
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -1128,7 +1128,7 @@ contains
 
     !>  NOT necessary for calculation, just want to know the grid-dependent-timestep
     call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
-    w(ixI^S,i_test) = cmax(ixI^S)
+    ! w(ixI^S,i_test) = cmax(ixI^S)
 
   end subroutine rhd_add_radiation_source
 

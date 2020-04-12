@@ -7,10 +7,10 @@ module mod_usr
 
   implicit none
 
-  double precision :: rho1 = 1.2d0
-  double precision :: v1 = 1.d6
-  double precision :: T1 = 1.d7
-  double precision :: T2 = 2.d7
+  double precision :: rho0 = 1.2d0
+  double precision :: v0 = 5.d7
+  double precision :: T0 = 1.d7
+  double precision :: T1 = 2.d7
   double precision :: wdth = 24.d0
 
 contains
@@ -42,8 +42,8 @@ contains
     use mod_global_parameters
     use mod_fld
 
-    unit_velocity = v1 !r_arr(nghostcells) ! cm
-    unit_numberdensity = rho1/((1.d0+4.d0*He_abundance)*const_mp)
+    unit_velocity = v0 !r_arr(nghostcells) ! cm
+    unit_numberdensity = rho0/((1.d0+4.d0*He_abundance)*const_mp)
     unit_length = wdth
 
     !> Remaining units
@@ -55,6 +55,13 @@ contains
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
 
+    print*, unit_time, 's'
+
+    rho0 = rho0/unit_density
+    v0 = v0/unit_velocity
+    T0 = T0/unit_temperature
+    T1 = T1/unit_temperature
+    wdth = wdth/unit_length
   end subroutine initglobaldata_usr
 
 
@@ -69,25 +76,23 @@ contains
     double precision :: temp(ixI^S), pth(ixI^S)
     double precision :: kappa(ixO^S), fld_R(ixO^S), lambda(ixO^S)
 
-    temp(ixI^S) = T1 + (T2-T1)*dexp(-(x(ixI^S,1)*unit_length)**2.d0/(2*wdth**2))
-    w(ixI^S,rho_) = rho1*T1/temp(ixI^S) &
-    + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) &
-    * (T1**4.d0/temp(ixI^S) - temp(ixI^S)**3.d0)
-    w(ixI^S,mom(1)) = w(ixI^S,rho_)*v1
-    w(ixI^S,mom(2)) = 0.d0
-    pth(ixI^S) = const_kB*temp(ixI^S)*w(ixI^S,rho_) &
-    /(const_mp*fld_mu)
-    w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0) + half*w(ixI^S,rho_)*v1**2
-    w(ixI^S,r_e) = const_rad_a*temp(ixI^S)**4.d0
+    v0 = 0.d0
 
-    w(ixI^S,rho_) = w(ixI^S,rho_)/unit_density
-    w(ixI^S,mom(:)) = w(ixI^S,mom(:))/(unit_density*unit_velocity)
-    w(ixI^S,e_) = w(ixI^S,e_)/unit_pressure
-    w(ixI^S,r_e) = w(ixI^S,r_e)/unit_pressure
+    temp(ixI^S) = T0 + (T1-T0)*dexp(-x(ixI^S,1)**2.d0/(2*wdth**2))
+    w(ixI^S,rho_) = rho0*T0/temp(ixI^S) &
+    + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) &
+    * unit_temperature**3/unit_density &
+    * (T0**4.d0/temp(ixI^S) - temp(ixI^S)**3.d0)
+    w(ixI^S,mom(1)) = w(ixI^S,rho_)*v0
+    w(ixI^S,mom(2)) = 0.d0
+    pth(ixI^S) = temp(ixI^S)*w(ixI^S,rho_)
+    w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0) + half*w(ixI^S,rho_)*v0**2
+    w(ixI^S,r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
 
+    w(ixO^S,i_test) = lambda(ixO^S)
     w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
@@ -105,21 +110,16 @@ contains
 
     select case (iB)
     case(1,2)
-      temp(ixB^S) = T1 + (T2-T1)*dexp(-(x(ixB^S,1)*unit_length)**2.d0/(2*wdth**2))
-      w(ixB^S,rho_) = rho1*T1/temp(ixB^S) &
+      temp(ixB^S) = T0 + (T1-T0)*dexp(-x(ixB^S,1)**2.d0/(2*wdth**2))
+      w(ixB^S,rho_) = rho0*T0/temp(ixB^S) &
       + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) &
-      * (T1**4.d0/temp(ixB^S) - temp(ixB^S)**3.d0)
-      w(ixB^S,mom(1)) = w(ixB^S,rho_)*v1
+      * unit_temperature**3/unit_density &
+      * (T0**4.d0/temp(ixB^S) - temp(ixB^S)**3.d0)
+      w(ixB^S,mom(1)) = w(ixB^S,rho_)*v0
       w(ixB^S,mom(2)) = 0.d0
-      pth(ixB^S) = const_kB*temp(ixB^S)*w(ixB^S,rho_) &
-      /(const_mp*fld_mu)
-      w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1.d0) + half*w(ixB^S,rho_)*v1**2
-      w(ixB^S,r_e) = const_rad_a*temp(ixB^S)**4.d0
-
-      w(ixB^S,rho_) = w(ixB^S,rho_)/unit_density
-      w(ixB^S,mom(:)) = w(ixB^S,mom(:))/(unit_density*unit_velocity)
-      w(ixB^S,e_) = w(ixB^S,e_)/unit_pressure
-      w(ixB^S,r_e) = w(ixB^S,r_e)/unit_pressure
+      pth(ixB^S) = temp(ixB^S)*w(ixB^S,rho_)
+      w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1.d0) + half*w(ixB^S,rho_)*v0**2
+      w(ixB^S,r_e) = const_rad_a*(temp(ixB^S)*unit_temperature)**4.d0/unit_pressure
 
     case default
       call mpistop('boundary not known')

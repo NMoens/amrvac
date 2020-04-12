@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/shock'
+  base_filename='./output/still'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -14,12 +14,12 @@
    itsave(1,2)     = 0
    !ditsave_dat     = 500
    !ditsave_log     = 1
-   dtsave_dat     = 0.1d0
+   dtsave_dat     = 1.d0
    dtsave_log     = 1.d0
 /
 
  &stoplist
-   time_max = 3.d0
+   time_max = 10.d0
    dtmin = 1.0d-20
    !it_max = 50000
 /
@@ -36,8 +36,8 @@
 /
 
 &boundlist
-  typeboundary_min1 = 5*'special'
-  typeboundary_max1 = 5*'special'
+  typeboundary_min1 = 5*'periodic'
+  typeboundary_max1 = 5*'periodic'
   typeboundary_min2 = 5*'periodic'
   typeboundary_max2 = 5*'periodic'
   internalboundary = T
@@ -46,14 +46,14 @@
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 3
-   domain_nx1         = 512
-   domain_nx2         = 128
-   block_nx1          = 64
-   block_nx2          = 64
-   xprobmin1       = -12.d0
-   xprobmax1       = 12.d0
+   domain_nx1         = 256
+   domain_nx2         = 64
+   block_nx1          = 32
+   block_nx2          = 32
+   xprobmin1       = -24.d0
+   xprobmax1       = 24.d0
    xprobmin2       = 0.d0
-   xprobmax2       = 6.d0
+   xprobmax2       = 12.d0
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
  /
@@ -77,11 +77,12 @@
  /
 
  &fld_list
-  fld_split = .true.
+  fld_Eint_split = .false.
+  fld_Radforce_split = .false.
   fld_opacity_law = 'const'
   fld_kappa0 = 100.d0
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Diffusion'
+  fld_fluxlimiter = 'Minerbo'
   fld_diff_tol = 1.d-4
   /

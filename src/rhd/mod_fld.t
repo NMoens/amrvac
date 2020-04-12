@@ -208,12 +208,16 @@ module mod_fld
 
     integer :: idir, i, j
 
+    double precision :: fld_R(ixO^S), lambda(ixO^S)
+
     !> Calculate and add sourceterms
     if(qsourcesplit .eqv. fld_Radforce_split) then
       active = .true.
 
       call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappaCT)
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_fluxCT)
+      call fld_get_fluxlimiter(wCT, x, ixI^L, ixO^L, lambda, fld_R)
+      w(ixO^S,i_test) = lambda(ixO^S)
 
       do idir = 1,ndim
         !> Radiation force = kappa*rho/c *Flux
@@ -477,6 +481,7 @@ module mod_fld
       fld_lambda(ixO^S) = (2.d0+fld_R(ixO^S))/(6.d0+3*fld_R(ixO^S)+fld_R(ixO^S)**2.d0)
 
     case('Pomraning2')
+      call mpistop("Pomraning2 is not quite working, use Pomraning or Minerbo")
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
       normgrad2(ixO^S) = smalldouble
@@ -494,8 +499,12 @@ module mod_fld
       !> Calculate the flux limiter, lambda
       !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
       fld_lambda(ixO^S) = one/fld_R(ixO^S)*(one/dtanh(fld_R(ixO^S)) - one/fld_R(ixO^S))
+      ! fld_lambda(ixO^S) = one/fld_R(ixO^S)*(dcosh(fld_R(ixO^S))/dsinh(fld_R(ixO^S)) - one/fld_R(ixO^S))
 
       !>WHAT HAPPENS WHEN R=0 (full diffusion) => 1/R = NAN => dtanh(1/R) =????
+      where(dtanh(fld_R(ixO^S)) .ne. dtanh(fld_R(ixO^S)))
+        fld_lambda(ixO^S) = 1.d0/3.d0
+      endwhere
 
     case('Minerbo')
       !> Calculate R everywhere
@@ -585,19 +594,6 @@ module mod_fld
       call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
       rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
-
-    ! if (x(1,1,2) .lt. 1.d0) then
-    !   print*, it
-    !   print*, 'gradE', -grad_r_e(5,nghostcells+1:nghostcells+6)
-    !   ! print*, 'kappa', kappa(5,nghostcells+1:nghostcells+6)
-    !   print*, 'rho', w(5,nghostcells+1:nghostcells+6,iw_rho)
-    !   ! print*, 'D', 1/(kappa(5,nghostcells+1:nghostcells+6)*w(5,nghostcells+1:nghostcells+6,iw_rho))
-    !   ! print*, 'F:',-grad_r_e(5,nghostcells+1:nghostcells+6) &
-    !   ! /(w(5,nghostcells+1:nghostcells+6,iw_rho)*kappa(5,nghostcells+1:nghostcells+6))
-    !   ! print*, 'F', rad_flux(5,nghostcells+1:nghostcells+6,2)
-    !   print*, 'G', grad_r_e(5,nghostcells+1:nghostcells+6) &
-    !   /w(5,nghostcells+1:nghostcells+6,iw_rho)*x(5,nghostcells+1:nghostcells+6,2)
-    ! endif
 
   end subroutine fld_get_radflux
 
@@ -730,11 +726,11 @@ module mod_fld
 
     else
 
-      call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-      call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+      call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
+      call fld_get_fluxlimiter(wCT, x, ixI^L, ixO^L, lambda, fld_R)
 
       !> calculate diffusion coefficient
-      w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))
+      w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*wCT(ixO^S,iw_rho))
 
       if (diff_coef_filter) then
         !call mpistop('Hold your bloody horses, not implemented yet ')

@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/shock'
+  base_filename='./output/propfront_pom'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -61,7 +61,7 @@
 
  &paramlist
   courantpar       = 0.3d0
-  dtpar = 1.d-10
+  dtpar = 1.d-8
  /
 
  &rhd_list
@@ -85,6 +85,6 @@
   fld_kappa0 = 0.4d0
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Minerbo'
+  fld_fluxlimiter = 'Pomraning'
   fld_diff_tol = 1.d-5
   /

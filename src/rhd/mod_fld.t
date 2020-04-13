@@ -217,7 +217,7 @@ module mod_fld
       call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappaCT)
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_fluxCT)
       call fld_get_fluxlimiter(wCT, x, ixI^L, ixO^L, lambda, fld_R)
-      w(ixO^S,i_test) = lambda(ixO^S)
+      w(ixO^S,i_test) = fld_R(ixO^S)
 
       do idir = 1,ndim
         !> Radiation force = kappa*rho/c *Flux
@@ -464,7 +464,7 @@ module mod_fld
     case('Pomraning')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = smalldouble
+      normgrad2(ixO^S) = smalldouble*w(ixO^S, iw_r_e)
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
@@ -484,7 +484,7 @@ module mod_fld
       call mpistop("Pomraning2 is not quite working, use Pomraning or Minerbo")
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = smalldouble
+      normgrad2(ixO^S) = smalldouble*w(ixO^S, iw_r_e)
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
@@ -509,7 +509,7 @@ module mod_fld
     case('Minerbo')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = smalldouble
+      normgrad2(ixO^S) = smalldouble*w(ixO^S, iw_r_e)
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim

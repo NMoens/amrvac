@@ -11,9 +11,11 @@ module mod_usr
   double precision :: Er1 = 1.d0
   double precision :: rho0 = 0.025d0
   double precision :: l1 = 1.d-1
-  double precision :: l2 = 1.d-2
+  double precision :: l2 = 1.d-5
 
   double precision :: p0, T0, p1, T1
+
+  integer :: i_sol
 
 contains
 
@@ -33,8 +35,13 @@ contains
     usr_special_bc => boundary_conditions
     usr_special_mg_bc => mg_boundary_conditions
 
+    ! extra output
+    usr_modify_output => output_routine
+
     ! Active the physics module
     call rhd_activate()
+
+    i_sol = var_set_extravar("sol", "sol")
 
   end subroutine usr_init
 
@@ -66,6 +73,8 @@ contains
 
     print*, unit_time, unit_velocity
     print*, '2.5d-11s in dimless is ', 2.5d-11/unit_time
+    print*, 'speed of light dimless is', const_c/unit_velocity
+    print*, 'dimless time for crossing is', xprobmax1/const_c*unit_velocity
 
     rho0 = rho0/unit_density
     p0 = p0/unit_pressure
@@ -97,16 +106,9 @@ contains
     w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho0
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = 0.d0
     w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = p0/(rhd_gamma-1.d0)
-    ! w(ixI^S,r_e) = Er0
-    !
-    ! where (x(ixI^S,1) .lt. l1)
-    !   w(ixI^S,r_e) = Er1
-    ! end where
 
     step(ixImin1:ixImax1,ixImin2:ixImax2) = (  1.d0-erf(  (x(ixImin1:ixImax1,&
        ixImin2:ixImax2,1)-l1)/l2    )  )/2.d0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,i_test) = step(ixImin1:ixImax1,&
-       ixImin2:ixImax2)
     w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er0 + step(ixImin1:ixImax1,&
        ixImin2:ixImax2)*Er1
 
@@ -115,10 +117,14 @@ contains
     call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
 
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_test) = fld_R(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
        (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
+    w(ixImin1:ixImax1,ixImin2:ixImax2,i_sol) = Er0 + step(ixImin1:ixImax1,&
+       ixImin2:ixImax2)*Er1
 
   end subroutine initial_conditions
 
@@ -180,5 +186,24 @@ contains
       error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
+
+  subroutine output_routine(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,qt,w,x)
+    use mod_global_parameters
+    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)    :: qt,x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+
+    double precision :: step(ixImin1:ixImax1,ixImin2:ixImax2)
+
+    step(ixImin1:ixImax1,ixImin2:ixImax2) = (  1.d0-erf((x(ixImin1:ixImax1,&
+       ixImin2:ixImax2,1)-l1-global_time*const_c/unit_velocity)/l2    )  &
+       )/2.d0
+    w(ixImin1:ixImax1,ixImin2:ixImax2,i_sol) = Er0 + step(ixImin1:ixImax1,&
+       ixImin2:ixImax2)*Er1
+
+  end subroutine output_routine
 
 end module mod_usr

@@ -33,6 +33,9 @@ module mod_usr
   double precision :: dinflo,gradE,gradE_out
   double precision :: error_b
 
+  double precision :: inflow_density, inflow_gamma, pert_ampl
+  character(len=7) :: init_struc
+
   integer :: int_r, int_v, int_e, int_re, int_dt
 
 
@@ -90,11 +93,13 @@ contains
 
     integer :: i
 
+    !> read usr par
+    call params_read(par_files)
     !> Set stellar mass and radius
     call ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base,error_b)
 
     !> Gamma at the base is below one!
-    Gamma_b = 0.9d0
+    Gamma_b = inflow_gamma
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
 
@@ -182,11 +187,33 @@ contains
     L_vE = 4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+1)
     !>Set bottom density from massloss rate
 
-    dinflo = 40.0d0*M_dot/(4*dpi*R_star**2)
+    dinflo = inflow_density*M_dot/(4*dpi*R_star**2)
     gradE = -dinflo*kappa_b*(L_0-L_vE)/(4*dpi*R_star**2*const_c/unit_velocity)
 
     ! print*, dinflo*unit_density
   end subroutine initglobaldata_usr
+
+  !> Read parameters from a file
+  subroutine params_read(files)
+    use mod_global_parameters, only: unitpar
+    character(len=*), intent(in) :: files(:)
+    integer                      :: n
+
+    namelist /wind_list/ inflow_density, inflow_gamma, init_struc, pert_ampl
+
+    do n = 1, size(files)
+       open(unitpar, file=trim(files(n)), status="old")
+       rewind(unitpar)
+       read(unitpar, wind_list, end=113)
+113    close(unitpar)
+    end do
+
+    print*, init_struc//'*'
+    init_struc = trim(init_struc)
+
+    print*, init_struc//'*'
+  end subroutine params_read
+
 
   subroutine ReadInParams(M_star,R_star,Gamma_0,M_dot_ratio,M_dot,L_0,rho_base,error_b)
     use mod_global_parameters
@@ -196,7 +223,7 @@ contains
     character :: dum
     integer :: line
 
-    OPEN(1,FILE='InputStan/params_G2_m0.2.txt')
+    OPEN(1,FILE='InputStan/params_'//init_struc//'.txt')
     READ(1,*) dum, Gamma_0
     READ(1,*) dum, M_dot_ratio
     READ(1,*) dum, M_star
@@ -232,7 +259,7 @@ contains
     double precision, intent(out) :: T_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: p_arr(domain_nx2+2*nghostcells)
 
-    OPEN(1,FILE='InputStan/structure_amrvac_G2_m0.2.txt')
+    OPEN(1,FILE='InputStan/structure_amrvac_'//init_struc//'.txt')
     do i = 1,domain_nx2+2*nghostcells
       READ(1,*) r_arr(i),v_arr(i),rho_arr(i),Er_arr(i)
     enddo
@@ -316,8 +343,8 @@ contains
       enddo
 
         pert(ixB^S) = dsin(3*2*dpi*x(ixB^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixB^S,2)-3*2*dpi*global_time)
-        w(ixB^S,rho_) = w(ixB^S,rho_) * (1.d0 + 0.1d0*pert(ixB^S))
-        ! w(ixB^S,mom(2)) = w(ixB^S,mom(2)) * (1.d0 + 0.1d0*pert(ixB^S))
+        w(ixB^S,rho_) = w(ixB^S,rho_) * (1.d0 + pert_ampl*pert(ixB^S))
+        w(ixB^S,mom(2)) = w(ixB^S,mom(2)) * (1.d0 + pert_ampl*pert(ixB^S))
 
 
       where (w(ixB^S,mom(2)) .lt. zero)

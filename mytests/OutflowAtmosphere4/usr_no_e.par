@@ -87,3 +87,10 @@
   fld_diff_tol = 1.d-4
   fld_bisect_tol = 1.d-8
   /
+  
+  &wind_list
+   pert_ampl = 0.d0
+   inflow_gamma = 0.9d
+   inflow_density = 30.d0
+   init_struc = 'G2_m0.2'
+   /

@@ -3,14 +3,14 @@
 /
 
 &filelist
-  base_filename='./output/const'
+  base_filename='./output/tau_1d0'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
 /
 
  &savelist
-   itsave(1,1)     = 0
+   !itsave(1,1)     = 0
    itsave(1,2)     = 0
    !ditsave_dat     = 1
    !ditsave_log     = 1

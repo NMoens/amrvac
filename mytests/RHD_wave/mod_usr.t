@@ -58,7 +58,7 @@ contains
     T0 = const_mp*fld_mu/const_kB*(p0/rho0)
     Er0 = const_rad_a*T0**4
 
-    tau_wave = 1.d3
+    tau_wave = 1.d0
 
     wvl = tau_wave/(rho0*fld_kappa0)
     frequency = 2.d0*dpi*a0/wvl
@@ -137,12 +137,12 @@ contains
     double precision :: kappa(ixO^S), lambda(ixO^S), fld_R(ixO^S)
 
     ! Set initial values for w
-    w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1))
-    w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1))
+    w(ixI^S, rho_) = rho0! + A_rho*dsin(wavenumber*x(ixI^S,1))
+    w(ixI^S, mom(1)) = 0.d0 !w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1))
     w(ixI^S, mom(2)) = zero
-    w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1))
+    w(ixI^S, e_) = eg0 !+ A_e*dsin(wavenumber*x(ixI^S,1))
 
-    press(ixI^S) = p0 + A_p*dsin(wavenumber*x(ixI^S,1))
+    press(ixI^S) = p0 !+ A_p*dsin(wavenumber*x(ixI^S,1))
     temp(ixI^S) = (const_mp*fld_mu/const_kb)*press(ixI^S)/w(ixI^S, rho_)&
     *(unit_pressure/unit_density)/unit_temperature
 
@@ -200,7 +200,6 @@ contains
 
 
   subroutine mg_boundary_conditions(iB)
-
     use mod_global_parameters
     use mod_multigrid_coupling
 

@@ -5,7 +5,7 @@ if ScriptVersion != Version():
 ShowAllWindows()
 Source("/lhome/nicolasm/Visit/2.13.2/linux-x86_64/bin/makemovie.py")
 OpenComputeEngine("altair.ster.kuleuven.be", "-forcestatic")
-RestoreSession("/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p.session", 0)
+RestoreSession("/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho.session", 0)
 DrawPlots()
 ToggleCameraViewMode()
 SetTimeSliderState(0)
@@ -45,12 +45,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0000"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0000"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -180,12 +180,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0001"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0001"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -315,12 +315,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0002"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0002"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -450,12 +450,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0003"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0003"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -585,12 +585,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0004"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0004"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -720,12 +720,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0005"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0005"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -855,12 +855,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0006"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0006"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -990,12 +990,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0007"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0007"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -1125,12 +1125,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0008"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0008"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -1260,12 +1260,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0009"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0009"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80
@@ -1395,12 +1395,12 @@ RenderingAtts.compactDomainsAutoThreshold = 256
 SetRenderingAttributes(RenderingAtts)
 SaveWindowAtts = SaveWindowAttributes()
 SaveWindowAtts.outputToCurrentDirectory = 0
-SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_p-0"
-SaveWindowAtts.fileName = "movie_p0010"
+SaveWindowAtts.outputDirectory = "/lhome/nicolasm/amrvac/mytests/RHD_adv_pulse/movie_rho-0"
+SaveWindowAtts.fileName = "movie_rho0010"
 SaveWindowAtts.family = 0
 SaveWindowAtts.format = SaveWindowAtts.PNG  # BMP, CURVE, JPEG, OBJ, PNG, POSTSCRIPT, POVRAY, PPM, RGB, STL, TIFF, ULTRA, VTK, PLY
-SaveWindowAtts.width = 960
-SaveWindowAtts.height = 944
+SaveWindowAtts.width = 944
+SaveWindowAtts.height = 880
 SaveWindowAtts.screenCapture = 0
 SaveWindowAtts.saveTiled = 0
 SaveWindowAtts.quality = 80

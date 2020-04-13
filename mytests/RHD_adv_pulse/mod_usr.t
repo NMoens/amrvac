@@ -76,7 +76,7 @@ contains
     double precision :: temp(ixI^S), pth(ixI^S)
     double precision :: kappa(ixO^S), fld_R(ixO^S), lambda(ixO^S)
 
-    v0 = 0.d0
+    ! v0 = 0.d0
 
     temp(ixI^S) = T0 + (T1-T0)*dexp(-x(ixI^S,1)**2.d0/(2*wdth**2))
     w(ixI^S,rho_) = rho0*T0/temp(ixI^S) &
@@ -136,11 +136,11 @@ contains
 
     select case (iB)
     case (1)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(T0*unit_temperature)**4.d0/unit_pressure
     case (2)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(T0*unit_temperature)**4.d0/unit_pressure
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

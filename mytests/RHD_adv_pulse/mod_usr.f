@@ -83,7 +83,7 @@ contains
         fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2), lambda(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)
 
-    v0 = 0.d0
+    ! v0 = 0.d0
 
     temp(ixImin1:ixImax1,ixImin2:ixImax2) = T0 + &
        (T1-T0)*dexp(-x(ixImin1:ixImax1,ixImin2:ixImax2,1)**2.d0/(2*wdth**2))
@@ -166,11 +166,13 @@ contains
 
     select case (iB)
     case (1)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(T0*unit_temperature)**&
+           4.d0/unit_pressure
     case (2)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(T0*unit_temperature)**&
+           4.d0/unit_pressure
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))

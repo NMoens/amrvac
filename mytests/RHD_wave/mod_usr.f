@@ -58,7 +58,7 @@ contains
     T0 = const_mp*fld_mu/const_kB*(p0/rho0)
     Er0 = const_rad_a*T0**4
 
-    tau_wave = 1.d3
+    tau_wave = 1.d0
 
     wvl = tau_wave/(rho0*fld_kappa0)
     frequency = 2.d0*dpi*a0/wvl
@@ -144,17 +144,12 @@ contains
        ixOmin2:ixOmax2)
 
     ! Set initial values for w
-    w(ixImin1:ixImax1,ixImin2:ixImax2, rho_) = rho0 + &
-       A_rho*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
-    w(ixImin1:ixImax1,ixImin2:ixImax2, mom(1)) = w(ixImin1:ixImax1,&
-       ixImin2:ixImax2, rho_)*A_v*dsin(wavenumber*x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,1))
+    w(ixImin1:ixImax1,ixImin2:ixImax2, rho_) = rho0 !+ A_rho*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
+    w(ixImin1:ixImax1,ixImin2:ixImax2, mom(1)) = 0.d0 !w(ixImin1:ixImax1,ixImin2:ixImax2, rho_)*A_v*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
     w(ixImin1:ixImax1,ixImin2:ixImax2, mom(2)) = zero
-    w(ixImin1:ixImax1,ixImin2:ixImax2, e_) = eg0 + &
-       A_e*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
+    w(ixImin1:ixImax1,ixImin2:ixImax2, e_) = eg0 !+ A_e*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
 
-    press(ixImin1:ixImax1,ixImin2:ixImax2) = p0 + &
-       A_p*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
+    press(ixImin1:ixImax1,ixImin2:ixImax2) = p0 !+ A_p*dsin(wavenumber*x(ixImin1:ixImax1,ixImin2:ixImax2,1))
     temp(ixImin1:ixImax1,ixImin2:ixImax2) = &
        (const_mp*fld_mu/const_kb)*press(ixImin1:ixImax1,&
        ixImin2:ixImax2)/w(ixImin1:ixImax1,ixImin2:ixImax2,&
@@ -240,7 +235,6 @@ contains
 
 
   subroutine mg_boundary_conditions(iB)
-
     use mod_global_parameters
     use mod_multigrid_coupling
 

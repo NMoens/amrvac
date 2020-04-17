@@ -66,34 +66,46 @@ end subroutine initglobaldata_usr
 !==========================================================================================
 
   !> A routine for specifying initial conditions
-  subroutine initial_conditions(ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,ixmin2,&
-     ixmax1,ixmax2, w, x)
+  subroutine initial_conditions(ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+     ixOmin2,ixOmax1,ixOmax2, w, x)
     use mod_global_parameters
     use mod_constants
     use mod_rhd_phys, only: rhd_get_pthermal
 
-    integer, intent(in)             :: ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
-       ixmin2,ixmax1,ixmax2
-    double precision, intent(in)    :: x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
+        ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
         ndim)
-    double precision, intent(inout) :: w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, nw)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2, nw)
+
+    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2), fld_R(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+
 
     ! Set initial values for w
-    w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, rho_) = 1.d-7
-    w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, mom(:)) = zero
-    w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,r_e) = 1.d12
+    w(ixImin1:ixImax1,ixImin2:ixImax2, rho_) = 1.d-7
+    w(ixImin1:ixImax1,ixImin2:ixImax2, mom(:)) = zero
+    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = 1.d12
 
     e_eq = (w(3,3,r_e)*unit_pressure/(const_rad_a))**(1.d0/4.d0) &
        *one/(rhd_gamma-one)*const_kB*w(3,3,&
        rho_)*unit_density /(fld_mu*const_mp)/unit_pressure
 
-    w(ixGmin1:ixGmax1,ixGmin2:ixGmax2, e_) = 1.d2*e_eq
+    w(ixImin1:ixImax1,ixImin2:ixImax2, e_) = 1.d2*e_eq
 
-    call get_rad_extravars(w, x, ixGmin1,ixGmin2,ixGmax1,ixGmax2, ixmin1,&
-       ixmin2,ixmax1,ixmax2)
+    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, kappa)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
 
-    print*, w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,e_)
-    print*, w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,r_e)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
+       (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
+
+    print*, w(ixImin1:ixImax1,ixImin2:ixImax2,e_)
+    print*, w(ixImin1:ixImax1,ixImin2:ixImax2,r_e)
 
     print*, "E", w(3,3,r_e)
     print*, "c", (const_c/unit_velocity)
@@ -131,13 +143,13 @@ end subroutine initglobaldata_usr
     double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
        1:ndim)
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = 1.d-7
+    ! w(ixI^S,rho_) = 1.d-7
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = zero
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = 1d12
+    !w(ixI^S,r_e) = 1d12
 
     ! print*, w(3,3,e_)
 
-    if (it .eq. 0) open(1,file='Halley_updated')
+    if (it .eq. 0) open(1,file='Halley1_1.d2')
     write(1,*) global_time*unit_time, e_eq*unit_pressure, w(3,3,&
        r_e)*unit_pressure, w(3,3,e_)*unit_pressure
     if (global_time .ge. time_max - dt) close(1)

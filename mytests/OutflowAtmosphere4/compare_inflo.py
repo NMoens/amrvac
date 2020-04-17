@@ -153,22 +153,22 @@ def Get_small_m(r,rho,v,Er):
 
 #=============================================================================================
 
-d1 = 1.0
-d2 = 1.5
-d3 = 2.0
-d4 = 2.5
-d5 = 3.0
+d1 = 20.
+d2 = 30.
+d3 = 40.
+d4 = 50.
+d5 = 60.
 
-it=60
-folder = 'grid4_output'
+it=80
+folder = 'grid5_output'
 
 
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_d1.00000.dat'
-amrvac_outfile1 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_d1.000'+str(it)+'.dat'
-amrvac_outfile2 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_d1.500'+str(it)+'.dat'
-amrvac_outfile3 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_d2.000'+str(it)+'.dat'
-amrvac_outfile4 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_d2.500'+str(it)+'.dat'
-amrvac_outfile5 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/G2m02_d3.000'+str(it)+'.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/base_20d0000.dat'
+amrvac_outfile1 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/base_20d00'+str(it)+'.dat'
+amrvac_outfile2 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/base_30d00'+str(it)+'.dat'
+amrvac_outfile3 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/base_40d00'+str(it)+'.dat'
+amrvac_outfile4 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/base_50d00'+str(it)+'.dat'
+amrvac_outfile5 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/'+ folder +'/base_60d00'+str(it)+'.dat'
 
 
 r0,Mdot0 = AMRVAC_single_profile(amrvac_outfile0,'Mdot')
@@ -250,7 +250,7 @@ plt.vlines(r_sp4/r0[0],max(Mdot5*year/Msun),0,'m')
 plt.vlines(r_sp5/r0[0],max(Mdot5*year/Msun),0,'c')
 plt.xlabel('r/R')
 plt.ylabel('Mdot')
-plt.ylim([-5e-5,5e-4])
+# plt.ylim([-5e-5,5e-4])
 plt.legend()
 
 plt.savefig('figs/d_mdot')
@@ -350,13 +350,14 @@ plt.legend()
 plt.figure(21)
 plt.title('L(dinflo)')
 plt.grid()
+plt.hlines(L*Lsun,min(r0/Rsun),max(r0)/Rsun,'k','--',label='Stellar Lum')
 plt.plot(r1/r0[0],L_obs1,'rx',label='rho_in = ' + str(d1))
 plt.plot(r2/r0[0],L_obs2,'bx',label='rho_in = ' + str(d2))
 plt.plot(r3/r0[0],L_obs3,'gx',label='rho_in = ' + str(d3))
 plt.plot(r4/r0[0],L_obs4,'mx',label='rho_in = ' + str(d4))
 plt.plot(r5/r0[0],L_obs5,'cx',label='rho_in = ' + str(d5))
 plt.xlabel('r/R')
-plt.ylabel('m')
+plt.ylabel('L_obs')
 plt.legend()
 
 

@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/G2m02_hm'
+  base_filename='./output/G2m02_2c'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -14,7 +14,7 @@
    itsave(1,1)     = 0
    itsave(1,2)     = 0
    !ditsave_dat     = 500
-   !ditsave_log     = 1
+   ditsave_log     = 100
    dtsave_dat     = 5.d-2
    dtsave_log     = 5.d-2
 /
@@ -22,7 +22,7 @@
  &stoplist
    time_max = 3.d0
    dtmin = 1.0d-20
-   !it_max = 50000
+   it_max = 10000
 /
 
  &methodlist

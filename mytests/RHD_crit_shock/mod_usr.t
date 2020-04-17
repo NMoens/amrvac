@@ -12,10 +12,11 @@ module mod_usr
   double precision :: rho1 = 7.78d-10
   double precision :: T1 = 1.d1
   !subcritical:
-  double precision :: v1 = 6.d5
-  ! ! supercritical:
-  ! double precision :: v1 = 16.d5
+  double precision :: v1 = 6.d5/2.d0
+  ! !supercritical:
+  ! double precision :: v1 = 16.d5/2.d0
 
+  double precision :: Ti, To
 
 
 contains
@@ -36,6 +37,10 @@ contains
     ! Boundary conditions
     usr_special_bc => boundary_conditions
     usr_special_mg_bc => mg_boundary_conditions
+
+    ! Output routines
+    usr_aux_output    => specialvar_output
+    usr_add_aux_names => specialvarnames_output
 
     ! Active the physics module
     call rhd_activate()
@@ -77,12 +82,23 @@ contains
     double precision :: temp(ixI^S), pth(ixI^S)
     double precision :: kappa(ixO^S), fld_R(ixO^S), lambda(ixO^S)
 
+    Ti = T1 + 75.d0*x(ixOmin1,1,1)/(7.d10/unit_length)/unit_temperature
+    To = T1 + 75.d0*x(ixOmax1,1,1)/(7.d10/unit_length)/unit_temperature
+
     temp(ixI^S) = T1 + 75.d0*x(ixI^S,1)/(7.d10/unit_length)/unit_temperature
     w(ixI^S,rho_) = rho1
-    w(ixI^S,mom(:)) = 0.d0
+    w(ixI^S,mom(1)) = -rho1*v1
+    where (x(ixI^S,1) .lt. 1d0)
+      w(ixI^S,mom(1)) = rho1*v1
+    endwhere
+    w(ixI^S,mom(1)) = w(ixI^S,mom(1))*(1.d0-dexp(-1.d3*(x(ixI^S,1) - 1d0)**2.d0))
+    w(ixI^S,mom(2)) = 0.d0
     pth(ixI^S) = temp(ixI^S)*w(ixI^S,rho_)
-    w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0)
+    w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0) + half/rho1*w(ixI^S,mom(1))**2
     w(ixI^S,r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
+
+    if (x(1,1,1) .lt. xprobmin1) &
+    print*, temp(nghostcells,5), w(nghostcells,5,r_e)
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
@@ -100,19 +116,22 @@ contains
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    double precision :: eta_1, Tp, pth
-
-    eta_1 = (rhd_gamma-1.d0)/(rhd_gamma+1.d0)
-    Tp = const_mp*eta_1*(v1*unit_velocity)**2/(2.d0*const_kB*(1.d0-eta_1)**2)/unit_temperature
-    pth = Tp*rho1
-
     select case (iB)
     case(1)
-      w(ixB^S,rho_) = rho1
-      w(ixB^S,mom(1)) = rho1*v1
-      w(ixB^S,mom(2)) = 0.d0
-      w(ixB^S,e_) = pth/(rhd_gamma-1) + half*rho1*v1**2
-      w(ixB^S,r_e) = const_rad_a*(Tp*unit_temperature)**4.d0/unit_pressure
+      Ti = 2*(w(nghostcells+1, nghostcells+1,r_e)*unit_pressure/const_rad_a)**0.25/unit_temperature
+
+      ! w(ixB^S,rho_) = rho1
+      ! w(ixB^S,mom(1)) = rho1*v1
+      ! w(ixB^S,mom(2)) = 0.d0
+      w(ixB^S,e_) = Ti*rho1/(rhd_gamma-1) + half*rho1*v1**2
+      w(ixB^S,r_e) = const_rad_a*(Ti*unit_temperature)**4.d0/unit_pressure
+
+    case(2)
+      ! w(ixB^S,rho_) = rho1
+      ! w(ixB^S,mom(1)) = -rho1*v1
+      ! w(ixB^S,mom(2)) = 0.d0
+      w(ixB^S,e_) = To*rho1/(rhd_gamma-1) + half*rho1*v1**2
+      w(ixB^S,r_e) = const_rad_a*(To*unit_temperature)**4.d0/unit_pressure
 
     case default
       call mpistop('boundary not known')
@@ -126,20 +145,68 @@ contains
     use mod_multigrid_coupling
 
     integer, intent(in)             :: iB
-    double precision :: eta_1, Tp
-
-    eta_1 = (rhd_gamma-1.d0)/(rhd_gamma+1.d0)
-    Tp = const_mp*eta_1*v1**2/(2.d0*const_kB*(1.d0-eta_1)**2)
 
     select case (iB)
     case (1)
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-      mg%bc(iB, mg_iphi)%bc_value = const_rad_a*Tp/unit_pressure
+      mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(Ti*unit_temperature)**4/unit_pressure
+
+    case (2)
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+      mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(To*unit_temperature)**4/unit_pressure
 
     case default
       print *, "Not a standard: ", trim(typeboundary(r_e, iB))
       error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
+
+
+  subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
+    ! this subroutine can be used in convert, to add auxiliary variables to the
+    ! converted output file, for further analysis using tecplot, paraview, ....
+    ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
+    !
+    ! the array normconv can be filled in the (nw+1:nw+nwauxio) range with
+    ! corresponding normalization values (default value 1)
+    use mod_global_parameters
+    use mod_physics
+    use mod_fld
+
+    integer, intent(in)                :: ixI^L,ixO^L
+    double precision, intent(in)       :: x(ixI^S,1:ndim)
+    double precision                   :: w(ixI^S,nw+nwauxio)
+    double precision                   :: normconv(0:nw+nwauxio)
+
+    double precision                   :: Tgas(ixI^S),Trad(ixI^S)
+    double precision                   :: rad_flux(ixO^S,1:ndim)
+    double precision                   :: fld_R(ixO^S), lambda(ixO^S)
+
+
+    call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
+    call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
+    call rhd_get_trad(w, x, ixI^L, ixO^L, Trad)
+    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+
+    where(w(ixO^S,r_e) .lt. 0.d0) Trad(ixO^S) = 0.d0
+
+    w(ixO^S,nw+1) = Tgas(ixO^S)*unit_temperature
+    w(ixO^S,nw+2) = Trad(ixO^S)*unit_temperature
+    w(ixO^S,nw+3) = rad_flux(ixO^S,1)
+    w(ixO^S,nw+4) = lambda(ixO^S)
+    w(ixO^S,nw+5) = fld_R(ixO^S)
+    w(ixO^S,nw+6) = w(ixO^S,mom(1))/w(ixO^S,rho_)
+
+    ! stop
+
+  end subroutine specialvar_output
+
+  subroutine specialvarnames_output(varnames)
+    ! newly added variables need to be concatenated with the w_names/primnames string
+    use mod_global_parameters
+    character(len=*) :: varnames
+
+    varnames = 'Tgas Trad F1 lambda R v1'
+  end subroutine specialvarnames_output
 
 end module mod_usr

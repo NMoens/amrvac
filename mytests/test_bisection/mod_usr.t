@@ -65,30 +65,36 @@ end subroutine initglobaldata_usr
 !==========================================================================================
 
   !> A routine for specifying initial conditions
-  subroutine initial_conditions(ixG^L, ix^L, w, x)
+  subroutine initial_conditions(ixI^L, ixO^L, w, x)
     use mod_global_parameters
     use mod_constants
     use mod_rhd_phys, only: rhd_get_pthermal
 
-    integer, intent(in)             :: ixG^L, ix^L
-    double precision, intent(in)    :: x(ixG^S, ndim)
-    double precision, intent(inout) :: w(ixG^S, nw)
+    integer, intent(in)             :: ixI^L, ixO^L
+    double precision, intent(in)    :: x(ixI^S, ndim)
+    double precision, intent(inout) :: w(ixI^S, nw)
+
+    double precision :: kappa(ixO^S), lambda(ixO^S), fld_R(ixO^S)
+
 
     ! Set initial values for w
-    w(ixG^S, rho_) = 1.d-7
-    w(ixG^S, mom(:)) = zero
-    w(ixG^S,r_e) = 1.d12
+    w(ixI^S, rho_) = 1.d-7
+    w(ixI^S, mom(:)) = zero
+    w(ixI^S,r_e) = 1.d12
 
     e_eq = (w(3,3,r_e)*unit_pressure/(const_rad_a))**(1.d0/4.d0) &
           *one/(rhd_gamma-one)*const_kB*w(3,3,rho_)*unit_density &
           /(fld_mu*const_mp)/unit_pressure
 
-    w(ixG^S, e_) = 1.d2*e_eq
+    w(ixI^S, e_) = 1.d2*e_eq
 
-    call get_rad_extravars(w, x, ixG^L, ix^L)
+    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
 
-    print*, w(ixG^S,e_)
-    print*, w(ixG^S,r_e)
+    w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
+
+    print*, w(ixI^S,e_)
+    print*, w(ixI^S,r_e)
 
     print*, "E", w(3,3,r_e)
     print*, "c", (const_c/unit_velocity)
@@ -123,13 +129,13 @@ end subroutine initglobaldata_usr
     double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
 
-    w(ixI^S,rho_) = 1.d-7
+    ! w(ixI^S,rho_) = 1.d-7
     w(ixI^S,mom(:)) = zero
-    w(ixI^S,r_e) = 1d12
+    !w(ixI^S,r_e) = 1d12
 
     ! print*, w(3,3,e_)
 
-    if (it .eq. 0) open(1,file='Halley_updated')
+    if (it .eq. 0) open(1,file='Halley1_1.d2')
     write(1,*) global_time*unit_time, e_eq*unit_pressure, w(3,3,r_e)*unit_pressure, w(3,3,e_)*unit_pressure
     if (global_time .ge. time_max - dt) close(1)
 

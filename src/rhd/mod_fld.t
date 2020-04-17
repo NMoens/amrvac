@@ -217,7 +217,6 @@ module mod_fld
       call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappaCT)
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_fluxCT)
       call fld_get_fluxlimiter(wCT, x, ixI^L, ixO^L, lambda, fld_R)
-      w(ixO^S,i_test) = fld_R(ixO^S)
 
       do idir = 1,ndim
         !> Radiation force = kappa*rho/c *Flux
@@ -509,7 +508,7 @@ module mod_fld
     case('Minerbo')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = smalldouble*w(ixO^S, iw_r_e)
+      normgrad2(ixO^S) = 0.d0
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
@@ -520,6 +519,14 @@ module mod_fld
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
 
       fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+
+      ! if (x(1,1,1) .lt. xprobmin1) then
+      !   print*, w(ixImin1:ixOmin1+5,5,iw_r_e)
+      !   print*, normgrad2(ixImin1:ixOmin1+5,5)
+      !   print*, fld_R(ixOmin1:ixOmin1+5,5)
+      !   print*, fld_lambda(ixOmin1:ixOmin1+5,5)
+      !   print*, '--------------------------------------------------------------'
+      ! endif
 
       !> Calculate the flux limiter, lambda
       !> Minerbo:
@@ -815,23 +822,25 @@ module mod_fld
 
     !> e_gas is the INTERNAL ENERGY without KINETIC ENERGY
     if (.not. block%e_is_internal) then
-      e_gas(ixO^S) = w(ixO^S,iw_e) - half*sum(w(ixO^S, iw_mom(:))**2, dim=ndim+1)/w(ixO^S, iw_rho)
+      e_gas(ixO^S) = wCT(ixO^S,iw_e) - half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
     else
-      e_gas(ixO^S) = w(ixO^S,iw_e)
+      e_gas(ixO^S) = wCT(ixO^S,iw_e)
     endif
 
-    E_rad(ixO^S) = w(ixO^S,iw_r_e)
+    E_rad(ixO^S) = wCT(ixO^S,iw_r_e)
 
     call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
 
     sigma_b = const_rad_a*const_c/4.d0*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
 
     !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*kappa(ixO^S)*sigma_b*(fld_gamma-one)**4/w(ixO^S,iw_rho)**3*dt
-    a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*w(ixO^S,iw_rho)*dt
+    a1(ixO^S) = 4*kappa(ixO^S)*sigma_b*(fld_gamma-one)**4/wCT(ixO^S,iw_rho)**3*dt
+    a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*wCT(ixO^S,iw_rho)*dt
 
     c0(ixO^S) = ((one + a2(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/a1(ixO^S)
     c1(ixO^S) = (one + a2(ixO^S))/a1(ixO^S)
+
+    ! w(ixO^S,i_test) = a2(ixO^S)
 
     !> Loop over every cell for rootfinding method
     {do ix^D=ixOmin^D,ixOmax^D\ }

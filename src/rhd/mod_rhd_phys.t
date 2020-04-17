@@ -1119,6 +1119,11 @@ contains
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
       endif
+
+      if (check_small_values .and. small_values_use_primitive) then
+        call rhd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'fld_e_interact')
+      end if
+
       !> radiation force
       if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
@@ -1127,7 +1132,7 @@ contains
     end select
 
     !>  NOT necessary for calculation, just want to know the grid-dependent-timestep
-    call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
+    ! call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
     ! w(ixI^S,i_test) = cmax(ixI^S)
 
   end subroutine rhd_add_radiation_source
@@ -1201,6 +1206,7 @@ contains
   subroutine rhd_handle_small_values(primitive, w, x, ixI^L, ixO^L, subname)
     use mod_global_parameters
     use mod_small_values
+    ! use mod_fld
     logical, intent(in)             :: primitive
     integer, intent(in)             :: ixI^L,ixO^L
     double precision, intent(inout) :: w(ixI^S,1:nw)
@@ -1227,6 +1233,10 @@ contains
           end if
         end do
 
+        if (small_values_fix_iw(r_e)) then
+          where(flag(ixO^S) == r_e) w(ixO^S,r_e) = small_r_e
+        end if
+
         if (rhd_energy) then
           if (small_values_fix_iw(e_)) then
             if(primitive) then
@@ -1241,9 +1251,9 @@ contains
           end if
         end if
 
-        if (small_values_fix_iw(r_e)) then
-          where(flag(ixO^S) /= 0) w(ixO^S,r_e) = small_r_e
-        end if
+! call rhd_check_w(primitive, ixI^L, ixO^L, w, flag)
+!         w(ixO^S,i_test) = flag(ixO^S)*1.d0
+
       case ("average")
         call small_values_average(ixI^L, ixO^L, w, x, flag)
       case default

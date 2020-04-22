@@ -70,6 +70,11 @@ contains
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
 
+    print*, 'unit_numberdensity', unit_numberdensity
+    print*, 'unit_temperature', unit_temperature
+    print*, 'unit_length', unit_length
+
+
     print*, unit_time, unit_velocity
     print*, '2.5d-11s in dimless is ', 2.5d-11/unit_time
     print*, 'speed of light dimless is', const_c/unit_velocity

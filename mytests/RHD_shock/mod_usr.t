@@ -81,6 +81,10 @@ contains
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
 
+    print*, 'unit_numberdensity', unit_numberdensity
+    print*, 'unit_temperature', unit_temperature
+    print*, 'unit_length', unit_length
+
     rho1 = rho1/unit_density
     rho2 = rho2/unit_density
 

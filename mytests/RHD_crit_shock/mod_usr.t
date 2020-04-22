@@ -16,8 +16,8 @@ module mod_usr
   ! !supercritical:
   ! double precision :: v1 = 16.d5/2.d0
 
-  double precision :: Ti, To
-
+  double precision :: Ti
+  double precision :: To
 
 contains
 
@@ -37,6 +37,8 @@ contains
     ! Boundary conditions
     usr_special_bc => boundary_conditions
     usr_special_mg_bc => mg_boundary_conditions
+    usr_internal_bc => fix_v
+
 
     ! Output routines
     usr_aux_output    => specialvar_output
@@ -82,8 +84,8 @@ contains
     double precision :: temp(ixI^S), pth(ixI^S)
     double precision :: kappa(ixO^S), fld_R(ixO^S), lambda(ixO^S)
 
-    Ti = T1 + 75.d0*x(ixOmin1,1,1)/(7.d10/unit_length)/unit_temperature
-    To = T1 + 75.d0*x(ixOmax1,1,1)/(7.d10/unit_length)/unit_temperature
+    Ti = T1 + 75.d0*xprobmin1/(7.d10/unit_length)/unit_temperature
+    To = T1 + 75.d0*xprobmax1/(7.d10/unit_length)/unit_temperature
 
     temp(ixI^S) = T1 + 75.d0*x(ixI^S,1)/(7.d10/unit_length)/unit_temperature
     w(ixI^S,rho_) = rho1
@@ -91,19 +93,20 @@ contains
     where (x(ixI^S,1) .lt. 1d0)
       w(ixI^S,mom(1)) = rho1*v1
     endwhere
+    !> Smoothen initial conditions
     w(ixI^S,mom(1)) = w(ixI^S,mom(1))*(1.d0-dexp(-1.d3*(x(ixI^S,1) - 1d0)**2.d0))
     w(ixI^S,mom(2)) = 0.d0
     pth(ixI^S) = temp(ixI^S)*w(ixI^S,rho_)
     w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0) + half/rho1*w(ixI^S,mom(1))**2
     w(ixI^S,r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
 
-    if (x(1,1,1) .lt. xprobmin1) &
-    print*, temp(nghostcells,5), w(nghostcells,5,r_e)
-
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
 
     w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
+
+    w(ixI^S,i_test) = (1.d0-dexp(-1.d3*(x(ixI^S,1) - 1d0)**2.d0))
+
 
   end subroutine initial_conditions
 
@@ -116,20 +119,28 @@ contains
     double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
+    integer :: i
+
     select case (iB)
     case(1)
-      Ti = 2*(w(nghostcells+1, nghostcells+1,r_e)*unit_pressure/const_rad_a)**0.25/unit_temperature
+      ! Ti = 2*(w(ixImin1+nghostcells, nghostcells+1,r_e)*unit_pressure/const_rad_a)**0.25/unit_temperature
 
-      ! w(ixB^S,rho_) = rho1
-      ! w(ixB^S,mom(1)) = rho1*v1
-      ! w(ixB^S,mom(2)) = 0.d0
+      do i = ixBmax1,ixBmin1,-1
+        w(i,:,rho_) = w(i+1,:,rho_)
+        w(i,:,mom(1)) = w(i+1,:,mom(1))
+      enddo
+      w(ixB^S,mom(2)) = 0.d0
       w(ixB^S,e_) = Ti*rho1/(rhd_gamma-1) + half*rho1*v1**2
       w(ixB^S,r_e) = const_rad_a*(Ti*unit_temperature)**4.d0/unit_pressure
 
     case(2)
-      ! w(ixB^S,rho_) = rho1
-      ! w(ixB^S,mom(1)) = -rho1*v1
-      ! w(ixB^S,mom(2)) = 0.d0
+      ! To  = 2*(w(ixImax1-nghostcells, nghostcells+1,r_e)*unit_pressure/const_rad_a)**0.25/unit_temperature
+
+      do i = ixBmin1,ixBmax1
+        w(i,:,rho_) = w(i-1,:,rho_)
+        w(i,:,mom(1)) = w(i-1,:,mom(1))
+      enddo
+      w(ixB^S,mom(2)) = 0.d0
       w(ixB^S,e_) = To*rho1/(rhd_gamma-1) + half*rho1*v1**2
       w(ixB^S,r_e) = const_rad_a*(To*unit_temperature)**4.d0/unit_pressure
 
@@ -148,18 +159,45 @@ contains
 
     select case (iB)
     case (1)
+
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(Ti*unit_temperature)**4/unit_pressure
 
+      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
     case (2)
+
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(To*unit_temperature)**4/unit_pressure
+
+      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
 
     case default
       print *, "Not a standard: ", trim(typeboundary(r_e, iB))
       error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
+
+  subroutine fix_v(level,qt,ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+
+    integer, intent(in)             :: ixI^L,ixO^L,level
+    double precision, intent(in)    :: qt
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision, intent(in)    :: x(ixI^S,1:ndim)
+
+    if (global_time .lt. 0.5d0) then
+      w(ixI^S,mom(1)) = -rho1*v1
+      where (x(ixI^S,1) .lt. 1d0)
+        w(ixI^S,mom(1)) = rho1*v1
+      endwhere
+      !> Smoothen initial conditions
+      w(ixI^S,mom(1)) = w(ixI^S,mom(1))*(1.d0-dexp(-1.d3*(x(ixI^S,1) - 1d0)**2.d0))
+      w(ixI^S,mom(2)) = 0.d0
+    endif
+
+  end subroutine fix_v
 
 
   subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)

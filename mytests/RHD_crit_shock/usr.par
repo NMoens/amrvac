@@ -38,21 +38,21 @@
 /
 
 &boundlist
-  typeboundary_min1 = 4*'cont','special'
-  typeboundary_max1 = 4*'cont','special'
+  typeboundary_min1 = 4*'special','special'
+  typeboundary_max1 = 4*'special','special'
   typeboundary_min2 = 5*'periodic'
   typeboundary_max2 = 5*'periodic'
-  internalboundary = F
+  internalboundary = T
 /
 
  &meshlist
-   refine_max_level   = 1
+   refine_max_level   = 3
    refine_criterion   = 3
    domain_nx1         = 256
-   domain_nx2         = 64
+   domain_nx2         = 32
    block_nx1          = 32
    block_nx2          = 32
-   xprobmin1       = 0.1d0
+   xprobmin1       = 0.0d0
    xprobmax1       = 2.d0
    xprobmin2       = 0.d0
    xprobmax2       = 0.5d0
@@ -61,7 +61,7 @@
  /
 
  &paramlist
-  courantpar       = 0.5d0
+  courantpar       = 0.1d0
   !dtpar           = 2.d-6
  /
 
@@ -71,7 +71,6 @@
   rhd_energy = .true.
   rhd_gamma = 1.6667d0
   rhd_radiation_formalism = 'fld'
-  radio_acoustic_filter = .false.
   rhd_radiation_force = .true.
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.

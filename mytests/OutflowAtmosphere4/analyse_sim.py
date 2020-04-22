@@ -124,8 +124,8 @@ def Get_sonic_point(r,v,a):
 
 # folder = 'output'
 # amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/grid4_output/G2m02_d20.000'+str(60)+'.dat'
-# amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/output/G2m02_hm0040.dat'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/grid5_output/base_20d0080.dat'
+# amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/output/G2m02_2R0003.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/OutflowAtmosphere4/grid5_output/base_60d0080.dat'
 
 
 r0,Mdot0 = AMRVAC_single_profile(amrvac_outfile0,'Mdot')
@@ -317,7 +317,7 @@ plt.figure()
 plt.title('check diffusion coefficient')
 plt.plot(r0/Rsun,Diff1/1e20,'r-',label='amrvac readout: $D$')
 plt.plot(r0/Rsun,Diff2/1e20,'b-',label='recalculated: $\\frac{c\\lambda}{\\kappa \\rho}$')
-plt.plot(r0/Rsun,Diff1/Diff2-1,'k--', label='relative difference')
+plt.plot(r0/Rsun,Diff2/Diff1,'k--', label='relative difference')
 plt.legend()
 
 plt.figure()

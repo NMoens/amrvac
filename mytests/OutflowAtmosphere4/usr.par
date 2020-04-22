@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/G2m02_2c'
+  base_filename='./output/G2m02'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -14,7 +14,7 @@
    itsave(1,1)     = 0
    itsave(1,2)     = 0
    !ditsave_dat     = 500
-   ditsave_log     = 100
+   !ditsave_log     = 100
    dtsave_dat     = 5.d-2
    dtsave_log     = 5.d-2
 /
@@ -22,7 +22,7 @@
  &stoplist
    time_max = 3.d0
    dtmin = 1.0d-20
-   it_max = 10000
+   !it_max = 10000
 /
 
  &methodlist
@@ -45,12 +45,12 @@
 /
 
  &meshlist
-   refine_max_level   = 1
-   refine_criterion   = 3
+   refine_max_level   = 3
+   refine_criterion   = 0
    domain_nx1         = 64
    domain_nx2         = 256
-   block_nx1          = 64
-   block_nx2          = 64
+   block_nx1          = 16
+   block_nx2          = 16
    xprobmin1       = -1.25d0
    xprobmax1       = 1.25d0
    xprobmin2       = 1.0d0
@@ -60,7 +60,7 @@
  /
 
  &paramlist
-  courantpar       = 0.03d0
+  courantpar       = 0.1d0
   !dtpar           = 2.d-6
  /
 
@@ -89,7 +89,7 @@
   /
 
   &wind_list
-   pert_ampl = 0.2d0
+   pert_ampl = 0.0d0
    inflow_gamma = 0.9d0
    inflow_density = 30.d0
    init_struc = 'G2_m0.2'

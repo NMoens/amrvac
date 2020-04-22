@@ -303,7 +303,7 @@ module mod_fld
       radiation_force(ixO^S,idim) = w(ixO^S,iw_rho)*kappa(ixO^S)*rad_flux(ixO^S,idim)/(const_c/unit_velocity)
       max_grad = maxval(abs(radiation_force(ixO^S,idim)))
       max_grad = max(max_grad, epsilon(1.0d0))
-      dtnew = min(dtnew, 1.0d0 / sqrt(max_grad * dxinv(idim)))
+      dtnew = min(dtnew, courantpar / sqrt(max_grad * dxinv(idim)))
     end do
 
   end subroutine fld_radforce_get_dt
@@ -439,13 +439,13 @@ module mod_fld
 
     select case (fld_fluxlimiter)
     case('Diffusion')
-      fld_lambda(ixO^S) = one/3.d0
+      fld_lambda(ixO^S) = 1.d0/3.d0
       fld_R(ixO^S) = zero
 
     case('FreeStream')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = smalldouble
+      normgrad2(ixO^S) = 0.d0 !smalldouble
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
@@ -463,7 +463,7 @@ module mod_fld
     case('Pomraning')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = smalldouble*w(ixO^S, iw_r_e)
+      normgrad2(ixO^S) = 0.d0 !smalldouble
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
@@ -483,7 +483,7 @@ module mod_fld
       call mpistop("Pomraning2 is not quite working, use Pomraning or Minerbo")
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = smalldouble*w(ixO^S, iw_r_e)
+      normgrad2(ixO^S) = 0.d0 !smalldouble
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
@@ -508,7 +508,7 @@ module mod_fld
     case('Minerbo')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = 0.d0
+      normgrad2(ixO^S) = 0.d0 !smalldouble
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim

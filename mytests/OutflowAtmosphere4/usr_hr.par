@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./hr_output/G2m02_'
+  base_filename='./output/G2m02_2R_f'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -13,16 +13,16 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat     = 500
-   !ditsave_log     = 1
+   !ditsave_dat     = 500
+   !ditsave_log     = 100
    dtsave_dat     = 5.d-2
    dtsave_log     = 5.d-2
 /
 
  &stoplist
-   time_max = 2.d0
+   time_max = 5.d0
    dtmin = 1.0d-20
-   !it_max = 50000
+   !it_max = 10000
 /
 
  &methodlist
@@ -37,12 +37,11 @@
 /
 
 &boundlist
-  nghostcells  = 2
   typeboundary_min1 = 5*'periodic'
   typeboundary_max1 = 5*'periodic'
-  typeboundary_min2 = 'special','special','special','special','special'
+  typeboundary_min2 = 5*'special'
   typeboundary_max2 = 4*'cont','special'
-  internalboundary = F
+  internalboundary = T
 /
 
  &meshlist
@@ -55,14 +54,14 @@
    xprobmin1       = -0.25d0
    xprobmax1       = 0.25d0
    xprobmin2       = 1.0d0
-   xprobmax2       = 2.0d0
+   xprobmax2       = 2.d0
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
  /
 
  &paramlist
-  courantpar       = 0.03d0
-  !dtpar           = 2.d-6
+  courantpar       = 0.3d0
+  dtpar = 5e-5
  /
 
  &rhd_list
@@ -73,7 +72,7 @@
   rhd_radiation_formalism = 'fld'
   radio_acoustic_filter = .false.
   rhd_radiation_force = .true.
-  rhd_energy_interact = .true.
+  rhd_energy_interact = .false.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
  /
@@ -86,11 +85,12 @@
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
   fld_diff_tol = 1.d-4
+  fld_bisect_tol = 1.d-4
   /
 
   &wind_list
-   pert_ampl = 0.d0
-   inflow_gamma = 0.9d
-   inflow_density = 30.d0
-   init_struc = 'G2_m0.2'
+   pert_ampl = 0.1d0
+   inflow_gamma = 0.99d0
+   inflow_density = 3.d0
+   init_struc = 'G2_m0.2_2R'
    /

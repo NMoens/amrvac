@@ -34,7 +34,7 @@ module mod_usr
   double precision :: error_b
 
   double precision :: inflow_density, inflow_gamma, pert_ampl
-  character(len=7) :: init_struc
+  character(len=std_len) :: init_struc
 
   integer :: int_r, int_v, int_e, int_re, int_dt
 
@@ -74,6 +74,8 @@ contains
     ! Output routines
     usr_aux_output    => specialvar_output
     usr_add_aux_names => specialvarnames_output
+
+    ! usr_refine_grid => refine_base
 
     ! Active the physics module
     call rhd_activate()
@@ -125,9 +127,9 @@ contains
     ! endif
 
     ! Choose independent normalization units if using dimensionless variables.
-    unit_length  = R_star !r_arr(nghostcells) ! cm
-    unit_numberdensity = rho_base/((1.d0+4.d0*He_abundance)*mp_cgs)
-    unit_temperature = T_base
+    unit_length  = 69599000000.0d0 !R_star
+    unit_numberdensity = 2218242342924238.2d0 !rho_base/((1.d0+4.d0*He_abundance)*mp_cgs)
+    unit_temperature = 296199.82122247218d0 !T_base
 
     !> Remaining units
     unit_density=(1.d0+4.d0*He_abundance)*const_mp*unit_numberdensity
@@ -139,24 +141,24 @@ contains
     unit_radflux = unit_velocity*unit_pressure
     unit_opacity = one/(unit_density*unit_length)
 
-    ! if (mype .eq. 0) then
-    !   print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
-    !   print*, 'Gamma_0 ', 'kappa_0 ', 'kappa_b'
-    !   print*, M_star, R_star,M_dot_ratio, M_dot, L_0
-    !   print*, Gamma_0, kappa_0, kappa_b
-    !
-    !   print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
-    !
-    !   print*, 'unit_length', unit_length
-    !   print*, 'unit_density', unit_density
-    !   print*, 'unit_numberdensity', unit_numberdensity
-    !   print*, 'unit_pressure', unit_pressure
-    !   print*, 'unit_temperature', unit_temperature
-    !   print*, 'unit_radflux', unit_radflux
-    !   print*, 'unit_opacity', unit_opacity
-    !   print*, 'unit_time', unit_time
-    !   print*, 'unit_velocity', unit_velocity
-    ! endif
+    if (mype .eq. 0) then
+      print*, 'M_star ', 'R_star ','M_dot_ratio ', 'M_dot ', 'L_0'
+      print*, 'Gamma_0 ', 'kappa_0 ', 'kappa_b'
+      print*, M_star, R_star,M_dot_ratio, M_dot, L_0
+      print*, Gamma_0, kappa_0, kappa_b
+
+      print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
+
+      print*, 'unit_length', unit_length
+      print*, 'unit_density', unit_density
+      print*, 'unit_numberdensity', unit_numberdensity
+      print*, 'unit_pressure', unit_pressure
+      print*, 'unit_temperature', unit_temperature
+      print*, 'unit_radflux', unit_radflux
+      print*, 'unit_opacity', unit_opacity
+      print*, 'unit_time', unit_time
+      print*, 'unit_velocity', unit_velocity
+    endif
 
     !> Make all parameters dimensionless
     M_star = M_star/(unit_density*unit_length**3.d0)
@@ -211,10 +213,6 @@ contains
 113    close(unitpar)
     end do
 
-    print*, init_struc//'*'
-    init_struc = trim(init_struc)
-
-    print*, init_struc//'*'
   end subroutine params_read
 
 
@@ -225,9 +223,13 @@ contains
     double precision, intent(out) :: M_dot_ratio,M_dot,L_0
     double precision, intent(out) :: rho_base, error_b
     character :: dum
-    integer :: line
+    integer :: line, len
 
-    OPEN(1,FILE='InputStan/params_'//init_struc//'.txt')
+    len = len_trim(init_struc)
+    print*, 'Structure from: ',init_struc(1:len), '.txt'
+
+
+    OPEN(1,FILE='InputStan/params_'//init_struc(1:len)//'.txt')
     READ(1,*) dum, Gamma_0
     READ(1,*) dum, M_dot_ratio
     READ(1,*) dum, M_star
@@ -262,8 +264,13 @@ contains
     double precision :: i_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: T_arr(domain_nx2+2*nghostcells)
     double precision, intent(out) :: p_arr(domain_nx2+2*nghostcells)
+    integer :: len
 
-    OPEN(1,FILE='InputStan/structure_amrvac_'//init_struc//'.txt')
+    len = len_trim(init_struc)
+
+    print*, 'Parameters from: ',init_struc(1:len), '.txt'
+
+    OPEN(1,FILE='InputStan/structure_amrvac_'//init_struc(1:len)//'.txt')
     do i = 1,domain_nx2+2*nghostcells
       READ(1,*) r_arr(i),v_arr(i),rho_arr(i),Er_arr(i)
     enddo
@@ -339,7 +346,7 @@ contains
        1:ndim)
     double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-    double precision :: kappa(ixBmin1:ixBmax1,ixBmin2:ixBmax2),&
+    double precision :: kappa(ixImin1:ixImax1,ixImin2:ixImax2),&
         gradE_l(ixBmin1:ixBmax1,ixBmin2:ixBmax2), L_vE_l(ixBmin1:ixBmax1,&
        ixBmin2:ixBmax2)
     double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2),&
@@ -347,9 +354,8 @@ contains
        ixBmin2:ixBmax2)
     integer :: i,j
 
-    double precision :: cool(ixImin1:ixImax1,ixImin2:ixImax2),&
-        heat(ixImin1:ixImax1,ixImin2:ixImax2), loggrad(ixBmin1:ixBmax1,&
-       ixBmin2:ixBmax2)
+    ! double precision :: cool(ixI^S), heat(ixI^S), loggrad(ixB^S)
+    ! double precision :: D,DeltaE,L_c,L_a,L_o
 
     select case (iB)
 
@@ -387,8 +393,8 @@ contains
 
       ! print*, w(5,1:5,mom(2))
 
-      call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixBmin1,&
-         ixBmin2,ixBmax1,ixBmax2, kappa)
+      call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixImin1,&
+         ixImin2,ixImax1,ixImax2, kappa)
 
       L_vE_l(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = 4*dpi*x(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2,2)**2*4.d0/3.d0*w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
@@ -419,9 +425,20 @@ contains
          ixBmin2:ixBmax2,mom(1))**2+w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
          mom(2))**2)/w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_)
 
-      ! do i = ixBmax2,ixBmin2,-1
-      !   w(ixBmin1:ixBmax1,i,e_) = dexp(2*dlog(w(ixBmin1:ixBmax1,i+1,e_)) - dlog(w(ixBmin1:ixBmax1,i+2,e_)))
+
+      ! !> Test
+      ! do i = 2,5
+      !   D = -const_c/(3*unit_velocity*w(5,i,rho_)*kappa(5,i))
+      !   DeltaE = (w(5,i+1,r_e) - w(5,i-1,r_e))/(x(5,i+1,2) - x(5,i-1,2))
+      !   L_c = 4*dpi*x(5,i,2)**2*D*DeltaE
+      !   L_a = 4*dpi*x(5,i,2)**2*4.d0/3.d0*w(5,i,mom(2))/w(5,i,rho_)*w(5,i,r_e)
+      !   L_o = L_c + L_a
+      !
+      !   ! print*,i, L_0, D,DeltaE, L_c
+      !   print*,i, L_0, L_o, L_c, L_a
       ! enddo
+      ! print*, '----------------------------------------------------------------'
+
 
     case(4)
       do i = ixBmin2,ixBmax2
@@ -432,15 +449,12 @@ contains
            mom(2))/w(ixBmin1:ixBmax1,i,rho_))*w(ixBmin1:ixBmax1,i-1,r_e)
       enddo
 
-      gradE_out = sum((w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,&
-         ixBmin2-2,r_e))/(x(ixBmin1:ixBmax1,ixBmin2-1,2) - x(ixBmin1:ixBmax1,&
-         ixBmin2-2,2)))/(ixBmax1-ixBmin1)
+      ! gradE_out = sum((w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,ixBmin2-2,r_e))&
+      ! /(x(ixBmin1:ixBmax1,ixBmin2-1,2) - x(ixBmin1:ixBmax1,ixBmin2-2,2)))/(ixBmax1-ixBmin1)
 
       gradE_out = sum((w(ixBmin1:ixBmax1,ixBmin2,r_e)-w(ixBmin1:ixBmax1,&
          ixBmin2-1,r_e))/(x(ixBmin1:ixBmax1,ixBmin2,2) - x(ixBmin1:ixBmax1,&
          ixBmin2-1,2)))/(ixBmax1-ixBmin1)
-
-
 
     case default
       call mpistop('boundary not known')
@@ -461,6 +475,7 @@ contains
       case (4)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         mg%bc(iB, mg_iphi)%bc_value = gradE_out
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
       case default
         print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -652,7 +667,7 @@ contains
     endif
 
     ! Not sure about this one
-    if (rhd_energy_interact) then
+    if (rhd_radiation_force) then
       source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = source(ixOmin1:ixOmax1,&
          ixOmin2:ixOmax2,r_e) + two*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
          rdir)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
@@ -679,30 +694,34 @@ contains
 
   end subroutine Opacity_stepfunction
 
-  ! subroutine specialrefine_grid(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
-  !   ! Enforce additional refinement or coarsening
-  !   ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
-  !   ! you must set consistent values for integers refine/coarsen:
-  !   ! refine = -1 enforce to not refine
-  !   ! refine =  0 doesn't enforce anything
-  !   ! refine =  1 enforce refinement
-  !   ! coarsen = -1 enforce to not coarsen
-  !   ! coarsen =  0 doesn't enforce anything
-  !   ! coarsen =  1 enforce coarsen
-  !   use mod_global_parameters
-  !
-  !   integer, intent(in) :: igrid, level, ixG^L, ix^L
-  !   double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
-  !   integer, intent(inout) :: refine, coarsen
-  !
-  !   ! test with different levels of refinement enforced
-  !   if (it .gt. 1) then
-  !     if (any(x(ix^S,2) < 3.d0/4.d0 * xprobmax2)) refine=1
-  !     if (any(x(ix^S,2) < 2.d0/4.d0 * xprobmax2)) refine=1
-  !     if (any(x(ix^S,2) < 1.d0/4.d0 * xprobmax2)) refine=1
-  !   endif
-  !
-  ! end subroutine specialrefine_grid
+  subroutine refine_base(igrid,level,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixmin1,&
+     ixmin2,ixmax1,ixmax2,qt,w,x,refine,coarsen)
+    ! Enforce additional refinement or coarsening
+    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+    ! you must set consistent values for integers refine/coarsen:
+    ! refine = -1 enforce to not refine
+    ! refine =  0 doesn't enforce anything
+    ! refine =  1 enforce refinement
+    ! coarsen = -1 enforce to not coarsen
+    ! coarsen =  0 doesn't enforce anything
+    ! coarsen =  1 enforce coarsen
+    use mod_global_parameters
+
+    integer, intent(in) :: igrid, level, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
+        ixmin1,ixmin2,ixmax1,ixmax2
+    double precision, intent(in) :: qt, w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+       1:nw), x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:ndim)
+    integer, intent(inout) :: refine, coarsen
+
+    ! test with different levels of refinement enforced
+    if (it .gt. 1) then
+      ! if (any(x(ix^S,2) < 3.d0/4.d0 * xprobmax2)) refine=1
+      ! if (any(x(ix^S,2) < 2.d0/4.d0 * xprobmax2)) refine=1
+      if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,&
+         2) < 1.d0/4.d0 * xprobmax2)) refine=1
+    endif
+
+  end subroutine refine_base
 
 
   subroutine time_average_values(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&

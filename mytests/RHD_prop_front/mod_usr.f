@@ -7,15 +7,13 @@ module mod_usr
 
   implicit none
 
-  double precision :: Er0 = 1.d-22
-  double precision :: Er1 = 1.d0
-  double precision :: rho0 = 0.025d0
-  double precision :: l1 = 1.d-1
-  double precision :: l2 = 1.d-5
+  double precision :: Er0
+  double precision :: Er1
+  double precision :: rho0
+  double precision :: l1
+  double precision :: l2
 
   double precision :: p0, T0, p1, T1
-
-  integer :: i_sol
 
 contains
 
@@ -35,13 +33,12 @@ contains
     usr_special_bc => boundary_conditions
     usr_special_mg_bc => mg_boundary_conditions
 
-    ! extra output
-    usr_modify_output => output_routine
+    ! Output routines
+    usr_aux_output    => specialvar_output
+    usr_add_aux_names => specialvarnames_output
 
     ! Active the physics module
     call rhd_activate()
-
-    i_sol = var_set_extravar("sol", "sol")
 
   end subroutine usr_init
 
@@ -50,6 +47,8 @@ contains
     use mod_fld
 
     integer :: i
+
+    call params_read(par_files)
 
     T0 = (Er0/const_rad_a)**0.25
     p0 = const_kB*T0*rho0/(const_mp*fld_mu)
@@ -93,6 +92,24 @@ contains
 
   end subroutine initglobaldata_usr
 
+
+  !> Read parameters from a file
+  subroutine params_read(files)
+    use mod_global_parameters, only: unitpar
+    character(len=*), intent(in) :: files(:)
+    integer                      :: n
+
+    namelist /front_list/ rho0, Er0, Er1, l1, l2
+
+    do n = 1, size(files)
+       open(unitpar, file=trim(files(n)), status="old")
+       rewind(unitpar)
+       read(unitpar, front_list, end=113)
+113    close(unitpar)
+    end do
+
+  end subroutine params_read
+
   !> A routine for specifying initial conditions
   subroutine initial_conditions(ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
      ixOmin2,ixOmax1,ixOmax2, w, x)
@@ -106,16 +123,19 @@ contains
 
     double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
         fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2), lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2), step(ixImin1:ixImax1,ixImin2:ixImax2)
+       ixOmin2:ixOmax2)
+    double precision :: rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndim),&
+        step(ixImin1:ixImax1,ixImin2:ixImax2)
 
     w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho0
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = 0.d0
     w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = p0/(rhd_gamma-1.d0)
 
+    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er0
     step(ixImin1:ixImax1,ixImin2:ixImax2) = (  1.d0-erf(  (x(ixImin1:ixImax1,&
        ixImin2:ixImax2,1)-l1)/l2    )  )/2.d0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er0 + step(ixImin1:ixImax1,&
-       ixImin2:ixImax2)*Er1
+    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       r_e) + step(ixImin1:ixImax1,ixImin2:ixImax2)*Er1
 
     call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2, kappa)
@@ -128,8 +148,6 @@ contains
        (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
-    w(ixImin1:ixImax1,ixImin2:ixImax2,i_sol) = Er0 + step(ixImin1:ixImax1,&
-       ixImin2:ixImax2)*Er1
 
   end subroutine initial_conditions
 
@@ -151,7 +169,7 @@ contains
     select case (iB)
     case(1)
       do i = ixBmax1,ixBmin1, -1
-        w(i,:,rho_) =   w(i+1,:,rho_)
+        w(i,:,rho_) = rho0
         w(i,:,mom(1)) = w(i+1,:,mom(1))
         w(i,:,mom(2)) = w(i+1,:,mom(2))
         w(i,:,e_) = w(i+1,:,e_)
@@ -185,30 +203,118 @@ contains
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
         mg%bc(iB, mg_iphi)%bc_value = Er1
     case (2)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+        
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        mg%bc(iB, mg_iphi)%bc_value = 0.d0
     case default
       print *, "Not a standard: ", trim(typeboundary(r_e, iB))
       error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
 
-  subroutine output_routine(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-     ixOmax1,ixOmax2,qt,w,x)
-    use mod_global_parameters
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2
-    double precision, intent(in)    :: qt,x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-    double precision :: step(ixImin1:ixImax1,ixImin2:ixImax2)
+  subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,w,x,normconv)
+    ! this subroutine can be used in convert, to add auxiliary variables to the
+    ! converted output file, for further analysis using tecplot, paraview, ....
+    ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
+    !
+    ! the array normconv can be filled in the (nw+1:nw+nwauxio) range with
+    ! corresponding normalization values (default value 1)
+    use mod_global_parameters
+    use mod_fld
+
+    integer, intent(in)                :: ixImin1,ixImin2,ixImax1,ixImax2,&
+       ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)       :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
+    double precision                   :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       nw+nwauxio)
+    double precision                   :: normconv(0:nw+nwauxio)
+
+    double precision :: step(ixImin1:ixImax1,ixImin2:ixImax2),&
+        rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndim)
+    double precision :: lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2), kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+
+    double precision :: rad_e(ixImin1:ixImax1,ixImin2:ixImax2),&
+        normgrad2(ixOmin1:ixOmax1,ixOmin2:ixOmax2), grad_r_e(ixImin1:ixImax1,&
+       ixImin2:ixImax2)
+    double precision :: grE1(ixImin1:ixImax1,ixImin2:ixImax2),&
+        grE2(ixImin1:ixImax1,ixImin2:ixImax2)
+    integer :: idir
 
     step(ixImin1:ixImax1,ixImin2:ixImax2) = (  1.d0-erf((x(ixImin1:ixImax1,&
        ixImin2:ixImax2,1)-l1-global_time*const_c/unit_velocity)/l2    )  &
        )/2.d0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,i_sol) = Er0 + step(ixImin1:ixImax1,&
-       ixImin2:ixImax2)*Er1
+    w(ixImin1:ixImax1,ixImin2:ixImax2,nw+1) = step(ixImin1:ixImax1,&
+       ixImin2:ixImax2)
 
-  end subroutine output_routine
+    call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, rad_flux)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2) = rad_flux(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,1)
+
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3) = &
+       const_c/unit_velocity*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e)
+
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4) = lambda(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5) = fld_R(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+
+    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, kappa)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+6) = kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+
+    normgrad2(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = 0.d0 !smalldouble
+
+    rad_e(ixImin1:ixImax1,ixImin2:ixImax2) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
+        r_e)
+    do idir = 1,ndim
+      call gradient(rad_e,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+         ixOmax1,ixOmax2,idir,grad_r_e)
+      normgrad2(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = normgrad2(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2) + grad_r_e(ixOmin1:ixOmax1,ixOmin2:ixOmax2)**2
+    end do
+
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+7) = normgrad2(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+
+    call gradient(rad_e,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+       ixOmax1,ixOmax2,1,grE1)
+    call gradient(rad_e,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+       ixOmax1,ixOmax2,2,grE2)
+
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+8) = grE1(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+9) = grE2(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+
+    ! if (x(1,1,1) .lt. xprobmin1) then
+    !   print*, 'Er', w(1:5,5,r_e)
+    !   print*, 'step', step(1:5,1)
+    !   print*, 'lambda', lambda(1:5,5)
+    !   print*, 'R', fld_R(1:5,5)
+    !   print*, 'normgr', normgrad2(1:5,5)
+    !   print*, 'gr1', grE1(1:5,5)
+    !   print*, 'gr2', grE2(1:5,5)
+    !   stop
+    ! endif
+
+  end subroutine specialvar_output
+
+  subroutine specialvarnames_output(varnames)
+    ! newly added variables need to be concatenated with the w_names/primnames string
+    use mod_global_parameters
+    character(len=*) :: varnames
+
+    varnames = 'step F1 cE lambda R kappa ngrd grE1 grE2'
+  end subroutine specialvarnames_output
 
 end module mod_usr

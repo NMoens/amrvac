@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/G2m02_2R_f'
+  base_filename='./output/G2m02_2R_30d'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -89,8 +89,8 @@
   /
 
   &wind_list
-   pert_ampl = 0.1d0
+   pert_ampl = 0.d0
    inflow_gamma = 0.99d0
-   inflow_density = 3.d0
+   inflow_density = 30.d0
    init_struc = 'G2_m0.2_2R'
    /

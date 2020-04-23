@@ -430,7 +430,7 @@ module mod_fld
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out) :: fld_R(ixO^S), fld_lambda(ixO^S)
     double precision :: kappa(ixO^S)
-    double precision ::  normgrad2(ixI^S)
+    double precision ::  normgrad2(ixO^S)
     double precision :: grad_r_e(ixI^S), rad_e(ixI^S)
     integer :: idir, i, j, ix^D
 
@@ -463,7 +463,7 @@ module mod_fld
     case('Pomraning')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = 0.d0 !smalldouble
+      normgrad2(ixO^S) = 0.d0 !smalldouble !*w(ixO^S,iw_r_e)
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim

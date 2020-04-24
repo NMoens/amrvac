@@ -37,18 +37,21 @@ class units(constants):
         self.unit_luminosity = None
         self.unit_dlambdadT = None
         self.unit_conduction = None
+        self.He_abundance = 1.0
 
         self._calculate_units()
 
-    def set_units(self, unit_length, unit_numberdensity, unit_temperature=1.0, unit_velocity=0):
+    def set_units(self, unit_length, unit_numberdensity, unit_temperature=1.0, unit_velocity=0, He_abundance=1.0):
         self.unit_length = unit_length
         self.unit_numberdensity = unit_numberdensity
         self.unit_temperature = unit_temperature
         self.unit_velocity = unit_velocity
+        self.He_abundance = He_abundance
         self._calculate_units()
 
     def _calculate_units(self):
-        He_abundance = 0.1
+        He_abundance = self.He_abundance
+
         H_abundance = 1 - He_abundance
         self.mu = 1. / (2 * H_abundance + 0.75 * He_abundance)
 

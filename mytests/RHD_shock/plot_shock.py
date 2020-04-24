@@ -19,7 +19,7 @@ hd_gamma = 1.6667
 def AMRVAC_single_profile(file,variable):
     ds = amrvac_reader.load_file(file)
     ds.get_info()
-    ds.units.set_units(unit_length=unit_length, unit_numberdensity=unit_numberdensity, unit_temperature=unit_temperature)
+    ds.units.set_units(unit_length=unit_length, unit_numberdensity=unit_numberdensity, unit_temperature=unit_temperature, He_abundance=0.0)
     if variable == 'time':
         return ds.get_time() * ds.units.unit_time
 

@@ -204,7 +204,7 @@ contains
         mg%bc(iB, mg_iphi)%bc_value = Er1
     case (2)
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-        
+
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
         mg%bc(iB, mg_iphi)%bc_value = 0.d0
     case default

@@ -19,7 +19,7 @@ mu = 0.60869565217391308
 def AMRVAC_single_profile(file,variable):
     ds = amrvac_reader.load_file(file)
     ds.get_info()
-    ds.units.set_units(unit_length=unit_length, unit_numberdensity=unit_numberdensity, unit_temperature=unit_temperature)
+    ds.units.set_units(unit_length=unit_length, unit_numberdensity=unit_numberdensity, unit_temperature=unit_temperature,He_abundance=0.0)
     if variable == 'time':
         return ds.get_time() * ds.units.unit_time
 
@@ -74,11 +74,11 @@ def AMRVAC_single_profile(file,variable):
 
 # folder = 'output'
 amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/RHD_prop_front/output/propfront_pom0000.dat'
-amrvac_outfile1 = '/lhome/nicolasm/amrvac/mytests/RHD_prop_front/output/propfront_m0000.dat'
+amrvac_outfile1 = '/lhome/nicolasm/amrvac/mytests/RHD_prop_front/output/propfront_min0000.dat'
 amrvac_outfile2 = '/lhome/nicolasm/amrvac/mytests/RHD_prop_front/output/propfront_pom0010.dat'
-amrvac_outfile3 = '/lhome/nicolasm/amrvac/mytests/RHD_prop_front/output/propfront_m0010.dat'
+amrvac_outfile3 = '/lhome/nicolasm/amrvac/mytests/RHD_prop_front/output/propfront_min0010.dat'
 amrvac_outfile4 = '/lhome/nicolasm/amrvac/mytests/RHD_prop_front/output/propfront_pom0020.dat'
-amrvac_outfile5 = '/lhome/nicolasm/amrvac/mytests/RHD_prop_front/output/propfront_m0020.dat'
+amrvac_outfile5 = '/lhome/nicolasm/amrvac/mytests/RHD_prop_front/output/propfront_min0020.dat'
 
 r0,Er0,t0 = AMRVAC_single_profile(amrvac_outfile0,'re')
 r1,Er1,t1 = AMRVAC_single_profile(amrvac_outfile1,'re')

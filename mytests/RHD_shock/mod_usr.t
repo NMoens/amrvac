@@ -7,12 +7,12 @@ module mod_usr
 
   implicit none
 
-  double precision :: rho1 = 1.d-2
-  double precision :: rho2 = 0.0685847d0
-  double precision :: v1 = 1.d9
-  double precision :: v2 = 1.458d8
-  double precision :: T1 = 1.d4
-  double precision :: T2 = 4.239d7 !16183.059056910781 !
+  double precision :: rho1
+  double precision :: rho2
+  double precision :: v1
+  double precision :: v2
+  double precision :: T1
+  double precision :: T2
 
   double precision :: p1,p2,eg1,eg2,Er1,Er2
 
@@ -47,6 +47,8 @@ contains
 
     double precision :: k1,k2, my_gamma
     integer :: i
+
+    call params_read(par_files)
 
     p1 = const_kB*T1*rho1/(const_mp*fld_mu)
     p2 = const_kB*T2*rho2/(const_mp*fld_mu)
@@ -110,17 +112,24 @@ contains
     print*, 'gas energy', p1*v1 + eg1*v1, ' | ', p2*v2 + eg2*v2
     print*, 'radiation energy', Er1*v1, ' | ', Er2*v2
 
-    ! k1 = v1*v1*rho1/2
-    ! k2 = v2*v2*rho2/2
-    !
-    ! my_gamma = 1 + (v1*p1 - v2*p2)/(v2*p2 - v1*p1 + v2*k2 -v1*k1)
-    !
-    ! print*,my_gamma
-    ! print*, 1.d4/(v2/v1)**0.25
-    !
-    ! stop
   end subroutine initglobaldata_usr
 
+  !> Read parameters from a file
+  subroutine params_read(files)
+    use mod_global_parameters, only: unitpar
+    character(len=*), intent(in) :: files(:)
+    integer                      :: n
+
+    namelist /shock_list/ rho1, rho2, v1, v2, T1, T2
+
+    do n = 1, size(files)
+       open(unitpar, file=trim(files(n)), status="old")
+       rewind(unitpar)
+       read(unitpar, shock_list, end=113)
+113    close(unitpar)
+    end do
+
+  end subroutine params_read
 
   !> A routine for specifying initial conditions
   subroutine initial_conditions(ixI^L, ixO^L, w, x)

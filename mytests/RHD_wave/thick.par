@@ -3,10 +3,11 @@
 /
 
 &filelist
-  base_filename='./output/tau_1d0'
+  base_filename='./output/wave_tau_thick'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F
+  nwauxio = 7
 /
 
  &savelist
@@ -57,11 +58,12 @@
  /
 
  &paramlist
-  courantpar       = 1.d-1
-  !dtpar           = 1d-4
+  courantpar       = 1.d-2
+  !dtpar           = 1.d-4
  /
 
  &rhd_list
+  He_abundance = 0.0d0
   rhd_energy = .true.
   rhd_gamma = 1.6666667d0
   rhd_radiation_formalism = 'fld'
@@ -80,4 +82,12 @@
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
   fld_diff_tol = 1.d-10
+  /
+
+ &wave_list
+  rho0 = 3.216d-9
+  eg0 = 26.020d3
+  Er0 = 17.340d3
+  tau_wave = 1.d3
+  ampl = 1.d-2
   /

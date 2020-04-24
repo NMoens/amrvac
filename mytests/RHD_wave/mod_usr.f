@@ -6,14 +6,17 @@ module mod_usr
 
   implicit none
 
-  double precision :: rho0 = 3.216d-9
-  double precision :: eg0 = 26.020d3
-  double precision :: Er0! = 17.340d3
+  double precision :: rho0
+  double precision :: eg0
+  double precision :: tau_wave
+  double precision :: ampl
 
-  double precision :: T0, a0, p0, ampl
+  double precision :: T0, a0, p0, Er0
 
-  double precision :: wvl, frequency, tau_wave, wavenumber
-  double precision :: Boltzmann_number, energy_ratio, L_damp, r_Bo
+  double precision :: wvl, frequency, wavenumber, tau_c, tau_a
+  double precision :: Bo, energy_ratio, L_damp, r_Bo, ca
+
+  double precision :: L_0, L_thin, L_thick, L_3
 
   double precision :: A_rho, A_v, A_p, A_e, A_Er
 
@@ -34,11 +37,9 @@ contains
     ! Drive the wave using an internal boundary
     usr_internal_bc => Initialize_Wave
 
-    ! Boundary conditions
-    ! usr_special_bc => boundary_conditions
-    ! usr_special_mg_bc => mg_boundary_conditions
-    ! Specify other user routines, for a list see mod_usr_methods.t
-    ! ...
+    ! Output routines
+    usr_aux_output    => specialvar_output
+    usr_add_aux_names => specialvarnames_output
 
     ! Active the physics module
     call rhd_activate()
@@ -50,22 +51,39 @@ contains
     use mod_global_parameters
     use mod_fld
 
+    call params_read(par_files)
+
+
     p0 = eg0*(rhd_gamma - one)
-    ! a0 = dsqrt(rhd_gamma*p0/rho0)
+    ca = dsqrt(rhd_gamma*p0/rho0)
     a0 = dsqrt(p0/rho0)
 
 
     T0 = const_mp*fld_mu/const_kB*(p0/rho0)
-    Er0 = const_rad_a*T0**4
-
-    tau_wave = 1.d0
+    ! Er0 = const_rad_a*T0**4
 
     wvl = tau_wave/(rho0*fld_kappa0)
     frequency = 2.d0*dpi*a0/wvl
     wavenumber = 2.d0*dpi/wvl
 
-    Boltzmann_number = 4*rhd_gamma*a0*eg0/(const_c*Er0)
-    r_Bo = a0/(const_c*Boltzmann_number)
+    Bo = 4*rhd_gamma*ca*eg0/(const_c*Er0)
+    r_Bo = Er0/(4*rhd_gamma*eg0)
+
+    !-------------------
+    tau_c = const_c*fld_kappa0*rho0/frequency
+    tau_a = a0*fld_kappa0*rho0/frequency
+
+    L_thin = 1.d0/(2*dpi*tau_c)
+    L_thick = 16.d0/(3*dpi*(rhd_gamma-1.d0))*a0**2/(const_c**2*Bo)*tau_a
+    L_3    = 1.d0/(dsqrt(3.d0)*fld_kappa0*rho0)
+
+    print*, L_thin/wvl
+    print*, L_thick/wvl
+    print*, L_3/wvl
+    print*, 1.d0/(2*dpi*tau_a)/wvl
+    !-------------------
+
+    ! stop
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length = wvl ! cm
@@ -88,14 +106,9 @@ contains
     T0 = T0/unit_temperature
     Er0 = Er0/unit_pressure
 
-
     wvl = wvl/unit_length
     frequency = frequency*unit_time
     wavenumber = wavenumber*unit_length
-
-    L_damp = const_c/unit_velocity*fld_kappa0/unit_opacity*rho0/frequency
-
-    ampl = 1.d-2
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
@@ -112,7 +125,7 @@ contains
       print*, 'opt tickness 1 wvl', tau_wave
       print*, 'wave number', wavenumber
       print*, 'amplitude', ampl
-      print*, 'Bo', Boltzmann_number
+      print*, 'Bo', Bo
       print*, 'r_Bo', r_Bo
       print*, 'L_damp', L_damp
     endif
@@ -124,6 +137,23 @@ contains
     A_Er = Er0/rho0*A_rho
 
   end subroutine initglobaldata_usr
+
+  !> Read parameters from a file
+  subroutine params_read(files)
+    use mod_global_parameters, only: unitpar
+    character(len=*), intent(in) :: files(:)
+    integer                      :: n
+
+    namelist /wave_list/ rho0, eg0, Er0, tau_wave, ampl
+
+    do n = 1, size(files)
+       open(unitpar, file=trim(files(n)), status="old")
+       rewind(unitpar)
+       read(unitpar, wave_list, end=113)
+113    close(unitpar)
+    end do
+
+  end subroutine params_read
 
   !> A routine for specifying initial conditions
   subroutine initial_conditions(ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
@@ -213,42 +243,71 @@ contains
 
   end subroutine Initialize_Wave
 
-  subroutine boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixBmin1,&
-     ixBmin2,ixBmax1,ixBmax2,iB,w,x)
+
+  subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,w,x,normconv)
+    ! this subroutine can be used in convert, to add auxiliary variables to the
+    ! converted output file, for further analysis using tecplot, paraview, ....
+    ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
+    !
+    ! the array normconv can be filled in the (nw+1:nw+nwauxio) range with
+    ! corresponding normalization values (default value 1)
     use mod_global_parameters
     use mod_fld
 
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixBmin1,ixBmin2,ixBmax1,ixBmax2, iB
-    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
+    integer, intent(in)                :: ixImin1,ixImin2,ixImax1,ixImax2,&
+       ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)       :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
        1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    double precision                   :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       nw+nwauxio)
+    double precision                   :: normconv(0:nw+nwauxio)
 
-    select case (iB)
-    case(2)
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = Er0
+    double precision :: sol1(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        sol2(ixOmin1:ixOmax1,ixOmin2:ixOmax2), sol3(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
 
-    case default
-      call mpistop('boundary not known')
-    end select
-  end subroutine boundary_conditions
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1) = 1.d0/A_rho*(w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,rho_)/rho0 - 1.d0)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2) = 1.d0/A_e*((w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,e_)-half*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       mom(1))**2/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))/eg0 - 1.d0)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3) = 1.d0/A_er*(w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,r_e)/Er0 - 1.d0)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4) = 1.d0/A_v*w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,mom(1))/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
 
+    sol1(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = dsin(wavenumber*x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,1)-frequency*global_time)
+    sol2(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = dsin(wavenumber*x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,1)-frequency*global_time)
+    sol3(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = dsin(wavenumber*x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,1)-frequency*global_time)
+    where (x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1) .gt. one)
+      sol1(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = sol1(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)*dexp(-(x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         1)-one)/L_thin)
+      sol2(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = sol2(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)*dexp(-(x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         1)-one)/L_thick)
+      sol3(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = sol3(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)*dexp(-(x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         1)-one)/L_3)
+    endwhere
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5) = sol1(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+6) = sol2(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+7) = sol3(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
 
-  subroutine mg_boundary_conditions(iB)
+  end subroutine specialvar_output
+
+  subroutine specialvarnames_output(varnames)
+    ! newly added variables need to be concatenated with the w_names/primnames string
     use mod_global_parameters
-    use mod_multigrid_coupling
+    character(len=*) :: varnames
 
-    integer, intent(in)             :: iB
-
-    select case (iB)
-    case (2)
-      mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-      mg%bc(iB, mg_iphi)%bc_value = Er0
-
-    case default
-      print *, "Not a standard: ", trim(typeboundary(r_e, iB))
-      error stop "Set special bound for this Boundary "
-    end select
-  end subroutine mg_boundary_conditions
-
+    varnames = 'delta_rho delta_eg delta_Er v1 s1 s2 s3'
+  end subroutine specialvarnames_output
 end module mod_usr

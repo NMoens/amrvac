@@ -1174,7 +1174,8 @@ contains
         call gravity_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
       end if
     else
-      dtnew = min(dx^D*unit_velocity/const_c)
+      {^IFONED dtnew = dx1*unit_velocity/const_c}
+      {^NOONED dtnew = min(dx^D*unit_velocity/const_c)}
     endif
 
   end subroutine rhd_get_dt

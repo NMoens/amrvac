@@ -75,28 +75,23 @@ subroutine set_opal_opacity(rho,temp,kappa)
   R_input = dlog10(R_input)
   T_input = dlog10(T_input)
 
-  print*, R_input, T_input
-
   call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
 
   !> If the outcome is 9.999, look right in the table
   do while (K_output .gt. 9.0d0)
-      print*, 'R,T datapoint out of opal table'
+      ! print*, 'R,T datapoint out of opal table'
       R_input = R_input + 0.5
       call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
-      print*, K_output
   enddo
 
   !> If the outcome is NaN, look left in the table
   do while (K_output .eq. 0.0d0)
-      print*, 'R,T datapoint out of opal table'
+      ! print*, 'R,T datapoint out of opal table'
       R_input = R_input - 0.5d0
       call get_kappa(Kappa_vals, Log_R_list, Log_T_list, R_input, T_input, K_output)
   enddo
 
   kappa = 10d0**K_output
-
-  print*, kappa
 
 end subroutine set_opal_opacity
 
@@ -166,11 +161,11 @@ subroutine get_kappa(Kappa_vals, Log_R_list, Log_T_list, R, T, K)
     integer :: low_t_index, up_t_index
 
     if (R .gt. maxval(Log_R_list)) then
-        print*, 'Extrapolating in logR'
+        ! print*, 'Extrapolating in logR'
         low_r_index = 19
         up_r_index = 20
     elseif (R .lt. minval(Log_R_list)) then
-        print*, 'Extrapolating in logR'
+        ! print*, 'Extrapolating in logR'
         low_r_index = 2
         up_r_index = 3
     else
@@ -178,11 +173,11 @@ subroutine get_kappa(Kappa_vals, Log_R_list, Log_T_list, R, T, K)
     endif
 
     if (T .gt. maxval(Log_T_list)) then
-        print*, 'Extrapolating in logT'
+        ! print*, 'Extrapolating in logT'
         low_t_index = 75
         up_t_index = 76
     elseif ( T .lt. minval(Log_T_list)) then
-        print*, 'Extrapolating in logT'
+        ! print*, 'Extrapolating in logT'
         low_t_index = 7
         up_t_index = 8
     else
@@ -190,8 +185,6 @@ subroutine get_kappa(Kappa_vals, Log_R_list, Log_T_list, R, T, K)
     endif
 
     call interpolate_KRT(low_r_index, up_r_index, low_t_index, up_t_index, Log_R_list, Log_T_list, Kappa_vals, R, T, K)
-
-    print*, K
 
 end subroutine get_kappa
 

@@ -40,7 +40,7 @@ module mod_fld
     integer :: i_diff_mg
 
     !> Which method to solve diffusion part
-    character(len=8) :: fld_diff_scheme = 'adi'
+    character(len=8) :: fld_diff_scheme = 'mg'
 
     !> Which method to find the root for the energy interaction polynomial
     character(len=8) :: fld_interaction_method = 'Halley'

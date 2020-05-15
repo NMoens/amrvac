@@ -371,6 +371,7 @@ contains
         w(ixBmin1:ixBmax1,i,r_e) = w(ixBmin1:ixBmax1,i+2,r_e) &
         + (x(ixBmin1:ixBmax1,i,2)-x(ixBmin1:ixBmax1,i+2,2))*gradE_l(ixBmin1:ixBmax1,i+1)
       enddo
+      
       w(ixBmin1:ixBmax1,nghostcells,r_e) = dexp(half*(dlog(w(ixBmin1:ixBmax1,nghostcells-1,r_e))+dlog(w(ixBmin1:ixBmax1,nghostcells+1,r_e))))
 
       Temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0
@@ -448,7 +449,7 @@ contains
     mass = M_star*(unit_density*unit_length**3.d0)
 
     gravity_field(ixI^S,:) = zero
-    gravity_field(ixO^S,2) = -const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
+    gravity_field(ixI^S,2) = -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
 
   end subroutine set_gravitation_field
 

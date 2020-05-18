@@ -54,7 +54,7 @@ module mod_rhd_phys
   double precision, protected             :: small_e
 
   !> The smallest allowed radiation energy
-  double precision, protected             :: small_r_e = 0.d0
+  double precision, public, protected             :: small_r_e = 0.d0
 
   !> Helium abundance over Hydrogen
   double precision, public, protected     :: He_abundance = 0.1d0

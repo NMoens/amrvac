@@ -53,6 +53,9 @@ contains
     usr_aux_output    => specialvar_output
     usr_add_aux_names => specialvarnames_output
 
+    ! Timestep for PseudoPlanar
+    ! usr_get_dt => pp_dt
+
     ! usr_refine_grid => refine_base
 
     ! Active the physics module
@@ -98,6 +101,7 @@ contains
 
     kappa_e = 0.34d0/unit_opacity
     F_bound = F_bound/unit_radflux
+    L_bound = L_bound/(unit_radflux*unit_length**2)
 
     StefBoltz = const_rad_a*const_c/4.d0*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
 
@@ -153,7 +157,7 @@ contains
     w(ixI^S,mom(1)) = vel(ixI^S)*w(ixI^S,rho_)
 
     !> Outer/Inner temperature
-    T_out = 1.d4/unit_temperature
+    T_out = 5.d4/unit_temperature
     E_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
     T_in = T_bound
     E_in = const_rad_a*(T_in*unit_temperature)**4/unit_pressure
@@ -161,11 +165,16 @@ contains
     !>Very bad initial profile using constant gradE
     ! w(ixI^S,r_e) = E_out + gradE*(x(ixI^S,1)-xprobmax1)
     ! w(ixI^S,r_e) = E_in + gradE*(x(ixI^S,1)-xprobmin1)
-    rr(ixI^S) = 2*dsqrt(x(ixI^S,1)-xprobmin1)/dsqrt(x(ixI^S,1))
-    bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
-    w(ixI^S,r_e) = E_in - bb*rr(ixI^S)
+    rr(ixI^S) = dsqrt(x(ixI^S,1)-xprobmin1)*(16*x(ixI^S,1)**2 + 8*x(ixI^S,1)+ 6) &
+                /(15*x(ixI^S,1)**(5.d0/2))
+    bb = -kappa_e*L_bound*Mdot*unit_velocity*3/(16*dpi**2*const_c*v_inf)
 
-    E_gauge = E_in - 2*dsqrt(xprobmax1-xprobmin1)/dsqrt(xprobmax1)*bb
+    ! rr(ixI^S) = 2*dsqrt(x(ixI^S,1)-xprobmin1)/dsqrt(x(ixI^S,1))
+    ! bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
+    w(ixI^S,r_e) = E_in + bb*rr(ixI^S)
+
+    E_gauge = E_in + bb*dsqrt(xprobmax1-xprobmin1)&
+              *(16*xprobmax1**2 + 8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
 
     w(ixI^S,r_e) = w(ixI^S,r_e) - E_gauge + E_out
 
@@ -213,18 +222,24 @@ contains
 
       ! w(ixB^S,r_e) = const_rad_a*(T_bound*unit_temperature)**4/unit_pressure
 
-      call get_OPAL(ixI^L,ixI^L,w,x,kappa)
+      call get_kappa_OPAL(ixI^L,ixI^L,w,x,kappa)
+      do ix1 = ixBmin1,ixBmax1
+        kappa(ix1,ixBmin2:ixBmax2) = kappa(ixBmax1+1,ixBmin2:ixBmax2)
+      enddo
 
       Local_gradE(ixB^S) = -F_bound*3*kappa(ixB^S)*w(ixB^S,rho_)&
       *unit_velocity/const_c
       gradE = sum(Local_gradE(nghostcells,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
 
-      do ix1 = ixBmax1,ixBmin1,-1
-        w(ix2,ixBmin2:ixBmax2,r_e) = w(ix2+1,ixBmin2:ixBmax2,r_e)&
-        -dxlevel(1)*Local_gradE(ix2+1,ixBmin2:ixBmax2)
+      do ix1 = ixBmax1-1,ixBmin1,-1
+        w(ix1,ixBmin2:ixBmax2,r_e) = w(ix1+2,ixBmin2:ixBmax2,r_e) &
+        + (x(ix1,ixBmin2:ixBmax2,1)-x(ix1+2,ixBmin2:ixBmax2,1))*Local_gradE(ix1+1,ixBmin2:ixBmax2)
       enddo
 
       w(nghostcells,ixBmin2:ixBmax2,r_e) = dexp(half*(dlog(w(nghostcells-1,ixBmin2:ixBmax2,r_e))+dlog(w(nghostcells+1,ixBmin2:ixBmax2,r_e))))
+
+      ! print*, it, 'bottom------------------------------------'
+      ! print*, w(1:5,5,r_e)
 
     case(2)
       Local_tauout(ixB^S) = kappa_e*w(ixB^S,rho_)*R_star**2/(3*x(ixB^S,1))
@@ -232,9 +247,15 @@ contains
       T_out = sum(Local_Tout(ixBmin2:ixBmax2,ixBmin1))/(ixBmax2-ixBmin2)
 
       T_out = max(1.d4/unit_temperature, T_out)
+      E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
       w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
-      E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
+      w(ixB^S,r_e) = E_out
+
+      print*, it, 'top---------------------------------------'
+      print*, Local_tauout(ixBmax1-5:ixBmax1,5)
+      print*, Local_Tout(ixBmax1-5:ixBmax1,5)
+      print*, w(ixBmax1-5:ixBmax1,5,r_e)
 
     case default
       call mpistop('boundary not known')
@@ -249,10 +270,10 @@ contains
 
     select case (iB)
     case (1)
-      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-      ! mg%bc(iB, mg_iphi)%bc_value = gradE
-      mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-      mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(T_bound*unit_temperature)**4/unit_pressure
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      mg%bc(iB, mg_iphi)%bc_value = gradE
+      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+      ! mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(T_bound*unit_temperature)**4/unit_pressure
 
     case (2)
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
@@ -291,7 +312,6 @@ contains
   !> iw=iwmin...iwmax.  wCT is at time qCT
   subroutine PseudoPlanar(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
     use mod_global_parameters
-    use mod_physics, only: phys_get_pthermal
 
     integer, intent(in)             :: ixI^L, ixO^L, iw^LIM
     double precision, intent(in)    :: qdt, qtC, qt
@@ -299,23 +319,35 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision :: ppsource(ixO^S,1:nw)
 
-    call PseudoPlanarSource(ixI^L,ixO^L,wCT,x,ppsource,.false.)
-    ! w(ixO^S,rho_) = w(ixO^S,rho_) + qdt*ppsource(ixO^S,rho_)
-    ! w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt*ppsource(ixO^S,mom(1))
-    ! w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt*ppsource(ixO^S,mom(2))
-    ! w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*ppsource(ixO^S,r_e)
+    call PseudoPlanarSource(ixI^L,ixO^L,wCT,x,ppsource)
+    w(ixO^S,rho_) = w(ixO^S,rho_) + qdt*ppsource(ixO^S,rho_) !> OK
+    w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt*ppsource(ixO^S,mom(1)) !> OK
+    w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt*ppsource(ixO^S,mom(2)) !> OK
+    w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*ppsource(ixO^S,r_e) !> TROUBLEMAKER
 
   end subroutine PseudoPlanar
 
+  ! subroutine pp_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+  !   use mod_global_parameters
+  !   integer, intent(in)             :: ixI^L, ixO^L
+  !   double precision, intent(in)    :: dx^D, x(ixI^S,1:ndim)
+  !   double precision, intent(in)    :: w(ixI^S,1:nw)
+  !   double precision, intent(inout) :: dtnew
+  !   double precision :: ppsource(ixO^S,1:nw)
+  !
+  !   call PseudoPlanarSource(ixI^L,ixO^L,w,x,ppsource)
+  !
+  !   dtnew = 1.d-1* minval(abs(w(ixO^S,r_e)/ppsource(ixO^S,r_e)))
+  ! end subroutine pp_dt
 
-  subroutine PseudoPlanarSource(ixI^L,ixO^L,w,x,source,boundary)
+
+  subroutine PseudoPlanarSource(ixI^L,ixO^L,w,x,source)
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
 
     integer, intent(in)           :: ixI^L, ixO^L
     double precision, intent(in)  :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(out) :: source(ixO^S,1:nw)
-    logical, intent(in) :: boundary
 
     double precision :: rad_flux(ixO^S,1:ndir)
     double precision :: pth(ixI^S),v(ixO^S,2)
@@ -345,11 +377,9 @@ contains
 
     source(ixO^S,mom(pdir)) = - 3*v(ixO^S,rdir)*v(ixO^S,pdir)*w(ixO^S,rho_)/radius(ixO^S)
 
-    ! !> de/dt = -2 (e+p)v_r/r
-    ! source(ixO^S,e_) = - two*(w(ixO^S,e_)+pth(ixO^S))*v(ixO^S,rdir)/radius(ixO^S)
-
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
+      !> THIS BAD BOiii IS GIVING US SOME TROUBLE
       call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
       source(ixO^S,r_e) = source(ixO^S,r_e) - two*rad_flux(ixO^S,rdir)/radius(ixO^S)
     endif
@@ -379,10 +409,10 @@ contains
     double precision :: OPAL(ixO^S), CAK(ixO^S)
 
     !> Get OPAL opacities by reading from table
-    call get_OPAL(ixI^L,ixO^L,w,x,OPAL)
+    call get_kappa_OPAL(ixI^L,ixO^L,w,x,OPAL)
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
-    call get_CAK(ixI^L,ixO^L,w,x,CAK)
+    call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
 
     !> Add OPAL and CAK for total opacity
     kappa(ixO^S) = OPAL(ixO^S) + CAK(ixO^S)
@@ -394,7 +424,7 @@ contains
   end subroutine OPAL_and_CAK
 
 
-  subroutine get_OPAL(ixI^L,ixO^L,w,x,kappa)
+  subroutine get_kappa_OPAL(ixI^L,ixO^L,w,x,kappa)
     use mod_physics, only: phys_get_trad
     use mod_global_parameters
     use mod_opacity
@@ -417,12 +447,12 @@ contains
         kappa(ix^D) = n/unit_opacity
     {enddo\ }
 
-    !> test with no opal
+    !> test without opal
     ! kappa(ixO^S) = kappa_e
 
-  end subroutine get_OPAL
+  end subroutine get_kappa_OPAL
 
-  subroutine get_CAK(ixI^L,ixO^L,w,x,kappa)
+  subroutine get_kappa_CAK(ixI^L,ixO^L,w,x,kappa)
     use mod_global_parameters
     use mod_opacity
     use mod_fld
@@ -437,17 +467,14 @@ contains
     !> Need diffusion coefficient depending on direction?
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
     call gradientO(vel,ixI^L,ixO^L,1,gradv)
-
-    where(gradv(ixO^S) .lt. 0.d0)
-      gradv(ixO^S) = abs(gradv(ixO^S))
-    end where
+    gradv(ixO^S) = abs(gradv(ixO^S))
 
     kappa(ixO^S) = kappa_e*cak_Q/(1-cak_a) &
     *(gradv(ixO^S)*unit_velocity/(w(ixO^S,rho_)*const_c*cak_Q*kappa_e))**cak_a
 
     !> test with no cak
     ! kappa(ixO^S) = 0.d0
-  end subroutine get_CAK
+  end subroutine get_kappa_CAK
 
   subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
     ! this subroutine can be used in convert, to add auxiliary variables to the
@@ -470,7 +497,8 @@ contains
     double precision                   :: Tgas(ixI^S),Trad(ixI^S)
     double precision                   :: kappa(ixO^S), OPAL(ixO^S), CAK(ixO^S)
     double precision                   :: vel(ixI^S), gradv(ixO^S)
-    double precision                   :: rad_flux(ixO^S,1:ndim)
+    double precision                   :: rad_flux(ixO^S,1:ndim), Lum(ixO^S)
+    double precision                   :: pp_rf(ixO^S)
     integer                            :: idim
     double precision :: radius(ixI^S)
     double precision :: mass
@@ -488,21 +516,27 @@ contains
     call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
     call rhd_get_trad(w, x, ixI^L, ixO^L, Trad)
 
-    call get_OPAL(ixI^L,ixO^L,w,x,OPAL)
-    call get_CAK(ixI^L,ixO^L,w,x,CAK)
+    call get_kappa_OPAL(ixI^L,ixO^L,w,x,OPAL)
+    call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
 
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
     call gradientO(vel,ixI^L,ixO^L,1,gradv)
 
-    w(ixO^S,nw+1) = kappa(ixO^S)
+    pp_rf(ixO^S) = two*rad_flux(ixO^S,1)/x(ixO^S,1)*dt
+
+    Lum = 4*dpi*rad_flux(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux/L_sun
+
+    w(ixO^S,nw+1) = kappa(ixO^S)/kappa_e
     w(ixO^S,nw+2) = rad_flux(ixO^S,1)
     w(ixO^S,nw+3) = Trad(ixO^S)*unit_temperature
     w(ixO^S,nw+4) = big_gamma(ixO^S)
     w(ixO^S,nw+5) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
     *unit_density*unit_velocity/M_sun*year
-    w(ixO^S,nw+6) = OPAL(ixO^S)
-    w(ixO^S,nw+7) = CAK(ixO^S)
+    w(ixO^S,nw+6) = OPAL(ixO^S)/kappa_e
+    w(ixO^S,nw+7) = CAK(ixO^S)/kappa_e
     w(ixO^S,nw+8) = gradv(ixO^S)
+    w(ixO^S,nw+9) = pp_rf(ixO^S)
+    w(ixO^S,nw+10) = Lum(ixO^S)
 
   end subroutine specialvar_output
 
@@ -511,7 +545,7 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'kappa F1 Trad Gamma Mdot OPAL CAK gradv'
+    varnames = 'kappa F1 Trad Gamma Mdot OPAL CAK gradv pp_rf L'
   end subroutine specialvarnames_output
 
 end module mod_usr

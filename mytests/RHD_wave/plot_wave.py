@@ -16,6 +16,9 @@ mp = 1.6737236e-24
 mu = 0.60869565217391308
 hd_gamma = 1.6667
 
+wvl = 777363184079.60193
+x = np.linspace(0,25*wvl,10000)
+
 def AMRVAC_single_profile(file,variable):
     ds = amrvac_reader.load_file(file)
     ds.get_info()
@@ -71,9 +74,42 @@ def AMRVAC_single_profile(file,variable):
     x = x*ds.units.unit_length
     return x,data
 
+def analytic(ii,jj,cheat):
+    a = 3.e6
+    omega = 1.8769477562401875e-005
+    wvl = 777363184079.60193
+
+    tau_a = 1.e3/(2*np.pi)
+    tau_c = 1.e4*tau_a
+    Bo = 1.e-3
+    r = 0.1
+    hd_gamma = 5./3.
+
+    z4 = (1. - 1j*16*tau_a/Bo)
+    z3 = 0.
+    z2 = (3*tau_a**2*(1+1j/tau_c)**2 - 1. + 1j*(16*hd_gamma*tau_a/Bo) + (16*r)*tau_a**2*(1+1j/tau_c)*(5+1j/(3*(hd_gamma-1)*tau_c) +16./3*r*hd_gamma/(hd_gamma-1)))
+    z1 = 0.
+    z0 = -3*tau_a**2*((1+1j/tau_c)**2 + 16*hd_gamma*r*(1 + 1j/tau_c))
+    coeffs = [z4, z3, z2, z1, z0]
+    z = np.roots(coeffs)
+    k = omega*z/a
+
+    L_damp = 1./np.imag(k[ii])
+    L_oscillate = 1./np.real(k[jj])
+
+    if cheat:
+        L_damp = L_damp/(2*np.pi)
+
+    osc = np.sin(x/L_oscillate)
+    damp = np.exp((x-wvl)/L_damp)
+    sol = osc
+    for i in range(len(sol)):
+        if x[i] > wvl:
+            sol[i] = sol[i]*damp[i]
+    return sol
 
 # folder = 'output'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/RHD_shock/output/wave_tau_thick0010.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/RHD_wave/output/wave_tau_thick10100.dat'
 
 
 r0,rho0 = AMRVAC_single_profile(amrvac_outfile0,'rho')
@@ -84,21 +120,53 @@ r0,Er0 = AMRVAC_single_profile(amrvac_outfile0,'re')
 r0,a0 = AMRVAC_single_profile(amrvac_outfile0,'a')
 r0,Diff0 = AMRVAC_single_profile(amrvac_outfile0,'D')
 
-f,(ax1,ax2,ax3,ax4) = plt.subplots(4,1,sharex=True)
+analytic_cheat = analytic(0,0,True)
+analytic_mix = analytic(2,0,False)
 
-ax1.plot(r0,rho0,'rx')
-ax1.set_ylabel('$\\rho$')
 
-e_sc = (e0-0.5*rho0*v0**2)/10**14
-ax2.plot(r0,e_sc,'rx')
-ax2.set_ylabel('$e_g$')
 
-ax3.plot(r0,Er0,'rx')
-ax3.set_ylabel('$E_r$')
 
-ax4.plot(r0,v0,'rx')
-ax4.set_ylabel('$v$')
-ax4.set_xlabel('$x/\\lambda$')
+plt.figure()
+
+plt.title('Density perturbation')
+plt.plot(r0/unit_length,1e4*(rho0-np.mean(rho0)),'rx',label='simulation')
+plt.plot(x/wvl,analytic_cheat,'k--',label='cheaty')
+plt.plot(x/wvl,analytic_mix,'b--',label='mixed')
+plt.ylabel('perturbation')
+plt.xlabel('$x/\\lambda$')
+plt.legend()
+
+
+
+amrvac_outfile1 = '/lhome/nicolasm/amrvac/mytests/RHD_wave/output/wave_tau_thick20100.dat'
+r1,rho1 = AMRVAC_single_profile(amrvac_outfile1,'rho')
+
+plt.figure()
+
+plt.title('Density perturbation')
+plt.plot(r0/unit_length,1e4*(rho0-np.mean(rho0)),'r-',label='sim, cfl = 0.5')
+plt.plot(r1/unit_length,1e4*(rho0-np.mean(rho1)),'kx',label='sim, cfl = 0.005')
+plt.ylabel('perturbation')
+plt.xlabel('$x/\\lambda$')
+plt.legend()
+
+
+# f,(ax1,ax2,ax3,ax4) = plt.subplots(4,1,sharex=True)
+#
+#
+# ax1.plot(r0,rho0,'rx')
+# ax1.set_ylabel('$\\rho$')
+#
+# e_sc = (e0-0.5*rho0*v0**2)
+# ax2.plot(r0,e_sc,'rx')
+# ax2.set_ylabel('$e_g$')
+#
+# ax3.plot(r0,Er0,'rx')
+# ax3.set_ylabel('$E_r$')
+#
+# ax4.plot(r0,v0,'rx')
+# ax4.set_ylabel('$v$')
+# ax4.set_xlabel('$x/\\lambda$')
 
 
 plt.show()

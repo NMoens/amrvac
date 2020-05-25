@@ -13,7 +13,7 @@ module mod_usr
 
   double precision :: T0, a0, p0, Er0
 
-  double precision :: wvl, frequency, wavenumber, tau_c, tau_a
+  double precision :: wvl, omega, wavenumber, tau_c, tau_a
   double precision :: Bo, energy_ratio, L_damp, r_Bo, ca
 
   double precision :: L_0, L_thin, L_thick, L_3
@@ -63,15 +63,15 @@ contains
     ! Er0 = const_rad_a*T0**4
 
     wvl = tau_wave/(rho0*fld_kappa0)
-    frequency = 2.d0*dpi*a0/wvl
+    omega = 2.d0*dpi*a0/wvl
     wavenumber = 2.d0*dpi/wvl
 
     Bo = 4*rhd_gamma*ca*eg0/(const_c*Er0)
     r_Bo = Er0/(4*rhd_gamma*eg0)
 
     !-------------------
-    tau_c = const_c*fld_kappa0*rho0/frequency
-    tau_a = a0*fld_kappa0*rho0/frequency
+    tau_c = const_c*fld_kappa0*rho0/omega
+    tau_a = a0*fld_kappa0*rho0/omega
 
     L_thin = 1.d0/(2*dpi*tau_c)
     L_thick = 16.d0/(3*dpi*(rhd_gamma-1.d0))*a0**2/(const_c**2*Bo)*tau_a
@@ -83,7 +83,8 @@ contains
     print*, 1.d0/(2*dpi*tau_a)/wvl
     !-------------------
 
-    ! stop
+
+    stop
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length = wvl ! cm
@@ -106,7 +107,7 @@ contains
     Er0 = Er0/unit_pressure
 
     wvl = wvl/unit_length
-    frequency = frequency*unit_time
+    omega = omega*unit_time
     wavenumber = wavenumber*unit_length
 
     if (mype .eq. 0) then
@@ -119,7 +120,7 @@ contains
       print*, 'unit_time', unit_time
       print*, 'unit_velocity', unit_velocity
       print*, '-----------------------------'
-      print*, 'angular frequency', frequency
+      print*, 'angular omega', omega
       print*, 'wvl', wvl
       print*, 'opt tickness 1 wvl', tau_wave
       print*, 'wave number', wavenumber
@@ -130,8 +131,8 @@ contains
     endif
 
     A_rho = ampl
-    A_v = frequency/(wavenumber*rho0)*A_rho
-    A_p = frequency**2/wavenumber**2*A_rho
+    A_v = omega/(wavenumber*rho0)*A_rho
+    A_p = omega**2/wavenumber**2*A_rho
     A_e = rhd_gamma/(rhd_gamma-one)*p0/rho0*A_rho
     A_Er = Er0/rho0*A_rho
 
@@ -197,12 +198,12 @@ contains
     double precision :: press(ixI^S), temp(ixI^S)
 
     where (x(ixI^S,1) .lt. one)
-      w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
-      w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
+      w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1)-omega*global_time)
+      w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1)-omega*global_time)
       w(ixI^S, mom(2)) = zero
-      w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
+      w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1)-omega*global_time)
 
-      press(ixI^S) = p0 + A_p*dsin(wavenumber*x(ixI^S,1)-frequency*global_time)
+      press(ixI^S) = p0 + A_p*dsin(wavenumber*x(ixI^S,1)-omega*global_time)
       temp(ixI^S) = (const_mp*fld_mu/const_kb)*press(ixI^S)/w(ixI^S, rho_)&
       *(unit_pressure/unit_density)/unit_temperature
 
@@ -234,9 +235,9 @@ contains
     w(ixO^S,nw+3) = 1.d0/A_er*(w(ixO^S,r_e)/Er0 - 1.d0)
     w(ixO^S,nw+4) = 1.d0/A_v*w(ixO^S,mom(1))/w(ixO^S,rho_)
 
-    sol1(ixO^S) = dsin(wavenumber*x(ixO^S,1)-frequency*global_time)
-    sol2(ixO^S) = dsin(wavenumber*x(ixO^S,1)-frequency*global_time)
-    sol3(ixO^S) = dsin(wavenumber*x(ixO^S,1)-frequency*global_time)
+    sol1(ixO^S) = dsin(wavenumber*x(ixO^S,1)-omega*global_time)
+    sol2(ixO^S) = dsin(wavenumber*x(ixO^S,1)-omega*global_time)
+    sol3(ixO^S) = dsin(wavenumber*x(ixO^S,1)-omega*global_time)
     where (x(ixO^S,1) .gt. one)
       sol1(ixO^S) = sol1(ixO^S)*dexp(-(x(ixO^S,1)-one)/L_thin)
       sol2(ixO^S) = sol2(ixO^S)*dexp(-(x(ixO^S,1)-one)/L_thick)

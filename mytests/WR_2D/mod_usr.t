@@ -18,7 +18,7 @@ module mod_usr
   double precision :: rho_bound, v_inf, Mdot
   double precision :: T_bound, R_star, M_star
 
-  double precision :: kappa_e, L_bound, F_bound, gradE, E_out
+  double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
 
 
 contains
@@ -108,6 +108,8 @@ contains
     !> Very bad initial guess for gradE using kappa_e
     gradE = -F_bound*3*kappa_e*rho_bound*unit_velocity/const_c
 
+    print*, 'L_bound', L_bound
+
   end subroutine initglobaldata_usr
 
   !> Read parameters from a file
@@ -116,7 +118,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /wind_list/ cak_Q, cak_a, rho_bound, T_bound, L_bound, R_star, M_star, v_inf, Mdot
+    namelist /wind_list/ cak_Q, cak_a, rho_bound, T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -127,9 +129,13 @@ contains
 
     R_star = R_star*R_sun
     M_star = M_star*M_sun
-    L_bound = L_bound*L_sun
+    L_bound = Gamma_e_bound * 4.0 * dpi * const_G * M_star * const_c/0.34d0
     F_bound = L_bound/(4*dpi*R_star**2)
     Mdot = Mdot*M_sun/year
+
+    ! ! v_inf = dsqrt(2*M_star*const_G*(Gamma_e_bound - 1)/R_star)
+    ! print*, dsqrt(2*M_star*const_G/R_star)
+    ! stop
 
   end subroutine params_read
 
@@ -157,7 +163,7 @@ contains
     w(ixI^S,mom(1)) = vel(ixI^S)*w(ixI^S,rho_)
 
     !> Outer/Inner temperature
-    T_out = 5.d4/unit_temperature
+    T_out = 28445.836732569689/unit_temperature
     E_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
     T_in = T_bound
     E_in = const_rad_a*(T_in*unit_temperature)**4/unit_pressure
@@ -168,6 +174,8 @@ contains
     rr(ixI^S) = dsqrt(x(ixI^S,1)-xprobmin1)*(16*x(ixI^S,1)**2 + 8*x(ixI^S,1)+ 6) &
                 /(15*x(ixI^S,1)**(5.d0/2))
     bb = -kappa_e*L_bound*Mdot*unit_velocity*3/(16*dpi**2*const_c*v_inf)
+
+    ! bb = bb*2
 
     ! rr(ixI^S) = 2*dsqrt(x(ixI^S,1)-xprobmin1)/dsqrt(x(ixI^S,1))
     ! bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
@@ -219,6 +227,9 @@ contains
       where(w(ixB^S,mom(1)) .lt. 0.d0)
         w(ixB^S,mom(1)) = 0.d0
       endwhere
+      where(w(ixB^S,mom(1))/w(ixB^S,rho_) .gt. 0.5d0)
+        w(ixB^S,mom(1)) = 0.1d0*w(ixB^S,rho_)
+      endwhere
 
       ! w(ixB^S,r_e) = const_rad_a*(T_bound*unit_temperature)**4/unit_pressure
 
@@ -237,25 +248,38 @@ contains
       enddo
 
       w(nghostcells,ixBmin2:ixBmax2,r_e) = dexp(half*(dlog(w(nghostcells-1,ixBmin2:ixBmax2,r_e))+dlog(w(nghostcells+1,ixBmin2:ixBmax2,r_e))))
+      ! w(nghostcells,ixBmin2:ixBmax2,r_e) = half*(w(nghostcells-1,ixBmin2:ixBmax2,r_e)+w(nghostcells+1,ixBmin2:ixBmax2,r_e))
+
 
       ! print*, it, 'bottom------------------------------------'
       ! print*, w(1:5,5,r_e)
+      ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))
+      ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))/w(2:5,5,rho_)
 
     case(2)
       Local_tauout(ixB^S) = kappa_e*w(ixB^S,rho_)*R_star**2/(3*x(ixB^S,1))
-      Local_Tout(ixB^S) = (F_bound/StefBoltz*3.d0/4.d0*Local_tauout(ixB^S))**0.25d0
+      Local_Tout(ixB^S) = F_bound/StefBoltz*(3.d0/4.d0*Local_tauout(ixB^S))**0.25d0
+      !> one single NaN will kill the average and then we automatically take the floor temp
+      where (Local_Tout(ixB^S) .ne. Local_Tout(ixB^S))
+        Local_Tout(ixB^S) = 2.d4
+      endwhere
       T_out = sum(Local_Tout(ixBmin2:ixBmax2,ixBmin1))/(ixBmax2-ixBmin2)
 
       T_out = max(1.d4/unit_temperature, T_out)
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
-      w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
-      w(ixB^S,r_e) = E_out
+      do ix1 = ixBmin1,ixBmax1
+        w(ix1,:,r_e) = 2*w(ix1-1,:,r_e) - w(ix1-2,:,r_e)
+      enddo
 
-      print*, it, 'top---------------------------------------'
-      print*, Local_tauout(ixBmax1-5:ixBmax1,5)
-      print*, Local_Tout(ixBmax1-5:ixBmax1,5)
-      print*, w(ixBmax1-5:ixBmax1,5,r_e)
+      ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
+
+      ! print*, T_out*unit_temperature, E_out
+
+      ! print*, it, 'top---------------------------------------'
+      ! print*, Local_tauout(ixBmax1-5:ixBmax1,5)
+      ! print*, Local_Tout(ixBmax1-5:ixBmax1,5)
+      ! print*, w(ixBmax1-5:ixBmax1,5,r_e)
 
     case default
       call mpistop('boundary not known')
@@ -278,7 +302,6 @@ contains
     case (2)
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(iB, mg_iphi)%bc_value = E_out
-
       ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
       ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
 
@@ -443,6 +466,7 @@ contains
     {do ix^D=ixOmin^D,ixOmax^D\ }
         rho0 = w(ix^D,rho_)*unit_density
         Temp0 = Temp(ix^D)*unit_temperature
+        Temp0 = max(Temp0,1.d4)
         call set_opal_opacity(rho0,Temp0,n)
         kappa(ix^D) = n/unit_opacity
     {enddo\ }
@@ -469,8 +493,19 @@ contains
     call gradientO(vel,ixI^L,ixO^L,1,gradv)
     gradv(ixO^S) = abs(gradv(ixO^S))
 
+    !> Artificial limit on gradv
+    ! where (gradv(ixO^S) .gt. 200.d0)
+    !   gradv(ixO^S) = 200.d0
+    ! end where
+
+
     kappa(ixO^S) = kappa_e*cak_Q/(1-cak_a) &
     *(gradv(ixO^S)*unit_velocity/(w(ixO^S,rho_)*const_c*cak_Q*kappa_e))**cak_a
+
+    ! !> Limit cak for stability purposes
+    ! where(kappa(ixO^S) .ge. 1.d3*kappa_e)
+    !   kappa(ixO^S) = 1.d3*kappa_e
+    ! endwhere
 
     !> test with no cak
     ! kappa(ixO^S) = 0.d0

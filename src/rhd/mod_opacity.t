@@ -43,8 +43,10 @@ subroutine init_opal(He_abundance)
     if (He_abundance .gt. Y2) call mpistop('OPAL table not covered')
   endif
 
-  call read_table(Log_R_list, Log_T_list, Kappa_vals1,'Y01000')
-  call read_table(Log_R_list, Log_T_list, Kappa_vals2,'Y00999')
+  call read_table(Log_R_list, Log_T_list, Kappa_vals1,'Y02800')
+
+  ! call read_table(Log_R_list, Log_T_list, Kappa_vals1,'Y01000')
+  ! call read_table(Log_R_list, Log_T_list, Kappa_vals2,'Y00999')
 
   ! if (He_abundance .eq. Y1) then
   !   Kappa_vals = Kappa_vals1

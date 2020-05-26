@@ -35,13 +35,13 @@ subroutine init_opal(He_abundance)
   double precision :: Y1 = 0.1000
   double precision :: Y2 = 0.0999
 
-  if (Y1 .gt. Y2) then
-    if (He_abundance .gt. Y1) call mpistop('OPAL table not covered')
-    if (He_abundance .lt. Y2) call mpistop('OPAL table not covered')
-  else
-    if (He_abundance .lt. Y1) call mpistop('OPAL table not covered')
-    if (He_abundance .gt. Y2) call mpistop('OPAL table not covered')
-  endif
+  ! if (Y1 .gt. Y2) then
+  !   if (He_abundance .gt. Y1) call mpistop('OPAL table not covered')
+  !   if (He_abundance .lt. Y2) call mpistop('OPAL table not covered')
+  ! else
+  !   if (He_abundance .lt. Y1) call mpistop('OPAL table not covered')
+  !   if (He_abundance .gt. Y2) call mpistop('OPAL table not covered')
+  ! endif
 
   call read_table(Log_R_list, Log_T_list, Kappa_vals1,'Y02800')
 

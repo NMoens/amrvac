@@ -14,12 +14,11 @@ module mod_usr
 
   double precision :: StefBoltz
 
-  double precision :: cak_Q, cak_a
+  double precision :: cak_Q, cak_a, cak_base, cak_x0, cak_x1
   double precision :: rho_bound, v_inf, Mdot
   double precision :: T_bound, R_star, M_star
 
   double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
-
 
 contains
 
@@ -118,7 +117,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /wind_list/ cak_Q, cak_a, rho_bound, T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound
+    namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound, T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -486,6 +485,7 @@ contains
     double precision, intent(out):: kappa(ixO^S)
 
     double precision :: vel(ixI^S), gradv(ixO^S)
+    double precision :: xx(ixO^S), alpha(ixO^S)
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
@@ -493,14 +493,23 @@ contains
     call gradientO(vel,ixI^L,ixO^L,1,gradv)
     gradv(ixO^S) = abs(gradv(ixO^S))
 
-    !> Artificial limit on gradv
-    ! where (gradv(ixO^S) .gt. 200.d0)
-    !   gradv(ixO^S) = 200.d0
-    ! end where
+    xx(ixO^S) = 1.d0-R_star/x(ixO^S,1)
 
+    where (xx(ixO^S) .le. cak_x0)
+      alpha(ixO^S) = cak_base
+    endwhere
 
-    kappa(ixO^S) = kappa_e*cak_Q/(1-cak_a) &
-    *(gradv(ixO^S)*unit_velocity/(w(ixO^S,rho_)*const_c*cak_Q*kappa_e))**cak_a
+    where ((xx(ixO^S) .ge. cak_x0) .and. (x(ixO^S,1) .le. cak_x1))
+      alpha(ixO^S) = cak_base + (cak_a - cak_base)&
+      *(cak_x0 - xx(ixO^S))/(cak_x0 - cak_x1)
+    endwhere
+
+    where (xx(ixO^S) .ge. cak_x1)
+      alpha(ixO^S) = cak_a
+    endwhere
+
+    kappa(ixO^S) = kappa_e*cak_Q/(1-alpha(ixO^S)) &
+    *(gradv(ixO^S)*unit_velocity/(w(ixO^S,rho_)*const_c*cak_Q*kappa_e))**alpha(ixO^S)
 
     ! !> Limit cak for stability purposes
     ! where(kappa(ixO^S) .ge. 1.d3*kappa_e)

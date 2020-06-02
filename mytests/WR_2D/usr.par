@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/WR'
+  base_filename='./output4/WR'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -13,14 +13,12 @@
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   !ditsave_dat     = 50
-   !ditsave_log     = 100
-   dtsave_dat     = 0.1d0
+   dtsave_dat     = 1.d0
    !dtsave_log     = 5.d-2
 /
 
  &stoplist
-   time_max = 10.d0
+   time_max = 30.d0
    dtmin = 1.0d-20
    !it_max = 1000
 /
@@ -39,7 +37,7 @@
 
 &boundlist
   typeboundary_min1 = 4*'special'
-  typeboundary_max1 = 3*'cont','special'
+  typeboundary_max1 = 3*'noinflow','special'
   typeboundary_min2 = 4*'periodic'
   typeboundary_max2 = 4*'periodic'
   internalboundary = F
@@ -48,20 +46,20 @@
  &meshlist
    refine_max_level   = 3
    refine_criterion   = 0
-   domain_nx1         = 4096
-   domain_nx2         = 256
+   domain_nx1         = 2048
+   domain_nx2         = 64
    block_nx1          = 64
    block_nx2          = 64
    xprobmin1      = 1.d0
    xprobmax1       = 101.d0
-   xprobmin2       = -3.125d0
+   xprobmin2       = 0.d0
    xprobmax2       = 3.125d0
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
  /
 
  &paramlist
-  courantpar       = 0.5d0
+  courantpar       = 0.8d0
   !dtpar           = 2.d-6
  /
 
@@ -89,11 +87,11 @@
   cak_a = 0.5d0
   cak_base = 0.66d0
   cak_x0 = 0.65d0
-  cak_x1 = 0.66d0
-  rho_bound = 5.d-8
+  cak_x1 = 0.67d0
+  it_start_cak = 100
+  rho_bound = 3.d-7
   T_bound = 3.2d5
-  !L_bound = 4.d5
-  Gamma_e_bound = 0.55d0
+  Gamma_e_bound = 0.45d0
   R_star = 1.d0
   M_star = 10.d0
   v_inf = 1.d8 !40.d5

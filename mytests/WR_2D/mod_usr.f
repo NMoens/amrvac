@@ -15,6 +15,7 @@ module mod_usr
   double precision :: StefBoltz
 
   double precision :: cak_Q, cak_a, cak_base, cak_x0, cak_x1
+  integer :: it_start_cak
   double precision :: rho_bound, v_inf, Mdot
   double precision :: T_bound, R_star, M_star
 
@@ -109,7 +110,8 @@ contains
     !> Very bad initial guess for gradE using kappa_e
     gradE = -F_bound*3*kappa_e*rho_bound*unit_velocity/const_c
 
-    print*, 'L_bound', L_bound
+    ! print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
+    ! stop
 
   end subroutine initglobaldata_usr
 
@@ -120,7 +122,7 @@ contains
     integer                      :: n
 
     namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound,&
-        T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound
+        T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound, it_start_cak
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -135,9 +137,7 @@ contains
     F_bound = L_bound/(4*dpi*R_star**2)
     Mdot = Mdot*M_sun/year
 
-    ! ! v_inf = dsqrt(2*M_star*const_G*(Gamma_e_bound - 1)/R_star)
-    ! print*, dsqrt(2*M_star*const_G/R_star)
-    ! stop
+    ! print*, Gamma_e_bound, dpi, const_G, M_star, const_c
 
   end subroutine params_read
 
@@ -229,7 +229,7 @@ contains
     double precision :: kappa(ixImin1:ixImax1,ixImin2:ixImax2),&
         Temp(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: Temp0, rho0, T_out, n
-    double precision :: Local_gradE(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
+    double precision :: Local_gradE(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: Local_tauout(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
     double precision :: Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
     integer :: ix1,ix2
@@ -252,6 +252,7 @@ contains
       where(w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) .lt. 0.d0)
         w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = 0.d0
       endwhere
+
       where(w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1))/w(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2,rho_) .gt. 0.5d0)
         w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = 0.1d0*w(ixBmin1:ixBmax1,&
@@ -266,26 +267,34 @@ contains
         kappa(ix1,ixBmin2:ixBmax2) = kappa(ixBmax1+1,ixBmin2:ixBmax2)
       enddo
 
-      Local_gradE(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = &
-         -F_bound*3*kappa(ixBmin1:ixBmax1,ixBmin2:ixBmax2)*w(ixBmin1:ixBmax1,&
-         ixBmin2:ixBmax2,rho_)*unit_velocity/const_c
+      Local_gradE(ixImin1:ixImax1,ixImin2:ixImax2) = &
+         -F_bound*3*kappa(ixImin1:ixImax1,ixImin2:ixImax2)*w(ixImin1:ixImax1,&
+         ixImin2:ixImax2,rho_)*unit_velocity/const_c
       gradE = sum(Local_gradE(nghostcells,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
 
-      do ix1 = ixBmax1-1,ixBmin1,-1
+      ! print*, gradE
+
+      do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,ixBmin2:ixBmax2,r_e) = w(ix1+2,ixBmin2:ixBmax2,r_e) + (x(ix1,&
            ixBmin2:ixBmax2,1)-x(ix1+2,ixBmin2:ixBmax2,1))*Local_gradE(ix1+1,&
            ixBmin2:ixBmax2)
       enddo
 
-      w(nghostcells,ixBmin2:ixBmax2,r_e) = dexp(half*(dlog(w(nghostcells-1,&
-         ixBmin2:ixBmax2,r_e))+dlog(w(nghostcells+1,ixBmin2:ixBmax2,r_e))))
+      ! w(nghostcells,ixBmin2:ixBmax2,r_e) = dexp(half*(dlog(w(nghostcells-1,ixBmin2:ixBmax2,r_e))+dlog(w(nghostcells+1,ixBmin2:ixBmax2,r_e))))
       ! w(nghostcells,ixBmin2:ixBmax2,r_e) = half*(w(nghostcells-1,ixBmin2:ixBmax2,r_e)+w(nghostcells+1,ixBmin2:ixBmax2,r_e))
-
 
       ! print*, it, 'bottom------------------------------------'
       ! print*, w(1:5,5,r_e)
       ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))
-      ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))/w(2:5,5,rho_)
+      ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))/(w(2:5,5,rho_)*kappa(2:5,5))
+
+      ! print*, F_bound, gradE*const_c/unit_velocity/(3*kappa(2,5)*w(2,5,rho_))
+      print*, 4*dpi*unit_length**2*F_bound*unit_radflux/L_sun &
+      , -4*dpi*unit_length**2*gradE*const_c/unit_velocity/(3*kappa(2,5)*w(2,5,&
+         rho_))*unit_radflux/L_sun
+      print*, -4*dpi*unit_length**2*(w(1:5,5,r_e)-w(3:7,5,r_e))/(x(1:5,5,1)-x(3:7,5,1))&
+      *const_c/unit_velocity/(3*kappa(2:6,5)*w(2:6,5,rho_))*unit_radflux/L_sun
+      print*,
 
     case(2)
       Local_tauout(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = &
@@ -294,6 +303,7 @@ contains
       Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = &
          F_bound/StefBoltz*(3.d0/4.d0*Local_tauout(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2))**0.25d0
+
       !> one single NaN will kill the average and then we automatically take the floor temp
       where (Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2) .ne. &
          Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2))
@@ -600,21 +610,16 @@ contains
     gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = abs(gradv(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2))
 
-    xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = 1.d0-R_star/x(ixOmin1:ixOmax1,&
+    xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = 1.d0-xprobmin1/x(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,1)
 
     where (xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2) .le. cak_x0)
       alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = cak_base
-    endwhere
-
-    where ((xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2) .ge. cak_x0) .and. &
-       (x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1) .le. cak_x1))
+    elsewhere (x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1) .le. cak_x1)
       alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = cak_base + (cak_a - &
          cak_base)*(cak_x0 - xx(ixOmin1:ixOmax1,&
          ixOmin2:ixOmax2))/(cak_x0 - cak_x1)
-    endwhere
-
-    where (xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2) .ge. cak_x1)
+    elsewhere
       alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = cak_a
     endwhere
 
@@ -623,6 +628,12 @@ contains
        ixOmin2:ixOmax2)) *(gradv(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)*unit_velocity/(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        rho_)*const_c*cak_Q*kappa_e))**alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+
+    if (it .le. it_start_cak) then
+      kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)*dexp(-w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         rho_)*kappa_e)
+    endif
 
     ! !> Limit cak for stability purposes
     ! where(kappa(ixO^S) .ge. 1.d3*kappa_e)

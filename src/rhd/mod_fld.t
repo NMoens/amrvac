@@ -145,7 +145,6 @@ module mod_fld
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     i_test = var_set_extravar('test','test')
 
-    {^NOONED
     if (rhd_radiation_diffusion) then
       if (fld_diff_scheme .eq. 'mg') then
 
@@ -153,7 +152,6 @@ module mod_fld
 
         if (rhd_radiation_diffusion) then
           global_radiation_source => Diffuse_E_rad_mg
-          if (ndim == 1) call mpistop("multigrid not available in 1d")
         endif
 
         mg_after_new_tree => set_mg_diffcoef
@@ -163,7 +161,6 @@ module mod_fld
 
       endif
     endif
-    }
 
     i_diff_mg = var_set_extravar("D", "D")
 
@@ -687,7 +684,6 @@ module mod_fld
   !!!!!!!!!!!!!!!!!!! Multigrid diffusion
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  {^NOONED
   !> Calling all subroutines to perform the multigrid method
   !> Communicates rad_e and diff_coeff to multigrid library
   subroutine Diffuse_E_rad_mg(qdt, qt, active)
@@ -710,7 +706,7 @@ module mod_fld
     active = .true.
 
   end subroutine Diffuse_E_rad_mg
-  }
+
 
   !> Calculates cell-centered diffusion coefficient to be used in multigrid
   subroutine fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
@@ -780,7 +776,6 @@ module mod_fld
     w(ixO^S,i_diff_mg) = tmp_D(ixO^S)
   end subroutine fld_smooth_diffcoef
 
-  {^NOONED
   !> Communicates diffusion coeff to multigrid library
   subroutine set_mg_diffcoef()
     use mod_multigrid_coupling
@@ -791,7 +786,6 @@ module mod_fld
       call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
     endif
   end subroutine set_mg_diffcoef
-  }
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!! Gas-Rad Energy interaction

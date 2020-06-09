@@ -101,9 +101,7 @@ module mod_rhd_phys
   public :: rhd_to_primitive
   public :: rhd_get_tgas
   public :: rhd_get_trad
-  {^NOONED
   public :: rhd_set_mg_bounds
-  }
 
 contains
 
@@ -260,9 +258,7 @@ contains
     phys_write_info          => rhd_write_info
     phys_handle_small_values => rhd_handle_small_values
     phys_angmomfix           => rhd_angmomfix
-    {^NOONED
     phys_set_mg_bounds       => rhd_set_mg_bounds
-    }
 
     ! Whether diagonal ghost cells are required for the physics
     phys_req_diagonal = .true.
@@ -351,12 +347,10 @@ contains
 
     if (rhd_dust) call dust_check_params()
 
-    {^NOONED
     if (use_multigrid) call rhd_set_mg_bounds()
-    }
+
   end subroutine rhd_check_params
 
-  {^NOONED
   !> Set the boundaries for the diffusion of E
   subroutine rhd_set_mg_bounds
     use mod_global_parameters
@@ -392,7 +386,6 @@ contains
        end select
     end do
   end subroutine rhd_set_mg_bounds
-  }
 
   subroutine rhd_physical_units
     use mod_global_parameters

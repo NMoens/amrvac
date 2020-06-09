@@ -223,11 +223,11 @@ module mod_fld
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * wCT(ixO^S,iw_rho)*radiation_forceCT(ixO^S,idir)
 
-        if (energy .and. .not. block%e_is_internal) then
+        ! if (energy .and. .not. block%e_is_internal) then
           !> Energy equation source term (kinetic energy)
           w(ixO^S,iw_e) = w(ixO^S,iw_e) &
               + qdt * wCT(ixO^S,iw_mom(idir))*radiation_forceCT(ixO^S,idir)
-        endif
+        ! endif
       enddo
 
       !> Photon tiring
@@ -815,11 +815,11 @@ module mod_fld
     integer :: i,j,idir,ix^D
 
     !> e_gas is the INTERNAL ENERGY without KINETIC ENERGY
-    if (.not. block%e_is_internal) then
+    ! if (.not. block%e_is_internal) then
       e_gas(ixO^S) = wCT(ixO^S,iw_e) - half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
-    else
-      e_gas(ixO^S) = wCT(ixO^S,iw_e)
-    endif
+    ! else
+    !   e_gas(ixO^S) = wCT(ixO^S,iw_e)
+    ! endif
 
     E_rad(ixO^S) = wCT(ixO^S,iw_r_e)
 
@@ -871,11 +871,11 @@ module mod_fld
 
     !> Beginning of module substracted wCT Ekin
     !> So now add wCT Ekin
-    if (.not. block%e_is_internal) then
+    ! if (.not. block%e_is_internal) then
       w(ixO^S,iw_e) = w(ixO^S,iw_e) + half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
-    else
-      w(ixO^S,iw_e) = w(ixO^S,iw_e)
-    endif
+    ! else
+    !   w(ixO^S,iw_e) = w(ixO^S,iw_e)
+    ! endif
 
     !> Update rad-energy in w
     ! w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) + E_rad(ixO^S) - wCT(ixO^S,iw_r_e)

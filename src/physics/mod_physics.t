@@ -385,7 +385,7 @@ contains
   subroutine dummy_set_mg_bounds
   end subroutine dummy_set_mg_bounds
 
-  subroutine dummy_modify_wLR(ixI^L, ixO^L, wLC, wRC, wLp, wRp, s, idir)
+  subroutine dummy_modify_wLR(ixI^L, ixO^L, qt, wLC, wRC, wLp, wRp, s, idir)
     use mod_global_parameters
     integer, intent(in)             :: ixI^L, ixO^L, idir
     double precision, intent(in)    :: qt

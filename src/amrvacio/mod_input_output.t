@@ -13,6 +13,9 @@ module mod_input_output
   !> number of w found in dat files
   integer :: nw_found
 
+  !> tag for MPI message
+  integer, private :: itag
+
   ! Formats used in output
   character(len=*), parameter :: fmt_r  = 'es16.8' ! Default precision
   character(len=*), parameter :: fmt_r2 = 'es10.2' ! Two digits
@@ -166,8 +169,8 @@ contains
          flatcd,flatsh,&
          small_temperature,small_pressure,small_density, &
          small_values_method, small_values_daverage, check_small_values, &
-         solve_internal_e, angmomfix, small_values_fix_iw, &
-         small_values_use_primitive
+         trace_small_values, angmomfix, small_values_fix_iw, &
+         small_values_use_primitive, schmid_rad^D, trac
 
     namelist /boundlist/ nghostcells,typeboundary,typeghostfill,prolongation_method,&
          internalboundary, typeboundary_^L, save_physical_boundary
@@ -367,11 +370,11 @@ contains
     else
       cada3_radius  = 0.1d0
     end if
+    {schmid_rad^D = 1.d0\}
     typetvd         = 'roe'
-    typeboundspeed  = 'cmaxmean'
+    typeboundspeed  = 'Einfeldt'
     source_split_usr= .false.
     time_integrator = 'twostep'
-    solve_internal_e= .false.
     angmomfix       = .false.
 
     allocate(flux_scheme(nlevelshi),typepred1(nlevelshi))
@@ -600,6 +603,15 @@ contains
        if(flux_scheme(level)=='hlld'.and.physics_type/='mhd') &
           call mpistop("Cannot use hlld flux if not using MHD physics!")
 
+       if(flux_scheme(level)=='hllc'.and.physics_type=='mf') &
+          call mpistop("Cannot use hllc flux if using magnetofriction physics!")
+
+       if(flux_scheme(level)=='tvd'.and.physics_type=='mf') &
+          call mpistop("Cannot use tvd flux if using magnetofriction physics!")
+
+       if(flux_scheme(level)=='tvdmu'.and.physics_type=='mf') &
+          call mpistop("Cannot use tvdmu flux if using magnetofriction physics!")
+
        if (typepred1(level)=='default') then
           select case (flux_scheme(level))
           case ('cd')
@@ -628,6 +640,7 @@ contains
 
     ! finite difference scheme fd need global maximal speed
     if(any(flux_scheme=='fd')) need_global_cmax=.true.
+    if(any(limiter=='schmid1')) need_global_a2max=.true.
 
     select case (time_integrator)
     case ("onestep")
@@ -723,10 +736,10 @@ contains
     end if
     }
 
-    ! psi, tracers take the same boundary type as density
+    ! psi, tracers take the same boundary type as the first variable
     if (nwfluxbc<nwflux) then
       do iw = nwfluxbc+1, nwflux
-        typeboundary(iw,:) = typeboundary(iw_rho, :)
+        typeboundary(iw,:) = typeboundary(1, :)
       end do
     end if
 
@@ -805,11 +818,27 @@ contains
       nghostcells=3
     end if
 
+    if(any(limiter(1:nlevelshi)=='weno5nm')) then
+      nghostcells=3
+    end if
+
     if(any(limiter(1:nlevelshi)=='wenoz5')) then
       nghostcells=3
     end if
 
+    if(any(limiter(1:nlevelshi)=='wenoz5nm')) then
+      nghostcells=3
+    end if
+
     if(any(limiter(1:nlevelshi)=='wenozp5')) then
+      nghostcells=3
+    end if
+
+    if(any(limiter(1:nlevelshi)=='wenozp5nm')) then
+      nghostcells=3
+    end if
+
+    if(any(limiter(1:nlevelshi)=='weno5cu6')) then
       nghostcells=3
     end if
 
@@ -995,6 +1024,12 @@ contains
     if(dabs(sum(w_refine_weight(:))-1.d0)>smalldouble) then
       write(unitterm,*) "Sum of all elements in w_refine_weight be 1.d0"
       call mpistop("Reset w_refine_weight so the sum is 1.d0")
+    end if
+
+    ! TRAC is only for temperature (energy)
+    if(.not.phys_energy .and. trac) then
+      if (mype==0) write(unitterm, '(A)') "Warning, TRAC is not for energy-independent problems, change trac to false."
+      trac=.false.
     end if
 
     if (mype==0) write(unitterm, '(A30)', advance='no') 'Refine estimation: '
@@ -1412,7 +1447,7 @@ contains
       call MPI_FILE_READ(fh, phys_name, name_len, MPI_CHARACTER, st, er)
 
       if (phys_name /= physics_type) then
-        call mpistop("Cannot restart with a different physics type")
+!        call mpistop("Cannot restart with a different physics type")
       end if
 
       call MPI_FILE_READ(fh, n_par, 1, MPI_INTEGER, st, er)

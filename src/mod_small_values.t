@@ -11,16 +11,20 @@ module mod_small_values
   !> Average over this many cells in each direction
   integer, public :: small_values_daverage = 1
 
+  !> trace small values in the source file using traceback flag of compiler
+  logical, public :: trace_small_values=.false.
+
   public :: small_values_error
   public :: small_values_average
 
 contains
 
-  subroutine small_values_error(w, x, ixI^L, ixO^L, w_flag, subname)
+  subroutine small_values_error(w, x, ixI^L, ixO^L, w_flag, subname, smallw)
     use mod_global_parameters
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S, 1:nw)
     double precision, intent(in) :: x(ixI^S, 1:ndim)
+    double precision, intent(in) :: smallw(1:nw)
     integer, intent(in)          :: w_flag(ixI^S)
     integer                      :: ix_bad(ndim), iw
     character(len=*), intent(in) :: subname
@@ -37,6 +41,9 @@ contains
          write(*, '(A20,A,E14.7)') trim(cons_wnames(iw)), ": ", &
               w({ix_bad(^D)}, iw)
       end do
+      write(*,*) 'small value:',smallw(maxval(w_flag(ixO^S)))
+      ! use erroneous arithmetic operation to crash the run
+      if(trace_small_values) write(*,*) sqrt(smallw(1)-bigdouble)
       write(*,*) "Saving status at the previous time step"
       crash=.true.
     end if

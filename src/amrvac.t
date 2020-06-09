@@ -15,12 +15,10 @@ program amrvac
   use mod_fix_conserve
   use mod_advance, only: process
   use mod_constrained_transport
-
-  {^NOONED
   use mod_multigrid_coupling
-  }
 
   double precision :: time0, time_in
+  logical,save     :: part_file_exists=.false.
 
 
   call comm_start()
@@ -78,7 +76,8 @@ program amrvac
      call getbc(global_time,0.d0,ps,1,nwflux+nwaux)
 
      if(use_particles) then
-       call read_particles_snapshot
+       call read_particles_snapshot(part_file_exists)
+       if (.not. part_file_exists) call particles_create()
        if(convert) then
          call handle_particles()
          call time_spent_on_particles()
@@ -104,9 +103,7 @@ program amrvac
         stop
      end if
 
-     {^NOONED
      if (use_multigrid) call mg_setup_multigrid()
-     }
 
   else
 
@@ -116,9 +113,9 @@ program amrvac
      ! set up and initialize finer level grids, if needed
      call settree
 
-     {^NOONED
      if (use_multigrid) call mg_setup_multigrid()
 
+     {^NOONED
      ! improve initial condition
      call improve_initial_condition()
      }
@@ -130,14 +127,11 @@ program amrvac
 
   end if
 
-
   if (mype==0) then
      print*,'-------------------------------------------------------------------------------'
      write(*,'(a,f17.3,a)')' Startup phase took : ',MPI_WTIME()-time0,' sec'
      print*,'-------------------------------------------------------------------------------'
   end if
-
-  time_advance=.true.
 
   ! an interface to allow user to do special things before the main loop
   if (associated(usr_before_main_loop)) &
@@ -151,8 +145,6 @@ program amrvac
      write(*,'(a,f17.3,a)')' Finished AMRVAC in : ',MPI_WTIME()-time0,' sec'
      print*,'-------------------------------------------------------------------------------'
   end if
-
-  time_advance=.false.
 
   call comm_finalize
 
@@ -205,6 +197,8 @@ contains
     ncells_update=0
     dt_loop=0.d0
 
+    time_advance=.true.
+
     time_evol : do
 
        time_before_advance=MPI_WTIME()
@@ -228,7 +222,7 @@ contains
        if (timeio0 - time_last_print > time_between_print) then
          time_last_print = timeio0
          if (mype == 0) then
-           write(*, '(A4,I10,ES12.3,ES12.3,ES12.3)') " #", &
+           write(*, '(A4,I10,ES12.4,ES12.4,ES12.4)') " #", &
                 it, global_time, dt, timeio0 - time_in
          end if
        end if
@@ -325,6 +319,8 @@ contains
        dt_loop=MPI_WTIME()-time_before_advance
     end do time_evol
 
+    time_advance=.false.
+
     timeloop=MPI_WTIME()-timeloop0
 
     if (mype==0) then
@@ -360,9 +356,7 @@ contains
 
     if(use_particles) call time_spent_on_particles
 
-    {^NOONED
     if (use_multigrid) call mg_timers_show(mg)
-    }
   end subroutine timeintegration
 
   !> Save times are defined by either tsave(isavet(ifile),ifile) or
@@ -375,7 +369,7 @@ contains
 
     integer:: ifile
     logical:: oksave
-    !-----------------------------------------------------------------------------
+
     oksave=.false.
     if (it==itsave(isaveit(ifile),ifile)) then
        oksave=.true.

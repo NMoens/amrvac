@@ -1,4 +1,5 @@
-!> tracer particles moving with fluid flows
+!> Tracer for advected particles moving with fluid flows
+!> By Jannis Teunissen, Bart Ripperda, Oliver Porth, and Fabio Bacchini (2017-2020)
 module mod_particle_advect
   use mod_particle_base
 
@@ -66,6 +67,8 @@ contains
     call MPI_BCAST(x,3*num_particles,MPI_DOUBLE_PRECISION,0,icomm,ierrmpi)
     call MPI_BCAST(follow,num_particles,MPI_LOGICAL,0,icomm,ierrmpi)
 
+    nparticles = num_particles
+
     do n=1,num_particles
       call find_particle_ipe(x(:,n),igrid,ipe_particle)
       particle(n)%igrid  = igrid
@@ -76,10 +79,10 @@ contains
         allocate(particle(n)%self)
         particle(n)%self%follow = follow(n)
         particle(n)%self%index  = n
-        particle(n)%self%time      = 0.0d0
+        particle(n)%self%time   = global_time
         particle(n)%self%dt     = 0.0d0
-        particle(n)%self%x = 0.d0
-        particle(n)%self%x(:) = x(:,n)
+        particle(n)%self%x      = 0.d0
+        particle(n)%self%x(:)   = x(:,n)
         w=ps(igrid)%w
         call phys_to_primitive(ixG^LL,ixG^LL,w,ps(igrid)%x)
         do idir=1,ndir
@@ -90,9 +93,9 @@ contains
         particle(n)%self%u(1:ndir) = v(1:ndir,n)
         allocate(particle(n)%payload(npayload))
         if (.not. associated(usr_update_payload)) then
-          call advect_update_payload(igrid,ps(igrid)%w,pso(igrid)%w,ps(igrid)%x,x(:,n),payload,npayload,0.d0)
+          call advect_update_payload(igrid,ps(igrid)%w,pso(igrid)%w,ps(igrid)%x,x(:,n),v(:,n),q(n),m(n),payload,npayload,0.d0)
         else
-          call usr_update_payload(igrid,ps(igrid)%w,pso(igrid)%w,ps(igrid)%x,x(:,n),payload,npayload,0.d0)
+          call usr_update_payload(igrid,ps(igrid)%w,pso(igrid)%w,ps(igrid)%x,x(:,n),v(:,n),q(n),m(n),payload,npayload,0.d0)
         end if
         particle(n)%payload=payload
       end if
@@ -136,7 +139,7 @@ contains
     double precision, intent(in) :: end_time
 
     double precision, dimension(1:ndir) :: v, x
-    double precision :: payload(npayload)
+    double precision                 :: payload(npayload)
     double precision                 :: tloc, tlocnew, dt_p, h1
     double precision,parameter       :: eps=1.0d-6, hmin=1.0d-8
     integer                          :: ipart, iipart, igrid
@@ -182,9 +185,9 @@ contains
 
       ! Update payload
       if (.not. associated(usr_update_payload)) then
-        call advect_update_payload(igrid,ps(igrid)%w,pso(igrid)%w,ps(igrid)%x,x,payload,npayload,tlocnew)
+        call advect_update_payload(igrid,ps(igrid)%w,pso(igrid)%w,ps(igrid)%x,x,v,0.d0,0.d0,payload,npayload,tlocnew)
       else
-        call usr_update_payload(igrid,ps(igrid)%w,pso(igrid)%w,ps(igrid)%x,x,payload,npayload,tlocnew)
+        call usr_update_payload(igrid,ps(igrid)%w,pso(igrid)%w,ps(igrid)%x,x,v,0.d0,0.d0,payload,npayload,tlocnew)
       end if
       particle(ipart)%payload = payload
 
@@ -192,24 +195,28 @@ contains
 
   end subroutine advect_integrate_particles
 
-  !> Example of update payload with local density
-  subroutine advect_update_payload(igrid,w,wold,xgrid,xpart,payload,npayload,particle_time)
+  !> Payload update
+  subroutine advect_update_payload(igrid,w,wold,xgrid,xpart,upart,qpart,mpart,payload,npayload,particle_time)
     use mod_global_parameters
     integer, intent(in)           :: igrid,npayload
     double precision, intent(in)  :: w(ixG^T,1:nw),wold(ixG^T,1:nw)
-    double precision, intent(in)  :: xgrid(ixG^T,1:ndim),xpart(1:ndir),particle_time
+    double precision, intent(in)  :: xgrid(ixG^T,1:ndim),xpart(1:ndir),upart(1:ndir),qpart,mpart,particle_time
     double precision, intent(out) :: payload(npayload)
     double precision              :: rho, rho1, rho2, td
 
-    if (.not.time_advance) then
-      call interpolate_var(igrid,ixG^LL,ixM^LL,w(ixG^T,iw_rho),xgrid,xpart,rho)
-    else
-      call interpolate_var(igrid,ixG^LL,ixM^LL,wold(ixG^T,iw_rho),xgrid,xpart,rho1)
-      call interpolate_var(igrid,ixG^LL,ixM^LL,w(ixG^T,iw_rho),xgrid,xpart,rho2)
-      td = (particle_time - global_time) / dt
-      rho = rho1 * (1.0d0 - td) + rho2 * td
+    td = (particle_time - global_time) / dt
+
+    ! Payload 1 is density
+    if (npayload > 0 ) then
+      if (.not.time_advance) then
+        call interpolate_var(igrid,ixG^LL,ixM^LL,w(ixG^T,iw_rho),xgrid,xpart,rho)
+      else
+        call interpolate_var(igrid,ixG^LL,ixM^LL,wold(ixG^T,iw_rho),xgrid,xpart,rho1)
+        call interpolate_var(igrid,ixG^LL,ixM^LL,w(ixG^T,iw_rho),xgrid,xpart,rho2)
+        rho = rho1 * (1.0d0 - td) + rho2 * td
+      end if
+      payload(1) = rho * w_convert_factor(1)
     end if
-    payload(1) = rho * w_convert_factor(1)
 
   end subroutine advect_update_payload
 

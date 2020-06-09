@@ -31,6 +31,9 @@ module mod_mhd_phys
   !> Whether GLM-MHD is used
   logical, public, protected              :: mhd_glm = .false.
 
+  !> Whether internal energy is solved
+  logical, public, protected              :: mhd_solve_eaux = .false.
+
   !> Whether divB cleaning sources are added splitting from fluid solver
   logical, public, protected              :: source_split_divb = .false.
 
@@ -73,6 +76,10 @@ module mod_mhd_phys
 
   !> Indices of the GLM psi
   integer, public, protected :: psi_
+
+  !> Indices of auxiliary internal energy
+  integer, public, protected :: eaux_
+  integer, public, protected :: paux_
 
   !> Indices of the tracers
   integer, allocatable, public, protected :: tracer(:)
@@ -121,6 +128,9 @@ module mod_mhd_phys
 
   !> Add divB wave in Roe solver
   logical, public :: divbwave     = .true.
+
+  !> clean initial divB
+  logical, public :: clean_initial_divb     = .false.
 
   !> Helium abundance over Hydrogen
   double precision, public, protected  :: He_abundance=0.1d0
@@ -184,7 +194,7 @@ contains
       typedivbdiff, type_ct, compactres, divbwave, He_abundance, SI_unit, B0field,&
       B0field_forcefree, Bdip, Bquad, Boct, Busr, mhd_particles,&
       boundary_divbfix, boundary_divbfix_skip, mhd_divb_4thorder, &
-      mhd_boris_method, mhd_boris_c
+      mhd_boris_method, mhd_boris_c, clean_initial_divb, mhd_solve_eaux
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -244,6 +254,7 @@ contains
 
     physics_type = "mhd"
     phys_energy=mhd_energy
+    if(mhd_solve_eaux .and. mhd_energy) phys_solve_eaux=.true.
     ! set default gamma for polytropic/isothermal process
     if(.not.mhd_energy) mhd_gamma=1.d0
     use_particles=mhd_particles
@@ -314,15 +325,18 @@ contains
     allocate(mag(ndir))
     mag(:) = var_set_bfield(ndir)
 
-    if (stagger_grid) then
-      ! set the beginning index of the staggered variables
-      iw_s0=mag(1)-1
-    end if
-
     if (mhd_glm) then
       psi_ = var_set_fluxvar('psi', 'psi', need_bc=.false.)
     else
       psi_ = -1
+    end if
+
+    if(mhd_energy .and. mhd_solve_eaux) then
+      eaux_ = var_set_internal_energy()
+      paux_ = eaux_
+    else
+      eaux_ = -1
+      paux_ = -1
     end if
 
     allocate(tracer(mhd_n_tracer))
@@ -347,10 +361,19 @@ contains
     else if (any(shape(flux_type) /= [ndir, nw])) then
        call mpistop("phys_check error: flux_type has wrong shape")
     end if
-    do idir=1,ndir
-      if(ndim>1) flux_type(idir,mag(idir))=flux_tvdlf
-    end do
-    if(mhd_glm .and. ndim>1) flux_type(:,psi_)=flux_tvdlf
+
+    if(ndim>1) then
+      if(mhd_glm) then
+        flux_type(:,psi_)=flux_special
+        do idir=1,ndir
+          flux_type(idir,mag(idir))=flux_special
+        end do
+      else
+        do idir=1,ndir
+          flux_type(idir,mag(idir))=flux_tvdlf
+        end do
+      end if
+    end if
 
     select case (mhd_boris_method)
     case ("none")
@@ -368,6 +391,8 @@ contains
 
     phys_get_dt              => mhd_get_dt
     phys_get_cmax            => mhd_get_cmax
+    phys_get_a2max           => mhd_get_a2max
+    phys_get_tcutoff         => mhd_get_tcutoff
     phys_get_cbounds         => mhd_get_cbounds
     phys_get_flux            => mhd_get_flux
     phys_get_v_idim          => mhd_get_v_idim
@@ -381,6 +406,7 @@ contains
     phys_write_info          => mhd_write_info
     phys_angmomfix           => mhd_angmomfix
     phys_handle_small_values => mhd_handle_small_values
+    phys_energy_synchro      => mhd_energy_synchro
 
     if(type_divb==divb_glm) then
       phys_modify_wLR => mhd_modify_wLR
@@ -458,7 +484,6 @@ contains
 
     ! after user parameter setting
     gamma_1=mhd_gamma-1.d0
-
     if (.not. mhd_energy) then
        if (mhd_gamma <= 0.0d0) call mpistop ("Error: mhd_gamma <= 0")
        if (mhd_adiab < 0.0d0) call mpistop ("Error: mhd_adiab < 0")
@@ -478,16 +503,18 @@ contains
 
   subroutine mhd_physical_units()
     use mod_global_parameters
-    double precision :: mp,kB,miu0
+    double precision :: mp,kB,miu0,c_lightspeed
     ! Derive scaling units
     if(SI_unit) then
       mp=mp_SI
       kB=kB_SI
       miu0=miu0_SI
+      c_lightspeed=c_SI
     else
       mp=mp_cgs
       kB=kB_cgs
       miu0=4.d0*dpi
+      c_lightspeed=const_c
     end if
     if(unit_velocity==0) then
       unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
@@ -502,36 +529,44 @@ contains
       unit_magneticfield=sqrt(miu0*unit_pressure)
       unit_time=unit_length/unit_velocity
     end if
+    ! Additional units needed for the particles
+    c_norm=c_lightspeed/unit_velocity
+    unit_charge=unit_magneticfield*unit_length**2/unit_velocity/miu0
+    if (.not. SI_unit) unit_charge = unit_charge*const_c
+    unit_mass=unit_density*unit_length**3
 
   end subroutine mhd_physical_units
 
-  subroutine mhd_check_w(primitive,ixI^L,ixO^L,w,flag)
+  subroutine mhd_check_w(primitive,ixI^L,ixO^L,w,flag,smallw)
     use mod_global_parameters
 
     logical, intent(in) :: primitive
     integer, intent(in) :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S,nw)
     integer, intent(inout) :: flag(ixI^S)
+    double precision, intent(out) :: smallw(1:nw)
     double precision :: tmp(ixI^S)
 
+    smallw=1.d0
     flag(ixO^S)=0
     where(w(ixO^S, rho_) < small_density) flag(ixO^S) = rho_
+    if(any(flag(ixO^S)==rho_)) smallw(rho_)=minval(w(ixO^S,rho_))
 
-    if (mhd_energy) then
-       if (block%e_is_internal) then
-          where(w(ixO^S, e_) < small_pressure*inv_gamma_1) flag(ixO^S) = e_
-       else
-         if (primitive)then
-           where(w(ixO^S, e_) < small_pressure) flag(ixO^S) = e_
-         else
+    if(mhd_energy) then
+      if(primitive) then
+        where(w(ixO^S,e_) < small_pressure) flag(ixO^S) = e_
+        if(any(flag(ixO^S)==e_)) smallw(e_)=minval(w(ixO^S,e_))
+      else
         ! Calculate pressure=(gamma-1)*(e-0.5*(2ek+2eb))
-           tmp(ixO^S)=w(ixO^S,e_) - &
-              mhd_kin_en(w,ixI^L,ixO^L)-mhd_mag_en(w,ixI^L,ixO^L)
-           tmp(ixO^S)=gamma_1*tmp(ixO^S)
-           where(tmp(ixO^S) < small_pressure) flag(ixO^S) = e_
-         end if
-       end if
+        tmp(ixO^S)=w(ixO^S,e_)-&
+            mhd_kin_en(w,ixI^L,ixO^L)-mhd_mag_en(w,ixI^L,ixO^L)
+        tmp(ixO^S)=gamma_1*tmp(ixO^S)
+        where(tmp(ixO^S) < small_pressure) flag(ixO^S) = e_
+        if(any(flag(ixO^S)==e_)) smallw(e_)=minval(tmp(ixO^S))
+      end if
     end if
+
+
   end subroutine mhd_check_w
 
   !> Transform primitive variables into conservative ones
@@ -546,12 +581,12 @@ contains
       call mhd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'mhd_to_conserved')
     end if
 
-    if (mhd_energy) then
-       ! Calculate total energy from pressure, kinetic and magnetic energy
-       w(ixO^S,e_)=w(ixO^S,p_)*inv_gamma_1
-      if(.not.block%e_is_internal) w(ixO^S,e_)=w(ixO^S,e_) + &
-        0.5d0 * sum(w(ixO^S, mom(:))**2, dim=ndim+1) * w(ixO^S, rho_) + &
-        mhd_mag_en(w, ixI^L, ixO^L)
+    ! Calculate total energy from pressure, kinetic and magnetic energy
+    if(mhd_energy) then
+      w(ixO^S,e_)=w(ixO^S,p_)*inv_gamma_1&
+                 +half*sum(w(ixO^S,mom(:))**2,dim=ndim+1)*w(ixO^S,rho_)&
+                 +mhd_mag_en(w, ixI^L, ixO^L)
+      if(mhd_solve_eaux) w(ixO^S,eaux_)=w(ixO^S,paux_)*inv_gamma_1
     end if
 
     ! Convert velocity to momentum
@@ -577,18 +612,17 @@ contains
       call mhd_handle_small_values(.false., w, x, ixI^L, ixO^L, 'mhd_to_primitive')
     end if
 
-    inv_rho = 1.0d0 / w(ixO^S, rho_)
+    inv_rho=1.0d0/w(ixO^S,rho_)
 
-    if (mhd_energy) then
-      ! Calculate pressure = (gamma-1) * (e-ek-eb)
-      if(.not.block%e_is_internal) then
-        w(ixO^S, p_) = w(ixO^S, e_) &
-              - mhd_kin_en(w, ixI^L, ixO^L, inv_rho) &
-              - mhd_mag_en(w, ixI^L, ixO^L)
-      end if
-      w(ixO^S, p_) = gamma_1*w(ixO^S, p_)
+    ! Calculate pressure = (gamma-1) * (e-ek-eb)
+    if(mhd_energy) then
+      w(ixO^S,p_)=w(ixO^S,e_)&
+                  -mhd_kin_en(w,ixI^L,ixO^L,inv_rho)&
+                  -mhd_mag_en(w,ixI^L,ixO^L)
+      w(ixO^S,p_)=w(ixO^S,p_)*gamma_1
+      if(mhd_solve_eaux) w(ixO^S,paux_)=w(ixO^S,eaux_)*gamma_1
     end if
-
+    
     ! Convert momentum to velocity
     do idir = 1, ndir
        w(ixO^S, mom(idir)) = w(ixO^S, mom(idir))*inv_rho
@@ -599,6 +633,44 @@ contains
     end if
   end subroutine mhd_to_primitive
 
+  subroutine mhd_energy_synchro(ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+    integer, intent(in) :: ixI^L,ixO^L
+    double precision, intent(in) :: x(ixI^S,1:ndim)
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+
+    double precision :: pth1(ixI^S),pth2(ixI^S),alfa(ixI^S),beta(ixI^S)
+    double precision, parameter :: beta_low=0.005d0,beta_high=0.05d0
+!    double precision :: vtot(ixI^S),cs2(ixI^S),mach(ixI^S)
+!    double precision, parameter :: mach_low=20.d0,mach_high=200.d0
+
+    ! get magnetic energy
+    alfa(ixO^S)=mhd_mag_en(w,ixI^L,ixO^L)
+    pth1(ixO^S)=gamma_1*(w(ixO^S,e_)-mhd_kin_en(w,ixI^L,ixO^L)-alfa(ixO^S))
+    pth2(ixO^S)=w(ixO^S,eaux_)*gamma_1
+    ! get plasma beta
+    beta(ixO^S)=min(pth1(ixO^S),pth2(ixO^S))/alfa(ixO^S)
+
+    ! whether Mach number should be another criterion ?
+!    vtot(ixO^S)=sum(w(ixO^S,mom(:))**2,dim=ndim+1)
+!    call mhd_get_csound2(w,x,ixI^L,ixO^L,cs2)
+!    mach(ixO^S)=sqrt(vtot(ixO^S)/cs2(ixO^S))/w(ixO^S,rho_)
+    where(beta(ixO^S) .ge. beta_high)
+!    where(beta(ixO^S) .ge. beta_high .and. mach(ixO^S) .le. mach_low)
+      w(ixO^S,eaux_)=pth1(ixO^S)*inv_gamma_1
+    else where(beta(ixO^S) .le. beta_low)
+!    else where(beta(ixO^S) .le. beta_low .or. mach(ixO^S) .ge. mach_high)
+      w(ixO^S,e_)=w(ixO^S,e_)-pth1(ixO^S)*inv_gamma_1+w(ixO^S,eaux_)
+    else where
+      alfa(ixO^S)=dlog(beta(ixO^S)/beta_low)/dlog(beta_high/beta_low)
+!      alfa(ixO^S)=min(dlog(beta(ixO^S)/beta_low)/dlog(beta_high/beta_low),
+!                      dlog(mach_high(ixO^S)/mach(ixO^S))/dlog(mach_high/mach_low))
+      w(ixO^S,eaux_)=(pth2(ixO^S)*(one-alfa(ixO^S))&
+                     +pth1(ixO^S)*alfa(ixO^S))*inv_gamma_1
+      w(ixO^S,e_)=w(ixO^S,e_)-pth1(ixO^S)*inv_gamma_1+w(ixO^S,eaux_)
+    end where
+  end subroutine mhd_energy_synchro
+
   subroutine mhd_handle_small_values(primitive, w, x, ixI^L, ixO^L, subname)
     use mod_global_parameters
     use mod_small_values
@@ -608,12 +680,12 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     character(len=*), intent(in)    :: subname
 
-    double precision :: smallone
+    double precision :: smallw(1:nw)
     integer :: idir, flag(ixI^S)
 
     if (small_values_method == "ignore") return
 
-    call mhd_check_w(primitive, ixI^L, ixO^L, w, flag)
+    call mhd_check_w(primitive, ixI^L, ixO^L, w, flag, smallw)
 
     if (any(flag(ixO^S) /= 0)) then
       select case (small_values_method)
@@ -630,21 +702,33 @@ contains
 
         if (mhd_energy) then
           if (small_values_fix_iw(e_)) then
-            if(primitive) then
-              where(flag(ixO^S) /= 0) w(ixO^S,e_) = small_pressure
+            if(mhd_solve_eaux) then
+              if(primitive) then
+                where(flag(ixO^S) /= 0) w(ixO^S,e_)=w(ixO^S,eaux_)*gamma_1
+              else
+                where(flag(ixO^S) /= 0)
+                  w(ixO^S,e_) = w(ixO^S,eaux_) + 0.5d0 * &
+                       sum(w(ixO^S, mom(:))**2, dim=ndim+1) / w(ixO^S, rho_) + &
+                       mhd_mag_en(w, ixI^L, ixO^L)
+                end where
+              end if
             else
-              where(flag(ixO^S) /= 0)
-                w(ixO^S,e_) = small_e + 0.5d0 * &
-                     sum(w(ixO^S, mom(:))**2, dim=ndim+1) / w(ixO^S, rho_) + &
-                     mhd_mag_en(w, ixI^L, ixO^L)
-              end where
+              if(primitive) then
+                where(flag(ixO^S) /= 0) w(ixO^S,e_) = small_pressure
+              else
+                where(flag(ixO^S) /= 0)
+                  w(ixO^S,e_) = small_e + 0.5d0 * &
+                       sum(w(ixO^S, mom(:))**2, dim=ndim+1) / w(ixO^S, rho_) + &
+                       mhd_mag_en(w, ixI^L, ixO^L)
+                end where
+              end if
             end if
           end if
         end if
       case ("average")
         call small_values_average(ixI^L, ixO^L, w, x, flag)
       case default
-        call small_values_error(w, x, ixI^L, ixO^L, flag, subname)
+        call small_values_error(w, x, ixI^L, ixO^L, flag, subname, smallw)
       end select
     end if
   end subroutine mhd_handle_small_values
@@ -656,12 +740,11 @@ contains
     double precision,intent(inout)  :: w(ixI^S,nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
 
-    if (mhd_energy) then
-      if(.not.block%e_is_internal) &
-        w(ixO^S, e_) = w(ixO^S, e_) - mhd_kin_en(w, ixI^L, ixO^L) &
-              - mhd_mag_en(w, ixI^L, ixO^L)
-      w(ixO^S, e_) = gamma_1* w(ixO^S, rho_)**(1.0d0 - mhd_gamma) * &
-            w(ixO^S, e_)
+    if(mhd_energy) then
+      w(ixO^S, e_)=w(ixO^S, e_)-mhd_kin_en(w, ixI^L, ixO^L) &
+                   -mhd_mag_en(w, ixI^L, ixO^L)
+      w(ixO^S, e_)=gamma_1*w(ixO^S, rho_)**(1.0d0 - mhd_gamma)&
+                  *w(ixO^S, e_)    
     else
       call mpistop("e_to_rhos can not be used without energy equation!")
     end if
@@ -674,11 +757,10 @@ contains
     double precision :: w(ixI^S,nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
 
-    if (mhd_energy) then
-       w(ixO^S, e_) = w(ixO^S, rho_)**gamma_1 * w(ixO^S, e_) &
+    if(mhd_energy) then
+       w(ixO^S, e_)=w(ixO^S, rho_)**gamma_1 * w(ixO^S, e_) &
             * inv_gamma_1
-       if(.not.block%e_is_internal) &
-         w(ixO^S, e_) =w(ixO^S, e_) + mhd_kin_en(w, ixI^L, ixO^L) + &
+       w(ixO^S, e_)=w(ixO^S, e_)+mhd_kin_en(w, ixI^L, ixO^L) + &
             mhd_mag_en(w, ixI^L, ixO^L)
     else
        call mpistop("rhos_to_e can not be used without energy equation!")
@@ -726,6 +808,86 @@ contains
     cmax(ixO^S)=abs(w(ixO^S,mom(idim))/w(ixO^S,rho_))+cmax(ixO^S)
 
   end subroutine mhd_get_cmax
+
+  subroutine mhd_get_a2max(w,x,ixI^L,ixO^L,a2max)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, nw), x(ixI^S,1:ndim)
+    double precision, intent(inout) :: a2max(ndim)
+    double precision :: a2(ixI^S,ndim,nw)
+    integer :: gxO^L,hxO^L,jxO^L,kxO^L,i,j
+
+    a2=zero
+    do i = 1,ndim
+      !> 4th order
+      hxO^L=ixO^L-kr(i,^D);
+      gxO^L=hxO^L-kr(i,^D);
+      jxO^L=ixO^L+kr(i,^D);
+      kxO^L=jxO^L+kr(i,^D);
+      a2(ixO^S,i,1:nw)=abs(-w(kxO^S,1:nw)+16.d0*w(jxO^S,1:nw)&
+         -30.d0*w(ixO^S,1:nw)+16.d0*w(hxO^S,1:nw)-w(gxO^S,1:nw))
+      a2max(i)=maxval(a2(ixO^S,i,1:nw))/12.d0/dxlevel(i)**2
+    end do
+  end subroutine mhd_get_a2max
+
+  !> get adaptive cutoff temperature for TRAC (Johnston 2019 ApJL, 873, L22)
+  subroutine mhd_get_tcutoff(ixI^L,ixO^L,w,x,tco_local,Tmax_local)
+    use mod_global_parameters
+    use mod_geometry
+    integer, intent(in) :: ixI^L,ixO^L
+    double precision, intent(in) :: x(ixI^S,1:ndim),w(ixI^S,1:nw)
+    double precision, intent(out) :: tco_local, Tmax_local
+
+    double precision, parameter :: delta=0.5d0
+    double precision :: tmp1(ixI^S),Te(ixI^S),lts(ixI^S)
+    double precision, dimension(ixI^S,1:ndir) :: bunitvec
+    double precision, dimension(ixI^S,1:ndim) :: gradT
+    integer :: idims
+    logical :: lrlt(ixI^S)
+
+    tmp1(ixI^S)=w(ixI^S,e_)-0.5d0*(sum(w(ixI^S,iw_mom(:))**2,dim=ndim+1)/&
+                       w(ixI^S,rho_)+sum(w(ixI^S,iw_mag(:))**2,dim=ndim+1))
+    Te(ixI^S)=tmp1(ixI^S)/w(ixI^S,rho_)*(mhd_gamma-1.d0)
+
+    Tmax_local=maxval(Te(ixO^S))
+
+    ! temperature gradient at cell centers
+    do idims=1,ndim
+      call gradient(Te,ixI^L,ixO^L,idims,tmp1)
+      gradT(ixO^S,idims)=tmp1(ixO^S)
+    end do
+    ! B vector
+    if(B0field) then
+      bunitvec(ixO^S,:)=w(ixO^S,iw_mag(:))+block%B0(ixO^S,:,0)
+    else
+      bunitvec(ixO^S,:)=w(ixO^S,iw_mag(:))
+    end if
+    ! |B|
+    tmp1(ixO^S)=dsqrt(sum(bunitvec(ixO^S,:)**2,dim=ndim+1))
+    where(tmp1(ixO^S)/=0.d0)
+      tmp1(ixO^S)=1.d0/tmp1(ixO^S)
+    elsewhere
+      tmp1(ixO^S)=bigdouble
+    end where
+    ! b unit vector: magnetic field direction vector
+    do idims=1,ndim
+      bunitvec(ixO^S,idims)=bunitvec(ixO^S,idims)*tmp1(ixO^S)
+    end do
+    ! temperature length scale inversed
+    lts(ixO^S)=abs(sum(gradT(ixO^S,1:ndim)*bunitvec(ixO^S,1:ndim),dim=ndim+1))/Te(ixO^S)
+    ! fraction of cells size to temperature length scale
+    lts(ixO^S)=minval(dxlevel)*lts(ixO^S)
+    lrlt=.false.
+    where(lts(ixO^S) > delta)
+      lrlt(ixO^S)=.true.
+    end where
+    block%special_values(1)=0.d0
+    if(any(lrlt(ixO^S))) then
+      block%special_values(1)=maxval(Te(ixO^S), mask=lrlt(ixO^S))
+    end if
+
+  end subroutine mhd_get_tcutoff
 
   !> Estimating bounds for the minimum and maximum signal velocities
   subroutine mhd_get_cbounds(wLC,wRC,wLp,wRp,x,ixI^L,ixO^L,idim,cmax,cmin)
@@ -928,18 +1090,36 @@ contains
     double precision, intent(in) :: x(ixI^S,1:ndim)
     double precision, intent(out):: pth(ixI^S)
 
+    if (check_small_values) then
+      call mhd_find_small_values(.false., w, x, ixI^L, ixO^L, 'mhd_get_pthermal')
+    end if
+
     if(mhd_energy) then
-      if(block%e_is_internal) then
-        pth(ixO^S)=gamma_1*w(ixO^S,e_)
-      else
-        pth(ixO^S)=gamma_1*(w(ixO^S,e_)&
-           - mhd_kin_en(w,ixI^L,ixO^L)&
-           - mhd_mag_en(w,ixI^L,ixO^L))
-      end if
+      pth(ixO^S)=gamma_1*(w(ixO^S,e_)&
+         - mhd_kin_en(w,ixI^L,ixO^L)&
+         - mhd_mag_en(w,ixI^L,ixO^L))
     else
       pth(ixO^S)=mhd_adiab*w(ixO^S,rho_)**mhd_gamma
     end if
   end subroutine mhd_get_pthermal
+
+  subroutine mhd_find_small_values(primitive, w, x, ixI^L, ixO^L, subname)
+    use mod_global_parameters
+    use mod_small_values
+    logical, intent(in)             :: primitive
+    integer, intent(in)             :: ixI^L,ixO^L
+    double precision, intent(in)    :: w(ixI^S,1:nw)
+    double precision, intent(in)    :: x(ixI^S,1:ndim)
+    character(len=*), intent(in)    :: subname
+
+    double precision :: smallw(1:nw)
+    integer :: idir, flag(ixI^S)
+
+    call mhd_check_w(primitive, ixI^L, ixO^L, w, flag, smallw)
+
+    if (any(flag(ixO^S) /= 0)) call small_values_error(w, x, ixI^L, ixO^L, flag, subname, smallw)
+
+  end subroutine mhd_find_small_values
 
   !> Calculate the square of the thermal sound speed csound2 within ixO^L.
   !> csound2=gamma*p/rho
@@ -976,7 +1156,6 @@ contains
   !> Calculate fluxes within ixO^L.
   subroutine mhd_get_flux(wC,w,x,ixI^L,ixO^L,idim,f)
     use mod_global_parameters
-    use mod_usr_methods
     use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L, idim
@@ -1045,37 +1224,30 @@ contains
 
     ! Get flux of energy
     ! f_i[e]=v_i*e+v_i*ptotal-b_i*(b_k*v_k)
-    if (mhd_energy) then
-       if (block%e_is_internal) then
-          f(ixO^S,e_)=w(ixO^S,mom(idim))*w(ixO^S,p_)
-          if (mhd_Hall) then
-             call mpistop("solve pthermal not designed for Hall MHD")
-          endif
-       else
-          f(ixO^S,e_)=w(ixO^S,mom(idim))*(wC(ixO^S,e_) + ptotal(ixO^S))- &
-             w(ixO^S,mag(idim))*sum(w(ixO^S,mag(:))*w(ixO^S,mom(:)),dim=ndim+1)
+    if(mhd_energy) then
+      f(ixO^S,e_)=w(ixO^S,mom(idim))*(wC(ixO^S,e_)+ptotal(ixO^S))&
+         -w(ixO^S,mag(idim))*sum(w(ixO^S,mag(:))*w(ixO^S,mom(:)),dim=ndim+1)
+      if(mhd_solve_eaux) f(ixO^S,eaux_)=w(ixO^S,mom(idim))*wC(ixO^S,eaux_)
 
-          if (B0field) then
-             f(ixO^S,e_) = f(ixO^S,e_) &
-                + w(ixO^S,mom(idim)) * tmp(ixO^S) &
-                - sum(w(ixO^S,mom(:))*w(ixO^S,mag(:)),dim=ndim+1) * block%B0(ixO^S,idim,idim)
-          end if
+      if (B0field) then
+         f(ixO^S,e_) = f(ixO^S,e_) &
+            + w(ixO^S,mom(idim)) * tmp(ixO^S) &
+            - sum(w(ixO^S,mom(:))*w(ixO^S,mag(:)),dim=ndim+1) * block%B0(ixO^S,idim,idim)
+      end if
 
-          if (mhd_Hall) then
-          ! f_i[e]= f_i[e] + vHall_i*(b_k*b_k) - b_i*(vHall_k*b_k)
-             if (mhd_etah>zero) then
-                f(ixO^S,e_) = f(ixO^S,e_) + vHall(ixO^S,idim) * &
-                   sum(w(ixO^S, mag(:))**2,dim=ndim+1) &
-                   - w(ixO^S,mag(idim)) * sum(vHall(ixO^S,:)*w(ixO^S,mag(:)),dim=ndim+1)
-                if (B0field) then
-                   f(ixO^S,e_) = f(ixO^S,e_) &
-                      + vHall(ixO^S,idim) * tmp(ixO^S) &
-                      - sum(vHall(ixO^S,:)*w(ixO^S,mag(:)),dim=ndim+1) * block%B0(ixO^S,idim,idim)
-                end if
-             end if
-          end if
-
-       end if
+      if (mhd_Hall) then
+      ! f_i[e]= f_i[e] + vHall_i*(b_k*b_k) - b_i*(vHall_k*b_k)
+         if (mhd_etah>zero) then
+            f(ixO^S,e_) = f(ixO^S,e_) + vHall(ixO^S,idim) * &
+               sum(w(ixO^S, mag(:))**2,dim=ndim+1) &
+               - w(ixO^S,mag(idim)) * sum(vHall(ixO^S,:)*w(ixO^S,mag(:)),dim=ndim+1)
+            if (B0field) then
+               f(ixO^S,e_) = f(ixO^S,e_) &
+                  + vHall(ixO^S,idim) * tmp(ixO^S) &
+                  - sum(vHall(ixO^S,:)*w(ixO^S,mag(:)),dim=ndim+1) * block%B0(ixO^S,idim,idim)
+            end if
+         end if
+      end if
     end if
 
     ! compute flux of magnetic field
@@ -1138,7 +1310,7 @@ contains
 
     if (.not. qsourcesplit) then
       ! Source for solving internal energy
-      if (mhd_energy .and. block%e_is_internal) then
+      if(mhd_energy .and. mhd_solve_eaux) then
         active = .true.
         call internal_energy_add_source(qdt,ixI^L,ixO^L,wCT,w,x)
       endif
@@ -1262,7 +1434,6 @@ contains
   subroutine boris_add_source(qdt,ixI^L,ixO^L,wCT,w,x,&
        qsourcesplit,active)
     use mod_global_parameters
-    use mod_usr_methods
 
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: qdt, x(ixI^S,1:ndim)
@@ -1356,10 +1527,17 @@ contains
     double precision                :: pth(ixI^S),v(ixI^S,1:ndir),divv(ixI^S)
 
     call mhd_get_v(wCT,x,ixI^L,ixI^L,v)
-    call divvector(v,ixI^L,ixO^L,divv)
+    if(slab_uniform) then
+      if(nghostcells .gt. 2) then
+        call divvector(v,ixI^L,ixO^L,divv,sixthorder=.true.)
+      else
+        call divvector(v,ixI^L,ixO^L,divv,fourthorder=.true.)
+      end if
+    else
+     call divvector(v,ixI^L,ixO^L,divv)
+    end if
     call mhd_get_pthermal(wCT,x,ixI^L,ixO^L,pth)
-    w(ixO^S,e_)=w(ixO^S,e_)-qdt*pth(ixO^S)*divv(ixO^S)
-
+    w(ixO^S,eaux_)=w(ixO^S,eaux_)-qdt*pth(ixO^S)*divv(ixO^S)
   end subroutine internal_energy_add_source
 
   !> Source terms after split off time-independent magnetic field
@@ -1391,23 +1569,21 @@ contains
     end if
 
     if(mhd_energy) then
-      if(.not.block%e_is_internal) then
-        a=0.d0
-        ! for free-free field -(vxB0) dot J0 =0
-        b(ixO^S,:)=wCT(ixO^S,mag(:))
-        ! store full magnetic field B0+B1 in b
-        if(.not.B0field_forcefree) b(ixO^S,:)=b(ixO^S,:)+block%B0(ixO^S,:,0)
-        ! store velocity in a
-        do idir=1,ndir
-          a(ixO^S,idir)=wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)
-        end do
-        call cross_product(ixI^L,ixO^L,a,b,axb)
-        axb(ixO^S,:)=axb(ixO^S,:)*qdt
-        ! add -(vxB) dot J0 source term in energy equation
-        do idir=7-2*ndir,3
-          w(ixO^S,e_)=w(ixO^S,e_)-axb(ixO^S,idir)*block%J0(ixO^S,idir)
-        end do
-      end if
+      a=0.d0
+      ! for free-free field -(vxB0) dot J0 =0
+      b(ixO^S,:)=wCT(ixO^S,mag(:))
+      ! store full magnetic field B0+B1 in b
+      if(.not.B0field_forcefree) b(ixO^S,:)=b(ixO^S,:)+block%B0(ixO^S,:,0)
+      ! store velocity in a
+      do idir=1,ndir
+        a(ixO^S,idir)=wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)
+      end do
+      call cross_product(ixI^L,ixO^L,a,b,axb)
+      axb(ixO^S,:)=axb(ixO^S,:)*qdt
+      ! add -(vxB) dot J0 source term in energy equation
+      do idir=7-2*ndir,3
+        w(ixO^S,e_)=w(ixO^S,e_)-axb(ixO^S,idir)*block%J0(ixO^S,idir)
+      end do
     end if
 
     if (check_small_values) call mhd_handle_small_values(.false.,w,x,ixI^L,ixO^L,'add_source_B0')
@@ -1512,8 +1688,10 @@ contains
        w(ixO^S,mag(idir))=w(ixO^S,mag(idir))+qdt*tmp(ixO^S)
        if (mhd_energy) then
           w(ixO^S,e_)=w(ixO^S,e_)+qdt*tmp(ixO^S)*Bf(ixO^S,idir)
+          if(mhd_solve_eaux) then
+            w(ixO^S,eaux_)=w(ixO^S,eaux_)+qdt*tmp(ixO^S)*Bf(ixO^S,idir)
+          end if
        end if
-
     end do ! idir
 
     if (mhd_energy) then
@@ -1523,6 +1701,9 @@ contains
           tmp(ixO^S)=tmp(ixO^S)+current(ixO^S,idir)**2
        end do
        w(ixO^S,e_)=w(ixO^S,e_)+qdt*eta(ixO^S)*tmp(ixO^S)
+       if(mhd_solve_eaux) then
+         w(ixO^S,eaux_)=w(ixO^S,eaux_)+qdt*eta(ixO^S)*tmp(ixO^S)
+       end if
     end if
 
     if (check_small_values) call mhd_handle_small_values(.false.,w,x,ixI^L,ixO^L,'add_source_res1')
@@ -1581,10 +1762,13 @@ contains
       ! de1/dt= eta J^2 - B1 dot curl(eta J)
       w(ixO^S,e_)=w(ixO^S,e_)+qdt*(sum(current(ixO^S,:)**2,dim=ndim+1)*eta(ixO^S)-&
         sum(wCT(ixO^S,mag(1:ndir))*curlj(ixO^S,1:ndir),dim=ndim+1))
+      if(mhd_solve_eaux) then
+        w(ixO^S,eaux_)=w(ixO^S,eaux_)+qdt*(sum(current(ixO^S,:)**2,dim=ndim+1)*eta(ixO^S)-&
+            sum(wCT(ixO^S,mag(1:ndir))*curlj(ixO^S,1:ndir),dim=ndim+1))
+      end if
     end if
 
     if (check_small_values) call mhd_handle_small_values(.false.,w,x,ixI^L,ixO^L,'add_source_res2')
-
   end subroutine add_source_res2
 
   !> Add Hyper-resistive source to w within ixO
@@ -1639,6 +1823,9 @@ contains
       tmp(ixO^S)=zero
       call divvector(tmpvec2,ixI^L,ixO^L,tmp)
       w(ixO^S,e_)=w(ixO^S,e_)+tmp(ixO^S)*qdt
+      if(mhd_solve_eaux) then
+          w(ixO^S,eaux_)=w(ixO^S,eaux_)+tmp(ixO^S)*qdt
+      end if
     end if
 
     if (check_small_values)  call mhd_handle_small_values(.false.,w,x,ixI^L,ixO^L,'add_source_hyperres')
@@ -1683,7 +1870,7 @@ contains
        case("limited")
           call gradientS(wCT(ixI^S,psi_),ixI^L,ixO^L,idim,gradPsi)
        end select
-       if (mhd_energy .and. .not.block%e_is_internal) then
+       if (mhd_energy) then
        ! e  = e  -qdt (b . grad(Psi))
          w(ixO^S,e_) = w(ixO^S,e_)-qdt*wCT(ixO^S,mag(idim))*gradPsi(ixO^S)
        end if
@@ -1714,7 +1901,7 @@ contains
     ! calculate velocity
     call mhd_get_v(wCT,x,ixI^L,ixO^L,v)
 
-    if (mhd_energy .and. .not.block%e_is_internal) then
+    if (mhd_energy) then
       ! e = e - qdt (v . b) * div b
       w(ixO^S,e_)=w(ixO^S,e_)-&
            qdt*sum(v(ixO^S,:)*wCT(ixO^S,mag(:)),dim=ndim+1)*divb(ixO^S)
@@ -1821,7 +2008,7 @@ contains
 
        w(ixp^S,mag(idim))=w(ixp^S,mag(idim))+graddivb(ixp^S)
 
-       if (mhd_energy .and. typedivbdiff=='all' .and. .not.block%e_is_internal) then
+       if (mhd_energy .and. typedivbdiff=='all') then
          ! e += B_idim*eta*grad_idim(divb)
          w(ixp^S,e_)=w(ixp^S,e_)+wCT(ixp^S,mag(idim))*graddivb(ixp^S)
        end if
@@ -2229,9 +2416,11 @@ contains
 
   end subroutine mhd_getdt_Hall
 
-  subroutine mhd_modify_wLR(ixI^L,ixO^L,wLC,wRC,wLp,wRp,s,idir)
+  subroutine mhd_modify_wLR(ixI^L,ixO^L,qt,wLC,wRC,wLp,wRp,s,idir)
     use mod_global_parameters
+    use mod_usr_methods
     integer, intent(in)             :: ixI^L, ixO^L, idir
+    double precision, intent(in)    :: qt
     double precision, intent(inout) :: wLC(ixI^S,1:nw), wRC(ixI^S,1:nw)
     double precision, intent(inout) :: wLp(ixI^S,1:nw), wRp(ixI^S,1:nw)
     type(state)                     :: s
@@ -2259,7 +2448,13 @@ contains
 
       wRp(ixO^S,mag(idir)) = wLp(ixO^S,mag(idir))
       wRp(ixO^S,psi_) = wLp(ixO^S,psi_)
+      wRC(ixO^S,mag(idir)) = wLp(ixO^S,mag(idir))
+      wRC(ixO^S,psi_) = wLp(ixO^S,psi_)
+      wLC(ixO^S,mag(idir)) = wLp(ixO^S,mag(idir))
+      wLC(ixO^S,psi_) = wLp(ixO^S,psi_)
     end if
+
+    if(associated(usr_set_wLR)) call usr_set_wLR(ixI^L,ixO^L,qt,wLC,wRC,wLp,wRp,s,idir)
 
   end subroutine mhd_modify_wLR
 
@@ -2320,7 +2515,7 @@ contains
     select case(iB)
      case(1)
        ! 2nd order CD for divB=0 to set normal B component better
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_primitive(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_primitive(ixG^L,ixO^L,w,x)
        {^IFTWOD
        ixFmin1=ixOmin1+1
        ixFmax1=ixOmax1+1
@@ -2386,9 +2581,9 @@ contains
          end do
        end if
        }
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_conserved(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_conserved(ixG^L,ixO^L,w,x)
      case(2)
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_primitive(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_primitive(ixG^L,ixO^L,w,x)
        {^IFTWOD
        ixFmin1=ixOmin1-1
        ixFmax1=ixOmax1-1
@@ -2454,9 +2649,9 @@ contains
          end do
        end if
        }
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_conserved(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_conserved(ixG^L,ixO^L,w,x)
      case(3)
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_primitive(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_primitive(ixG^L,ixO^L,w,x)
        {^IFTWOD
        ixFmin1=ixOmin1+1
        ixFmax1=ixOmax1-1
@@ -2522,9 +2717,9 @@ contains
          end do
        end if
        }
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_conserved(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_conserved(ixG^L,ixO^L,w,x)
      case(4)
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_primitive(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_primitive(ixG^L,ixO^L,w,x)
        {^IFTWOD
        ixFmin1=ixOmin1+1
        ixFmax1=ixOmax1-1
@@ -2590,10 +2785,10 @@ contains
          end do
        end if
        }
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_conserved(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_conserved(ixG^L,ixO^L,w,x)
      {^IFTHREED
      case(5)
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_primitive(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_primitive(ixG^L,ixO^L,w,x)
        ixFmin1=ixOmin1+1
        ixFmax1=ixOmax1-1
        ixFmin2=ixOmin2+1
@@ -2633,9 +2828,9 @@ contains
              w(ixFmin1:ixFmax1,ixFmin2:ixFmax2,ix3,mag(3))
          end do
        end if
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_conserved(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_conserved(ixG^L,ixO^L,w,x)
      case(6)
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_primitive(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_primitive(ixG^L,ixO^L,w,x)
        ixFmin1=ixOmin1+1
        ixFmax1=ixOmax1-1
        ixFmin2=ixOmin2+1
@@ -2675,7 +2870,7 @@ contains
              w(ixFmin1:ixFmax1,ixFmin2:ixFmax2,ix3,mag(3))
          end do
        end if
-       if(mhd_energy.and..not.block%e_is_internal) call mhd_to_conserved(ixG^L,ixO^L,w,x)
+       if(mhd_energy) call mhd_to_conserved(ixG^L,ixO^L,w,x)
      }
      case default
        call mpistop("Special boundary is not defined for this region")
@@ -2804,30 +2999,30 @@ contains
            ixCmin^D=ixMlo^D-kr(idim,^D);
            ixCmax^D=ixMhi^D;
            call gradientx(tmp,ps(igrid)%x,ixG^LL,ixC^L,idim,grad(ixG^T,idim),.false.)
+           ! Apply the correction B* = B - gradient(phi)
            ps(igrid)%ws(ixC^S,idim)=ps(igrid)%ws(ixC^S,idim)-grad(ixC^S,idim)
          end do
+         ! store cell-center magnetic energy
+         tmp(ixM^T) = sum(ps(igrid)%w(ixM^T, mag(1:ndim))**2, dim=ndim+1)
+         ! change cell-center magnetic field
          call mhd_face_to_center(ixM^LL,ps(igrid))
        else
          do idim = 1, ndim
             call gradient(tmp,ixG^LL,ixM^LL,idim,grad(ixG^T, idim))
          end do
-         ! Apply the correction B* = B - gradient(phi)
+         ! store cell-center magnetic energy
          tmp(ixM^T) = sum(ps(igrid)%w(ixM^T, mag(1:ndim))**2, dim=ndim+1)
+         ! Apply the correction B* = B - gradient(phi)
          ps(igrid)%w(ixM^T, mag(1:ndim)) = &
               ps(igrid)%w(ixM^T, mag(1:ndim)) - grad(ixM^T, :)
        end if
 
-       ! Determine magnetic energy difference
-       tmp(ixM^T) = 0.5_dp * (sum(ps(igrid)%w(ixM^T, &
-            mag(1:ndim))**2, dim=ndim+1) - tmp(ixM^T))
-
-       if (mhd_energy) then
-          ! Keep thermal pressure the same
-          ps(igrid)%w(ixM^T, e_) = ps(igrid)%w(ixM^T, e_) + tmp(ixM^T)
-
-          ! Possible alternative: keep total pressure the same
-          ! ps(igrid)%w(ixM^T, e_)     = ps(igrid)%w(ixM^T, e_) + &
-          !      (mhd_gamma-2) * inv_gamma_1 * tmp(ixM^T)
+       if(mhd_energy) then
+         ! Determine magnetic energy difference
+         tmp(ixM^T) = 0.5_dp * (sum(ps(igrid)%w(ixM^T, &
+              mag(1:ndim))**2, dim=ndim+1) - tmp(ixM^T))
+         ! Keep thermal pressure the same
+         ps(igrid)%w(ixM^T, e_) = ps(igrid)%w(ixM^T, e_) + tmp(ixM^T)
        end if
     end do
 
@@ -2836,11 +3031,11 @@ contains
   end subroutine mhd_clean_divb_multigrid
   }
 
-  subroutine mhd_update_faces(ixI^L,ixO^L,qdt,wprim,fC,fE,sCT,s)
+  subroutine mhd_update_faces(ixI^L,ixO^L,qt,qdt,wprim,fC,fE,sCT,s)
     use mod_global_parameters
 
     integer, intent(in)                :: ixI^L, ixO^L
-    double precision, intent(in)       :: qdt
+    double precision, intent(in)       :: qt,qdt
     ! cell-center primitive variables
     double precision, intent(in)       :: wprim(ixI^S,1:nw)
     type(state)                        :: sCT, s
@@ -2849,11 +3044,11 @@ contains
 
     select case(type_ct)
     case('average')
-      call update_faces_average(ixI^L,ixO^L,qdt,fC,fE,sCT,s)
+      call update_faces_average(ixI^L,ixO^L,qt,qdt,fC,fE,sCT,s)
     case('uct_contact')
-      call update_faces_contact(ixI^L,ixO^L,qdt,wprim,fC,fE,sCT,s)
+      call update_faces_contact(ixI^L,ixO^L,qt,qdt,wprim,fC,fE,sCT,s)
     case('uct_hll')
-      call update_faces_hll(ixI^L,ixO^L,qdt,fE,sCT,s)
+      call update_faces_hll(ixI^L,ixO^L,qt,qdt,fE,sCT,s)
     case default
       call mpistop('choose average, uct_contact,or uct_hll for type_ct!')
     end select
@@ -2861,13 +3056,13 @@ contains
   end subroutine mhd_update_faces
 
   !> get electric field though averaging neighors to update faces in CT
-  subroutine update_faces_average(ixI^L,ixO^L,qdt,fC,fE,sCT,s)
+  subroutine update_faces_average(ixI^L,ixO^L,qt,qdt,fC,fE,sCT,s)
     use mod_global_parameters
     use mod_constrained_transport
     use mod_usr_methods
 
     integer, intent(in)                :: ixI^L, ixO^L
-    double precision, intent(in)       :: qdt
+    double precision, intent(in)       :: qt, qdt
     type(state)                        :: sCT, s
     double precision, intent(in)       :: fC(ixI^S,1:nwflux,1:ndim)
     double precision, intent(inout)    :: fE(ixI^S,7-2*ndim:3)
@@ -2922,7 +3117,7 @@ contains
 
     ! allow user to change inductive electric field, especially for boundary driven applications
     if(associated(usr_set_electric_field)) &
-      call usr_set_electric_field(ixI^L,ixO^L,qdt,fE,sCT)
+      call usr_set_electric_field(ixI^L,ixO^L,qt,qdt,fE,sCT)
 
     circ(ixI^S,1:ndim)=zero
 
@@ -2960,13 +3155,13 @@ contains
   end subroutine update_faces_average
 
   !> update faces using UCT contact mode by Gardiner and Stone 2005 JCP 205, 509
-  subroutine update_faces_contact(ixI^L,ixO^L,qdt,wp,fC,fE,sCT,s)
+  subroutine update_faces_contact(ixI^L,ixO^L,qt,qdt,wp,fC,fE,sCT,s)
     use mod_global_parameters
     use mod_constrained_transport
     use mod_usr_methods
 
     integer, intent(in)                :: ixI^L, ixO^L
-    double precision, intent(in)       :: qdt
+    double precision, intent(in)       :: qt, qdt
     ! cell-center primitive variables
     double precision, intent(in)       :: wp(ixI^S,1:nw)
     type(state)                        :: sCT, s
@@ -2982,18 +3177,25 @@ contains
     double precision                   :: ELC(ixI^S),ERC(ixI^S)
     ! current on cell edges
     double precision                   :: jce(ixI^S,7-2*ndim:3)
+    ! total magnetic field at cell centers
+    double precision                   :: Btot(ixI^S,1:ndim)
     integer                            :: hxC^L,ixC^L,jxC^L,ixA^L,ixB^L
     integer                            :: idim1,idim2,idir,iwdim1,iwdim2
 
     associate(bfaces=>s%ws,x=>s%x,w=>s%w,vnorm=>vcts%vnorm)
 
+    if(B0field) then
+      Btot(ixI^S,1:ndim)=wp(ixI^S,mag(1:ndim))+block%B0(ixI^S,1:ndim,0)
+    else
+      Btot(ixI^S,1:ndim)=wp(ixI^S,mag(1:ndim))
+    end if
     ECC=0.d0
     ! Calculate electric field at cell centers
     do idim1=1,ndim; do idim2=1,ndim; do idir=7-2*ndim,3
       if(lvc(idim1,idim2,idir)==1)then
-         ECC(ixI^S,idir)=ECC(ixI^S,idir)+wp(ixI^S,mag(idim1))*wp(ixI^S,mom(idim2))
+         ECC(ixI^S,idir)=ECC(ixI^S,idir)+Btot(ixI^S,idim1)*wp(ixI^S,mom(idim2))
       else if(lvc(idim1,idim2,idir)==-1) then
-         ECC(ixI^S,idir)=ECC(ixI^S,idir)-wp(ixI^S,mag(idim1))*wp(ixI^S,mom(idim2))
+         ECC(ixI^S,idir)=ECC(ixI^S,idir)-Btot(ixI^S,idim1)*wp(ixI^S,mom(idim2))
       endif
     enddo; enddo; enddo
 
@@ -3086,7 +3288,7 @@ contains
 
     ! allow user to change inductive electric field, especially for boundary driven applications
     if(associated(usr_set_electric_field)) &
-      call usr_set_electric_field(ixI^L,ixO^L,qdt,fE,sCT)
+      call usr_set_electric_field(ixI^L,ixO^L,qt,qdt,fE,sCT)
 
     circ(ixI^S,1:ndim)=zero
 
@@ -3122,18 +3324,19 @@ contains
   end subroutine update_faces_contact
 
   !> update faces
-  subroutine update_faces_hll(ixI^L,ixO^L,qdt,fE,sCT,s)
+  subroutine update_faces_hll(ixI^L,ixO^L,qt,qdt,fE,sCT,s)
     use mod_global_parameters
     use mod_constrained_transport
     use mod_usr_methods
 
     integer, intent(in)                :: ixI^L, ixO^L
-    double precision, intent(in)       :: qdt
+    double precision, intent(in)       :: qt, qdt
     double precision, intent(inout)    :: fE(ixI^S,7-2*ndim:3)
     type(state)                        :: sCT, s
 
     double precision                   :: vtilL(ixI^S,2)
     double precision                   :: vtilR(ixI^S,2)
+    double precision                   :: bfacetot(ixI^S,ndim)
     double precision                   :: btilL(s%ixGs^S,ndim)
     double precision                   :: btilR(s%ixGs^S,ndim)
     double precision                   :: cp(ixI^S,2)
@@ -3192,10 +3395,17 @@ contains
       ! Reconstruct magnetic fields
       ! Eventhough the arrays are larger, reconstruct works with
       ! the limits ixG.
-      call reconstruct(ixI^L,ixC^L,idim2,bfaces(ixI^S,idim1),&
+      if(B0field) then
+        bfacetot(ixI^S,idim1)=bfaces(ixI^S,idim1)+block%B0(ixI^S,idim1,idim1)
+        bfacetot(ixI^S,idim2)=bfaces(ixI^S,idim2)+block%B0(ixI^S,idim2,idim2)
+      else
+        bfacetot(ixI^S,idim1)=bfaces(ixI^S,idim1)
+        bfacetot(ixI^S,idim2)=bfaces(ixI^S,idim2)
+      end if
+      call reconstruct(ixI^L,ixC^L,idim2,bfacetot(ixI^S,idim1),&
                btilL(ixI^S,idim1),btilR(ixI^S,idim1))
 
-      call reconstruct(ixI^L,ixC^L,idim1,bfaces(ixI^S,idim2),&
+      call reconstruct(ixI^L,ixC^L,idim1,bfacetot(ixI^S,idim2),&
                btilL(ixI^S,idim2),btilR(ixI^S,idim2))
 
       ! Take the maximum characteristic
@@ -3232,7 +3442,7 @@ contains
 
     ! allow user to change inductive electric field, especially for boundary driven applications
     if(associated(usr_set_electric_field)) &
-      call usr_set_electric_field(ixI^L,ixO^L,qdt,fE,sCT)
+      call usr_set_electric_field(ixI^L,ixO^L,qt,qdt,fE,sCT)
 
     circ(ixI^S,1:ndim)=zero
 

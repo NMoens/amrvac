@@ -41,6 +41,7 @@ simulations using non-Cartesian grids.
 * [Thermal conduction](thermal_conduction.md) Description of solving thermal conduction.
 * [Radiative cooling](radiative_cooling.md) Description of adding radiative cooling.
 * [Pressure less fluids (dust)](dust.md) Getting started with the dust module.
+* [Test particles in (M)HD](particle.md) Description of test particle tracing routines.
 * [Adding a new physics module](addmodule.md) Description of how to add your own physics module.
 
 # Source Code {#source_code}
@@ -55,6 +56,7 @@ files.
 # IO and data analysis {#io}
 
 * [File format](fileformat.md) Description of the format of MPI-AMRVAC data file (.dat).
+* [Visualisation and analysis in Python with yt](yt_usage.md) without data conversion (beta).
 * [Converting data files for visualization](convert.md) Brief notes on how to
 convert to Tecplot (.plt), and VTK (.vtu) data files.
 * [Slices](slices.md) How to output hypersurfaces (slices) for restart or
@@ -63,7 +65,11 @@ visualization.
 visualisation and analysis (e.g. column densities).
 * [Analysis routine](analysis.md) Using the run-time analysis routine.
 
-# Python tools {#io-python}
+# Legacy Python tools {#io-python}
+> These tools are bundled within AMRVAC's main repo.
+> They are kept for backward compatibility but are now superseded
+> by yt ([see our documentation](yt_usage.md)).
+
 * [Setting up](python_setup.md) What's needed to start using the tools.
 * [Reading dat files](python_datfiles.md) How to read the native .dat files.
 * [Reading vtu files](python_vtkfiles.md) How to read vtk-type files.

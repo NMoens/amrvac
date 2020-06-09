@@ -14,7 +14,6 @@ module mod_global_parameters
   public
 
   ! Parameters
-
   character(len=*), parameter :: undefined = 'undefined'
 
   !> @todo Move mpi related variables to e.g. mod_comm
@@ -49,14 +48,6 @@ module mod_global_parameters
   !> MPI type for IO: cell corner (wc) or cell center (wcc) variables
   integer :: type_block_wc_io,type_block_wcc_io
 
-  !> MPI recv send variables for AMR
-  integer :: itag, irecv, isend
-  integer, dimension(:), allocatable :: recvrequest, sendrequest
-  integer, dimension(:,:), allocatable :: recvstatus, sendstatus
-  !> MPI recv send variables for staggered-variable AMR
-  integer :: itag_stg
-  integer, dimension(:), allocatable :: recvrequest_stg, sendrequest_stg
-  integer, dimension(:,:), allocatable :: recvstatus_stg, sendstatus_stg
 
   ! geometry and domain setups
 
@@ -341,6 +332,15 @@ module mod_global_parameters
   !> Physical scaling factor for number density
   double precision :: unit_numberdensity=1.d0
 
+  !> Physical scaling factor for charge
+  double precision :: unit_charge=1.d0
+
+  !> Physical scaling factor for mass
+  double precision :: unit_mass=1.d0
+
+  !> Normalised speed of light
+  double precision :: c_norm=1.d0
+
   !> Physical scaling factor for Opacity
   double precision :: unit_opacity=1.d0
 
@@ -375,7 +375,10 @@ module mod_global_parameters
   logical :: phys_energy=.true.
 
   !> Solve polytropic process instead of solving total energy
-  logical :: solve_internal_e=.false.
+  logical :: phys_solve_eaux=.false.
+
+  !> Use TRAC (Johnston 2019 ApJL, 873, L22) for MHD or 1D HD
+  logical :: trac=.false.
 
   !> Enable to strictly conserve the angular momentum
   !> (works both in cylindrical and spherical coordinates)
@@ -403,6 +406,9 @@ module mod_global_parameters
 
   !> Fix the AMR grid after this time
   double precision :: tfixgrid
+
+  !> Whether to apply flux conservation at refinement boundaries
+  logical :: fix_conserve_global = .true.
 
   !> Fix the AMR grid after this many time steps
   integer :: itfixgrid
@@ -581,11 +587,14 @@ module mod_global_parameters
   !> global fastest flow speed needed in glm method
   double precision :: vmax_global
 
+  !> global largest a2 for schmid scheme
+  double precision :: a2max_global(ndim)
+
   !> need global maximal wave speed
   logical :: need_global_cmax=.false.
 
-  !> need global maximal flow speed
-  logical :: need_global_vmax=.false.
+  !> global value for schmid scheme
+  logical :: need_global_a2max=.false.
 
   ! Boundary region parameters
 

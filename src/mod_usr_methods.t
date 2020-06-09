@@ -44,8 +44,15 @@ module mod_usr_methods
   procedure(get_dt), pointer          :: usr_get_dt           => null()
   procedure(phys_gravity), pointer    :: usr_gravity          => null()
 
+  ! Usr defined dust drag force
+  procedure(phys_dust_get_dt), pointer :: usr_dust_get_dt     => null()
+  procedure(phys_dust_get_3d_dragforce), pointer :: usr_get_3d_dragforce => null()
+
   ! Usr defined space varying viscosity
   procedure(phys_visco), pointer      :: usr_setvisco         => null()
+
+  ! Usr defined thermal pressure for hydro & energy=.False.
+  procedure(hd_pthermal), pointer     :: usr_set_pthermal     => null()
 
   ! Refinement related procedures
   procedure(refine_grid), pointer     :: usr_refine_grid      => null()
@@ -80,6 +87,9 @@ module mod_usr_methods
 
   ! allow user to change inductive electric field, especially for boundary driven applications
   procedure(set_electric_field), pointer :: usr_set_electric_field => null()
+
+  ! allow user to specify variables at physical boundaries
+  procedure(set_wLR), pointer :: usr_set_wLR => null()
 
   abstract interface
 
@@ -224,6 +234,26 @@ module mod_usr_methods
       double precision, intent(out)   :: gravity_field(ixI^S,ndim)
     end subroutine phys_gravity
 
+    !> Calculate the 3d drag force of gas onto dust
+    subroutine phys_dust_get_3d_dragforce(ixI^L, ixO^L, w, x, fdrag, ptherm, vgas,dust_n_species)
+      use mod_global_parameters
+      integer, intent(in)             :: ixI^L, ixO^L, dust_n_species
+      double precision, intent(in)    :: x(ixI^S, 1:ndim)
+      double precision, intent(in)    :: w(ixI^S, 1:nw)
+      double precision, intent(out)   :: &
+           fdrag(ixI^S, 1:ndir, 1:dust_n_species)
+      double precision, intent(in)    :: ptherm(ixI^S), vgas(ixI^S, ndir)
+    end subroutine phys_dust_get_3d_dragforce
+
+    !> Calculate the time step associated with the usr drag force
+    subroutine phys_dust_get_dt(w, ixI^L, ixO^L, dtdust, dx^D, x, dust_n_species)
+      use mod_global_parameters
+      integer, intent(in)             :: ixI^L, ixO^L, dust_n_species
+      double precision, intent(in)    :: dx^D, x(ixI^S,1:ndim)
+      double precision, intent(in)    :: w(ixI^S,1:nw)
+      double precision, intent(inout) :: dtdust(1:dust_n_species)
+    end subroutine phys_dust_get_dt
+
     !>Calculation anormal viscosity depending on space
     subroutine phys_visco(ixI^L,ixO^L,x,w,mu)
       use mod_global_parameters
@@ -232,6 +262,15 @@ module mod_usr_methods
       double precision, intent(in)    :: w(ixI^S,1:nw)
       double precision, intent(out)   :: mu(ixI^S)
     end subroutine phys_visco
+
+    !>Calculation anormal pressure for hd & energy=.False.
+    subroutine hd_pthermal(w,x,ixI^L,ixO^L,pth)
+      use mod_global_parameters
+      integer, intent(in)             :: ixI^L, ixO^L
+      double precision, intent(in)    :: x(ixI^S,1:ndim)
+      double precision, intent(in)    :: w(ixI^S,1:nw)
+      double precision, intent(out)   :: pth(ixI^S)
+    end subroutine hd_pthermal
 
     !> Set the "eta" array for resistive MHD based on w or the
     !> "current" variable which has components between idirmin and 3.
@@ -325,11 +364,11 @@ module mod_usr_methods
     end subroutine flag_grid
 
     !> Update payload of particles
-    subroutine update_payload(igrid,w,wold,xgrid,xpart,payload,npayload,particle_time)
+    subroutine update_payload(igrid,w,wold,xgrid,xpart,upart,qpart,mpart,payload,npayload,particle_time)
       use mod_global_parameters
       integer, intent(in)           :: igrid,npayload
       double precision, intent(in)  :: w(ixG^T,1:nw),wold(ixG^T,1:nw)
-      double precision, intent(in)  :: xgrid(ixG^T,1:ndim),xpart(1:ndir),particle_time
+      double precision, intent(in)  :: xgrid(ixG^T,1:ndim),xpart(1:ndir),upart(1:ndir),qpart,mpart,particle_time
       double precision, intent(out) :: payload(npayload)
     end subroutine update_payload
 
@@ -364,9 +403,13 @@ module mod_usr_methods
     end subroutine after_refine
 
     !> allow user to explicitly set flux at cell interfaces for finite volume scheme
-    subroutine set_flux(ixI^L,ixC^L,idim,fC)
+    subroutine set_flux(ixI^L,ixC^L,qt,wLC,wRC,wLp,wRp,s,idims,fC)
       use mod_global_parameters
-      integer, intent(in)          :: ixI^L, ixC^L, idim
+      integer, intent(in)          :: ixI^L, ixC^L, idims
+      double precision, intent(in)    :: qt
+      double precision, intent(inout) :: wLC(ixI^S,1:nw), wRC(ixI^S,1:nw)
+      double precision, intent(inout) :: wLp(ixI^S,1:nw), wRp(ixI^S,1:nw)
+      type(state)                     :: s
       ! face-center flux
       double precision,intent(inout) :: fC(ixI^S,1:nwflux,1:ndim)
       ! For example, to set flux at bottom boundary in a 3D box for induction equation
@@ -392,10 +435,10 @@ module mod_usr_methods
     end subroutine init_vector_potential
 
     ! allow user to change inductive electric field, especially for boundary driven applications
-    subroutine set_electric_field(ixI^L,ixO^L,qdt,fE,s)
+    subroutine set_electric_field(ixI^L,ixO^L,qt,qdt,fE,s)
       use mod_global_parameters
       integer, intent(in)                :: ixI^L, ixO^L
-      double precision, intent(in)       :: qdt
+      double precision, intent(in)       :: qt, qdt
       type(state)                        :: s
       double precision, intent(inout)    :: fE(ixI^S,7-2*ndim:3)
 
@@ -426,19 +469,36 @@ module mod_usr_methods
 
     end subroutine set_electric_field
 
-     subroutine special_opacity(ixI^L,ixO^L,w,x,kappa)
-       use mod_global_parameters
-       integer, intent(in)          :: ixI^L, ixO^L
-       double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
-       double precision, intent(out):: kappa(ixO^S)
-     end subroutine special_opacity
+    subroutine special_opacity(ixI^L,ixO^L,w,x,kappa)
+      use mod_global_parameters
+      integer, intent(in)          :: ixI^L, ixO^L
+      double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
+      double precision, intent(out):: kappa(ixO^S)
+    end subroutine special_opacity
 
-     subroutine special_fluxlimiter(ixI^L,ixO^L,w,x,fld_lambda,fld_R)
-       use mod_global_parameters
-       integer, intent(in)          :: ixI^L, ixO^L
-       double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
-       double precision, intent(out):: fld_lambda(ixI^S),fld_R(ixI^S)
-     end subroutine special_fluxlimiter
+    subroutine special_fluxlimiter(ixI^L,ixO^L,w,x,fld_lambda,fld_R)
+      use mod_global_parameters
+      integer, intent(in)          :: ixI^L, ixO^L
+      double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
+      double precision, intent(out):: fld_lambda(ixI^S),fld_R(ixI^S)
+    end subroutine special_fluxlimiter
+
+    !> allow user to specify variables' left and right state at physical boundaries to control flux through the boundary surface
+    subroutine set_wLR(ixI^L,ixO^L,qt,wLC,wRC,wLp,wRp,s,idir)
+      use mod_global_parameters
+      integer, intent(in)             :: ixI^L, ixO^L, idir
+      double precision, intent(in)    :: qt
+      double precision, intent(inout) :: wLC(ixI^S,1:nw), wRC(ixI^S,1:nw)
+      double precision, intent(inout) :: wLp(ixI^S,1:nw), wRp(ixI^S,1:nw)
+      type(state)                     :: s
+
+      !if(s%is_physical_boundary(3).and.idir==2) then
+      !  wLp(ixOmin2^%2ixO^S,mom(1))=1.d0
+      !  wRp(ixOmin2^%2ixO^S,mom(1))=wRp(ixOmin2^%2ixO^S,mom(1))
+      !  wLC(ixOmin2^%2ixO^S,mom(1))=wLp(ixOmin2^%2ixO^S,mom(1))*wLp(ixOmin2^%2ixO^S,rho_)
+      !  wRC(ixOmin2^%2ixO^S,mom(1))=wRp(ixOmin2^%2ixO^S,mom(1))*wRp(ixOmin2^%2ixO^S,rho_)
+      !end if
+    end subroutine set_wLR
 
   end interface
 

@@ -32,6 +32,7 @@
 
 module mod_thermal_conduction
   use mod_global_parameters, only: std_len
+  use mod_geometry
   implicit none
   !> Coefficient of thermal conductivity (parallel to magnetic field)
   double precision, public :: tc_k_para
@@ -50,6 +51,9 @@ module mod_thermal_conduction
 
   !> Index of the energy density (-1 if not present)
   integer, private, protected              :: e_
+
+  !> Index of the internal energy
+  integer, private, protected :: eaux_
 
   !> The adiabatic index
   double precision, private :: tc_gamma
@@ -160,6 +164,7 @@ contains
 
     rho_ = iw_rho
     e_ = iw_e
+    if(phys_solve_eaux) eaux_ = iw_eaux
 
     small_e = small_pressure/(tc_gamma - 1.0d0)
 
@@ -186,15 +191,19 @@ contains
     use mod_global_parameters
     use mod_ghostcells_update
     use mod_fix_conserve
+    use mod_physics
 
     double precision :: omega1,cmu,cmut,cnu,cnut
     double precision, allocatable :: bj(:)
-    integer:: iigrid, igrid,j
+    double precision :: tmp(ixG^T)
+    integer:: iigrid, igrid, j
     logical :: evenstep, stagger_flag
 
     ! not do fix conserve and getbc for staggered values if stagger is used
     stagger_flag=stagger_grid
     stagger_grid=.false.
+    bcphys=.false.
+    call getbc(global_time,0.d0,ps,1,nwflux+nwaux)
 
     ! point bc mpi datatype to partial type for thermalconduction
     type_send_srl=>type_send_srl_p1
@@ -247,11 +256,14 @@ contains
       call sendflux(1,ndim)
       call fix_conserve(ps1,1,ndim,e_,1)
     end if
-    bcphys=.false.
     call getbc(global_time,0.d0,ps1,e_,1)
     if(s==1) then
       do iigrid=1,igridstail; igrid=igrids(iigrid);
         ps(igrid)%w(ixG^T,e_)=ps1(igrid)%w(ixG^T,e_)
+        if(phys_solve_eaux) then
+          call phys_get_pthermal(ps(igrid)%w,ps(igrid)%x,ixG^LL,ixG^LL,tmp)
+          ps(igrid)%w(ixG^T,eaux_)=tmp(ixG^T)/(tc_gamma-1.d0)
+        end if
       end do
       ! point bc mpi data type back to full type for (M)HD
       type_send_srl=>type_send_srl_f
@@ -315,10 +327,18 @@ contains
     if(evenstep) then
       do iigrid=1,igridstail; igrid=igrids(iigrid);
         ps(igrid)%w(ixG^T,e_)=ps1(igrid)%w(ixG^T,e_)
+        if(phys_solve_eaux) then
+          call phys_get_pthermal(ps(igrid)%w,ps(igrid)%x,ixG^LL,ixG^LL,tmp)
+          ps(igrid)%w(ixG^T,eaux_)=tmp(ixG^T)/(tc_gamma-1.d0)
+        end if
       end do
     else
       do iigrid=1,igridstail; igrid=igrids(iigrid);
         ps(igrid)%w(ixG^T,e_)=ps2(igrid)%w(ixG^T,e_)
+        if(phys_solve_eaux) then
+          call phys_get_pthermal(ps(igrid)%w,ps(igrid)%x,ixG^LL,ixG^LL,tmp)
+          ps(igrid)%w(ixG^T,eaux_)=tmp(ixG^T)/(tc_gamma-1.d0)
+        end if
       end do
     end if
     deallocate(bj)
@@ -335,6 +355,42 @@ contains
     stagger_grid=stagger_flag
 
   end subroutine do_thermal_conduction
+
+  subroutine addsource_impl
+    use mod_global_parameters
+    use mod_ghostcells_update
+
+    integer :: iigrid, igrid, icycle, ncycle
+    double precision :: qt
+
+    ncycle=ceiling(0.5d0*dt/dt_tc)
+    if(ncycle<1) then
+      ncycle=1
+      dt_tc=0.5d0*dt
+    else
+      dt_tc=0.5d0*dt/dble(ncycle)
+    endif
+
+    if(mype==0.and..false.) then
+      print *,'implicit source addition will subcycle with ',ncycle,' subtimesteps'
+      print *,'dt and dtimpl= ',dt,dt_tc,' versus ncycle*dtimpl=',ncycle*dt_tc
+    endif
+
+    qt=global_time
+    do icycle=1,ncycle
+      !$OMP PARALLEL DO PRIVATE(igrid)
+      do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
+        block=>ps(igrid)
+        ps1(igrid)%w=ps(igrid)%w
+        call evolve_step1(igrid,1.d0,dt_tc,ixG^LL,ixM^LL,ps1(igrid)%w,ps(igrid)%w,&
+                          ps(igrid)%x,ps3(igrid)%w)
+      end do
+      !$OMP END PARALLEL DO
+      qt=qt+dt_tc
+      call getbc(qt,0.d0,ps,e_,1)
+    end do
+
+  end subroutine addsource_impl
 
   subroutine evolve_stepj(igrid,qcmu,qcmut,qcnu,qcnut,qdt,ixI^L,ixO^L,w1,w2,w,x,wold)
     use mod_global_parameters
@@ -353,7 +409,6 @@ contains
 
     w2(ixO^S,e_)=qcmu*w1(ixO^S,e_)+qcnu*w2(ixO^S,e_)+(1.d0-qcmu-qcnu)*w(ixO^S,e_)&
                 +qcmut*qdt*tmp(ixO^S)+qcnut*wold(ixO^S,e_)
-
     if (fix_conserve_at_step) then
       fC=qcmut*qdt*fC
       call store_flux(igrid,fC,1,ndim,1)
@@ -392,21 +447,13 @@ contains
        ' on time=',global_time,' step=',it, 'where w(1:nwflux)=',w(^D&lowindex(^D),1:nwflux)
         crash=.true.
       else
-        if(solve_internal_e) then
-          w1(ixO^S,e_) = tmp1(ixO^S)
-        else
-          w1(ixO^S,e_) = tmp2(ixO^S)+tmp1(ixO^S)
-        end if
+        w1(ixO^S,e_)=tmp2(ixO^S)+tmp1(ixO^S)
       end if
     else
       where(tmp1(ixO^S)<small_e)
         tmp1(ixO^S)=small_e
       endwhere
-      if(solve_internal_e) then
-        w1(ixO^S,e_) = tmp1(ixO^S)
-      else
-        w1(ixO^S,e_) = tmp2(ixO^S)+tmp1(ixO^S)
-      end if
+      w1(ixO^S,e_)=tmp2(ixO^S)+tmp1(ixO^S)
     end if
 
     if (fix_conserve_at_step) then
@@ -446,14 +493,10 @@ contains
     dxinv=1.d0/dxlevel
 
     ! tmp1 store internal energy
-    if(solve_internal_e) then
-      tmp1(ixI^S)=w(ixI^S,e_)
-    else
       ! tmp2 store kinetic+magnetic energy before addition of heat conduction source
-      tmp2(ixI^S) = 0.5d0 * (sum(w(ixI^S,iw_mom(:))**2,dim=ndim+1)/w(ixI^S,rho_) + &
-           sum(w(ixI^S,iw_mag(:))**2,dim=ndim+1))
-      tmp1(ixI^S)=w(ixI^S,e_)-tmp2(ixI^S)
-    end if
+    tmp2(ixI^S) = 0.5d0 * (sum(w(ixI^S,iw_mom(:))**2,dim=ndim+1)/w(ixI^S,rho_) + &
+         sum(w(ixI^S,iw_mag(:))**2,dim=ndim+1))
+    tmp1(ixI^S)=w(ixI^S,e_)-tmp2(ixI^S)
 
     ! Clip off negative pressure if small_pressure is set
     if(small_values_method=='error') then
@@ -501,6 +544,14 @@ contains
       Bc(ixC^S,1:ndim)=Bc(ixC^S,1:ndim)+mf(ixA^S,1:ndim)
     {end do\}
     Bc(ixC^S,1:ndim)=Bc(ixC^S,1:ndim)*0.5d0**ndim
+    ! T gradient at cell faces
+    gradT=0.d0
+    do idims=1,ndim
+      ixBmin^D=ixmin^D;
+      ixBmax^D=ixmax^D-kr(idims,^D);
+      call gradientC(Te,ixI^L,ixB^L,idims,minq)
+      gradT(ixB^S,idims)=minq(ixB^S)
+    end do
     if(tc_constant) then
       if(tc_perpendicular) then
         ka(ixC^S)=tc_k_para-tc_k_perp
@@ -510,7 +561,12 @@ contains
       end if
     else
       ! conductivity at cell center
-      minq(ix^S)=tc_k_para*Te(ix^S)**2.5d0
+      if(trac) then
+        where(Te(ix^S) < block%special_values(1))
+          Te(ix^S)=block%special_values(1)
+        end where
+      end if
+      minq(ix^S)=tc_k_para*sqrt(Te(ix^S)**5)
       ka=0.d0
       {do ix^DB=0,1\}
         ixBmin^D=ixCmin^D+ix^D;
@@ -538,14 +594,6 @@ contains
         end where
       end if
     end if
-    ! T gradient at cell faces
-    gradT=0.d0
-    do idims=1,ndim
-      ixBmin^D=ixmin^D;
-      ixBmax^D=ixmax^D-kr(idims,^D);
-      call gradientC(Te,ixI^L,ixB^L,idims,minq)
-      gradT(ixB^S,idims)=minq(ixB^S)
-    end do
     if(tc_slope_limiter=='no') then
       ! calculate thermal conduction flux with symmetric scheme
       do idims=1,ndim
@@ -713,7 +761,6 @@ contains
   !> Calculate gradient of a scalar q at cell interfaces in direction idir
   subroutine gradientC(q,ixI^L,ixO^L,idir,gradq)
     use mod_global_parameters
-    use mod_geometry
 
     integer, intent(in)             :: ixI^L, ixO^L, idir
     double precision, intent(in)    :: q(ixI^S)
@@ -865,7 +912,7 @@ contains
     double precision :: qvec(ixI^S,1:ndim),gradT(ixI^S,1:ndim),Te(ixI^S),ke(ixI^S)
     double precision :: dxinv(ndim)
     integer, dimension(ndim)       :: lowindex
-    integer :: idims,ix^D,ix^L,ixC^L,ixA^L,ixB^L
+    integer :: idims,ix^D,ix^L,ixC^L,ixA^L,ixB^L,ixD^L
 
     ix^L=ixO^L^LADD1;
     ! ixC is cell-corner index
@@ -873,14 +920,10 @@ contains
 
     dxinv=1.d0/dxlevel
 
+    ! tmp2 store kinetic energy before addition of heat conduction source
+    tmp2(ixI^S) = 0.5d0*sum(w(ixI^S,iw_mom(:))**2,dim=ndim+1)/w(ixI^S,rho_)
     ! tmp1 store internal energy
-    if(solve_internal_e) then
-      tmp1(ixI^S)=w(ixI^S,e_)
-    else
-      ! tmp2 store kinetic energy before addition of heat conduction source
-      tmp2(ixI^S) = 0.5d0*sum(w(ixI^S,iw_mom(:))**2,dim=ndim+1)/w(ixI^S,rho_)
-      tmp1(ixI^S)=w(ixI^S,e_)-tmp2(ixI^S)
-    end if
+    tmp1(ixI^S)=w(ixI^S,e_)-tmp2(ixI^S)
 
     ! Clip off negative pressure if small_pressure is set
     if(small_values_method=='error') then
@@ -903,40 +946,32 @@ contains
     ! compute temperature before source addition
     Te(ixI^S)=tmp1(ixI^S)/w(ixI^S,rho_)*(tc_gamma-1.d0)
 
-    ! T gradient at cell faces
+    ! cell corner temperature
+    ke=0.d0
+    ixAmax^D=ixmax^D; ixAmin^D=ixmin^D-1;
+    {do ix^DB=0,1\}
+      ixBmin^D=ixAmin^D+ix^D;
+      ixBmax^D=ixAmax^D+ix^D;
+      ke(ixA^S)=ke(ixA^S)+Te(ixB^S)
+    {end do\}
+    ke(ixA^S)=0.5d0**ndim*ke(ixA^S)
+    ! T gradient (central difference) at cell corners
     gradT=0.d0
     do idims=1,ndim
       ixBmin^D=ixmin^D;
       ixBmax^D=ixmax^D-kr(idims,^D);
-      call gradientC(Te,ixI^L,ixB^L,idims,ke)
-      gradT(ixB^S,idims)=ke(ixB^S)
+      call gradient(ke,ixI^L,ixB^L,idims,qd)
+      gradT(ixB^S,idims)=qd(ixB^S)
     end do
-    ! calculate thermal conduction flux with symmetric scheme
-    do idims=1,ndim
-      qd=0.d0
-      {do ix^DB=0,1 \}
-         if({ ix^D==0 .and. ^D==idims | .or.}) then
-           ixBmin^D=ixCmin^D+ix^D;
-           ixBmax^D=ixCmax^D+ix^D;
-           qd(ixC^S)=qd(ixC^S)+gradT(ixB^S,idims)
-         end if
-      {end do\}
-      ! temperature gradient at cell corner
-      qvec(ixC^S,idims)=qd(ixC^S)*0.5d0**(ndim-1)
-    end do
-    ! conductivity at cell center
-    qd(ix^S)=tc_k_para*dsqrt(Te(ix^S))**5
-    ke=0.d0
-    {do ix^DB=0,1\}
-      ixBmin^D=ixCmin^D+ix^D;
-      ixBmax^D=ixCmax^D+ix^D;
-      ke(ixC^S)=ke(ixC^S)+qd(ixB^S)
-    {end do\}
-    ! cell corner conductivity
-    ke(ixC^S)=0.5d0**ndim*ke(ixC^S)
+    ! transition region adaptive conduction
+    if(trac) then
+      where(Te(ix^S) < block%special_values(1))
+        ke(ix^S)=block%special_values(1)
+      end where
+    end if
     ! cell corner conduction flux
     do idims=1,ndim
-      gradT(ixC^S,idims)=ke(ixC^S)*qvec(ixC^S,idims)
+      gradT(ixC^S,idims)=gradT(ixC^S,idims)*tc_k_para*sqrt(ke(ixC^S)**5)
     end do
 
     if(tc_saturate) then

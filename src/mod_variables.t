@@ -47,15 +47,14 @@ module mod_variables
 
   !> Index of the energy density
   integer, protected :: iw_e = -1
+  !> Index of the internal energy density
+  integer, protected :: iw_eaux = -1
 
   !> Index of the radiation energy density
   integer, protected :: iw_r_e = -1
 
   !> Indices of the magnetic field components
   integer, allocatable, protected :: iw_mag(:)
-
-  !> Indices of the previous w of the staggered variables
-  integer :: iw_s0 = 0
 
 contains
 
@@ -86,7 +85,7 @@ contains
   end function var_set_fluxvar
 
   !> Set extra variable, which is not advected and has no boundary conditions.
-  !> This has to be done after defining flux variables.
+  !> This has to be done after defining flux variables and auxiliary variables.
   function var_set_extravar(name_cons, name_prim, ix) result(iw)
     character(len=*), intent(in)  :: name_cons, name_prim
     integer, intent(in), optional :: ix
@@ -104,6 +103,26 @@ contains
       write(prim_wnames(iw),"(A,I0)") name_prim, ix
     end if
   end function var_set_extravar
+
+  !> Set auxiliary variable, which is not advected but has boundary conditions.
+  !> This has to be done after defining flux variables.
+  function var_set_auxvar(name_cons, name_prim, ix) result(iw)
+    character(len=*), intent(in)  :: name_cons, name_prim
+    integer, intent(in), optional :: ix
+    integer                       :: iw
+
+    nwaux   = nwaux + 1
+    nw      = nw + 1
+    iw      = nw
+
+    if (.not. present(ix)) then
+      prim_wnames(iw) = name_cons
+      cons_wnames(iw) = name_prim
+    else
+      write(cons_wnames(iw),"(A,I0)") name_cons, ix
+      write(prim_wnames(iw),"(A,I0)") name_prim, ix
+    end if
+  end function var_set_auxvar
 
   !> Set density variable
   function var_set_rho() result(iw)
@@ -183,4 +202,16 @@ contains
     end do
   end function var_set_bfield
 
+  !> Set internal energy variable
+  function var_set_internal_energy() result(iw)
+    integer :: iw
+
+    nwflux              = nwflux + 1
+    nwfluxbc            = nwfluxbc + 1
+    nw                  = nw + 1
+    iw_eaux             = nwflux
+    iw                  = nwflux
+    cons_wnames(nwflux) = 'eaux'
+    prim_wnames(nwflux) = 'paux'
+  end function var_set_internal_energy
 end module mod_variables

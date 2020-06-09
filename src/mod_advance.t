@@ -126,7 +126,6 @@ contains
     case ("threestep")
        ! three step Runge-Kutta in accordance with Gottlieb & Shu 1998
        call advect1(flux_scheme,one, idim^LIM,global_time,ps,global_time,ps1)
-
        do iigrid=1,igridstail; igrid=igrids(iigrid);
           ps2(igrid)%w(ixG^T,1:nwflux)=0.75d0*ps(igrid)%w(ixG^T,1:nwflux)+0.25d0*&
                ps1(igrid)%w(ixG^T,1:nwflux)
@@ -371,14 +370,13 @@ contains
 
        call process1_grid(method(level),igrid,qdt,ixG^LL,idim^LIM,qtC,&
             psa(igrid),qt,psb(igrid),pso(igrid))
-
     end do
     !$OMP END PARALLEL DO
 
     ! opedit: Send flux for all grids, expects sends for all
     ! nsend_fc(^D), set in connectivity.t.
 
-    if (fix_conserve_at_step) then
+    if (fix_conserve_global .and. fix_conserve_at_step) then
       call recvflux(idim^LIM)
       call sendflux(idim^LIM)
       call fix_conserve(psb,idim^LIM,1,nwflux)
@@ -435,7 +433,7 @@ contains
     ! via neighbor_active(i^D,igrid) thus we skip the correction for those.
     ! This violates strict conservation when the active/passive interface
     ! coincides with a coarse/fine interface.
-    if (fix_conserve_at_step) then
+    if (fix_conserve_global .and. fix_conserve_at_step) then
       call store_flux(igrid,fC,idim^LIM,nwflux)
       if(stagger_grid) call store_edge(igrid,ixI^L,fE,idim^LIM)
     end if
@@ -462,20 +460,17 @@ contains
     integer :: ixO^L
 
     ixO^L=ixI^L^LSUBnghostcells;
-
     select case (method)
-    case ('cd')
-       call centdiff(qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,fC,dx^D,x)
-    case ('cd4')
-       call centdiff4(qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,fC,dx^D,x)
+    case ('tvdmu','tvdlf','hll','hllc','hllcd','hlld')
+       call finite_volume(method,qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,sold,fC,fE,dx^D,x)
+    case ('cd','cd4')
+       call centdiff(method,qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,fC,fE,dx^D,x)
     case ('hancock')
        call hancock(qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,dx^D,x)
     case ('fd')
-       call fd(method,qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,sold,fC,dx^D,x)
-    case ('tvdmu','tvdlf','hll','hllc','hllcd','hlld')
-       call finite_volume(method,qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,sold,fC,fE,dx^D,x)
+       call fd(method,qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,fC,fE,dx^D,x)
     case ('tvd')
-       call centdiff(qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,fC,dx^D,x)
+       call centdiff('cd',qdt,ixI^L,ixO^L,idim^LIM,qtC,sCT,qt,s,fC,fE,dx^D,x)
        call tvdlimit(method,qdt,ixI^L,ixO^L,idim^LIM,sCT,qt+qdt,s,fC,dx^D,x)
     case ('source')
        call addsource2(qdt*dble(idimmax-idimmin+1)/dble(ndim),&

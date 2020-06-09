@@ -97,6 +97,7 @@ subroutine alloc_node(igrid)
       call alloc_state(igrid, ps3(igrid), ixG^LL, ixGext^L, .false.)
       call alloc_state(igrid, ps4(igrid), ixG^LL, ixGext^L, .false.)
     end select
+
   end if
 
   ps(igrid)%w=0.d0
@@ -113,10 +114,6 @@ subroutine alloc_node(igrid)
 
   ! block pointer to current block
   block=>ps(igrid)
-
-  if(phys_energy .and. solve_internal_e) then
-    block%e_is_internal=.true.
-  endif
 
   ! set level information
   level=igrid_to_node(igrid,mype)%node%level
@@ -566,6 +563,10 @@ subroutine alloc_state(igrid, s, ixG^L, ixGext^L, alloc_x)
       allocate(s%B0(ixG^S,1:ndir,0:ndim))
       allocate(s%J0(ixG^S,7-2*ndir:3))
     end if
+    ! allocate space for special values for each block state
+    if(trac) then
+      allocate(s%special_values(2))
+    end if
   else
     ! use spatial info on ps states to save memory
     s%x=>ps(igrid)%x
@@ -580,6 +581,7 @@ subroutine alloc_state(igrid, s, ixG^L, ixGext^L, alloc_x)
       s%B0=>ps(igrid)%B0
       s%J0=>ps(igrid)%J0
     end if
+    if(trac) s%special_values=>ps(igrid)%special_values
   end if
 end subroutine alloc_state
 

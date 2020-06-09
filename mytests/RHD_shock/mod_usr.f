@@ -22,7 +22,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+     call set_coordinate_system("Cartesian_1D")
+    
+    
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -133,71 +135,60 @@ contains
   end subroutine params_read
 
   !> A routine for specifying initial conditions
-  subroutine initial_conditions(ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-     ixOmin2,ixOmax1,ixOmax2, w, x)
+  subroutine initial_conditions(ixImin1,ixImax1, ixOmin1,ixOmax1, w, x)
 
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixOmin1,ixOmin2,ixOmax1,ixOmax2
-    double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    integer, intent(in)             :: ixImin1,ixImax1, ixOmin1,ixOmax1
+    double precision, intent(in)    :: x(ixImin1:ixImax1,1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
 
-    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
-        fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2), lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    double precision :: kappa(ixOmin1:ixOmax1), fld_R(ixOmin1:ixOmax1),&
+        lambda(ixOmin1:ixOmax1)
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho1
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = rho1*v1
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(2)) = 0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg1
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er1
+    w(ixImin1:ixImax1,rho_) = rho1
+    w(ixImin1:ixImax1,mom(:)) = 0.d0
+    w(ixImin1:ixImax1,mom(1)) = rho1*v1
+    w(ixImin1:ixImax1,e_) = eg1
+    w(ixImin1:ixImax1,r_e) = Er1
 
-    where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .gt. 0.d0)
-      w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho2
-      w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = rho2*v2
-      w(ixImin1:ixImax1,ixImin2:ixImax2,mom(2)) = 0
-      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg2
-      w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er2
+    where (x(ixImin1:ixImax1,1) .gt. 0.d0)
+      w(ixImin1:ixImax1,rho_) = rho2
+      w(ixImin1:ixImax1,mom(1)) = rho2*v2
+      w(ixImin1:ixImax1,e_) = eg2
+      w(ixImin1:ixImax1,r_e) = Er2
     end where
 
-    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, kappa)
-    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
+    call fld_get_opacity(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, kappa)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, lambda,&
+        fld_R)
 
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
-       (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
+    w(ixOmin1:ixOmax1,i_diff_mg) = (const_c/unit_velocity)*lambda(&
+       ixOmin1:ixOmax1)/(kappa(ixOmin1:ixOmax1)*w(ixOmin1:ixOmax1,rho_))
 
   end subroutine initial_conditions
 
-  subroutine boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixBmin1,&
-     ixBmin2,ixBmax1,ixBmax2,iB,w,x)
+  subroutine boundary_conditions(qt,ixImin1,ixImax1,ixBmin1,ixBmax1,iB,w,x)
     use mod_global_parameters
     use mod_fld
 
 
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixBmin1,ixBmin2,ixBmax1,ixBmax2, iB
-    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    integer, intent(in)             :: ixImin1,ixImax1, ixBmin1,ixBmax1, iB
+    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
     select case (iB)
 
     case(1)
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_) = rho1
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = rho1*v1
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = 0
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = eg1
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = Er1
+      w(ixBmin1:ixBmax1,rho_) = rho1
+      w(ixBmin1:ixBmax1,mom(:)) = 0.d0
+      w(ixBmin1:ixBmax1,mom(1)) = rho1*v1
+      w(ixBmin1:ixBmax1,e_) = eg1
+      w(ixBmin1:ixBmax1,r_e) = Er1
 
     case(2)
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_) = rho2
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = rho2*v2
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = 0
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = eg2
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = Er2
+      w(ixBmin1:ixBmax1,rho_) = rho2
+      w(ixBmin1:ixBmax1,mom(:)) = 0.d0
+      w(ixBmin1:ixBmax1,mom(1)) = rho2*v2
+      w(ixBmin1:ixBmax1,e_) = eg2
+      w(ixBmin1:ixBmax1,r_e) = Er2
 
     case default
       call mpistop('boundary not known')
@@ -211,9 +202,7 @@ contains
     use mod_multigrid_coupling
 
     integer, intent(in)             :: iB
-
-    integer :: ixOmax2
-
+      
     select case (iB)
     case (1)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet

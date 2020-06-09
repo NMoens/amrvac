@@ -22,7 +22,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
+    {^IFTHREED call set_coordinate_system("Cartesian_3D")}
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -141,15 +143,14 @@ contains
     double precision :: kappa(ixO^S), fld_R(ixO^S), lambda(ixO^S)
 
     w(ixI^S,rho_) = rho1
+    w(ixI^S,mom(:)) = 0.d0
     w(ixI^S,mom(1)) = rho1*v1
-    w(ixI^S,mom(2)) = 0
     w(ixI^S,e_) = eg1
     w(ixI^S,r_e) = Er1
 
     where (x(ixI^S,1) .gt. 0.d0)
       w(ixI^S,rho_) = rho2
       w(ixI^S,mom(1)) = rho2*v2
-      w(ixI^S,mom(2)) = 0
       w(ixI^S,e_) = eg2
       w(ixI^S,r_e) = Er2
     end where
@@ -173,15 +174,15 @@ contains
 
     case(1)
       w(ixB^S,rho_) = rho1
+      w(ixB^S,mom(:)) = 0.d0
       w(ixB^S,mom(1)) = rho1*v1
-      w(ixB^S,mom(2)) = 0
       w(ixB^S,e_) = eg1
       w(ixB^S,r_e) = Er1
 
     case(2)
       w(ixB^S,rho_) = rho2
+      w(ixB^S,mom(:)) = 0.d0
       w(ixB^S,mom(1)) = rho2*v2
-      w(ixB^S,mom(2)) = 0
       w(ixB^S,e_) = eg2
       w(ixB^S,r_e) = Er2
 
@@ -197,9 +198,7 @@ contains
     use mod_multigrid_coupling
 
     integer, intent(in)             :: iB
-
-    integer :: ixOmax2
-
+      
     select case (iB)
     case (1)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet

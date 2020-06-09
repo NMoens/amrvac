@@ -56,7 +56,8 @@ contains
     ! Timestep for PseudoPlanar
     ! usr_get_dt => pp_dt
 
-    ! usr_refine_grid => refine_base
+    ! Refine mesh near base
+    usr_refine_grid => refine_base
 
     ! Active the physics module
     call rhd_activate()
@@ -108,7 +109,7 @@ contains
     !> Very bad initial guess for gradE using kappa_e
     gradE = -F_bound*3*kappa_e*rho_bound*unit_velocity/const_c
 
-    ! print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
+    print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
     ! stop
 
   end subroutine initglobaldata_usr
@@ -481,6 +482,10 @@ contains
         kappa(ix^D) = n/unit_opacity
     {enddo\ }
 
+    where(kappa(ixO^S) .ne. kappa(ixO^S))
+      kappa(ixO^S) = kappa_e
+    endwhere
+
     !> test without opal
     ! kappa(ixO^S) = kappa_e
 
@@ -501,7 +506,13 @@ contains
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
-    call gradientO(vel,ixI^L,ixO^L,1,gradv)
+    call gradientO(vel,x,ixI^L,ixO^L,1,gradv,3)
+    !> Limit cak for stability purposes
+    !where(gradv(ixO^S) .ge. 10.d0)
+    !  kappa(ixO^S) = 10.d0
+    !endwhere
+
+    !> Absolute value of gradient:
     gradv(ixO^S) = abs(gradv(ixO^S))
 
     xx(ixO^S) = 1.d0-xprobmin1/x(ixO^S,1)
@@ -522,14 +533,108 @@ contains
       kappa(ixO^S) = kappa(ixO^S)*dexp(-w(ixO^S,rho_)*kappa_e)
     endif
 
-    ! !> Limit cak for stability purposes
-    ! where(kappa(ixO^S) .ge. 1.d3*kappa_e)
-    !   kappa(ixO^S) = 1.d3*kappa_e
-    ! endwhere
-
     !> test with no cak
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
+
+  subroutine refine_base(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+    ! Enforce additional refinement or coarsening
+    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+    ! you must set consistent values for integers refine/coarsen:
+    ! refine = -1 enforce to not refine
+    ! refine =  0 doesn't enforce anything
+    ! refine =  1 enforce refinement
+    ! coarsen = -1 enforce to not coarsen
+    ! coarsen =  0 doesn't enforce anything
+    ! coarsen =  1 enforce coarsen
+    use mod_global_parameters
+
+    integer, intent(in) :: igrid, level, ixG^L, ix^L
+    double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+    integer, intent(inout) :: refine, coarsen
+
+    !> Refine close to base
+    if (qt .gt. 1.d0) then
+     if (any(x(ix^S,1) < 1.d0)) refine=1
+    endif
+
+    if (qt .gt. 2.d0) then
+     if (any(x(ix^S,1) < 2.d0)) refine=1
+    endif
+
+    if (qt .gt. 4.d0) then
+     if (any(x(ix^S,1) < 4.d0)) refine=1
+    endif
+
+  end subroutine refine_base
+
+
+  !> Calculate gradient of a scalar q within ixL in direction idir
+  !> difference with gradient is gradq(ixO^S), NOT gradq(ixI^S)
+  subroutine gradientO(q,x,ixI^L,ixO^L,idir,gradq,n)
+    use mod_global_parameters
+
+    integer, intent(in)             :: ixI^L, ixO^L, idir
+    double precision, intent(in)    :: q(ixI^S), x(ixI^S,1:ndim)
+    double precision, intent(inout) :: gradq(ixO^S)
+    integer, intent(in)             :: n
+    integer                         :: jxO^L, hxO^L
+
+    ! hxO^L=ixO^L-n*kr(idir,^D);
+    ! jxO^L=ixO^L+n*kr(idir,^D);
+
+    ! print*, hxO^L
+
+   ! if (n .gt. nghostcells) call mpistop("gradientO stencil too wide")
+
+    !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(2*n*dxlevel(idir))
+    !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
+
+    !> Using higher order derivatives with wider stencil according to:
+    !> https://en.wikipedia.org/wiki/Finite_difference_coefficient
+
+    if (n .gt. nghostcells) then
+      call mpistop("gradientO stencil too wide")
+    elseif (n .eq. 1) then
+      hxO^L=ixO^L-kr(idir,^D);
+      jxO^L=ixO^L+kr(idir,^D);
+      gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
+    elseif (n .eq. 2) then
+      gradq(ixI^S) = 0.d0
+      !> coef 2/3
+      hxO^L=ixO^L-kr(idir,^D);
+      jxO^L=ixO^L+kr(idir,^D);
+      gradq(ixO^S) = gradq(ixO^S) + 2.d0/3.d0*(q(jxO^S)-q(hxO^S))
+      !> coef -1/12
+      hxO^L=ixO^L-2*kr(idir,^D);
+      jxO^L=ixO^L+2*kr(idir,^D);
+      gradq(ixO^S) = gradq(ixO^S) - 1.d0/12.d0*(q(jxO^S)-q(hxO^S))
+      !> divide by dx
+      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
+    elseif (n .eq. 3) then
+      gradq(ixI^S) = 0.d0
+      !> coef 3/4
+      hxO^L=ixO^L-kr(idir,^D);
+      jxO^L=ixO^L+kr(idir,^D);
+      gradq(ixO^S) = gradq(ixO^S) + 3.d0/4.d0*(q(jxO^S)-q(hxO^S))
+      !> coef -3/20
+      hxO^L=ixO^L-2*kr(idir,^D);
+      jxO^L=ixO^L+2*kr(idir,^D);
+      gradq(ixO^S) = gradq(ixO^S) - 3.d0/20.d0*(q(jxO^S)-q(hxO^S))
+      !> coef 1/60
+      hxO^L=ixO^L-3*kr(idir,^D);
+      jxO^L=ixO^L+3*kr(idir,^D);
+      gradq(ixO^S) = gradq(ixO^S) + 1.d0/60.d0*(q(jxO^S)-q(hxO^S))
+      !> divide by dx
+      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
+    else
+      call mpistop("gradient0 stencil unknown")
+    endif
+
+  end subroutine gradientO
+
+
+
 
   subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
     ! this subroutine can be used in convert, to add auxiliary variables to the
@@ -575,7 +680,7 @@ contains
     call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
 
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
-    call gradientO(vel,ixI^L,ixO^L,1,gradv)
+    call gradientO(vel,x,ixI^L,ixO^L,1,gradv,3)
 
     pp_rf(ixO^S) = two*rad_flux(ixO^S,1)/x(ixO^S,1)*dt
 

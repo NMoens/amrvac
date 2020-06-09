@@ -412,6 +412,7 @@ contains
            r_e) + (x(ixBmin1:ixBmax1,i,2)-x(ixBmin1:ixBmax1,i+2,&
            2))*gradE_l(ixBmin1:ixBmax1,i+1)
       enddo
+      
       w(ixBmin1:ixBmax1,nghostcells,r_e) = dexp(half*(dlog(w(ixBmin1:ixBmax1,&
          nghostcells-1,r_e))+dlog(w(ixBmin1:ixBmax1,nghostcells+1,r_e))))
 
@@ -505,9 +506,9 @@ contains
     mass = M_star*(unit_density*unit_length**3.d0)
 
     gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,:) = zero
-    gravity_field(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       2) = -const_G*mass/radius(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)**2*(unit_time**2/unit_length)
+    gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,&
+       2) = -const_G*mass/radius(ixImin1:ixImax1,&
+       ixImin2:ixImax2)**2*(unit_time**2/unit_length)
 
   end subroutine set_gravitation_field
 

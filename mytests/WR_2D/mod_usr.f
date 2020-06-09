@@ -56,7 +56,8 @@ contains
     ! Timestep for PseudoPlanar
     ! usr_get_dt => pp_dt
 
-    ! usr_refine_grid => refine_base
+    ! Refine mesh near base
+    usr_refine_grid => refine_base
 
     ! Active the physics module
     call rhd_activate()
@@ -110,7 +111,7 @@ contains
     !> Very bad initial guess for gradE using kappa_e
     gradE = -F_bound*3*kappa_e*rho_bound*unit_velocity/const_c
 
-    ! print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
+    print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
     ! stop
 
   end subroutine initglobaldata_usr
@@ -289,12 +290,11 @@ contains
       ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))/(w(2:5,5,rho_)*kappa(2:5,5))
 
       ! print*, F_bound, gradE*const_c/unit_velocity/(3*kappa(2,5)*w(2,5,rho_))
-      print*, 4*dpi*unit_length**2*F_bound*unit_radflux/L_sun &
-      , -4*dpi*unit_length**2*gradE*const_c/unit_velocity/(3*kappa(2,5)*w(2,5,&
-         rho_))*unit_radflux/L_sun
-      print*, -4*dpi*unit_length**2*(w(1:5,5,r_e)-w(3:7,5,r_e))/(x(1:5,5,1)-x(3:7,5,1))&
-      *const_c/unit_velocity/(3*kappa(2:6,5)*w(2:6,5,rho_))*unit_radflux/L_sun
-      print*,
+      ! print*, 4*dpi*unit_length**2*F_bound*unit_radflux/L_sun &
+      ! , -4*dpi*unit_length**2*gradE*const_c/unit_velocity/(3*kappa(2,5)*w(2,5,rho_))*unit_radflux/L_sun
+      ! print*, -4*dpi*unit_length**2*(w(1:5,5,r_e)-w(3:7,5,r_e))/(x(1:5,5,1)-x(3:7,5,1))&
+      ! *const_c/unit_velocity/(3*kappa(2:6,5)*w(2:6,5,rho_))*unit_radflux/L_sun
+      ! print*,
 
     case(2)
       Local_tauout(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = &
@@ -579,6 +579,11 @@ contains
      enddo
     
 
+    where(kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) .ne. kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2))
+      kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa_e
+    endwhere
+
     !> test without opal
     ! kappa(ixO^S) = kappa_e
 
@@ -605,8 +610,14 @@ contains
     !> Need diffusion coefficient depending on direction?
     vel(ixImin1:ixImax1,ixImin2:ixImax2) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
        mom(1))/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
-    call gradientO(vel,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
-       ixOmax2,1,gradv)
+    call gradientO(vel,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+       ixOmax1,ixOmax2,1,gradv,3)
+    !> Limit cak for stability purposes
+    !where(gradv(ixO^S) .ge. 10.d0)
+    !  kappa(ixO^S) = 10.d0
+    !endwhere
+
+    !> Absolute value of gradient:
     gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = abs(gradv(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2))
 
@@ -635,14 +646,142 @@ contains
          rho_)*kappa_e)
     endif
 
-    ! !> Limit cak for stability purposes
-    ! where(kappa(ixO^S) .ge. 1.d3*kappa_e)
-    !   kappa(ixO^S) = 1.d3*kappa_e
-    ! endwhere
-
     !> test with no cak
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
+
+  subroutine refine_base(igrid,level,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixmin1,&
+     ixmin2,ixmax1,ixmax2,qt,w,x,refine,coarsen)
+    ! Enforce additional refinement or coarsening
+    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+    ! you must set consistent values for integers refine/coarsen:
+    ! refine = -1 enforce to not refine
+    ! refine =  0 doesn't enforce anything
+    ! refine =  1 enforce refinement
+    ! coarsen = -1 enforce to not coarsen
+    ! coarsen =  0 doesn't enforce anything
+    ! coarsen =  1 enforce coarsen
+    use mod_global_parameters
+
+    integer, intent(in) :: igrid, level, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
+        ixmin1,ixmin2,ixmax1,ixmax2
+    double precision, intent(in) :: qt, w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+       1:nw), x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:ndim)
+    integer, intent(inout) :: refine, coarsen
+
+    !> Refine close to base
+    if (qt .gt. 1.d0) then
+     if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,1) < 1.d0)) refine=1
+    endif
+
+    if (qt .gt. 2.d0) then
+     if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,1) < 2.d0)) refine=1
+    endif
+
+    if (qt .gt. 4.d0) then
+     if (any(x(ixmin1:ixmax1,ixmin2:ixmax2,1) < 4.d0)) refine=1
+    endif
+
+  end subroutine refine_base
+
+
+  !> Calculate gradient of a scalar q within ixL in direction idir
+  !> difference with gradient is gradq(ixO^S), NOT gradq(ixI^S)
+  subroutine gradientO(q,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,idir,gradq,n)
+    use mod_global_parameters
+
+    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
+        ixOmin1,ixOmin2,ixOmax1,ixOmax2, idir
+    double precision, intent(in)    :: q(ixImin1:ixImax1,ixImin2:ixImax2),&
+        x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
+    double precision, intent(inout) :: gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+    integer, intent(in)             :: n
+    integer                         :: jxOmin1,jxOmin2,jxOmax1,jxOmax2,&
+        hxOmin1,hxOmin2,hxOmax1,hxOmax2
+
+    ! hxO^L=ixO^L-n*kr(idir,^D);
+    ! jxO^L=ixO^L+n*kr(idir,^D);
+
+    ! print*, hxO^L
+
+   ! if (n .gt. nghostcells) call mpistop("gradientO stencil too wide")
+
+    !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(2*n*dxlevel(idir))
+    !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
+
+    !> Using higher order derivatives with wider stencil according to:
+    !> https://en.wikipedia.org/wiki/Finite_difference_coefficient
+
+    if (n .gt. nghostcells) then
+      call mpistop("gradientO stencil too wide")
+    elseif (n .eq. 1) then
+      hxOmin1=ixOmin1-kr(idir,1);hxOmin2=ixOmin2-kr(idir,2)
+      hxOmax1=ixOmax1-kr(idir,1);hxOmax2=ixOmax2-kr(idir,2);
+      jxOmin1=ixOmin1+kr(idir,1);jxOmin2=ixOmin2+kr(idir,2)
+      jxOmax1=ixOmax1+kr(idir,1);jxOmax2=ixOmax2+kr(idir,2);
+      gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2)=(q(jxOmin1:jxOmax1,&
+         jxOmin2:jxOmax2)-q(hxOmin1:hxOmax1,&
+         hxOmin2:hxOmax2))/(x(jxOmin1:jxOmax1,jxOmin2:jxOmax2,&
+         idir)-x(hxOmin1:hxOmax1,hxOmin2:hxOmax2,idir))
+    elseif (n .eq. 2) then
+      gradq(ixImin1:ixImax1,ixImin2:ixImax2) = 0.d0
+      !> coef 2/3
+      hxOmin1=ixOmin1-kr(idir,1);hxOmin2=ixOmin2-kr(idir,2)
+      hxOmax1=ixOmax1-kr(idir,1);hxOmax2=ixOmax2-kr(idir,2);
+      jxOmin1=ixOmin1+kr(idir,1);jxOmin2=ixOmin2+kr(idir,2)
+      jxOmax1=ixOmax1+kr(idir,1);jxOmax2=ixOmax2+kr(idir,2);
+      gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = gradq(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2) + 2.d0/3.d0*(q(jxOmin1:jxOmax1,&
+         jxOmin2:jxOmax2)-q(hxOmin1:hxOmax1,hxOmin2:hxOmax2))
+      !> coef -1/12
+      hxOmin1=ixOmin1-2*kr(idir,1);hxOmin2=ixOmin2-2*kr(idir,2)
+      hxOmax1=ixOmax1-2*kr(idir,1);hxOmax2=ixOmax2-2*kr(idir,2);
+      jxOmin1=ixOmin1+2*kr(idir,1);jxOmin2=ixOmin2+2*kr(idir,2)
+      jxOmax1=ixOmax1+2*kr(idir,1);jxOmax2=ixOmax2+2*kr(idir,2);
+      gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = gradq(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2) - 1.d0/12.d0*(q(jxOmin1:jxOmax1,&
+         jxOmin2:jxOmax2)-q(hxOmin1:hxOmax1,hxOmin2:hxOmax2))
+      !> divide by dx
+      gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = gradq(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)/dxlevel(idir)
+    elseif (n .eq. 3) then
+      gradq(ixImin1:ixImax1,ixImin2:ixImax2) = 0.d0
+      !> coef 3/4
+      hxOmin1=ixOmin1-kr(idir,1);hxOmin2=ixOmin2-kr(idir,2)
+      hxOmax1=ixOmax1-kr(idir,1);hxOmax2=ixOmax2-kr(idir,2);
+      jxOmin1=ixOmin1+kr(idir,1);jxOmin2=ixOmin2+kr(idir,2)
+      jxOmax1=ixOmax1+kr(idir,1);jxOmax2=ixOmax2+kr(idir,2);
+      gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = gradq(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2) + 3.d0/4.d0*(q(jxOmin1:jxOmax1,&
+         jxOmin2:jxOmax2)-q(hxOmin1:hxOmax1,hxOmin2:hxOmax2))
+      !> coef -3/20
+      hxOmin1=ixOmin1-2*kr(idir,1);hxOmin2=ixOmin2-2*kr(idir,2)
+      hxOmax1=ixOmax1-2*kr(idir,1);hxOmax2=ixOmax2-2*kr(idir,2);
+      jxOmin1=ixOmin1+2*kr(idir,1);jxOmin2=ixOmin2+2*kr(idir,2)
+      jxOmax1=ixOmax1+2*kr(idir,1);jxOmax2=ixOmax2+2*kr(idir,2);
+      gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = gradq(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2) - 3.d0/20.d0*(q(jxOmin1:jxOmax1,&
+         jxOmin2:jxOmax2)-q(hxOmin1:hxOmax1,hxOmin2:hxOmax2))
+      !> coef 1/60
+      hxOmin1=ixOmin1-3*kr(idir,1);hxOmin2=ixOmin2-3*kr(idir,2)
+      hxOmax1=ixOmax1-3*kr(idir,1);hxOmax2=ixOmax2-3*kr(idir,2);
+      jxOmin1=ixOmin1+3*kr(idir,1);jxOmin2=ixOmin2+3*kr(idir,2)
+      jxOmax1=ixOmax1+3*kr(idir,1);jxOmax2=ixOmax2+3*kr(idir,2);
+      gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = gradq(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2) + 1.d0/60.d0*(q(jxOmin1:jxOmax1,&
+         jxOmin2:jxOmax2)-q(hxOmin1:hxOmax1,hxOmin2:hxOmax2))
+      !> divide by dx
+      gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = gradq(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)/dxlevel(idir)
+    else
+      call mpistop("gradient0 stencil unknown")
+    endif
+
+  end subroutine gradientO
+
+
+
 
   subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2,w,x,normconv)
@@ -713,8 +852,8 @@ contains
 
     vel(ixImin1:ixImax1,ixImin2:ixImax2) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
        mom(1))/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
-    call gradientO(vel,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
-       ixOmax2,1,gradv)
+    call gradientO(vel,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+       ixOmax1,ixOmax2,1,gradv,3)
 
     pp_rf(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = two*rad_flux(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,1)/x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)*dt

@@ -425,7 +425,7 @@ contains
     double precision, intent(in)  :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(out) :: source(ixO^S,1:nw)
 
-    double precision :: rad_flux(ixO^S,1:ndir)
+    double precision :: rad_flux(ixO^S,1:ndim)
     double precision :: pth(ixI^S),v(ixO^S,ndim)
     double precision :: radius(ixO^S),  pert(ixO^S)
     integer :: rdir, pdir

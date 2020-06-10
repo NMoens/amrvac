@@ -203,7 +203,7 @@ module mod_fld
     double precision :: nabla_vP(ixO^S)
     double precision :: vel(ixI^S), grad_v(ixI^S)
 
-    integer :: idir, i, j
+    integer :: idir, jdir
 
     double precision :: fld_R(ixO^S), lambda(ixO^S)
 
@@ -233,11 +233,11 @@ module mod_fld
       !> Photon tiring
       !> calculate tensor div_v
       !$OMP PARALLEL DO
-      do i = 1,ndim
-        do j = 1,ndim
-          vel(ixI^S) = wCt(ixI^S,iw_mom(j))/wCt(ixI^S,iw_rho)
-          call gradient(vel,ixI^L,ixO^L,i,grad_v)
-          div_v(ixO^S,i,j) = grad_v(ixO^S)
+      do idir = 1,ndim
+        do jdir = 1,ndim
+          vel(ixI^S) = wCt(ixI^S,iw_mom(jdir))/wCt(ixI^S,iw_rho)
+          call gradient(vel,ixI^L,ixO^L,idir,grad_v)
+          div_v(ixO^S,idir,jdir) = grad_v(ixO^S)
         enddo
       enddo
       !$OMP END PARALLEL DO

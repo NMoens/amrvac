@@ -343,4 +343,3 @@ contains
   end subroutine mg_tree_from_amrvac
 
 end module mod_multigrid_coupling
-

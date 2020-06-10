@@ -429,7 +429,7 @@ module mod_fld
     double precision :: kappa(ixO^S)
     double precision ::  normgrad2(ixO^S)
     double precision :: grad_r_e(ixI^S), rad_e(ixI^S)
-    integer :: idir, i, j, ix^D
+    integer :: idir, ix^D
 
     double precision :: tmp_L(ixI^S), filtered_L(ixI^S)
     integer :: filter, idim
@@ -516,14 +516,6 @@ module mod_fld
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
 
       fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
-
-      ! if (x(1,1,1) .lt. xprobmin1) then
-      !   print*, w(ixImin1:ixOmin1+5,5,iw_r_e)
-      !   print*, normgrad2(ixImin1:ixOmin1+5,5)
-      !   print*, fld_R(ixOmin1:ixOmin1+5,5)
-      !   print*, fld_lambda(ixOmin1:ixOmin1+5,5)
-      !   print*, '--------------------------------------------------------------'
-      ! endif
 
       !> Calculate the flux limiter, lambda
       !> Minerbo:

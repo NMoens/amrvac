@@ -419,7 +419,7 @@ contains
   !
   !   call PseudoPlanarSource(ixI^L,ixO^L,w,x,ppsource)
   !
-  !   dtnew = 1.d-1* minval(abs(w(ixO^S,r_e)/ppsource(ixO^S,r_e)))
+  !   dtnew = courantpar * minval(abs(w(ixO^S,r_e)/ppsource(ixO^S,r_e)))
   ! end subroutine pp_dt
 
 
@@ -601,7 +601,7 @@ contains
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
 
-  subroutine refine_base(igrid,level,ixGmin1,ixGmax1,ixmin1,ixmax1,qt,w,x,&
+  subroutine refine_base(igrid,level,ixImin1,ixImax1,ixOmin1,ixOmax1,qt,w,x,&
      refine,coarsen)
     ! Enforce additional refinement or coarsening
     ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
@@ -614,24 +614,24 @@ contains
     ! coarsen =  1 enforce coarsen
     use mod_global_parameters
 
-    integer, intent(in) :: igrid, level, ixGmin1,ixGmax1, ixmin1,ixmax1
-    double precision, intent(in) :: qt, w(ixGmin1:ixGmax1,1:nw),&
-        x(ixGmin1:ixGmax1,1:ndim)
+    integer, intent(in) :: igrid, level, ixImin1,ixImax1, ixOmin1,ixOmax1
+    double precision, intent(in) :: qt, w(ixImin1:ixImax1,1:nw),&
+        x(ixImin1:ixImax1,1:ndim)
     integer, intent(inout) :: refine, coarsen
 
     !> Refine close to base
     refine = -1
 
     if (qt .gt. 1.d0) then
-      if (any(x(ixGmin1:ixGmax1,1) < 1.d0)) refine=1
+      if (any(x(ixImin1:ixImax1,1) < 1.d0)) refine=1
     endif
 
     if (qt .gt. 2.d0) then
-      if (any(x(ixGmin1:ixGmax1,1) < 1.d0)) refine=1
+      if (any(x(ixImin1:ixImax1,1) < 1.d0)) refine=1
     endif
 
     if (qt .gt. 4.d0) then
-      if (any(x(ixGmin1:ixGmax1,1) < 1.d0)) refine=1
+      if (any(x(ixImin1:ixImax1,1) < 1.d0)) refine=1
     endif
 
   end subroutine refine_base
@@ -649,10 +649,10 @@ contains
     integer, intent(in)             :: n
     integer                         :: jxOmin1,jxOmax1, hxOmin1,hxOmax1
 
+    if (n .gt. nghostcells) call mpistop("gradientO stencil too wide, add gc")
+
     hxOmin1=ixOmin1-n*kr(idir,1);hxOmax1=ixOmax1-n*kr(idir,1);
     jxOmin1=ixOmin1+n*kr(idir,1);jxOmax1=ixOmax1+n*kr(idir,1);
-
-    if (n .gt. nghostcells) call mpistop("gradientO stencil too wide")
 
     !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(2*n*dxlevel(idir))
     gradq(ixOmin1:ixOmax1)=(q(jxOmin1:jxOmax1)-&
@@ -696,7 +696,7 @@ contains
 !      !> divide by dx
 !      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
 !    else
-!      call mpistop("gradient0 stencil unknown")
+!      call mpistop("gradientO stencil unknown")
 !     endif
 
   end subroutine gradientO

@@ -25,8 +25,10 @@ contains
   !> This routine should set user methods, and activate the physics module
   subroutine usr_init()
 
-    ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    ! Choose coordinate system as n-D Cartesian
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
+    {^IFTHREED call set_coordinate_system("Cartesian_3D")}
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -82,9 +84,6 @@ contains
     print*, L_3/wvl
     print*, 1.d0/(2*dpi*tau_a)/wvl
     !-------------------
-
-
-    stop
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length = wvl ! cm
@@ -168,10 +167,10 @@ contains
     double precision :: kappa(ixO^S), lambda(ixO^S), fld_R(ixO^S)
 
     ! Set initial values for w
-    w(ixI^S, rho_) = rho0! + A_rho*dsin(wavenumber*x(ixI^S,1))
-    w(ixI^S, mom(1)) = 0.d0 !w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1))
-    w(ixI^S, mom(2)) = zero
-    w(ixI^S, e_) = eg0 !+ A_e*dsin(wavenumber*x(ixI^S,1))
+    w(ixI^S, rho_) = rho0
+    w(ixI^S, mom(:)) = 0.d0
+    w(ixI^S, mom(1)) = 0.d0
+    w(ixI^S, e_) = eg0
 
     press(ixI^S) = p0 !+ A_p*dsin(wavenumber*x(ixI^S,1))
     temp(ixI^S) = (const_mp*fld_mu/const_kb)*press(ixI^S)/w(ixI^S, rho_)&
@@ -199,8 +198,9 @@ contains
 
     where (x(ixI^S,1) .lt. one)
       w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*x(ixI^S,1)-omega*global_time)
+      {^NOONED w(ixI^S, mom(2)) = zero}
+      {^IFTHREED w(ixI^S, mom(3)) = zero}
       w(ixI^S, mom(1)) = w(ixI^S, rho_)*A_v*dsin(wavenumber*x(ixI^S,1)-omega*global_time)
-      w(ixI^S, mom(2)) = zero
       w(ixI^S, e_) = eg0 + A_e*dsin(wavenumber*x(ixI^S,1)-omega*global_time)
 
       press(ixI^S) = p0 + A_p*dsin(wavenumber*x(ixI^S,1)-omega*global_time)

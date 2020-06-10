@@ -627,6 +627,11 @@ module mod_fld
     f(ixO^S) = lambda(ixO^S) + lambda(ixO^S)**two * fld_R(ixO^S)**two
     f(ixO^S) = one/two*(one-f(ixO^S)) + one/two*(3.d0*f(ixO^S) - one)
 
+    {^IFONED
+    eddington_tensor(ixO^S,1,1) = f(ixO^S)
+    }
+
+    {^NOONED
     do idir = 1,ndim
       eddington_tensor(ixO^S,idir,idir) = half*(one-f(ixO^S))
     enddo
@@ -647,6 +652,7 @@ module mod_fld
         endwhere
       enddo
     enddo
+    }
 
   end subroutine fld_get_eddington
 
@@ -691,7 +697,7 @@ module mod_fld
 
     max_res = fld_diff_tol !1d-7/qdt
 
-    call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.)
+    call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.,1.d0)
     call diffusion_solve_vcoeff(mg, qdt, 2, max_res)
     call mg_copy_from_tree(mg_iphi, iw_r_e)
 
@@ -773,9 +779,9 @@ module mod_fld
     use mod_multigrid_coupling
     use mod_global_parameters
     if (.not. time_advance)then
-      call mg_copy_to_tree(i_diff_mg, mg_iveps, .false., .false.)
+      call mg_copy_to_tree(i_diff_mg, mg_iveps, .false., .false.,1.d0)
     else
-      call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.)
+      call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.,1.d0)
     endif
   end subroutine set_mg_diffcoef
 

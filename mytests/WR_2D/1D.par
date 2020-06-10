@@ -52,7 +52,7 @@
 /
 
  &meshlist
-   refine_max_level   = 3
+   refine_max_level   = 1
    refine_criterion   = 0
    domain_nx1         = 2048
    block_nx1          = 32

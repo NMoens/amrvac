@@ -413,7 +413,7 @@ contains
   !
   !   call PseudoPlanarSource(ixI^L,ixO^L,w,x,ppsource)
   !
-  !   dtnew = 1.d-1* minval(abs(w(ixO^S,r_e)/ppsource(ixO^S,r_e)))
+  !   dtnew = courantpar * minval(abs(w(ixO^S,r_e)/ppsource(ixO^S,r_e)))
   ! end subroutine pp_dt
 
 
@@ -585,7 +585,7 @@ contains
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
 
-  subroutine refine_base(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+  subroutine refine_base(igrid,level,ixI^L,ixO^L,qt,w,x,refine,coarsen)
     ! Enforce additional refinement or coarsening
     ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
     ! you must set consistent values for integers refine/coarsen:
@@ -597,23 +597,23 @@ contains
     ! coarsen =  1 enforce coarsen
     use mod_global_parameters
 
-    integer, intent(in) :: igrid, level, ixG^L, ix^L
-    double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+    integer, intent(in) :: igrid, level, ixI^L, ixO^L
+    double precision, intent(in) :: qt, w(ixI^S,1:nw), x(ixI^S,1:ndim)
     integer, intent(inout) :: refine, coarsen
 
     !> Refine close to base
     refine = -1
 
     if (qt .gt. 1.d0) then
-      if (any(x(ixG^S,1) < 1.d0)) refine=1
+      if (any(x(ixI^S,1) < 1.d0)) refine=1
     endif
 
     if (qt .gt. 2.d0) then
-      if (any(x(ixG^S,1) < 1.d0)) refine=1
+      if (any(x(ixI^S,1) < 1.d0)) refine=1
     endif
 
     if (qt .gt. 4.d0) then
-      if (any(x(ixG^S,1) < 1.d0)) refine=1
+      if (any(x(ixI^S,1) < 1.d0)) refine=1
     endif
 
   end subroutine refine_base
@@ -630,10 +630,10 @@ contains
     integer, intent(in)             :: n
     integer                         :: jxO^L, hxO^L
 
+    if (n .gt. nghostcells) call mpistop("gradientO stencil too wide, add gc")
+
     hxO^L=ixO^L-n*kr(idir,^D);
     jxO^L=ixO^L+n*kr(idir,^D);
-
-    if (n .gt. nghostcells) call mpistop("gradientO stencil too wide")
 
     !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(2*n*dxlevel(idir))
     gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
@@ -676,7 +676,7 @@ contains
 !      !> divide by dx
 !      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
 !    else
-!      call mpistop("gradient0 stencil unknown")
+!      call mpistop("gradientO stencil unknown")
 !     endif
 
   end subroutine gradientO

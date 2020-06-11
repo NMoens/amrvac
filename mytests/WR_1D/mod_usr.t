@@ -154,7 +154,6 @@ contains
     double precision :: T_in, E_in, rr(ixI^S), bb
 
     w(ixI^S,rho_)   = rho_bound
-    w(ixI^S,mom(:)) = 0.d0
 
     where(x(ixI^S,1) .gt. 1.d0)
       vel(ixI^S) =  v_inf*(1 - 0.999d0*( 1.d0/x(ixI^S,1)))**0.5d0
@@ -209,7 +208,7 @@ contains
     double precision :: Local_gradE(ixI^S)
     double precision :: Local_tauout(ixB^S)
     double precision :: Local_Tout(ixB^S)
-    
+
     double precision :: kappa_out
 
     integer :: ix^D
@@ -219,12 +218,11 @@ contains
     case(1)
       w(ixB^S,rho_) = rho_bound
       do ix1 = ixBmax1-1,ixBmin1,-1
-        w(ix1,ixBmin2:ixBmax2,rho_) = dexp(2*dlog(w(ix1+1,ixBmin2:ixBmax2,rho_)) - dlog(w(ix1+2,ixBmin2:ixBmax2,rho_)))
+        w(ix1,rho_) = dexp(2*dlog(w(ix1+1,rho_)) - dlog(w(ix1+2,rho_)))
       enddo
 
       do ix1 = ixBmax1,ixBmin1,-1
-        w(ix1,ixBmin2:ixBmax2,mom(1)) = w(ix1+1,ixBmin2:ixBmax2,mom(1))
-        w(ix1,ixBmin2:ixBmax2,mom(2)) = w(ix1+1,ixBmin2:ixBmax2,mom(2))
+        w(ix1,mom(1)) = w(ix1+1,mom(1))
       enddo
 
       where(w(ixB^S,mom(1)) .lt. 0.d0)
@@ -239,41 +237,25 @@ contains
 
       call get_kappa_OPAL(ixI^L,ixI^L,w,x,kappa)
       do ix1 = ixBmin1,ixBmax1
-        kappa(ix1,ixBmin2:ixBmax2) = kappa(ixBmax1+1,ixBmin2:ixBmax2)
+        kappa(ix1) = kappa(ixBmax1+1)
       enddo
 
       Local_gradE(ixI^S) = -F_bound*3*kappa(ixI^S)*w(ixI^S,rho_)&
       *unit_velocity/const_c
-      gradE = sum(Local_gradE(nghostcells,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
-
-      ! print*, gradE
+      gradE = Local_gradE(nghostcells)
 
       do ix1 = ixBmax1,ixBmin1,-1
-        w(ix1,ixBmin2:ixBmax2,r_e) = w(ix1+2,ixBmin2:ixBmax2,r_e) &
-        + (x(ix1,ixBmin2:ixBmax2,1)-x(ix1+2,ixBmin2:ixBmax2,1))*Local_gradE(ix1+1,ixBmin2:ixBmax2)
+        w(ix1,r_e) = w(ix1+2,r_e) &
+        + (x(ix1,1)-x(ix1+2,1))*Local_gradE(ix1+1)
       enddo
 
-      ! w(nghostcells,ixBmin2:ixBmax2,r_e) = dexp(half*(dlog(w(nghostcells-1,ixBmin2:ixBmax2,r_e))+dlog(w(nghostcells+1,ixBmin2:ixBmax2,r_e))))
-      ! w(nghostcells,ixBmin2:ixBmax2,r_e) = half*(w(nghostcells-1,ixBmin2:ixBmax2,r_e)+w(nghostcells+1,ixBmin2:ixBmax2,r_e))
-
-      ! print*, it, 'bottom------------------------------------'
-      ! print*, w(1:5,5,r_e)
-      ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))
-      ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))/(w(2:5,5,rho_)*kappa(2:5,5))
-
-      ! print*, F_bound, gradE*const_c/unit_velocity/(3*kappa(2,5)*w(2,5,rho_))
-      ! print*, 4*dpi*unit_length**2*F_bound*unit_radflux/L_sun &
-      ! , -4*dpi*unit_length**2*gradE*const_c/unit_velocity/(3*kappa(2,5)*w(2,5,rho_))*unit_radflux/L_sun
-      ! print*, -4*dpi*unit_length**2*(w(1:5,5,r_e)-w(3:7,5,r_e))/(x(1:5,5,1)-x(3:7,5,1))&
-      ! *const_c/unit_velocity/(3*kappa(2:6,5)*w(2:6,5,rho_))*unit_radflux/L_sun
-      ! print*,
 
     case(2)
 
       !> Compute mean kappa in outer blocks
       call OPAL_and_CAK(ixI^L,ixI^L,w,x,kappa)
-      kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells,ixImin2+nghostcells:ixImax2-nghostcells)) &
-      /(((ixImax1-nghostcells) - (ixImin1+nghostcells))*((ixImax2-nghostcells)-(ixImin2+nghostcells)))
+      kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells)) &
+      /((ixImax1-nghostcells) - (ixImin1+nghostcells))
       if (kappa_out .ne. kappa_out) kappa_out = kappa_e
       kappa_out = max(kappa_out,kappa_e)
       kappa_out = min(kappa_out,20*kappa_e)
@@ -285,13 +267,13 @@ contains
       where (Local_Tout(ixB^S) .ne. Local_Tout(ixB^S))
         Local_Tout(ixB^S) = 2.d4
       endwhere
-      T_out = sum(Local_Tout(ixBmin1,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
+      T_out = Local_Tout(ixBmin1)
 
       T_out = max(1.5d4/unit_temperature, T_out)
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
       do ix1 = ixBmin1,ixBmax1
-        w(ix1,:,r_e) = 2*w(ix1-1,:,r_e) - w(ix1-2,:,r_e)
+        w(ix1,r_e) = 2*w(ix1-1,r_e) - w(ix1-2,r_e)
       enddo
 
       ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
@@ -348,7 +330,6 @@ contains
     radius(ixO^S) = x(ixO^S,1)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
-    gravity_field(ixI^S,:) = zero
     gravity_field(ixI^S,1) = -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
 
   end subroutine set_gravitation_field
@@ -367,7 +348,6 @@ contains
     call PseudoPlanarSource(ixI^L,ixO^L,wCT,x,ppsource)
     w(ixO^S,rho_) = w(ixO^S,rho_) + qdt*ppsource(ixO^S,rho_) !> OK
     w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt*ppsource(ixO^S,mom(1)) !> OK
-    w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt*ppsource(ixO^S,mom(2)) !> OK
     w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*ppsource(ixO^S,r_e) !> TROUBLEMAKER
 
   end subroutine PseudoPlanar
@@ -405,7 +385,6 @@ contains
     pdir = 2
 
     v(ixO^S,rdir) = w(ixO^S,mom(rdir))/w(ixO^S,rho_)
-    v(ixO^S,pdir) = w(ixO^S,mom(pdir))/w(ixO^S,rho_)
 
     radius(ixO^S) = x(ixO^S,rdir) ! + half*block%dx(ixO^S,rdir)
 
@@ -417,10 +396,7 @@ contains
 
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
-    source(ixO^S,mom(rdir)) = - 2*w(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S) &
-                              + w(ixO^S,rho_)*v(ixO^S,pdir)**two/radius(ixO^S)
-
-    source(ixO^S,mom(pdir)) = - 3*v(ixO^S,rdir)*v(ixO^S,pdir)*w(ixO^S,rho_)/radius(ixO^S)
+    source(ixO^S,mom(rdir)) = - 2*w(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S)
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
@@ -595,13 +571,13 @@ contains
 
     hxO^L=ixO^L-n*kr(idir,^D);
     jxO^L=ixO^L+n*kr(idir,^D);
-   
+
     if (n .gt. nghostcells) call mpistop("gradientO stencil too wide")
-    
+
     !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(2*n*dxlevel(idir))
     gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
 
-    !> Using higher order derivatives with wider stencil according to: 
+    !> Using higher order derivatives with wider stencil according to:
     !> https://en.wikipedia.org/wiki/Finite_difference_coefficient
 
 !    if (n .gt. nghostcells) then
@@ -615,11 +591,11 @@ contains
 !      !> coef 2/3
 !      hxO^L=ixO^L-kr(idir,^D);
 !      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 2.d0/3.d0*(q(jxO^S)-q(hxO^S)) 
+!      gradq(ixO^S) = gradq(ixO^S) + 2.d0/3.d0*(q(jxO^S)-q(hxO^S))
 !      !> coef -1/12
 !      hxO^L=ixO^L-2*kr(idir,^D);
 !      jxO^L=ixO^L+2*kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) - 1.d0/12.d0*(q(jxO^S)-q(hxO^S))                     
+!      gradq(ixO^S) = gradq(ixO^S) - 1.d0/12.d0*(q(jxO^S)-q(hxO^S))
 !      !> divide by dx
 !      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
 !    elseif (n .eq. 3) then
@@ -627,7 +603,7 @@ contains
 !      !> coef 3/4
 !      hxO^L=ixO^L-kr(idir,^D);
 !      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 3.d0/4.d0*(q(jxO^S)-q(hxO^S)) 
+!      gradq(ixO^S) = gradq(ixO^S) + 3.d0/4.d0*(q(jxO^S)-q(hxO^S))
 !      !> coef -3/20
 !      hxO^L=ixO^L-2*kr(idir,^D);
 !      jxO^L=ixO^L+2*kr(idir,^D);

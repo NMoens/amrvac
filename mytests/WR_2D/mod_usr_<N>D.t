@@ -1,9 +1,12 @@
 !> This is a template for a new user problem
+
 module mod_usr
 
   ! Include a physics module
   use mod_rhd
   use mod_fld
+  use mod_multigrid_coupling
+
 
   implicit none
 
@@ -20,14 +23,16 @@ module mod_usr
   double precision :: T_bound, R_star, M_star
 
   double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
+  double precision, dimension(:), allocatable :: loc_E_out, loc_E_in
 
 contains
 
   !> This routine should set user methods, and activate the physics module
   subroutine usr_init()
 
-    ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    ! Choose coordinate system
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -38,7 +43,7 @@ contains
     ! Specify other user routines, for a list see mod_usr_methods.t
     ! Boundary conditions
     usr_special_bc => boundary_conditions
-    usr_special_mg_bc => mg_boundary_conditions
+    ! usr_special_mg_bc => mg_boundary_conditions
 
     ! PseudoPlanar correction
     usr_source => PseudoPlanar
@@ -111,6 +116,12 @@ contains
 
     print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
     ! stop
+
+    allocate(loc_E_out(domain_nx2+2*nghostcells))
+    allocate(loc_E_in(domain_nx2+2*nghostcells))
+    
+    ! mg%bc(1, mg_iphi)%boundary_cond => multigrid_loc_bc
+    ! mg%bc(2, mg_iphi)%boundary_cond => multigrid_loc_bc
 
   end subroutine initglobaldata_usr
 
@@ -209,7 +220,7 @@ contains
     double precision :: Local_gradE(ixI^S)
     double precision :: Local_tauout(ixB^S)
     double precision :: Local_Tout(ixB^S)
-    
+
     double precision :: kappa_out
 
     integer :: ix^D
@@ -218,13 +229,16 @@ contains
 
     case(1)
       w(ixB^S,rho_) = rho_bound
+
       do ix1 = ixBmax1-1,ixBmin1,-1
-        w(ix1,ixBmin2:ixBmax2,rho_) = dexp(2*dlog(w(ix1+1,ixBmin2:ixBmax2,rho_)) - dlog(w(ix1+2,ixBmin2:ixBmax2,rho_)))
+        {^IFONED w(ix1,rho_) = dexp(2*dlog(w(ix1+1,rho_)) - dlog(w(ix1+2,rho_)))}
+        {^IFTWOD w(ix1,ixBmin2:ixBmax2,rho_) = dexp(2*dlog(w(ix1+1,ixBmin2:ixBmax2,rho_)) - dlog(w(ix1+2,ixBmin2:ixBmax2,rho_)))}
       enddo
 
       do ix1 = ixBmax1,ixBmin1,-1
-        w(ix1,ixBmin2:ixBmax2,mom(1)) = w(ix1+1,ixBmin2:ixBmax2,mom(1))
-        w(ix1,ixBmin2:ixBmax2,mom(2)) = w(ix1+1,ixBmin2:ixBmax2,mom(2))
+        {^IFONED w(ix1,mom(1)) = w(ix1+1,mom(1))}
+        {^IFTWOD w(ix1,ixBmin2:ixBmax2,mom(1)) = w(ix1+1,ixBmin2:ixBmax2,mom(1))
+                 w(ix1,ixBmin2:ixBmax2,mom(2)) = w(ix1+1,ixBmin2:ixBmax2,mom(2)) }
       enddo
 
       where(w(ixB^S,mom(1)) .lt. 0.d0)
@@ -239,19 +253,38 @@ contains
 
       call get_kappa_OPAL(ixI^L,ixI^L,w,x,kappa)
       do ix1 = ixBmin1,ixBmax1
-        kappa(ix1,ixBmin2:ixBmax2) = kappa(ixBmax1+1,ixBmin2:ixBmax2)
+        {^IFONED kappa(ix1) = kappa(ixBmax1+1)}
+        {^IFTWOD kappa(ix1,ixBmin2:ixBmax2) = kappa(ixBmax1+1,ixBmin2:ixBmax2)}
       enddo
 
       Local_gradE(ixI^S) = -F_bound*3*kappa(ixI^S)*w(ixI^S,rho_)&
       *unit_velocity/const_c
+      {^IFONED
+      gradE = Local_gradE(nghostcells)
+      }
+      {^IFTWOD
       gradE = sum(Local_gradE(nghostcells,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
+      }
 
       ! print*, gradE
 
+      {^IFONED
+      do ix1 = ixBmax1,ixBmin1,-1
+        w(ix1,r_e) = w(ix1+2,r_e) &
+        + (x(ix1,1)-x(ix1+2,1))*Local_gradE(ix1+1)
+      enddo
+      }
+
+      {^IFTWOD
       do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,ixBmin2:ixBmax2,r_e) = w(ix1+2,ixBmin2:ixBmax2,r_e) &
         + (x(ix1,ixBmin2:ixBmax2,1)-x(ix1+2,ixBmin2:ixBmax2,1))*Local_gradE(ix1+1,ixBmin2:ixBmax2)
       enddo
+      }
+
+      {^IFTWOD
+      loc_E_in(ixBmin2:ixBmax2) = w(ixBmax1,ixBmin2:ixBmax2,r_e)
+      }
 
       ! w(nghostcells,ixBmin2:ixBmax2,r_e) = dexp(half*(dlog(w(nghostcells-1,ixBmin2:ixBmax2,r_e))+dlog(w(nghostcells+1,ixBmin2:ixBmax2,r_e))))
       ! w(nghostcells,ixBmin2:ixBmax2,r_e) = half*(w(nghostcells-1,ixBmin2:ixBmax2,r_e)+w(nghostcells+1,ixBmin2:ixBmax2,r_e))
@@ -272,8 +305,16 @@ contains
 
       !> Compute mean kappa in outer blocks
       call OPAL_and_CAK(ixI^L,ixI^L,w,x,kappa)
+      {^IFONED
+      kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells)) &
+      /((ixImax1-nghostcells) - (ixImin1+nghostcells))
+      }
+
+      {^IFTWOD
       kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells,ixImin2+nghostcells:ixImax2-nghostcells)) &
       /(((ixImax1-nghostcells) - (ixImin1+nghostcells))*((ixImax2-nghostcells)-(ixImin2+nghostcells)))
+      }
+
       if (kappa_out .ne. kappa_out) kappa_out = kappa_e
       kappa_out = max(kappa_out,kappa_e)
       kappa_out = min(kappa_out,20*kappa_e)
@@ -285,14 +326,21 @@ contains
       where (Local_Tout(ixB^S) .ne. Local_Tout(ixB^S))
         Local_Tout(ixB^S) = 2.d4
       endwhere
-      T_out = sum(Local_Tout(ixBmin1,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
+
+      {^IFONED T_out = Local_Tout(ixBmin1)}
+      {^IFTWOD T_out = sum(Local_Tout(ixBmin1,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)}
 
       T_out = max(1.5d4/unit_temperature, T_out)
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
       do ix1 = ixBmin1,ixBmax1
-        w(ix1,:,r_e) = 2*w(ix1-1,:,r_e) - w(ix1-2,:,r_e)
+        {^IFONED w(ix1,r_e) = 2*w(ix1-1,r_e) - w(ix1-2,r_e)}
+        {^IFTWOD w(ix1,:,r_e) = 2*w(ix1-1,:,r_e) - w(ix1-2,:,r_e)}
       enddo
+
+      {^IFTWOD
+      loc_E_out(ixBmin2:ixBmax2) = const_rad_a*Local_Tout(ixBmin1,ixBmin2:ixBmax2)**4.d0/unit_pressure
+      }
 
       ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
 
@@ -333,6 +381,41 @@ contains
     end select
   end subroutine mg_boundary_conditions
 
+  ! !> To fill ghost cells near physical boundaries
+  ! subroutine multigrid_loc_bc(box, nc, iv, nb, bc_type, bc)
+  !   use mod_bc_data
+  !   type(mg_box_t), intent(in)    :: box
+  !   integer, intent(in)           :: nc
+  !   integer, intent(in)           :: iv      !< Index of variable
+  !   integer, intent(in)           :: nb      !< Direction
+  !   integer, intent(out)          :: bc_type !< Type of b.c.
+  !   {^IFONED
+  !   double precision, intent(out) :: bc
+  !   }
+  !   {^IFTWOD
+  !   double precision, intent(out) :: bc(nc)
+  !   double precision              :: rr(nc, 2)
+  !   }
+  !   integer                       :: i, ixs(ndim-1), nb_dim, n_bc
+  !
+  !   ! Type of boundary condition
+  !   bc_type      = mg_bc_dirichlet
+  !   ! Index of boundary data (stored per variable, per direction)
+  !   n_bc         = bc_data_ix(rho_, nb)
+  !   ! In which dimension the boundary is
+  !   nb_dim       = mg_neighb_dim(nb)
+  !   ! A list of dimensions *other* than nb_dim
+  !   ixs          = [(i, i=1,ndim-1)]
+  !   ixs(nb_dim:) = ixs(nb_dim:) + 1
+  !
+  !   ! Interpolate the stored boundary data
+  !   {^IFTWOD
+  !   if (nb .eq. 1) bc = loc_E_in
+  !   if (nb .eq. 2) bc = loc_E_out
+  !   }
+  !
+  ! end subroutine multigrid_loc_bc
+
 
   !> Calculate gravitational acceleration in each dimension
   subroutine set_gravitation_field(ixI^L,ixO^L,wCT,x,gravity_field)
@@ -366,8 +449,7 @@ contains
 
     call PseudoPlanarSource(ixI^L,ixO^L,wCT,x,ppsource)
     w(ixO^S,rho_) = w(ixO^S,rho_) + qdt*ppsource(ixO^S,rho_) !> OK
-    w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt*ppsource(ixO^S,mom(1)) !> OK
-    w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt*ppsource(ixO^S,mom(2)) !> OK
+    w(ixO^S,mom(:)) = w(ixO^S,mom(:)) + qdt*ppsource(ixO^S,mom(:)) !> OK
     w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*ppsource(ixO^S,r_e) !> TROUBLEMAKER
 
   end subroutine PseudoPlanar
@@ -382,7 +464,7 @@ contains
   !
   !   call PseudoPlanarSource(ixI^L,ixO^L,w,x,ppsource)
   !
-  !   dtnew = 1.d-1* minval(abs(w(ixO^S,r_e)/ppsource(ixO^S,r_e)))
+  !   dtnew = courantpar * minval(abs(w(ixO^S,r_e)/ppsource(ixO^S,r_e)))
   ! end subroutine pp_dt
 
 
@@ -394,8 +476,8 @@ contains
     double precision, intent(in)  :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(out) :: source(ixO^S,1:nw)
 
-    double precision :: rad_flux(ixO^S,1:ndir)
-    double precision :: pth(ixI^S),v(ixO^S,2)
+    double precision :: rad_flux(ixO^S,1:ndim)
+    double precision :: pth(ixI^S),v(ixO^S,ndim)
     double precision :: radius(ixO^S),  pert(ixO^S)
     integer :: rdir, pdir
 
@@ -405,7 +487,9 @@ contains
     pdir = 2
 
     v(ixO^S,rdir) = w(ixO^S,mom(rdir))/w(ixO^S,rho_)
+    {^NOONED
     v(ixO^S,pdir) = w(ixO^S,mom(pdir))/w(ixO^S,rho_)
+    }
 
     radius(ixO^S) = x(ixO^S,rdir) ! + half*block%dx(ixO^S,rdir)
 
@@ -417,10 +501,14 @@ contains
 
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
+    {^IFONED
+    source(ixO^S,mom(rdir)) = - 2*w(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S)
+    }
+    {^IFTWOD
     source(ixO^S,mom(rdir)) = - 2*w(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S) &
                               + w(ixO^S,rho_)*v(ixO^S,pdir)**two/radius(ixO^S)
-
     source(ixO^S,mom(pdir)) = - 3*v(ixO^S,rdir)*v(ixO^S,pdir)*w(ixO^S,rho_)/radius(ixO^S)
+    }
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
@@ -548,7 +636,7 @@ contains
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
 
-  subroutine refine_base(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+  subroutine refine_base(igrid,level,ixI^L,ixO^L,qt,w,x,refine,coarsen)
     ! Enforce additional refinement or coarsening
     ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
     ! you must set consistent values for integers refine/coarsen:
@@ -560,23 +648,23 @@ contains
     ! coarsen =  1 enforce coarsen
     use mod_global_parameters
 
-    integer, intent(in) :: igrid, level, ixG^L, ix^L
-    double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+    integer, intent(in) :: igrid, level, ixI^L, ixO^L
+    double precision, intent(in) :: qt, w(ixI^S,1:nw), x(ixI^S,1:ndim)
     integer, intent(inout) :: refine, coarsen
 
     !> Refine close to base
     refine = -1
 
     if (qt .gt. 1.d0) then
-      if (any(x(ixG^S,1) < 1.d0)) refine=1
+      if (any(x(ixI^S,1) < 1.d0)) refine=1
     endif
 
     if (qt .gt. 2.d0) then
-      if (any(x(ixG^S,1) < 1.d0)) refine=1
+      if (any(x(ixI^S,1) < 1.d0)) refine=1
     endif
 
     if (qt .gt. 4.d0) then
-      if (any(x(ixG^S,1) < 1.d0)) refine=1
+      if (any(x(ixI^S,1) < 1.d0)) refine=1
     endif
 
   end subroutine refine_base
@@ -593,15 +681,15 @@ contains
     integer, intent(in)             :: n
     integer                         :: jxO^L, hxO^L
 
+    if (n .gt. nghostcells) call mpistop("gradientO stencil too wide, add gc")
+
     hxO^L=ixO^L-n*kr(idir,^D);
     jxO^L=ixO^L+n*kr(idir,^D);
-   
-    if (n .gt. nghostcells) call mpistop("gradientO stencil too wide")
-    
+
     !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(2*n*dxlevel(idir))
     gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
 
-    !> Using higher order derivatives with wider stencil according to: 
+    !> Using higher order derivatives with wider stencil according to:
     !> https://en.wikipedia.org/wiki/Finite_difference_coefficient
 
 !    if (n .gt. nghostcells) then
@@ -615,11 +703,11 @@ contains
 !      !> coef 2/3
 !      hxO^L=ixO^L-kr(idir,^D);
 !      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 2.d0/3.d0*(q(jxO^S)-q(hxO^S)) 
+!      gradq(ixO^S) = gradq(ixO^S) + 2.d0/3.d0*(q(jxO^S)-q(hxO^S))
 !      !> coef -1/12
 !      hxO^L=ixO^L-2*kr(idir,^D);
 !      jxO^L=ixO^L+2*kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) - 1.d0/12.d0*(q(jxO^S)-q(hxO^S))                     
+!      gradq(ixO^S) = gradq(ixO^S) - 1.d0/12.d0*(q(jxO^S)-q(hxO^S))
 !      !> divide by dx
 !      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
 !    elseif (n .eq. 3) then
@@ -627,7 +715,7 @@ contains
 !      !> coef 3/4
 !      hxO^L=ixO^L-kr(idir,^D);
 !      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 3.d0/4.d0*(q(jxO^S)-q(hxO^S)) 
+!      gradq(ixO^S) = gradq(ixO^S) + 3.d0/4.d0*(q(jxO^S)-q(hxO^S))
 !      !> coef -3/20
 !      hxO^L=ixO^L-2*kr(idir,^D);
 !      jxO^L=ixO^L+2*kr(idir,^D);
@@ -639,7 +727,7 @@ contains
 !      !> divide by dx
 !      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
 !    else
-!      call mpistop("gradient0 stencil unknown")
+!      call mpistop("gradientO stencil unknown")
 !     endif
 
   end subroutine gradientO

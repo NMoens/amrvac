@@ -1,0 +1,92 @@
+&testlist
+        teststr=''
+/
+
+&filelist
+  base_filename='./output/1D_subcrit'
+  autoconvert      = T
+  convert_type     = 'vtuBCCmpi'
+  saveprim         = F
+  nwauxio = 6
+/
+
+ &savelist
+   itsave(1,1)     = 0
+   itsave(1,2)     = 0
+   !ditsave_dat     = 1
+   !ditsave_log     = 1
+   dtsave_dat     = 0.05d0
+   dtsave_log     = 1.d0
+/
+
+ &stoplist
+   time_max = 1.d0
+   dtmin = 1.0d-20
+   !it_max = 50
+/
+
+ &methodlist
+   time_integrator = 'threestep'
+   flux_scheme     = 20*'hll'
+   limiter         = 20*'minmod'
+   source_split_usr = .false.
+   typesourcesplit = 'sfs'
+   check_small_values = T
+   small_values_method = 'error'
+   small_pressure = 1.d-30
+   small_density = 1.d-30
+/
+
+&boundlist
+  typeboundary_min1 = 3*'special','special'
+  typeboundary_max1 = 3*'special','special'
+  internalboundary = T
+/
+
+ &meshlist
+   refine_max_level   = 3
+   refine_criterion   = 3
+   domain_nx1         = 256
+   domain_nx2         = 64
+   xprobmin1       = 0.1d0
+   xprobmax1       = 2.d0
+   refine_threshold   = 20*0.5d0
+   derefine_ratio     = 20*1.d0/2.d0
+ /
+
+ &paramlist
+  courantpar       = 0.1d0
+  !dtpar           = 2.d-6
+ /
+
+ &rhd_list
+  He_abundance = 0.0d0
+  rhd_gravity = .false.
+  rhd_energy = .true.
+  rhd_gamma = 1.6667d0
+  rhd_radiation_formalism = 'fld'
+  rhd_radiation_force = .true.
+  rhd_energy_interact = .true.
+  rhd_radiation_diffusion = .true.
+  rhd_radiation_advection = .true.
+ /
+
+ &fld_list
+  fld_Eint_split = .true.
+  fld_Radforce_split = .true.
+  fld_opacity_law = 'const'
+  fld_kappa0 = 0.4d0
+  fld_diff_scheme = 'mg'
+  fld_interaction_method = 'Halley'
+  fld_fluxlimiter = 'Pomraning'
+  fld_diff_tol = 1.d-4
+  /
+
+
+ &shock_list
+  ri = 8.d11
+  ro =  8.7d11
+  rho1 = 7.78d-10
+  T1 = 1.d1
+  v1 = 6.d5 !16.d5
+  /

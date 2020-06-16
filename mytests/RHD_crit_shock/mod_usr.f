@@ -25,7 +25,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    
+     call set_coordinate_system("Cartesian_2D")
+    
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -121,13 +123,13 @@ contains
        ixImin2:ixImax2,1)/(7.d10/unit_length)/unit_temperature
 
     w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho1
+    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = 0.d0
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = v1
     where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .gt. 1.d0)
       w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = 0.d0
     endwhere
     !> Smoothen initial conditions
     ! w(ixI^S,mom(1)) = w(ixI^S,mom(1))*(1.d0-dexp(-1.d3*(x(ixI^S,1) - 1d0)**2.d0))
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(2)) = 0.d0
     pth(ixImin1:ixImax1,ixImin2:ixImax2) = temp(ixImin1:ixImax1,&
        ixImin2:ixImax2)*w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
     w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = pth(ixImin1:ixImax1,&
@@ -168,12 +170,12 @@ contains
     select case (iB)
     case(1)
       ! Ti = 2*(w(ixImin1+nghostcells, nghostcells+1,r_e)*unit_pressure/const_rad_a)**0.25/unit_temperature
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(:)) = 0.d0
 
       do i = ixBmax1,ixBmin1,-1
         w(i,:,rho_) = w(i+1,:,rho_)
         w(i,:,mom(1)) = w(i+1,:,mom(1))
       enddo
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = 0.d0
       temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = T1 + 75.d0*x(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2,1)/(7.d10/unit_length)/unit_temperature
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = temp(ixBmin1:ixBmax1,&
@@ -185,12 +187,12 @@ contains
 
     case(2)
       ! To  = 2*(w(ixImax1-nghostcells, nghostcells+1,r_e)*unit_pressure/const_rad_a)**0.25/unit_temperature
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(:)) = 0.d0
 
       do i = ixBmin1,ixBmax1
         w(i,:,rho_) = w(i-1,:,rho_)
         w(i,:,mom(1)) = w(i-1,:,mom(1))
       enddo
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = 0.d0
       temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = T1 + 75.d0*x(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2,1)/(7.d10/unit_length)/unit_temperature
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = temp(ixBmin1:ixBmax1,&

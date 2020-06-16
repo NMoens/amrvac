@@ -25,7 +25,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
+    {^IFTHREED call set_coordinate_system("Cartesian_3D")}
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -111,13 +113,13 @@ contains
     temp(ixI^S) = T1 + 75.d0*x(ixI^S,1)/(7.d10/unit_length)/unit_temperature
 
     w(ixI^S,rho_) = rho1
+    w(ixI^S,mom(:)) = 0.d0
     w(ixI^S,mom(1)) = v1
     where (x(ixI^S,1) .gt. 1.d0)
       w(ixI^S,mom(1)) = 0.d0
     endwhere
     !> Smoothen initial conditions
     ! w(ixI^S,mom(1)) = w(ixI^S,mom(1))*(1.d0-dexp(-1.d3*(x(ixI^S,1) - 1d0)**2.d0))
-    w(ixI^S,mom(2)) = 0.d0
     pth(ixI^S) = temp(ixI^S)*w(ixI^S,rho_)
     w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0) + half/rho1*w(ixI^S,mom(1))**2
     w(ixI^S,r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
@@ -145,24 +147,24 @@ contains
     select case (iB)
     case(1)
       ! Ti = 2*(w(ixImin1+nghostcells, nghostcells+1,r_e)*unit_pressure/const_rad_a)**0.25/unit_temperature
+      w(ixB^S,mom(:)) = 0.d0
 
       do i = ixBmax1,ixBmin1,-1
         w(i,:,rho_) = w(i+1,:,rho_)
         w(i,:,mom(1)) = w(i+1,:,mom(1))
       enddo
-      w(ixB^S,mom(2)) = 0.d0
       temp(ixB^S) = T1 + 75.d0*x(ixB^S,1)/(7.d10/unit_length)/unit_temperature
       w(ixB^S,e_) = temp(ixB^S)*rho1/(rhd_gamma-1) + half*w(ixB^S,mom(1))**2/w(ixB^S,rho_)
       w(ixB^S,r_e) = const_rad_a*(temp(ixB^S)*unit_temperature)**4.d0/unit_pressure
 
     case(2)
       ! To  = 2*(w(ixImax1-nghostcells, nghostcells+1,r_e)*unit_pressure/const_rad_a)**0.25/unit_temperature
+      w(ixB^S,mom(:)) = 0.d0
 
       do i = ixBmin1,ixBmax1
         w(i,:,rho_) = w(i-1,:,rho_)
         w(i,:,mom(1)) = w(i-1,:,mom(1))
       enddo
-      w(ixB^S,mom(2)) = 0.d0
       temp(ixB^S) = T1 + 75.d0*x(ixB^S,1)/(7.d10/unit_length)/unit_temperature
       w(ixB^S,e_) = temp(ixB^S)*rho1/(rhd_gamma-1) + half*w(ixB^S,mom(1))**2/w(ixB^S,rho_)
       w(ixB^S,r_e) = const_rad_a*(temp(ixB^S)*unit_temperature)**4.d0/unit_pressure

@@ -21,7 +21,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
+    {^IFTHREED call set_coordinate_system("Cartesian_3D")}
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -152,8 +154,8 @@ contains
     case(1)
       do i = ixBmax1,ixBmin1, -1
         w(i,:,rho_) = rho0
+        w(i,:,mom(:)) = 0.d0
         w(i,:,mom(1)) = w(i+1,:,mom(1))
-        w(i,:,mom(2)) = w(i+1,:,mom(2))
         w(i,:,e_) = w(i+1,:,e_)
         w(i,:,r_e) = Er1
       enddo
@@ -161,8 +163,8 @@ contains
     case(2)
       do i = ixBmin1,ixBmax1
         w(i,:,rho_) = w(i-1,:,rho_)
+        w(i,:,mom(:)) = 0.d0
         w(i,:,mom(1)) = w(i-1,:,mom(1))
-        w(i,:,mom(2)) = w(i-1,:,mom(2))
         w(i,:,e_) = w(i-1,:,e_)
         w(i,:,r_e) = w(i-1,:,r_e)
       enddo
@@ -244,10 +246,8 @@ contains
     w(ixO^S,nw+7) = normgrad2(ixO^S)
 
     call gradient(rad_e,ixI^L,ixO^L,1,grE1)
-    call gradient(rad_e,ixI^L,ixO^L,2,grE2)
 
     w(ixO^S,nw+8) = grE1(ixO^S)
-    w(ixO^S,nw+9) = grE2(ixO^S)
 
     ! if (x(1,1,1) .lt. xprobmin1) then
     !   print*, 'Er', w(1:5,5,r_e)
@@ -267,7 +267,7 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'step F1 cE lambda R kappa ngrd grE1 grE2'
+    varnames = 'step F1 cE lambda R kappa ngrd grE1'
   end subroutine specialvarnames_output
 
 end module mod_usr

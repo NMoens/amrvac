@@ -19,7 +19,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
+    {^IFTHREED call set_coordinate_system("Cartesian_3D")}
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -83,8 +85,8 @@ contains
     + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) &
     * unit_temperature**3/unit_density &
     * (T0**4.d0/temp(ixI^S) - temp(ixI^S)**3.d0)
+    w(ixI^S,mom(:)) = 0.d0
     w(ixI^S,mom(1)) = w(ixI^S,rho_)*v0
-    w(ixI^S,mom(2)) = 0.d0
     pth(ixI^S) = temp(ixI^S)*w(ixI^S,rho_)
     w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0) + half*w(ixI^S,rho_)*v0**2
     w(ixI^S,r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
@@ -115,8 +117,8 @@ contains
       + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) &
       * unit_temperature**3/unit_density &
       * (T0**4.d0/temp(ixB^S) - temp(ixB^S)**3.d0)
+      w(ixB^S,mom(:)) = 0.d0
       w(ixB^S,mom(1)) = w(ixB^S,rho_)*v0
-      w(ixB^S,mom(2)) = 0.d0
       pth(ixB^S) = temp(ixB^S)*w(ixB^S,rho_)
       w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1.d0) + half*w(ixB^S,rho_)*v0**2
       w(ixB^S,r_e) = const_rad_a*(temp(ixB^S)*unit_temperature)**4.d0/unit_pressure

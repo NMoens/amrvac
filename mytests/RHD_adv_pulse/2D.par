@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/advected'
+  base_filename='./output/2D_advected'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T

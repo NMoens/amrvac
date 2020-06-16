@@ -19,7 +19,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    
+     call set_coordinate_system("Cartesian_2D")
+    
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -91,9 +93,9 @@ contains
        ixImin2:ixImax2) + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) * &
        unit_temperature**3/unit_density * (T0**4.d0/temp(ixImin1:ixImax1,&
        ixImin2:ixImax2) - temp(ixImin1:ixImax1,ixImin2:ixImax2)**3.d0)
+    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = 0.d0
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = w(ixImin1:ixImax1,&
        ixImin2:ixImax2,rho_)*v0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(2)) = 0.d0
     pth(ixImin1:ixImax1,ixImin2:ixImax2) = temp(ixImin1:ixImax1,&
        ixImin2:ixImax2)*w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
     w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = pth(ixImin1:ixImax1,&
@@ -139,9 +141,9 @@ contains
          ixBmin2:ixBmax2) + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) * &
          unit_temperature**3/unit_density * (T0**4.d0/temp(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2) - temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2)**3.d0)
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(:)) = 0.d0
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = w(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2,rho_)*v0
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = 0.d0
       pth(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = temp(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2)*w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_)
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = pth(ixBmin1:ixBmax1,&

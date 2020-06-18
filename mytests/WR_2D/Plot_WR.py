@@ -118,38 +118,38 @@ ax1.set_xlabel('$r/R_*$')
 ax2.set_xlabel('$x = 1-R_*/r$')
 ax2.legend()
 
-# v_1D = v_1D*(1+0.05*np.random.randn(len(v_1D)))
-
-#GRADV RESOLUTION PROBLEM:
-gradv1 = (v_1D[2:]-v_1D[:-2])/(r_1D[2:]-r_1D[:-2])
-r1 = r_1D[1:-1]
-gradv2 = (v_1D[4:]-v_1D[:-4])/(r_1D[4:]-r_1D[:-4])
-r2 = r_1D[2:-2]
-gradv3 = (v_1D[6:]-v_1D[:-6])/(r_1D[6:]-r_1D[:-6])
-r3 = r_1D[3:-3]
-
-gradv_combo = np.append(gradv1[:400],gradv2[401:800])
-gradv_combo = np.append(gradv_combo,gradv3[801:])
-r_combo = np.append(r1[:400],r2[401:800])
-r_combo = np.append(r_combo,r3[801:])
-
-plt.figure()
-plt.plot(r1, gradv1, label='$v_{i+1}-v_{i-1}$')
-plt.plot(r2, gradv2, label='$v_{i+2}-v_{i-2}$')
-plt.plot(r3, gradv3, label='$v_{i+3}-v_{i-3}$')
-plt.plot(r_combo,gradv_combo,'k-',label='amr situation')
-plt.legend()
-
-
-# https://en.wikipedia.org/wiki/Finite_difference_coefficient
-gradv_o1 = gradv1[2:-2]
-gradv_o2 = 2*(2/3*gradv1[2:-2] - 1/12*gradv2[1:-1])
-gradv_o3 = 2*(3/4*gradv1[2:-2] - 3/20*gradv2[1:-1] + 1/60*gradv3)
-
-plt.figure()
-plt.plot(r3, gradv_o1, label='$O(\Delta x^2)$')
-plt.plot(r3, gradv_o2, label='$O(\Delta x^4)$')
-plt.plot(r3, gradv_o3, label='$O(\Delta x^6)$')
-plt.legend()
+# # v_1D = v_1D*(1+0.05*np.random.randn(len(v_1D)))
+#
+# #GRADV RESOLUTION PROBLEM:
+# gradv1 = (v_1D[2:]-v_1D[:-2])/(r_1D[2:]-r_1D[:-2])
+# r1 = r_1D[1:-1]
+# gradv2 = (v_1D[4:]-v_1D[:-4])/(r_1D[4:]-r_1D[:-4])
+# r2 = r_1D[2:-2]
+# gradv3 = (v_1D[6:]-v_1D[:-6])/(r_1D[6:]-r_1D[:-6])
+# r3 = r_1D[3:-3]
+#
+# gradv_combo = np.append(gradv1[:400],gradv2[401:800])
+# gradv_combo = np.append(gradv_combo,gradv3[801:])
+# r_combo = np.append(r1[:400],r2[401:800])
+# r_combo = np.append(r_combo,r3[801:])
+#
+# plt.figure()
+# plt.plot(r1, gradv1, label='$v_{i+1}-v_{i-1}$')
+# plt.plot(r2, gradv2, label='$v_{i+2}-v_{i-2}$')
+# plt.plot(r3, gradv3, label='$v_{i+3}-v_{i-3}$')
+# plt.plot(r_combo,gradv_combo,'k-',label='amr situation')
+# plt.legend()
+#
+#
+# # https://en.wikipedia.org/wiki/Finite_difference_coefficient
+# gradv_o1 = gradv1[2:-2]
+# gradv_o2 = 2*(2/3*gradv1[2:-2] - 1/12*gradv2[1:-1])
+# gradv_o3 = 2*(3/4*gradv1[2:-2] - 3/20*gradv2[1:-1] + 1/60*gradv3)
+#
+# plt.figure()
+# plt.plot(r3, gradv_o1, label='$O(\Delta x^2)$')
+# plt.plot(r3, gradv_o2, label='$O(\Delta x^4)$')
+# plt.plot(r3, gradv_o3, label='$O(\Delta x^6)$')
+# plt.legend()
 
 plt.show()

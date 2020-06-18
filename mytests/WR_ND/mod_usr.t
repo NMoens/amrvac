@@ -27,7 +27,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
+    {^IFTHREED call set_coordinate_system("Cartesian_3D")}
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -155,6 +157,8 @@ contains
 
     w(ixI^S,rho_)   = rho_bound
 
+    w(ixI^S,mom(:)) = 0.d0
+
     where(x(ixI^S,1) .gt. 1.d0)
       vel(ixI^S) =  v_inf*(1 - 0.999d0*( 1.d0/x(ixI^S,1)))**0.5d0
       w(ixI^S,rho_) = Mdot/(4.d0*dpi*vel(ixI^S)*x(ixI^S,1)**2)
@@ -218,11 +222,17 @@ contains
     case(1)
       w(ixB^S,rho_) = rho_bound
       do ix1 = ixBmax1-1,ixBmin1,-1
-        w(ix1,rho_) = dexp(2*dlog(w(ix1+1,rho_)) - dlog(w(ix1+2,rho_)))
+        {^IFONED w(ix1,rho_) = dexp(2*dlog(w(ix1+1,rho_)) - dlog(w(ix1+2,rho_)))}
+        {^IFTWOD w(ix1,:,rho_) = dexp(2*dlog(w(ix1+1,:,rho_)) - dlog(w(ix1+2,:,rho_)))}
+        {^IFTHREED w(ix1,:,:,rho_) = dexp(2*dlog(w(ix1+1,:,:,rho_)) - dlog(w(ix1+2,:,:,rho_)))}
       enddo
 
+      w(ixB^S,mom(:)) = 0.d0
+
       do ix1 = ixBmax1,ixBmin1,-1
-        w(ix1,mom(1)) = w(ix1+1,mom(1))
+        {^IFONED w(ix1,mom(1)) = w(ix1+1,mom(1))}
+        {^IFTWOD w(ix1,:,mom(1)) = w(ix1+1,:,mom(1))}
+        {^IFTHREED w(ix1,:,:,mom(1)) = w(ix1+1,:,:,mom(1))}
       enddo
 
       where(w(ixB^S,mom(1)) .lt. 0.d0)
@@ -237,16 +247,22 @@ contains
 
       call get_kappa_OPAL(ixI^L,ixI^L,w,x,kappa)
       do ix1 = ixBmin1,ixBmax1
-        kappa(ix1) = kappa(ixBmax1+1)
+        {^IFONED kappa(ix1) = kappa(ixBmax1+1)}
+        {^IFTWOD kappa(ix1,:) = kappa(ixBmax1+1,:)}
+        {^IFTHREED kappa(ix1,:,:) = kappa(ixBmax1+1,:,:)}
       enddo
 
       Local_gradE(ixI^S) = -F_bound*3*kappa(ixI^S)*w(ixI^S,rho_)&
       *unit_velocity/const_c
-      gradE = Local_gradE(nghostcells)
+
+      {^IFONED gradE = Local_gradE(nghostcells)}
+      {^IFTWOD gradE = sum(Local_gradE(nghostcells,ixBmin2+nghostcells:ixBmax2-nghostcells))/((ixBmax2-nghostcells)-(ixBmin2+nghostcells))}
+      {^IFTHREED gradE = sum(Local_gradE(nghostcells,ixBmin2+nghostcells:ixBmax2-nghostcells,ixBmin3+nghostcells:ixBmax3-nghostcells))/(((ixBmax2-nghostcells)-(ixBmin2+nghostcells))*((ixBmax3-nghostcells)-(ixBmin3+nghostcells)))}
 
       do ix1 = ixBmax1,ixBmin1,-1
-        w(ix1,r_e) = w(ix1+2,r_e) &
-        + (x(ix1,1)-x(ix1+2,1))*Local_gradE(ix1+1)
+        {^IFONED w(ix1,r_e) = w(ix1+2,r_e) + (x(ix1,1)-x(ix1+2,1))*Local_gradE(ix1+1)}
+        {^IFTWOD w(ix1,:,r_e) = w(ix1+2,:,r_e) + (x(ix1,:,1)-x(ix1+2,:,1))*Local_gradE(ix1+1,:)}
+        {^IFTHREED w(ix1,:,:,r_e) = w(ix1+2,:,:,r_e) + (x(ix1,:,:,1)-x(ix1+2,:,:,1))*Local_gradE(ix1+1,:,:)}
       enddo
 
 
@@ -254,8 +270,18 @@ contains
 
       !> Compute mean kappa in outer blocks
       call OPAL_and_CAK(ixI^L,ixI^L,w,x,kappa)
+      {^IFONED
       kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells)) &
       /((ixImax1-nghostcells) - (ixImin1+nghostcells))
+      }
+      {^IFTWOD
+      kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells,,ixBmin2+nghostcells:ixBmax2-nghostcells)) &
+      /(((ixImax1-nghostcells) - (ixImin1+nghostcells))*((ixBmax2-nghostcells)-(ixBmin2+nghostcells)))
+      }
+      {^IFTHREED
+      kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells,ixBmin2+nghostcells:ixBmax2-nghostcells,ixBmin3+nghostcells:ixBmax3-nghostcells)) &
+      /(((ixImax1-nghostcells) - (ixImin1+nghostcells))*((ixBmax2-nghostcells)-(ixBmin2+nghostcells))*((ixBmax3-nghostcells)-(ixBmin3+nghostcells)))
+      }
       if (kappa_out .ne. kappa_out) kappa_out = kappa_e
       kappa_out = max(kappa_out,kappa_e)
       kappa_out = min(kappa_out,20*kappa_e)
@@ -273,7 +299,9 @@ contains
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
       do ix1 = ixBmin1,ixBmax1
-        w(ix1,r_e) = 2*w(ix1-1,r_e) - w(ix1-2,r_e)
+        {^IFONED w(ix1,r_e) = 2*w(ix1-1,r_e) - w(ix1-2,r_e)}
+        {^IFTWOD w(ix1,:,r_e) = 2*w(ix1-1,r_e) - w(ix1-2,:,r_e)}
+        {^IFTHREED w(ix1,:,:,r_e) = 2*w(ix1-1,:,:,r_e) - w(ix1-2,:,:,r_e)}
       enddo
 
       ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
@@ -330,6 +358,7 @@ contains
     radius(ixO^S) = x(ixO^S,1)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
+    gravity_field(ixI^S,:) = 0.d0
     gravity_field(ixI^S,1) = -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
 
   end subroutine set_gravitation_field
@@ -347,7 +376,7 @@ contains
 
     call PseudoPlanarSource(ixI^L,ixO^L,wCT,x,ppsource)
     w(ixO^S,rho_) = w(ixO^S,rho_) + qdt*ppsource(ixO^S,rho_) !> OK
-    w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt*ppsource(ixO^S,mom(1)) !> OK
+    w(ixO^S,mom(:)) = w(ixO^S,mom(:)) + qdt*ppsource(ixO^S,mom(:)) !> OK
     w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*ppsource(ixO^S,r_e) !> TROUBLEMAKER
 
   end subroutine PseudoPlanar
@@ -377,12 +406,15 @@ contains
     double precision :: rad_flux(ixO^S,1:ndir)
     double precision :: pth(ixI^S),v(ixO^S,2)
     double precision :: radius(ixO^S),  pert(ixO^S)
-    integer :: rdir, pdir
+    integer :: rdir, pdir, tdir
+
+    {^IFTHREED call mpistop("Still have to implement 3D-pseudoplanar")}
 
     source(ixO^S,1:nw) = zero
 
     rdir = 1
     pdir = 2
+    tdir = 3
 
     v(ixO^S,rdir) = w(ixO^S,mom(rdir))/w(ixO^S,rho_)
 

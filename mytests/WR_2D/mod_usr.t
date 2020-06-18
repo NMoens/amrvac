@@ -689,7 +689,7 @@ contains
     double precision                   :: kappa(ixO^S), OPAL(ixO^S), CAK(ixO^S)
     double precision                   :: vel(ixI^S), gradv(ixO^S)
     double precision                   :: rad_flux(ixO^S,1:ndim), Lum(ixO^S)
-    double precision                   :: pp_rf(ixO^S)
+    double precision                   :: pp_rf(ixO^S), lambda(ixO^S), fld_R(ixO^S)
     integer                            :: idim
     double precision :: radius(ixI^S)
     double precision :: mass
@@ -715,6 +715,8 @@ contains
 
     pp_rf(ixO^S) = two*rad_flux(ixO^S,1)/x(ixO^S,1)*dt
 
+    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+
     Lum = 4*dpi*rad_flux(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux/L_sun
 
     w(ixO^S,nw+1) = kappa(ixO^S)/kappa_e
@@ -727,7 +729,8 @@ contains
     w(ixO^S,nw+7) = CAK(ixO^S)/kappa_e
     w(ixO^S,nw+8) = gradv(ixO^S)
     w(ixO^S,nw+9) = pp_rf(ixO^S)
-    w(ixO^S,nw+10) = Lum(ixO^S)
+    w(ixO^S,nw+10) = lambda(ixO^S)
+    w(ixO^S,nw+11) = Lum(ixO^S)
 
   end subroutine specialvar_output
 
@@ -736,8 +739,8 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-               !9     10 11   12    13   14   15  16    17    18
-    varnames = 'kappa F1 Trad Gamma Mdot OPAL CAK gradv pp_rf L'
+               !9     10 11   12    13   14   15  16    17    18     19
+    varnames = 'kappa F1 Trad Gamma Mdot OPAL CAK gradv pp_rf lambda L'
   end subroutine specialvarnames_output
 
 end module mod_usr

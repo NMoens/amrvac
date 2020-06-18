@@ -27,7 +27,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+     call set_coordinate_system("Cartesian_1D")
+    
+    
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -158,6 +160,8 @@ contains
 
     w(ixImin1:ixImax1,rho_)   = rho_bound
 
+    w(ixImin1:ixImax1,mom(:)) = 0.d0
+
     where(x(ixImin1:ixImax1,1) .gt. 1.d0)
       vel(ixImin1:ixImax1) =  v_inf*(1 - 0.999d0*( 1.d0/x(ixImin1:ixImax1,&
          1)))**0.5d0
@@ -226,11 +230,17 @@ contains
     case(1)
       w(ixBmin1:ixBmax1,rho_) = rho_bound
       do ix1 = ixBmax1-1,ixBmin1,-1
-        w(ix1,rho_) = dexp(2*dlog(w(ix1+1,rho_)) - dlog(w(ix1+2,rho_)))
+         w(ix1,rho_) = dexp(2*dlog(w(ix1+1,rho_)) - dlog(w(ix1+2,rho_)))
+        
+        
       enddo
 
+      w(ixBmin1:ixBmax1,mom(:)) = 0.d0
+
       do ix1 = ixBmax1,ixBmin1,-1
-        w(ix1,mom(1)) = w(ix1+1,mom(1))
+         w(ix1,mom(1)) = w(ix1+1,mom(1))
+        
+        
       enddo
 
       where(w(ixBmin1:ixBmax1,mom(1)) .lt. 0.d0)
@@ -245,15 +255,22 @@ contains
 
       call get_kappa_OPAL(ixImin1,ixImax1,ixImin1,ixImax1,w,x,kappa)
       do ix1 = ixBmin1,ixBmax1
-        kappa(ix1) = kappa(ixBmax1+1)
+         kappa(ix1) = kappa(ixBmax1+1)
+        
+        
       enddo
 
       Local_gradE(ixImin1:ixImax1) = -F_bound*3*kappa(ixImin1:ixImax1)*w(&
          ixImin1:ixImax1,rho_)*unit_velocity/const_c
-      gradE = Local_gradE(nghostcells)
+
+       gradE = Local_gradE(nghostcells)
+      
+      
 
       do ix1 = ixBmax1,ixBmin1,-1
-        w(ix1,r_e) = w(ix1+2,r_e) + (x(ix1,1)-x(ix1+2,1))*Local_gradE(ix1+1)
+         w(ix1,r_e) = w(ix1+2,r_e) + (x(ix1,1)-x(ix1+2,1))*Local_gradE(ix1+1)
+        
+        
       enddo
 
 
@@ -261,8 +278,12 @@ contains
 
       !> Compute mean kappa in outer blocks
       call OPAL_and_CAK(ixImin1,ixImax1,ixImin1,ixImax1,w,x,kappa)
+      
       kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells)) &
          /((ixImax1-nghostcells) - (ixImin1+nghostcells))
+     
+      
+      
       if (kappa_out .ne. kappa_out) kappa_out = kappa_e
       kappa_out = max(kappa_out,kappa_e)
       kappa_out = min(kappa_out,20*kappa_e)
@@ -282,7 +303,9 @@ contains
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
       do ix1 = ixBmin1,ixBmax1
-        w(ix1,r_e) = 2*w(ix1-1,r_e) - w(ix1-2,r_e)
+         w(ix1,r_e) = 2*w(ix1-1,r_e) - w(ix1-2,r_e)
+        
+        
       enddo
 
       ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
@@ -340,6 +363,7 @@ contains
     radius(ixOmin1:ixOmax1) = x(ixOmin1:ixOmax1,1)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
+    gravity_field(ixImin1:ixImax1,:) = 0.d0
     gravity_field(ixImin1:ixImax1,1) = -const_G*mass/radius(ixImin1:ixImax1)**&
        2*(unit_time**2/unit_length)
 
@@ -362,8 +386,8 @@ contains
     call PseudoPlanarSource(ixImin1,ixImax1,ixOmin1,ixOmax1,wCT,x,ppsource)
     w(ixOmin1:ixOmax1,rho_) = w(ixOmin1:ixOmax1,&
        rho_) + qdt*ppsource(ixOmin1:ixOmax1,rho_) !> OK
-    w(ixOmin1:ixOmax1,mom(1)) = w(ixOmin1:ixOmax1,&
-       mom(1)) + qdt*ppsource(ixOmin1:ixOmax1,mom(1)) !> OK
+    w(ixOmin1:ixOmax1,mom(:)) = w(ixOmin1:ixOmax1,&
+       mom(:)) + qdt*ppsource(ixOmin1:ixOmax1,mom(:)) !> OK
     w(ixOmin1:ixOmax1,r_e) = w(ixOmin1:ixOmax1,&
        r_e) + qdt*ppsource(ixOmin1:ixOmax1,r_e) !> TROUBLEMAKER
 
@@ -395,12 +419,15 @@ contains
     double precision :: rad_flux(ixOmin1:ixOmax1,1:ndir)
     double precision :: pth(ixImin1:ixImax1),v(ixOmin1:ixOmax1,2)
     double precision :: radius(ixOmin1:ixOmax1),  pert(ixOmin1:ixOmax1)
-    integer :: rdir, pdir
+    integer :: rdir, pdir, tdir
+
+    
 
     source(ixOmin1:ixOmax1,1:nw) = zero
 
     rdir = 1
     pdir = 2
+    tdir = 3
 
     v(ixOmin1:ixOmax1,rdir) = w(ixOmin1:ixOmax1,mom(rdir))/w(ixOmin1:ixOmax1,&
        rho_)

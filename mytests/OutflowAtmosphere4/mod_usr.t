@@ -45,7 +45,8 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -371,7 +372,7 @@ contains
         w(ixBmin1:ixBmax1,i,r_e) = w(ixBmin1:ixBmax1,i+2,r_e) &
         + (x(ixBmin1:ixBmax1,i,2)-x(ixBmin1:ixBmax1,i+2,2))*gradE_l(ixBmin1:ixBmax1,i+1)
       enddo
-      
+
       w(ixBmin1:ixBmax1,nghostcells,r_e) = dexp(half*(dlog(w(ixBmin1:ixBmax1,nghostcells-1,r_e))+dlog(w(ixBmin1:ixBmax1,nghostcells+1,r_e))))
 
       Temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0

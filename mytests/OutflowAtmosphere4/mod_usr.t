@@ -293,17 +293,28 @@ contains
 
     NumberOfBlocks = domain_nx1/block_nx1
 
-    x_perc = (x(ixOmin1,nghostcells,1)-xprobmin1)/(xprobmax1-xprobmin1)
+    {^IFONED x_perc = (x(ixOmin1,1)-xprobmin1)/(xprobmax1-xprobmin1)}
+    {^IFTWOD x_perc = (x(ixOmin1,nghostcells,1)-xprobmin1)/(xprobmax1-xprobmin1)}
     b = floor(x_perc*NumberOfBlocks)
 
     do i = ixImin1,ixImax1
       j = i + b*block_nx1
 
+      {^IFONED
+      w(i,rho_) = rho_arr(j)
+      w(i,mom(:)) = zero
+      w(i,mom(1)) = rho_arr(j)*v_arr(j)
+      w(i,e_) = e_arr(j)
+      w(i,r_e) = Er_arr(j)
+      }
+
+      {^IFTWOD
       w(i,:,rho_) = rho_arr(j)
       w(i,:,mom(:)) = zero
       w(i,:,mom(1)) = rho_arr(j)*v_arr(j)
       w(i,:,e_) = e_arr(j)
       w(i,:,r_e) = Er_arr(j)
+      }
     enddo
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -336,17 +347,20 @@ contains
 
     case(1)
 
-      w(nghostcells,:,rho_) = dinflo
+      {^IFONED w(nghostcells,rho_) = dinflo}
+      {^IFTWOD w(nghostcells,:,rho_) = dinflo}
 
       do i = ixBmax1-1,ixBmin1,-1
         ! w(ixBmin1:ixBmax1,i,rho_) = 2*w(ixBmin1:ixBmax1,i+1,rho_) - w(ixBmin1:ixBmax1,i+2,rho_)
-        w(i,:,rho_) = dexp(2*dlog(w(i+1,:,rho_)) - dlog(w(i+2,:,rho_)))
+        {^IFONED w(i,rho_) = dexp(2*dlog(w(i+1,rho_)) - dlog(w(i+2,rho_))) }
+        {^IFTWOD w(i,:,rho_) = dexp(2*dlog(w(i+1,:,rho_)) - dlog(w(i+2,:,rho_))) }
       enddo
 
-      w(i,:,mom(:)) = 0.d0
+      w(ixB^S,mom(:)) = 0.d0
 
       do i = ixBmax1,ixBmin1,-1
-        w(i,:,mom(1)) = w(i+1,:,mom(1))*(x(i+1,:,1)/x(i,:,1))**2
+        {^IFONED w(i,mom(1)) = w(i+1,mom(1))*(x(i+1,1)/x(i,1))**2}
+        {^IFTWOD w(i,:,mom(1)) = w(i+1,:,mom(1))*(x(i+1,:,1)/x(i,:,1))**2}
       enddo
 
         ! pert(ixB^S) = dsin(3*2*dpi*x(ixB^S,2)/(xprobmax2-xprobmin2))*dsin(2*dpi*x(ixB^S,1)-3*2*dpi*global_time)
@@ -364,32 +378,39 @@ contains
 
       L_vE_l(ixB^S) = 4*dpi*x(ixB^S,1)**2*4.d0/3.d0*w(ixB^S,mom(1))/w(ixB^S,rho_)*w(ixB^S,r_e)
       gradE_l(ixB^S) = -w(ixB^S,rho_)*kappa(ixB^S)*(3.d0*unit_velocity/const_c)*(L_0-L_vE_l(ixB^S))/(4.d0*dpi*x(ixB^S,1)**2.d0)
-      gradE = sum(gradE_l(nghostcells,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
+
+      {^IFONED gradE = gradE_l(nghostcells)}
+      {^IFTWOD gradE = sum(gradE_l(nghostcells,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)}
 
       do i = ixBmax1-1,ixBmin1,-1
-        w(i,:,r_e) = w(i+2,:,r_e) &
-        + (x(i,:,1)-x(i+2,:,1))*gradE_l(i+1,:)
+        {^IFONED w(i,r_e) = w(i+2,r_e) + (x(i,1)-x(i+2,1))*gradE_l(i+1)}
+        {^IFTWOD w(i,:,r_e) = w(i+2,:,r_e) + (x(i,:,1)-x(i+2,:,1))*gradE_l(i+1,:)}
       enddo
 
-      w(nghostcells,:,r_e) = dexp(half*(dlog(w(nghostcells-1,:,r_e))+dlog(w(nghostcells+1,:,r_e))))
+      {^IFONED w(nghostcells,r_e) = dexp(half*(dlog(w(nghostcells-1,r_e))+dlog(w(nghostcells+1,r_e))))}
+      {^IFTWOD w(nghostcells,:,r_e) = dexp(half*(dlog(w(nghostcells-1,:,r_e))+dlog(w(nghostcells+1,:,r_e))))}
 
       Temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0
       pth(ixB^S) = Temp(ixB^S)*w(ixB^S,rho_)*const_kb/(const_mp*fld_mu)*unit_density/unit_pressure
-      w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1) + half*(w(ixB^S,mom(1))**2+w(ixB^S,mom(2))**2)/w(ixB^S,rho_)
+      w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1) + half*sum(w(ixB^S, mom(:))**2, dim=ndim+1)/w(ixB^S,rho_)
 
     case(2)
       do i = ixBmin1,ixBmax1
         !> Conserve gradE/rho
-        w(i,:,r_e) = (x(i-1,:,1)**2*w(i-1,:,mom(1))/w(i-1,:,rho_))&
-        /(x(i,:,1)**2*w(i,:,mom(1))/w(i,:,rho_))*w(i-1,:,r_e)
+        {^IFONED w(i,r_e) = (x(i-1,1)**2*w(i-1,mom(1))/w(i-1,rho_))/(x(i,1)**2*w(i,mom(1))/w(i,rho_))*w(i-1,r_e)}
+        {^IFTWOD w(i,:,r_e) = (x(i-1,:,1)**2*w(i-1,:,mom(1))/w(i-1,:,rho_))/(x(i,:,1)**2*w(i,:,mom(1))/w(i,:,rho_))*w(i-1,:,r_e)}
       enddo
 
       ! gradE_out = sum((w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,ixBmin2-2,r_e))&
       ! /(x(ixBmin1:ixBmax1,ixBmin2-1,2) - x(ixBmin1:ixBmax1,ixBmin2-2,2)))/(ixBmax1-ixBmin1)
 
+      {^IFONED
+      gradE_out = (w(ixBmin1,r_e)-w(ixBmin1-1,r_e))/(x(ixBmin1,1) - x(ixBmin1-1,1))
+      }
+      {^IFTWOD
       gradE_out = sum((w(ixBmin1,ixBmin2:ixBmax2,r_e)-w(ixBmin1-1,ixBmin2:ixBmax2,r_e))&
       /(x(ixBmin2,ixBmin2:ixBmax2,1) - x(ixBmin1-1,ixBmin2:ixBmax2,1)))/(ixBmax2-ixBmin2)
-
+      }
     case default
       call mpistop('boundary not known')
     end select
@@ -451,8 +472,7 @@ contains
 
     call PseudoPlanarSource(ixI^L,ixO^L,wCT,x,ppsource,.false.)
     w(ixO^S,rho_) = w(ixO^S,rho_) + qdt*ppsource(ixO^S,rho_)
-    w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt*ppsource(ixO^S,mom(1))
-    w(ixO^S,mom(2)) = w(ixO^S,mom(2)) + qdt*ppsource(ixO^S,mom(2))
+    w(ixO^S,mom(:)) = w(ixO^S,mom(:)) + qdt*ppsource(ixO^S,mom(:))
     w(ixO^S,e_) = w(ixO^S,e_) + qdt*ppsource(ixO^S,e_)
     w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*ppsource(ixO^S,r_e)
 
@@ -506,7 +526,7 @@ contains
     pdir = 2
 
     v(ixO^S,rdir) = w(ixO^S,mom(rdir))/w(ixO^S,rho_)
-    v(ixO^S,pdir) = w(ixO^S,mom(pdir))/w(ixO^S,rho_)
+    {^IFTWOD v(ixO^S,pdir) = w(ixO^S,mom(pdir))/w(ixO^S,rho_)}
 
     radius(ixO^S) = x(ixO^S,rdir) ! + half*block%dx(ixO^S,rdir)
 
@@ -521,10 +541,9 @@ contains
 
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
-    source(ixO^S,mom(rdir)) = - 2*w(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S) &
-                              + w(ixO^S,rho_)*v(ixO^S,pdir)**two/radius(ixO^S)
+    source(ixO^S,mom(rdir)) = - 2*w(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S) {^IFTWOD + w(ixO^S,rho_)*v(ixO^S,pdir)**two/radius(ixO^S)}
 
-    source(ixO^S,mom(pdir)) = - 3*v(ixO^S,rdir)*v(ixO^S,pdir)*w(ixO^S,rho_)/radius(ixO^S)
+    {^IFTWOD source(ixO^S,mom(pdir)) = - 3*v(ixO^S,rdir)*v(ixO^S,pdir)*w(ixO^S,rho_)/radius(ixO^S) }
 
     !> de/dt = -2 (e+p)v_r/r
     source(ixO^S,e_) = - two*(w(ixO^S,e_)+pth(ixO^S))*v(ixO^S,rdir)/radius(ixO^S)
@@ -581,8 +600,8 @@ contains
 
     ! test with different levels of refinement enforced
     if (it .gt. 1) then
-      ! if (any(x(ix^S,2) < 3.d0/4.d0 * xprobmax2)) refine=1
-      ! if (any(x(ix^S,2) < 2.d0/4.d0 * xprobmax2)) refine=1
+      ! if (any(x(ix^S,1) < 3.d0/4.d0 * xprobmax1)) refine=1
+      ! if (any(x(ix^S,1) < 2.d0/4.d0 * xprobmax1)) refine=1
       if (any(x(ix^S,1) < 1.d0/4.d0 * xprobmax1)) refine=1
     endif
 

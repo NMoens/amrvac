@@ -2,6 +2,7 @@ doc/html/*
 *.dat
 *.vtu
 *.vti
+*.blk
 *.out
 *.log
 *.mod

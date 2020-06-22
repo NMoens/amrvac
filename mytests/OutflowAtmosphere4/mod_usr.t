@@ -106,13 +106,13 @@ contains
     kappa_0 = Gamma_0*4*dpi*const_G*M_star*const_c/L_0
     kappa_b = Gamma_b*4*dpi*const_G*M_star*const_c/L_0
 
-    allocate(r_arr(domain_nx2+2*nghostcells))
-    allocate(rho_arr(domain_nx2+2*nghostcells))
-    allocate(v_arr(domain_nx2+2*nghostcells))
-    allocate(e_arr(domain_nx2+2*nghostcells))
-    allocate(Er_arr(domain_nx2+2*nghostcells))
-    allocate(T_arr(domain_nx2+2*nghostcells))
-    allocate(p_arr(domain_nx2+2*nghostcells))
+    allocate(r_arr(domain_nx1+2*nghostcells))
+    allocate(rho_arr(domain_nx1+2*nghostcells))
+    allocate(v_arr(domain_nx1+2*nghostcells))
+    allocate(e_arr(domain_nx1+2*nghostcells))
+    allocate(Er_arr(domain_nx1+2*nghostcells))
+    allocate(T_arr(domain_nx1+2*nghostcells))
+    allocate(p_arr(domain_nx1+2*nghostcells))
 
     ! call ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
     call ReadInTable(r_arr,rho_arr,v_arr,e_arr,Er_arr,T_arr, p_arr)
@@ -223,7 +223,7 @@ contains
     integer :: line, len
 
     len = len_trim(init_struc)
-    print*, 'Structure from: ',init_struc(1:len), '.txt'
+    print*, 'Structure from: ','InputStan/params_'//init_struc(1:len)//'.txt'
 
 
     OPEN(1,FILE='InputStan/params_'//init_struc(1:len)//'.txt')
@@ -252,23 +252,23 @@ contains
 
     integer :: i
     double precision :: dr
-    double precision, intent(out) :: r_arr(domain_nx2+2*nghostcells)
-    double precision, intent(out) :: rho_arr(domain_nx2+2*nghostcells)
-    double precision, intent(out) :: v_arr(domain_nx2+2*nghostcells)
-    double precision, intent(out) :: e_arr(domain_nx2+2*nghostcells)
-    double precision, intent(out) :: Er_arr(domain_nx2+2*nghostcells)
+    double precision, intent(out) :: r_arr(domain_nx1+2*nghostcells)
+    double precision, intent(out) :: rho_arr(domain_nx1+2*nghostcells)
+    double precision, intent(out) :: v_arr(domain_nx1+2*nghostcells)
+    double precision, intent(out) :: e_arr(domain_nx1+2*nghostcells)
+    double precision, intent(out) :: Er_arr(domain_nx1+2*nghostcells)
 
-    double precision :: i_arr(domain_nx2+2*nghostcells)
-    double precision, intent(out) :: T_arr(domain_nx2+2*nghostcells)
-    double precision, intent(out) :: p_arr(domain_nx2+2*nghostcells)
+    double precision :: i_arr(domain_nx1+2*nghostcells)
+    double precision, intent(out) :: T_arr(domain_nx1+2*nghostcells)
+    double precision, intent(out) :: p_arr(domain_nx1+2*nghostcells)
     integer :: len
 
     len = len_trim(init_struc)
 
-    print*, 'Parameters from: ',init_struc(1:len), '.txt'
+    print*, 'Parameters from: ', 'InputStan/structure_amrvac_'//init_struc(1:len)//'.txt'
 
     OPEN(1,FILE='InputStan/structure_amrvac_'//init_struc(1:len)//'.txt')
-    do i = 1,domain_nx2+2*nghostcells
+    do i = 1,domain_nx1+2*nghostcells
       READ(1,*) r_arr(i),v_arr(i),rho_arr(i),Er_arr(i)
     enddo
     CLOSE(1)
@@ -291,19 +291,19 @@ contains
     double precision :: kappa(ixO^S), lambda(ixO^S), fld_R(ixO^S)
     double precision :: pert(ixO^S)
 
-    NumberOfBlocks = domain_nx2/block_nx2
+    NumberOfBlocks = domain_nx1/block_nx1
 
-    x_perc = (x(nghostcells,ixOmin2,2)-xprobmin2)/(xprobmax2-xprobmin2)
+    x_perc = (x(ixOmin1,nghostcells,1)-xprobmin1)/(xprobmax1-xprobmin1)
     b = floor(x_perc*NumberOfBlocks)
 
-    do i = ixImin2,ixImax2
-      j = i + b*block_nx2
+    do i = ixImin1,ixImax1
+      j = i + b*block_nx1
 
-      w(:,i,rho_) = rho_arr(j)
-      w(:,i,mom(1)) = zero
-      w(:,i,mom(2)) = rho_arr(j)*v_arr(j)
-      w(:,i,e_) = e_arr(j)
-      w(:,i,r_e) = Er_arr(j)
+      w(i,:,rho_) = rho_arr(j)
+      w(i,:,mom(:)) = zero
+      w(i,:,mom(1)) = rho_arr(j)*v_arr(j)
+      w(i,:,e_) = e_arr(j)
+      w(i,:,r_e) = Er_arr(j)
     enddo
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -311,7 +311,7 @@ contains
 
     w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
-    pert(ixO^S) = dsin(2*dpi*x(ixO^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixO^S,2))
+    ! pert(ixO^S) = dsin(2*dpi*x(ixO^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixO^S,2))
 
     ! where ((x(ixO^S,2) .lt. 3.d0) .and. (x(ixO^S,2) .gt. 1.1d0))
       ! w(ixO^S,rho_) = w(ixO^S,rho_) * (1.d0 + 0.1d0*pert(ixO^S))
@@ -332,80 +332,63 @@ contains
     double precision :: Temp(ixI^S), pth(ixI^S),pert(ixB^S)
     integer :: i,j
 
-    ! double precision :: cool(ixI^S), heat(ixI^S), loggrad(ixB^S)
-    ! double precision :: D,DeltaE,L_c,L_a,L_o
-
     select case (iB)
 
-    case(3)
+    case(1)
 
-      w(ixBmin1:ixBmax1,nghostcells,rho_) = dinflo
+      w(nghostcells,:,rho_) = dinflo
 
-      do i = ixBmax2-1,ixBmin2,-1
+      do i = ixBmax1-1,ixBmin1,-1
         ! w(ixBmin1:ixBmax1,i,rho_) = 2*w(ixBmin1:ixBmax1,i+1,rho_) - w(ixBmin1:ixBmax1,i+2,rho_)
-        w(ixBmin1:ixBmax1,i,rho_) = dexp(2*dlog(w(ixBmin1:ixBmax1,i+1,rho_)) - dlog(w(ixBmin1:ixBmax1,i+2,rho_)))
+        w(i,:,rho_) = dexp(2*dlog(w(i+1,:,rho_)) - dlog(w(i+2,:,rho_)))
       enddo
 
-      do i = ixBmax2,ixBmin2,-1
-        w(ixBmin1:ixBmax1,i,mom(2)) = w(ixBmin1:ixBmax1,i+1,mom(2))*(x(ixBmin1:ixBmax1,i+1,2)/x(ixBmin1:ixBmax1,i,2))**2
-        w(ixBmin1:ixBmax1,i,mom(1)) = w(ixBmin1:ixBmax1,i+1,mom(1))
+      w(i,:,mom(:)) = 0.d0
+
+      do i = ixBmax1,ixBmin1,-1
+        w(i,:,mom(1)) = w(i+1,:,mom(1))*(x(i+1,:,1)/x(i,:,1))**2
       enddo
 
-        pert(ixB^S) = dsin(3*2*dpi*x(ixB^S,1)/(xprobmax1-xprobmin1))*dsin(2*dpi*x(ixB^S,2)-3*2*dpi*global_time)
-        w(ixB^S,rho_) = w(ixB^S,rho_) * (1.d0 + pert_ampl*pert(ixB^S))
-        w(ixB^S,mom(2)) = w(ixB^S,mom(2)) * (1.d0 + pert_ampl*pert(ixB^S))
+        ! pert(ixB^S) = dsin(3*2*dpi*x(ixB^S,2)/(xprobmax2-xprobmin2))*dsin(2*dpi*x(ixB^S,1)-3*2*dpi*global_time)
+        ! w(ixB^S,rho_) = w(ixB^S,rho_) * (1.d0 + pert_ampl*pert(ixB^S))
+        ! w(ixB^S,mom(1)) = w(ixB^S,mom(1)) * (1.d0 + pert_ampl*pert(ixB^S))
 
 
-      where (w(ixB^S,mom(2)) .lt. zero)
-         w(ixB^S,mom(2)) = zero ! abs(w(ixB^S,mom(2)))
+      where (w(ixB^S,mom(1)) .lt. zero)
+         w(ixB^S,mom(1)) = zero ! abs(w(ixB^S,mom(2)))
       end where
 
       ! print*, w(5,1:5,mom(2))
 
       call fld_get_opacity(w, x, ixI^L, ixI^L, kappa)
 
-      L_vE_l(ixB^S) = 4*dpi*x(ixB^S,2)**2*4.d0/3.d0*w(ixB^S,mom(2))/w(ixB^S,rho_)*w(ixB^S,r_e)
-      gradE_l(ixB^S) = -w(ixB^S,rho_)*kappa(ixB^S)*(3.d0*unit_velocity/const_c)*(L_0-L_vE_l(ixB^S))/(4.d0*dpi*x(ixB^S,2)**2.d0)
-      gradE = sum(gradE_l(ixBmin1:ixBmax1,nghostcells))/(ixBmax1-ixBmin1)
+      L_vE_l(ixB^S) = 4*dpi*x(ixB^S,1)**2*4.d0/3.d0*w(ixB^S,mom(1))/w(ixB^S,rho_)*w(ixB^S,r_e)
+      gradE_l(ixB^S) = -w(ixB^S,rho_)*kappa(ixB^S)*(3.d0*unit_velocity/const_c)*(L_0-L_vE_l(ixB^S))/(4.d0*dpi*x(ixB^S,1)**2.d0)
+      gradE = sum(gradE_l(nghostcells,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
 
-      do i = ixBmax2-1,ixBmin2,-1
-        w(ixBmin1:ixBmax1,i,r_e) = w(ixBmin1:ixBmax1,i+2,r_e) &
-        + (x(ixBmin1:ixBmax1,i,2)-x(ixBmin1:ixBmax1,i+2,2))*gradE_l(ixBmin1:ixBmax1,i+1)
+      do i = ixBmax1-1,ixBmin1,-1
+        w(i,:,r_e) = w(i+2,:,r_e) &
+        + (x(i,:,1)-x(i+2,:,1))*gradE_l(i+1,:)
       enddo
 
-      w(ixBmin1:ixBmax1,nghostcells,r_e) = dexp(half*(dlog(w(ixBmin1:ixBmax1,nghostcells-1,r_e))+dlog(w(ixBmin1:ixBmax1,nghostcells+1,r_e))))
+      w(nghostcells,:,r_e) = dexp(half*(dlog(w(nghostcells-1,:,r_e))+dlog(w(nghostcells+1,:,r_e))))
 
       Temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0
       pth(ixB^S) = Temp(ixB^S)*w(ixB^S,rho_)*const_kb/(const_mp*fld_mu)*unit_density/unit_pressure
       w(ixB^S,e_) = pth(ixB^S)/(rhd_gamma-1) + half*(w(ixB^S,mom(1))**2+w(ixB^S,mom(2))**2)/w(ixB^S,rho_)
 
-
-      ! !> Test
-      ! do i = 2,5
-      !   D = -const_c/(3*unit_velocity*w(5,i,rho_)*kappa(5,i))
-      !   DeltaE = (w(5,i+1,r_e) - w(5,i-1,r_e))/(x(5,i+1,2) - x(5,i-1,2))
-      !   L_c = 4*dpi*x(5,i,2)**2*D*DeltaE
-      !   L_a = 4*dpi*x(5,i,2)**2*4.d0/3.d0*w(5,i,mom(2))/w(5,i,rho_)*w(5,i,r_e)
-      !   L_o = L_c + L_a
-      !
-      !   ! print*,i, L_0, D,DeltaE, L_c
-      !   print*,i, L_0, L_o, L_c, L_a
-      ! enddo
-      ! print*, '----------------------------------------------------------------'
-
-
-    case(4)
-      do i = ixBmin2,ixBmax2
+    case(2)
+      do i = ixBmin1,ixBmax1
         !> Conserve gradE/rho
-        w(ixBmin1:ixBmax1,i,r_e) = (x(ixBmin1:ixBmax1,i-1,2)**2*w(ixBmin1:ixBmax1,i-1,mom(2))/w(ixBmin1:ixBmax1,i-1,rho_))&
-        /(x(ixBmin1:ixBmax1,i,2)**2*w(ixBmin1:ixBmax1,i,mom(2))/w(ixBmin1:ixBmax1,i,rho_))*w(ixBmin1:ixBmax1,i-1,r_e)
+        w(i,:,r_e) = (x(i-1,:,1)**2*w(i-1,:,mom(1))/w(i-1,:,rho_))&
+        /(x(i,:,1)**2*w(i,:,mom(1))/w(i,:,rho_))*w(i-1,:,r_e)
       enddo
 
       ! gradE_out = sum((w(ixBmin1:ixBmax1,ixBmin2-1,r_e)-w(ixBmin1:ixBmax1,ixBmin2-2,r_e))&
       ! /(x(ixBmin1:ixBmax1,ixBmin2-1,2) - x(ixBmin1:ixBmax1,ixBmin2-2,2)))/(ixBmax1-ixBmin1)
 
-      gradE_out = sum((w(ixBmin1:ixBmax1,ixBmin2,r_e)-w(ixBmin1:ixBmax1,ixBmin2-1,r_e))&
-      /(x(ixBmin1:ixBmax1,ixBmin2,2) - x(ixBmin1:ixBmax1,ixBmin2-1,2)))/(ixBmax1-ixBmin1)
+      gradE_out = sum((w(ixBmin1,ixBmin2:ixBmax2,r_e)-w(ixBmin1-1,ixBmin2:ixBmax2,r_e))&
+      /(x(ixBmin2,ixBmin2:ixBmax2,1) - x(ixBmin1-1,ixBmin2:ixBmax2,1)))/(ixBmax2-ixBmin2)
 
     case default
       call mpistop('boundary not known')
@@ -419,18 +402,18 @@ contains
     integer, intent(in)             :: iB
 
     select case (iB)
-      case (3)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = gradE
+    case (1)
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      mg%bc(iB, mg_iphi)%bc_value = gradE
 
-      case (4)
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = gradE_out
-        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+    case (2)
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      mg%bc(iB, mg_iphi)%bc_value = gradE_out
+      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
-      case default
-        print *, "Not a standard: ", trim(typeboundary(r_e, iB))
-        error stop "Set special bound for this Boundary "
+    case default
+      print *, "Not a standard: ", trim(typeboundary(r_e, iB))
+      error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
 
@@ -446,11 +429,11 @@ contains
     double precision :: radius(ixI^S)
     double precision :: mass
 
-    radius(ixO^S) = x(ixO^S,2)*unit_length
+    radius(ixO^S) = x(ixO^S,1)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
     gravity_field(ixI^S,:) = zero
-    gravity_field(ixI^S,2) = -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
+    gravity_field(ixI^S,1) = -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length)
 
   end subroutine set_gravitation_field
 
@@ -519,8 +502,8 @@ contains
 
     source(ixO^S,1:nw) = zero
 
-    rdir = 2
-    pdir = 1
+    rdir = 1
+    pdir = 2
 
     v(ixO^S,rdir) = w(ixO^S,mom(rdir))/w(ixO^S,rho_)
     v(ixO^S,pdir) = w(ixO^S,mom(pdir))/w(ixO^S,rho_)
@@ -576,7 +559,7 @@ contains
     double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(out):: kappa(ixO^S)
 
-    kappa(ixO^S) = kappa_b + (1.d0+erf((x(ixO^S,2)-one)*error_b-error_b/2.d0))*(kappa_0-kappa_b)/2.d0
+    kappa(ixO^S) = kappa_b + (1.d0+erf((x(ixO^S,1)-one)*error_b-error_b/2.d0))*(kappa_0-kappa_b)/2.d0
 
   end subroutine Opacity_stepfunction
 
@@ -600,7 +583,7 @@ contains
     if (it .gt. 1) then
       ! if (any(x(ix^S,2) < 3.d0/4.d0 * xprobmax2)) refine=1
       ! if (any(x(ix^S,2) < 2.d0/4.d0 * xprobmax2)) refine=1
-      if (any(x(ix^S,2) < 1.d0/4.d0 * xprobmax2)) refine=1
+      if (any(x(ix^S,1) < 1.d0/4.d0 * xprobmax1)) refine=1
     endif
 
   end subroutine refine_base
@@ -616,7 +599,7 @@ contains
       w(ixI^S,int_r) = w(ixI^S,int_r) &
       + w(ixI^S,rho_)*dt
       w(ixI^S,int_v) =  w(ixI^S,int_v) &
-      + w(ixI^S,mom(2))/w(ixI^S,rho_)*dt
+      + w(ixI^S,mom(1))/w(ixI^S,rho_)*dt
       w(ixI^S,int_e) = w(ixI^S,int_e) &
       + w(ixI^S,e_)*dt
       w(ixI^S,int_re) = w(ixI^S,int_re) &
@@ -658,13 +641,13 @@ contains
     double precision :: radius(ixI^S)
     double precision :: mass
 
-    radius(ixO^S) = x(ixO^S,2)*unit_length
+    radius(ixO^S) = x(ixO^S,1)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
 
-    g_rad(ixO^S) = kappa(ixO^S)*rad_flux(ixO^S,2)/(const_c/unit_velocity)
+    g_rad(ixO^S) = kappa(ixO^S)*rad_flux(ixO^S,1)/(const_c/unit_velocity)
     g_grav(ixO^S) = const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
     big_gamma(ixO^S) = g_rad(ixO^S)/g_grav(ixO^S)
 
@@ -675,7 +658,7 @@ contains
     w(ixO^S,nw+2) = Trad(ixO^S)*unit_temperature
     w(ixO^S,nw+3) = big_gamma(ixO^S)
 
-    w(ixO^S,nw+4) = 4*dpi*w(ixO^S,mom(2))*radius(ixO^S)**2 &
+    w(ixO^S,nw+4) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
     *unit_density*unit_velocity/M_sun*year
 
   end subroutine specialvar_output

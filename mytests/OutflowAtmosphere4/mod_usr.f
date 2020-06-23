@@ -697,8 +697,18 @@ contains
     double precision                   :: g_grav(ixImin1:ixImax1)
     double precision                   :: Tgas(ixImin1:ixImax1),&
        Trad(ixImin1:ixImax1)
-    double precision                   :: kappa(ixOmin1:ixOmax1)
-    double precision                   :: rad_flux(ixOmin1:ixOmax1,1:ndim)
+    double precision                   :: kappa(ixOmin1:ixOmax1),&
+        OPAL(ixOmin1:ixOmax1), CAK(ixOmin1:ixOmax1)
+    double precision                   :: vel(ixImin1:ixImax1),&
+        gradv(ixOmin1:ixOmax1)
+    double precision                   :: rad_flux(ixOmin1:ixOmax1,1:ndim),&
+        Lum_cmf(ixOmin1:ixOmax1)
+    double precision                   :: Lum_adv(ixOmin1:ixOmax1),&
+        Lum_obs(ixOmin1:ixOmax1)
+    double precision                   :: Lum_wnd(ixOmin1:ixOmax1),&
+        Mdot(ixOmin1:ixOmax1)
+    double precision                   :: pp_rf(ixOmin1:ixOmax1),&
+        lambda(ixOmin1:ixOmax1), fld_R(ixOmin1:ixOmax1)
     integer                            :: idim
     double precision :: radius(ixImin1:ixImax1)
     double precision :: mass
@@ -716,16 +726,45 @@ contains
     big_gamma(ixOmin1:ixOmax1) = g_rad(ixOmin1:ixOmax1)/g_grav(&
        ixOmin1:ixOmax1)
 
+    Mdot(ixOmin1:ixOmax1) = 4*dpi*w(ixOmin1:ixOmax1,&
+       mom(1))*radius(ixOmin1:ixOmax1)**2 &
+       *unit_density*unit_velocity/M_sun*year
+
     call rhd_get_tgas(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, Tgas)
     call rhd_get_trad(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, Trad)
 
-    w(ixOmin1:ixOmax1,nw+1) = Tgas(ixOmin1:ixOmax1)*unit_temperature
-    w(ixOmin1:ixOmax1,nw+2) = Trad(ixOmin1:ixOmax1)*unit_temperature
-    w(ixOmin1:ixOmax1,nw+3) = big_gamma(ixOmin1:ixOmax1)
+    vel(ixImin1:ixImax1) = w(ixImin1:ixImax1,mom(1))/w(ixImin1:ixImax1,rho_)
 
-    w(ixOmin1:ixOmax1,nw+4) = 4*dpi*w(ixOmin1:ixOmax1,&
-       mom(1))*radius(ixOmin1:ixOmax1)**2 &
-       *unit_density*unit_velocity/M_sun*year
+    pp_rf(ixOmin1:ixOmax1) = two*rad_flux(ixOmin1:ixOmax1,1)/x(ixOmin1:ixOmax1,&
+       1)*dt
+
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, lambda,&
+        fld_R)
+
+    Lum_cmf(ixOmin1:ixOmax1) = 4*dpi*rad_flux(ixOmin1:ixOmax1,&
+       1)*(x(ixOmin1:ixOmax1,1)*unit_length)**2*unit_radflux/L_sun
+    Lum_adv(ixOmin1:ixOmax1) = 4*dpi*4.d0/3.d0*vel(ixOmin1:ixOmax1)*w(&
+       ixOmin1:ixOmax1,r_e)*(x(ixOmin1:ixOmax1,&
+       1)*unit_length)**2*unit_radflux/L_sun
+    Lum_obs(ixOmin1:ixOmax1) = Lum_cmf(ixOmin1:ixOmax1) + &
+       Lum_adv(ixOmin1:ixOmax1)
+    Lum_wnd(ixOmin1:ixOmax1) = Mdot(ixOmin1:ixOmax1)*((vel(&
+       ixOmin1:ixOmax1)*unit_velocity)**2/2 - &
+       const_G*mass/radius(ixOmin1:ixOmax1)*unit_time**2 + &
+       const_G*mass/unit_length*unit_time**2)
+
+    w(ixOmin1:ixOmax1,nw+1) = kappa(ixOmin1:ixOmax1)*unit_opacity
+    w(ixOmin1:ixOmax1,nw+2) = rad_flux(ixOmin1:ixOmax1,1)
+    w(ixOmin1:ixOmax1,nw+3) = Trad(ixOmin1:ixOmax1)*unit_temperature
+    w(ixOmin1:ixOmax1,nw+4) = big_gamma(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+5) = Mdot(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+6) = vel(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+7) = pp_rf(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+8) = lambda(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+9) = Lum_cmf(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+10) = Lum_obs(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+11) = Lum_adv(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+12) = Lum_wnd(ixOmin1:ixOmax1)
 
   end subroutine specialvar_output
 
@@ -734,7 +773,9 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'Tgas Trad Gamma Mdot'
+               !9     10 11   12    13   14  15    16     17    18    19    20
+    varnames =&
+        'kappa F1 Trad Gamma Mdot vel pp_rf lambda L_cmf L_acv L_obs L_wnd'
   end subroutine specialvarnames_output
 
 end module mod_usr

@@ -8,7 +8,7 @@
   convert_type     = 'oneblock'
   level_io         = 1
   saveprim         = T
-  nwauxio = 4
+  nwauxio = 12
 /
 
  &savelist

@@ -6,8 +6,8 @@
   base_filename='./output/G2m02_2R_30d'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
-  saveprim         = T
-  nwauxio = 4
+  saveprim         = F
+  nwauxio = 9
 /
 
  &savelist

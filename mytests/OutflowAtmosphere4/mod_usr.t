@@ -654,8 +654,12 @@ contains
     double precision                   :: g_rad(ixI^S), big_gamma(ixI^S)
     double precision                   :: g_grav(ixI^S)
     double precision                   :: Tgas(ixI^S),Trad(ixI^S)
-    double precision                   :: kappa(ixO^S)
-    double precision                   :: rad_flux(ixO^S,1:ndim)
+    double precision                   :: kappa(ixO^S), OPAL(ixO^S), CAK(ixO^S)
+    double precision                   :: vel(ixI^S), gradv(ixO^S)
+    double precision                   :: rad_flux(ixO^S,1:ndim), Lum_cmf(ixO^S)
+    double precision                   :: Lum_adv(ixO^S), Lum_obs(ixO^S)
+    double precision                   :: Lum_wnd(ixO^S), Mdot(ixO^S)
+    double precision                   :: pp_rf(ixO^S), lambda(ixO^S), fld_R(ixO^S)
     integer                            :: idim
     double precision :: radius(ixI^S)
     double precision :: mass
@@ -670,15 +674,37 @@ contains
     g_grav(ixO^S) = const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
     big_gamma(ixO^S) = g_rad(ixO^S)/g_grav(ixO^S)
 
+    Mdot(ixO^S) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
+    *unit_density*unit_velocity/M_sun*year
+
     call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
     call rhd_get_trad(w, x, ixI^L, ixO^L, Trad)
 
-    w(ixO^S,nw+1) = Tgas(ixO^S)*unit_temperature
-    w(ixO^S,nw+2) = Trad(ixO^S)*unit_temperature
-    w(ixO^S,nw+3) = big_gamma(ixO^S)
+    vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
 
-    w(ixO^S,nw+4) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
-    *unit_density*unit_velocity/M_sun*year
+    pp_rf(ixO^S) = two*rad_flux(ixO^S,1)/x(ixO^S,1)*dt
+
+    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+
+    Lum_cmf(ixO^S) = 4*dpi*rad_flux(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux/L_sun
+    Lum_adv(ixO^S) = 4*dpi*4.d0/3.d0*vel(ixO^S)*w(ixO^S,r_e)*(x(ixO^S,1)*unit_length)**2*unit_radflux/L_sun
+    Lum_obs(ixO^S) = Lum_cmf(ixO^S) + Lum_adv(ixO^S)
+    Lum_wnd(ixO^S) = Mdot(ixO^S)*((vel(ixO^S)*unit_velocity)**2/2 &
+                            - const_G*mass/radius(ixO^S)*unit_time**2 &
+                            + const_G*mass/unit_length*unit_time**2)
+
+    w(ixO^S,nw+1) = kappa(ixO^S)*unit_opacity
+    w(ixO^S,nw+2) = rad_flux(ixO^S,1)
+    w(ixO^S,nw+3) = Trad(ixO^S)*unit_temperature
+    w(ixO^S,nw+4) = big_gamma(ixO^S)
+    w(ixO^S,nw+5) = Mdot(ixO^S)
+    w(ixO^S,nw+6) = vel(ixO^S)
+    w(ixO^S,nw+7) = pp_rf(ixO^S)
+    w(ixO^S,nw+8) = lambda(ixO^S)
+    w(ixO^S,nw+9) = Lum_cmf(ixO^S)
+    w(ixO^S,nw+10) = Lum_obs(ixO^S)
+    w(ixO^S,nw+11) = Lum_adv(ixO^S)
+    w(ixO^S,nw+12) = Lum_wnd(ixO^S)
 
   end subroutine specialvar_output
 
@@ -687,7 +713,8 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'Tgas Trad Gamma Mdot'
+               !9     10 11   12    13   14  15    16     17    18    19    20
+    varnames = 'kappa F1 Trad Gamma Mdot vel pp_rf lambda L_cmf L_acv L_obs L_wnd'
   end subroutine specialvarnames_output
 
 end module mod_usr

@@ -7,8 +7,8 @@
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
-  saveprim         = T
-  nwauxio = 12
+  saveprim         = F
+  nwauxio = 11
 /
 
  &savelist
@@ -45,10 +45,10 @@
 /
 
  &meshlist
-   refine_max_level   = 3
+   refine_max_level   = 1
    refine_criterion   = 0
    domain_nx1         = 256
-   block_nx1          = 16
+   block_nx1          = 256
    xprobmin1       = 1.0d0
    xprobmax1       = 11.d0
    refine_threshold   = 20*0.5d0
@@ -88,5 +88,5 @@
    pert_ampl = 0.0d0
    inflow_gamma = 0.9d0
    inflow_density = 30.d0
-   init_struc = 'G2_m0.2'
+   init_struc = 'G2_m0.2_2R'
    /

@@ -30,7 +30,10 @@ module mod_usr
   double precision :: rho_base
   double precision :: T_base
 
-  double precision :: dinflo,gradE,gradE_out
+  double precision :: StefBoltz
+
+
+  double precision :: dinflo,gradE,gradE_out, valE_out
   double precision :: error_b
 
   double precision :: inflow_density, inflow_gamma, pert_ampl
@@ -187,6 +190,8 @@ contains
     !   print*, 'Flux at boundary: ', L_0/(4*dpi*R_star**2)
     ! endif
 
+    StefBoltz = const_rad_a*const_c/4.d0*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
+
     L_vE = 4*dpi*R_star**2*v_arr(nghostcells+1)*4.d0/3.d0*Er_arr(nghostcells+1)
     !>Set bottom density from massloss rate
 
@@ -341,6 +346,7 @@ contains
 
     double precision :: kappa(ixI^S), gradE_l(ixB^S), L_vE_l(ixB^S)
     double precision :: Temp(ixI^S), pth(ixI^S),pert(ixB^S)
+    double precision :: tau_out, T_out, F_bound
     integer :: i,j
 
     select case (iB)
@@ -411,6 +417,17 @@ contains
       gradE_out = sum((w(ixBmin1,ixBmin2:ixBmax2,r_e)-w(ixBmin1-1,ixBmin2:ixBmax2,r_e))&
       /(x(ixBmin2,ixBmin2:ixBmax2,1) - x(ixBmin1-1,ixBmin2:ixBmax2,1)))/(ixBmax2-ixBmin2)
       }
+
+      F_bound = L_0/(4*dpi*R_star**2)
+      tau_out = kappa_0*w(ixImax1-nghostcells,rho_)*R_star**2/(3*x(ixImax1-nghostcells,1))
+      T_out = F_bound/StefBoltz*(3.d0/4.d0*tau_out)**0.25d0
+
+      T_out = max(T_out, 1.d5/unit_temperature)
+
+      ! print*, tau_out, T_out*unit_temperature
+
+      valE_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
+
     case default
       call mpistop('boundary not known')
     end select
@@ -428,9 +445,11 @@ contains
       mg%bc(iB, mg_iphi)%bc_value = gradE
 
     case (2)
-      mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-      mg%bc(iB, mg_iphi)%bc_value = gradE_out
-      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      ! mg%bc(iB, mg_iphi)%bc_value = gradE_out
+
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+      mg%bc(iB, mg_iphi)%bc_value = valE_out
 
     case default
       print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -674,7 +693,7 @@ contains
     g_grav(ixO^S) = const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
     big_gamma(ixO^S) = g_rad(ixO^S)/g_grav(ixO^S)
 
-    Mdot(ixO^S) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
+    Mdot(ixO^S) =  4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
     *unit_density*unit_velocity/M_sun*year
 
     call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
@@ -689,9 +708,10 @@ contains
     Lum_cmf(ixO^S) = 4*dpi*rad_flux(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux/L_sun
     Lum_adv(ixO^S) = 4*dpi*4.d0/3.d0*vel(ixO^S)*w(ixO^S,r_e)*(x(ixO^S,1)*unit_length)**2*unit_radflux/L_sun
     Lum_obs(ixO^S) = Lum_cmf(ixO^S) + Lum_adv(ixO^S)
-    Lum_wnd(ixO^S) = Mdot(ixO^S)*((vel(ixO^S)*unit_velocity)**2/2 &
-                            - const_G*mass/radius(ixO^S)*unit_time**2 &
-                            + const_G*mass/unit_length*unit_time**2)
+    Lum_wnd(ixO^S) =  4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2*unit_density*unit_velocity/L_sun&
+                            *((vel(ixO^S)*unit_velocity)**2/2.d0 &
+                            - const_G*mass/radius(ixO^S) &
+                            + const_G*mass/unit_length)
 
     w(ixO^S,nw+1) = kappa(ixO^S)*unit_opacity
     w(ixO^S,nw+2) = rad_flux(ixO^S,1)
@@ -700,11 +720,10 @@ contains
     w(ixO^S,nw+5) = Mdot(ixO^S)
     w(ixO^S,nw+6) = vel(ixO^S)
     w(ixO^S,nw+7) = pp_rf(ixO^S)
-    w(ixO^S,nw+8) = lambda(ixO^S)
-    w(ixO^S,nw+9) = Lum_cmf(ixO^S)
+    w(ixO^S,nw+8) = Lum_cmf(ixO^S)
+    w(ixO^S,nw+9) = Lum_adv(ixO^S)
     w(ixO^S,nw+10) = Lum_obs(ixO^S)
-    w(ixO^S,nw+11) = Lum_adv(ixO^S)
-    w(ixO^S,nw+12) = Lum_wnd(ixO^S)
+    w(ixO^S,nw+11) = Lum_wnd(ixO^S)
 
   end subroutine specialvar_output
 
@@ -714,7 +733,7 @@ contains
     character(len=*) :: varnames
 
                !9     10 11   12    13   14  15    16     17    18    19    20
-    varnames = 'kappa F1 Trad Gamma Mdot vel pp_rf lambda L_cmf L_acv L_obs L_wnd'
+    varnames = 'kappa F1 Trad Gamma Mdot vel pp_rf L_cmf L_adv L_obs L_wnd'
   end subroutine specialvarnames_output
 
 end module mod_usr

@@ -152,21 +152,31 @@ contains
 
     select case (iB)
     case(1)
-      do i = ixBmax1,ixBmin1, -1
-        w(i,:,rho_) = rho0
-        w(i,:,mom(:)) = 0.d0
-        w(i,:,mom(1)) = w(i+1,:,mom(1))
-        w(i,:,e_) = w(i+1,:,e_)
-        w(i,:,r_e) = Er1
-      enddo
+        w(ixB^S,rho_) = rho0
+        w(ixB^S,mom(:)) = 0.d0
+        w(ixB^S,r_e) = Er1
+        do i = ixBmax1,ixBmin1, -1
+          {^IFONED w(i,e_) = w(i+1,e_)}
+          {^IFONED w(i,mom(1)) = w(i+1,mom(1))}
+          {^IFTWOD w(i,:,e_) = w(i+1,:,e_)}
+          {^IFTWOD w(i,:,mom(1)) = w(i+1,:,mom(1))}
+        enddo
 
     case(2)
       do i = ixBmin1,ixBmax1
+        {^IFONED
+        w(i,rho_) = w(i-1,rho_)
+        w(i,mom(1)) = w(i-1,mom(1))
+        w(i,e_) = w(i-1,e_)
+        w(i,r_e) = w(i-1,r_e)
+        }
+        {^IFTWOD
         w(i,:,rho_) = w(i-1,:,rho_)
         w(i,:,mom(:)) = 0.d0
         w(i,:,mom(1)) = w(i-1,:,mom(1))
         w(i,:,e_) = w(i-1,:,e_)
         w(i,:,r_e) = w(i-1,:,r_e)
+        }
       enddo
 
     case default

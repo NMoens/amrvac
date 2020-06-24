@@ -21,7 +21,9 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+     call set_coordinate_system("Cartesian_1D")
+    
+    
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -111,78 +113,71 @@ contains
   end subroutine params_read
 
   !> A routine for specifying initial conditions
-  subroutine initial_conditions(ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-     ixOmin2,ixOmax1,ixOmax2, w, x)
+  subroutine initial_conditions(ixImin1,ixImax1, ixOmin1,ixOmax1, w, x)
     use mod_global_parameters
 
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixOmin1,ixOmin2,ixOmax1,ixOmax2
-    double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    integer, intent(in)             :: ixImin1,ixImax1, ixOmin1,ixOmax1
+    double precision, intent(in)    :: x(ixImin1:ixImax1,1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
 
-    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
-        fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2), lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
-    double precision :: rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndim),&
-        step(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: kappa(ixOmin1:ixOmax1), fld_R(ixOmin1:ixOmax1),&
+        lambda(ixOmin1:ixOmax1)
+    double precision :: rad_flux(ixOmin1:ixOmax1,1:ndim),&
+        step(ixImin1:ixImax1)
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = 0.d0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = p0/(rhd_gamma-1.d0)
+    w(ixImin1:ixImax1,rho_) = rho0
+    w(ixImin1:ixImax1,mom(:)) = 0.d0
+    w(ixImin1:ixImax1,e_) = p0/(rhd_gamma-1.d0)
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er0
-    step(ixImin1:ixImax1,ixImin2:ixImax2) = (  1.d0-erf(  (x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,1)-l1)/l2    )  )/2.d0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       r_e) + step(ixImin1:ixImax1,ixImin2:ixImax2)*Er1
+    w(ixImin1:ixImax1,r_e) = Er0
+    step(ixImin1:ixImax1) = (  1.d0-erf(  (x(ixImin1:ixImax1,&
+       1)-l1)/l2    )  )/2.d0
+    w(ixImin1:ixImax1,r_e) = w(ixImin1:ixImax1,&
+       r_e) + step(ixImin1:ixImax1)*Er1
 
-    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, kappa)
-    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
+    call fld_get_opacity(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, kappa)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, lambda,&
+        fld_R)
 
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_test) = fld_R(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
-       (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
+    w(ixOmin1:ixOmax1,i_test) = fld_R(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,i_diff_mg) = (const_c/unit_velocity)*lambda(&
+       ixOmin1:ixOmax1)/(kappa(ixOmin1:ixOmax1)*w(ixOmin1:ixOmax1,rho_))
 
   end subroutine initial_conditions
 
 
-  subroutine boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixBmin1,&
-     ixBmin2,ixBmax1,ixBmax2,iB,w,x)
+  subroutine boundary_conditions(qt,ixImin1,ixImax1,ixBmin1,ixBmax1,iB,w,x)
     use mod_global_parameters
     use mod_fld
 
 
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixBmin1,ixBmin2,ixBmax1,ixBmax2, iB
-    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    integer, intent(in)             :: ixImin1,ixImax1, ixBmin1,ixBmax1, iB
+    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
 
     integer :: i
 
     select case (iB)
     case(1)
-      do i = ixBmax1,ixBmin1, -1
-        w(i,:,rho_) = rho0
-        w(i,:,mom(1)) = w(i+1,:,mom(1))
-        w(i,:,mom(2)) = w(i+1,:,mom(2))
-        w(i,:,e_) = w(i+1,:,e_)
-        w(i,:,r_e) = Er1
-      enddo
+        w(ixBmin1:ixBmax1,rho_) = rho0
+        w(ixBmin1:ixBmax1,mom(:)) = 0.d0
+        w(ixBmin1:ixBmax1,r_e) = Er1
+        do i = ixBmax1,ixBmin1, -1
+           w(i,e_) = w(i+1,e_)
+           w(i,mom(1)) = w(i+1,mom(1))
+          
+          
+        enddo
 
     case(2)
       do i = ixBmin1,ixBmax1
-        w(i,:,rho_) = w(i-1,:,rho_)
-        w(i,:,mom(1)) = w(i-1,:,mom(1))
-        w(i,:,mom(2)) = w(i-1,:,mom(2))
-        w(i,:,e_) = w(i-1,:,e_)
-        w(i,:,r_e) = w(i-1,:,r_e)
+        
+        w(i,rho_) = w(i-1,rho_)
+        w(i,mom(1)) = w(i-1,mom(1))
+        w(i,e_) = w(i-1,e_)
+        w(i,r_e) = w(i-1,r_e)
+       
+        
       enddo
 
     case default
@@ -214,8 +209,7 @@ contains
   end subroutine mg_boundary_conditions
 
 
-  subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-     ixOmax1,ixOmax2,w,x,normconv)
+  subroutine specialvar_output(ixImin1,ixImax1,ixOmin1,ixOmax1,w,x,normconv)
     ! this subroutine can be used in convert, to add auxiliary variables to the
     ! converted output file, for further analysis using tecplot, paraview, ....
     ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
@@ -225,76 +219,52 @@ contains
     use mod_global_parameters
     use mod_fld
 
-    integer, intent(in)                :: ixImin1,ixImin2,ixImax1,ixImax2,&
-       ixOmin1,ixOmin2,ixOmax1,ixOmax2
-    double precision, intent(in)       :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision                   :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       nw+nwauxio)
+    integer, intent(in)                :: ixImin1,ixImax1,ixOmin1,ixOmax1
+    double precision, intent(in)       :: x(ixImin1:ixImax1,1:ndim)
+    double precision                   :: w(ixImin1:ixImax1,nw+nwauxio)
     double precision                   :: normconv(0:nw+nwauxio)
 
-    double precision :: step(ixImin1:ixImax1,ixImin2:ixImax2),&
-        rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndim)
-    double precision :: lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
-        fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2), kappa(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    double precision :: step(ixImin1:ixImax1), rad_flux(ixOmin1:ixOmax1,&
+       1:ndim)
+    double precision :: lambda(ixOmin1:ixOmax1), fld_R(ixOmin1:ixOmax1),&
+        kappa(ixOmin1:ixOmax1)
 
-    double precision :: rad_e(ixImin1:ixImax1,ixImin2:ixImax2),&
-        normgrad2(ixOmin1:ixOmax1,ixOmin2:ixOmax2), grad_r_e(ixImin1:ixImax1,&
-       ixImin2:ixImax2)
-    double precision :: grE1(ixImin1:ixImax1,ixImin2:ixImax2),&
-        grE2(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: rad_e(ixImin1:ixImax1), normgrad2(ixOmin1:ixOmax1),&
+        grad_r_e(ixImin1:ixImax1)
+    double precision :: grE1(ixImin1:ixImax1), grE2(ixImin1:ixImax1)
     integer :: idir
 
-    step(ixImin1:ixImax1,ixImin2:ixImax2) = (  1.d0-erf((x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,1)-l1-global_time*const_c/unit_velocity)/l2    )  &
-       )/2.d0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,nw+1) = step(ixImin1:ixImax1,&
-       ixImin2:ixImax2)
+    step(ixImin1:ixImax1) = (  1.d0-erf((x(ixImin1:ixImax1,&
+       1)-l1-global_time*const_c/unit_velocity)/l2    )  )/2.d0
+    w(ixImin1:ixImax1,nw+1) = step(ixImin1:ixImax1)
 
-    call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, rad_flux)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2) = rad_flux(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,1)
+    call fld_get_radflux(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, rad_flux)
+    w(ixOmin1:ixOmax1,nw+2) = rad_flux(ixOmin1:ixOmax1,1)
 
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3) = &
-       const_c/unit_velocity*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e)
+    w(ixOmin1:ixOmax1,nw+3) = const_c/unit_velocity*w(ixOmin1:ixOmax1,r_e)
 
-    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4) = lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5) = fld_R(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, lambda,&
+        fld_R)
+    w(ixOmin1:ixOmax1,nw+4) = lambda(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+5) = fld_R(ixOmin1:ixOmax1)
 
-    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, kappa)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+6) = kappa(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    call fld_get_opacity(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, kappa)
+    w(ixOmin1:ixOmax1,nw+6) = kappa(ixOmin1:ixOmax1)
 
-    normgrad2(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = 0.d0 !smalldouble
+    normgrad2(ixOmin1:ixOmax1) = 0.d0 !smalldouble
 
-    rad_e(ixImin1:ixImax1,ixImin2:ixImax2) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-        r_e)
+    rad_e(ixImin1:ixImax1) = w(ixImin1:ixImax1, r_e)
     do idir = 1,ndim
-      call gradient(rad_e,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-         ixOmax1,ixOmax2,idir,grad_r_e)
-      normgrad2(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = normgrad2(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2) + grad_r_e(ixOmin1:ixOmax1,ixOmin2:ixOmax2)**2
+      call gradient(rad_e,ixImin1,ixImax1,ixOmin1,ixOmax1,idir,grad_r_e)
+      normgrad2(ixOmin1:ixOmax1) = normgrad2(ixOmin1:ixOmax1) + &
+         grad_r_e(ixOmin1:ixOmax1)**2
     end do
 
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+7) = normgrad2(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,nw+7) = normgrad2(ixOmin1:ixOmax1)
 
-    call gradient(rad_e,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-       ixOmax1,ixOmax2,1,grE1)
-    call gradient(rad_e,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-       ixOmax1,ixOmax2,2,grE2)
+    call gradient(rad_e,ixImin1,ixImax1,ixOmin1,ixOmax1,1,grE1)
 
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+8) = grE1(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+9) = grE2(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,nw+8) = grE1(ixOmin1:ixOmax1)
 
     ! if (x(1,1,1) .lt. xprobmin1) then
     !   print*, 'Er', w(1:5,5,r_e)
@@ -314,7 +284,7 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'step F1 cE lambda R kappa ngrd grE1 grE2'
+    varnames = 'step F1 cE lambda R kappa ngrd grE1'
   end subroutine specialvarnames_output
 
 end module mod_usr

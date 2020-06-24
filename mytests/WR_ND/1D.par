@@ -7,7 +7,7 @@
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
-  nwauxio = 10
+  nwauxio = 0
 /
 
  &savelist

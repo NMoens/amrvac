@@ -247,22 +247,19 @@ contains
            rho_)) - dlog(w(ix1+2,ixBmin2:ixBmax2,rho_)))
       enddo
 
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(2)) = 0.d0
+
       do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,ixBmin2:ixBmax2,mom(1)) = w(ix1+1,ixBmin2:ixBmax2,mom(1))
-        w(ix1,ixBmin2:ixBmax2,mom(2)) = w(ix1+1,ixBmin2:ixBmax2,mom(2))
       enddo
 
-      where(w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) .lt. 0.d0)
-        w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = 0.d0
-      endwhere
-
-      where(w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1))/w(ixBmin1:ixBmax1,&
-         ixBmin2:ixBmax2,rho_) .gt. 0.5d0)
-        w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = 0.1d0*w(ixBmin1:ixBmax1,&
-           ixBmin2:ixBmax2,rho_)
-      endwhere
-
-      ! w(ixB^S,r_e) = const_rad_a*(T_bound*unit_temperature)**4/unit_pressure
+      ! where(w(ixB^S,mom(1)) .lt. 0.d0)
+      !   w(ixB^S,mom(1)) = 0.d0
+      ! endwhere
+      !
+      ! where(w(ixB^S,mom(1))/w(ixB^S,rho_) .gt. 0.5d0)
+      !   w(ixB^S,mom(1)) = 0.1d0*w(ixB^S,rho_)
+      ! endwhere
 
       call get_kappa_OPAL(ixImin1,ixImin2,ixImax1,ixImax2,ixImin1,ixImin2,&
          ixImax1,ixImax2,w,x,kappa)
@@ -282,21 +279,6 @@ contains
            ixBmin2:ixBmax2,1)-x(ix1+2,ixBmin2:ixBmax2,1))*Local_gradE(ix1+1,&
            ixBmin2:ixBmax2)
       enddo
-
-      ! w(nghostcells,ixBmin2:ixBmax2,r_e) = dexp(half*(dlog(w(nghostcells-1,ixBmin2:ixBmax2,r_e))+dlog(w(nghostcells+1,ixBmin2:ixBmax2,r_e))))
-      ! w(nghostcells,ixBmin2:ixBmax2,r_e) = half*(w(nghostcells-1,ixBmin2:ixBmax2,r_e)+w(nghostcells+1,ixBmin2:ixBmax2,r_e))
-
-      ! print*, it, 'bottom------------------------------------'
-      ! print*, w(1:5,5,r_e)
-      ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))
-      ! print*, '********************', (w(3:6,5,r_e) - w(1:4,5,r_e))/(w(2:5,5,rho_)*kappa(2:5,5))
-
-      ! print*, F_bound, gradE*const_c/unit_velocity/(3*kappa(2,5)*w(2,5,rho_))
-      ! print*, 4*dpi*unit_length**2*F_bound*unit_radflux/L_sun &
-      ! , -4*dpi*unit_length**2*gradE*const_c/unit_velocity/(3*kappa(2,5)*w(2,5,rho_))*unit_radflux/L_sun
-      ! print*, -4*dpi*unit_length**2*(w(1:5,5,r_e)-w(3:7,5,r_e))/(x(1:5,5,1)-x(3:7,5,1))&
-      ! *const_c/unit_velocity/(3*kappa(2:6,5)*w(2:6,5,rho_))*unit_radflux/L_sun
-      ! print*,
 
     case(2)
 
@@ -833,7 +815,8 @@ contains
     double precision                   :: rad_flux(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,1:ndim), Lum(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     double precision                   :: pp_rf(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+       ixOmin2:ixOmax2), lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     integer                            :: idim
     double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: mass
@@ -874,6 +857,9 @@ contains
     pp_rf(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = two*rad_flux(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,1)/x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)*dt
 
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
+
     Lum = 4*dpi*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)*(x(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,1)*unit_length)**2*unit_radflux/L_sun
 
@@ -896,7 +882,9 @@ contains
        ixOmin2:ixOmax2)
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+9) = pp_rf(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+10) = Lum(ixOmin1:ixOmax1,&
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+10) = lambda(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+11) = Lum(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)
 
   end subroutine specialvar_output
@@ -906,8 +894,8 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-               !9     10 11   12    13   14   15  16    17    18
-    varnames = 'kappa F1 Trad Gamma Mdot OPAL CAK gradv pp_rf L'
+               !9     10 11   12    13   14   15  16    17    18     19
+    varnames = 'kappa F1 Trad Gamma Mdot OPAL CAK gradv pp_rf lambda L'
   end subroutine specialvarnames_output
 
 end module mod_usr

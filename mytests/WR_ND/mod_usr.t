@@ -160,7 +160,7 @@ contains
     w(ixI^S,mom(:)) = 0.d0
 
     where(x(ixI^S,1) .gt. 1.d0)
-      vel(ixI^S) =  v_inf*(1 - 0.999d0*( 1.d0/x(ixI^S,1)))**0.5d0
+      vel(ixI^S) =  v_inf*abs(1 - 0.999d0*( 1.d0/x(ixI^S,1)))**0.5d0
       w(ixI^S,rho_) = Mdot/(4.d0*dpi*vel(ixI^S)*x(ixI^S,1)**2)
     endwhere
 
@@ -175,7 +175,7 @@ contains
     !>Very bad initial profile using constant gradE
     ! w(ixI^S,r_e) = E_out + gradE*(x(ixI^S,1)-xprobmax1)
     ! w(ixI^S,r_e) = E_in + gradE*(x(ixI^S,1)-xprobmin1)
-    rr(ixI^S) = dsqrt(x(ixI^S,1)-xprobmin1)*(16*x(ixI^S,1)**2 + 8*x(ixI^S,1)+ 6) &
+    rr(ixI^S) = dsqrt(abs(x(ixI^S,1)-xprobmin1))*(16*x(ixI^S,1)**2 + 8*x(ixI^S,1)+ 6) &
                 /(15*x(ixI^S,1)**(5.d0/2))
     bb = -kappa_e*L_bound*Mdot*unit_velocity*3/(16*dpi**2*const_c*v_inf)
 
@@ -185,7 +185,7 @@ contains
     ! bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
     w(ixI^S,r_e) = E_in + bb*rr(ixI^S)
 
-    E_gauge = E_in + bb*dsqrt(xprobmax1-xprobmin1)&
+    E_gauge = E_in + bb*dsqrt(abs(xprobmax1-xprobmin1))&
               *(16*xprobmax1**2 + 8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
 
     w(ixI^S,r_e) = w(ixI^S,r_e) - E_gauge + E_out

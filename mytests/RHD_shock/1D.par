@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/shock_1D'
+  base_filename='./1D_output/shock'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         =1

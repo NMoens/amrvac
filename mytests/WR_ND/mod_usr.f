@@ -158,50 +158,45 @@ contains
     double precision :: T_out, E_out, E_gauge
     double precision :: T_in, E_in, rr(ixImin1:ixImax1), bb
 
-    w(ixImin1:ixImax1,rho_)   = rho_bound
-
-    w(ixImin1:ixImax1,mom(:)) = 0.d0
-
-    where(x(ixImin1:ixImax1,1) .gt. 1.d0)
-      vel(ixImin1:ixImax1) =  v_inf*(1 - 0.999d0*( 1.d0/x(ixImin1:ixImax1,&
-         1)))**0.5d0
-      w(ixImin1:ixImax1,rho_) = Mdot/(4.d0*dpi*vel(ixImin1:ixImax1)*x(&
-         ixImin1:ixImax1,1)**2)
-    endwhere
-
-    w(ixImin1:ixImax1,mom(1)) = vel(ixImin1:ixImax1)*w(ixImin1:ixImax1,rho_)
-
-    !> Outer/Inner temperature
-    T_out = 28445.836732569689/unit_temperature
-    E_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
-    T_in = T_bound
-    E_in = const_rad_a*(T_in*unit_temperature)**4/unit_pressure
-
-    !>Very bad initial profile using constant gradE
-    ! w(ixI^S,r_e) = E_out + gradE*(x(ixI^S,1)-xprobmax1)
-    ! w(ixI^S,r_e) = E_in + gradE*(x(ixI^S,1)-xprobmin1)
-    rr(ixImin1:ixImax1) = dsqrt(x(ixImin1:ixImax1,&
-       1)-xprobmin1)*(16*x(ixImin1:ixImax1,1)**2 + 8*x(ixImin1:ixImax1,&
-       1)+ 6) /(15*x(ixImin1:ixImax1,1)**(5.d0/2))
-    bb = -kappa_e*L_bound*Mdot*unit_velocity*3/(16*dpi**2*const_c*v_inf)
-
-    ! bb = bb*2
-
-    ! rr(ixI^S) = 2*dsqrt(x(ixI^S,1)-xprobmin1)/dsqrt(x(ixI^S,1))
-    ! bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
-    w(ixImin1:ixImax1,r_e) = E_in + bb*rr(ixImin1:ixImax1)
-
-    E_gauge = E_in + bb*dsqrt(xprobmax1-xprobmin1)*(16*xprobmax1**2 + &
-       8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
-
-    w(ixImin1:ixImax1,r_e) = w(ixImin1:ixImax1,r_e) - E_gauge + E_out
-
-    call fld_get_opacity(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, kappa)
-    call fld_get_fluxlimiter(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, lambda,&
-        fld_R)
-
-    w(ixOmin1:ixOmax1,i_diff_mg) = (const_c/unit_velocity)*lambda(&
-       ixOmin1:ixOmax1)/(kappa(ixOmin1:ixOmax1)*w(ixOmin1:ixOmax1,rho_))
+    ! w(ixI^S,rho_)   = rho_bound
+    !
+    ! w(ixI^S,mom(:)) = 0.d0
+    !
+    ! where(x(ixI^S,1) .gt. 1.d0)
+    !   vel(ixI^S) =  v_inf*abs(1 - 0.999d0*( 1.d0/x(ixI^S,1)))**0.5d0
+    !   w(ixI^S,rho_) = Mdot/(4.d0*dpi*vel(ixI^S)*x(ixI^S,1)**2)
+    ! endwhere
+    !
+    ! w(ixI^S,mom(1)) = vel(ixI^S)*w(ixI^S,rho_)
+    !
+    ! !> Outer/Inner temperature
+    ! T_out = 28445.836732569689/unit_temperature
+    ! E_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
+    ! T_in = T_bound
+    ! E_in = const_rad_a*(T_in*unit_temperature)**4/unit_pressure
+    !
+    ! !>Very bad initial profile using constant gradE
+    ! ! w(ixI^S,r_e) = E_out + gradE*(x(ixI^S,1)-xprobmax1)
+    ! ! w(ixI^S,r_e) = E_in + gradE*(x(ixI^S,1)-xprobmin1)
+    ! rr(ixI^S) = dsqrt(abs(x(ixI^S,1)-xprobmin1))*(16*x(ixI^S,1)**2 + 8*x(ixI^S,1)+ 6) &
+    !             /(15*x(ixI^S,1)**(5.d0/2))
+    ! bb = -kappa_e*L_bound*Mdot*unit_velocity*3/(16*dpi**2*const_c*v_inf)
+    !
+    ! ! bb = bb*2
+    !
+    ! ! rr(ixI^S) = 2*dsqrt(x(ixI^S,1)-xprobmin1)/dsqrt(x(ixI^S,1))
+    ! ! bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
+    ! w(ixI^S,r_e) = E_in + bb*rr(ixI^S)
+    !
+    ! E_gauge = E_in + bb*dsqrt(abs(xprobmax1-xprobmin1))&
+    !           *(16*xprobmax1**2 + 8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
+    !
+    ! w(ixI^S,r_e) = w(ixI^S,r_e) - E_gauge + E_out
+    !
+    ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+    !
+    ! w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
 

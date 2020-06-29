@@ -422,7 +422,7 @@ contains
       tau_out = kappa_0*w(ixImax1-nghostcells,rho_)*R_star**2/(3*x(ixImax1-nghostcells,1))
       T_out = F_bound/StefBoltz*(3.d0/4.d0*tau_out)**0.25d0
 
-      T_out = max(T_out, 1.d5/unit_temperature)
+      ! T_out = max(T_out, 1.d5/unit_temperature)
 
       ! print*, tau_out, T_out*unit_temperature
 
@@ -445,11 +445,11 @@ contains
       mg%bc(iB, mg_iphi)%bc_value = gradE
 
     case (2)
-      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-      ! mg%bc(iB, mg_iphi)%bc_value = gradE_out
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      mg%bc(iB, mg_iphi)%bc_value = gradE_out
 
-      mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-      mg%bc(iB, mg_iphi)%bc_value = valE_out
+      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+      ! mg%bc(iB, mg_iphi)%bc_value = valE_out
 
     case default
       print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -718,7 +718,7 @@ contains
     w(ixO^S,nw+3) = Trad(ixO^S)*unit_temperature
     w(ixO^S,nw+4) = big_gamma(ixO^S)
     w(ixO^S,nw+5) = Mdot(ixO^S)
-    w(ixO^S,nw+6) = vel(ixO^S)
+    w(ixO^S,nw+6) = vel(ixO^S)*unit_velocity
     w(ixO^S,nw+7) = pp_rf(ixO^S)
     w(ixO^S,nw+8) = Lum_cmf(ixO^S)
     w(ixO^S,nw+9) = Lum_adv(ixO^S)

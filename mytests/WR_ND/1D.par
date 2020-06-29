@@ -5,17 +5,18 @@
 &filelist
   base_filename='./output/WR'
   autoconvert      = T
-  convert_type     = 'vtuBCCmpi'
+  convert_type     = 'oneblock'
+  level_io         = 1
   saveprim         = T
-  nwauxio = 0
+  !nwauxio = 10
 /
 
  &savelist
-   itsave(1,1)     = 0
-   itsave(1,2)     = 0
+   !itsave(1,1)     = 0
+   !itsave(1,2)     = 0
    !ditsave_dat     = 50
    !ditsave_log     = 100
-   dtsave_dat     = 1.d0
+   !dtsave_dat     = 1.d0
    !dtsave_log     = 5.d-2
 /
 
@@ -48,7 +49,7 @@
    refine_max_level   = 3
    refine_criterion   = 0
    domain_nx1         = 2048
-   block_nx1          = 32
+   block_nx1          = 2048
    xprobmin1      = 1.d0
    xprobmax1       = 51.d0
    refine_threshold   = 20*0.5d0

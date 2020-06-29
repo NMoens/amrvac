@@ -52,8 +52,8 @@ contains
     usr_special_opacity => OPAL_and_CAK
 
     ! Output routines
-    usr_aux_output    => specialvar_output
-    usr_add_aux_names => specialvarnames_output
+    ! usr_aux_output    => specialvar_output
+    ! usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
     ! usr_get_dt => pp_dt
@@ -158,45 +158,51 @@ contains
     double precision :: T_out, E_out, E_gauge
     double precision :: T_in, E_in, rr(ixImin1:ixImax1), bb
 
-    ! w(ixI^S,rho_)   = rho_bound
-    !
-    ! w(ixI^S,mom(:)) = 0.d0
-    !
-    ! where(x(ixI^S,1) .gt. 1.d0)
-    !   vel(ixI^S) =  v_inf*abs(1 - 0.999d0*( 1.d0/x(ixI^S,1)))**0.5d0
-    !   w(ixI^S,rho_) = Mdot/(4.d0*dpi*vel(ixI^S)*x(ixI^S,1)**2)
-    ! endwhere
-    !
-    ! w(ixI^S,mom(1)) = vel(ixI^S)*w(ixI^S,rho_)
-    !
-    ! !> Outer/Inner temperature
-    ! T_out = 28445.836732569689/unit_temperature
-    ! E_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
-    ! T_in = T_bound
-    ! E_in = const_rad_a*(T_in*unit_temperature)**4/unit_pressure
-    !
-    ! !>Very bad initial profile using constant gradE
-    ! ! w(ixI^S,r_e) = E_out + gradE*(x(ixI^S,1)-xprobmax1)
-    ! ! w(ixI^S,r_e) = E_in + gradE*(x(ixI^S,1)-xprobmin1)
-    ! rr(ixI^S) = dsqrt(abs(x(ixI^S,1)-xprobmin1))*(16*x(ixI^S,1)**2 + 8*x(ixI^S,1)+ 6) &
-    !             /(15*x(ixI^S,1)**(5.d0/2))
-    ! bb = -kappa_e*L_bound*Mdot*unit_velocity*3/(16*dpi**2*const_c*v_inf)
-    !
-    ! ! bb = bb*2
-    !
-    ! ! rr(ixI^S) = 2*dsqrt(x(ixI^S,1)-xprobmin1)/dsqrt(x(ixI^S,1))
-    ! ! bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
-    ! w(ixI^S,r_e) = E_in + bb*rr(ixI^S)
-    !
-    ! E_gauge = E_in + bb*dsqrt(abs(xprobmax1-xprobmin1))&
-    !           *(16*xprobmax1**2 + 8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
-    !
-    ! w(ixI^S,r_e) = w(ixI^S,r_e) - E_gauge + E_out
-    !
-    ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-    ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
-    !
-    ! w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
+    w(ixImin1:ixImax1,rho_)   = rho_bound
+
+    w(ixImin1:ixImax1,mom(:)) = 0.d0
+    vel(ixImin1:ixImax1) = 0.d0
+
+    where (x(ixImin1:ixImax1,1) .ge. 1.d0)
+      vel(ixImin1:ixImax1) =  v_inf*abs(1.d0 - 1.d0/x(ixImin1:ixImax1,&
+         1))**0.5d0
+      w(ixImin1:ixImax1,rho_) = Mdot/(4.d0*dpi*vel(ixImin1:ixImax1)*x(&
+         ixImin1:ixImax1,1)**2)
+    endwhere
+
+    w(ixImin1:ixImax1,mom(1)) = vel(ixImin1:ixImax1)*w(ixImin1:ixImax1,rho_)
+
+    !> Outer/Inner temperature
+    T_out = 28445.836732569689/unit_temperature
+    E_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
+    T_in = T_bound
+    E_in = const_rad_a*(T_in*unit_temperature)**4/unit_pressure
+
+    !>Very bad initial profile using constant gradE
+    ! w(ixI^S,r_e) = E_out + gradE*(x(ixI^S,1)-xprobmax1)
+    ! w(ixI^S,r_e) = E_in + gradE*(x(ixI^S,1)-xprobmin1)
+    rr(ixImin1:ixImax1) = dsqrt(abs(x(ixImin1:ixImax1,&
+       1)-xprobmin1))*(16*x(ixImin1:ixImax1,1)**2 + 8*x(ixImin1:ixImax1,&
+       1)+ 6) /(15*x(ixImin1:ixImax1,1)**(5.d0/2))
+    bb = -kappa_e*L_bound*Mdot*unit_velocity*3/(16*dpi**2*const_c*v_inf)
+
+    ! bb = bb*2
+
+    ! rr(ixI^S) = 2*dsqrt(x(ixI^S,1)-xprobmin1)/dsqrt(x(ixI^S,1))
+    ! bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
+    w(ixImin1:ixImax1,r_e) = E_in + bb*rr(ixImin1:ixImax1)
+
+    E_gauge = E_in + bb*dsqrt(abs(xprobmax1-xprobmin1))*(16*xprobmax1**2 + &
+       8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
+
+    w(ixImin1:ixImax1,r_e) = w(ixImin1:ixImax1,r_e) - E_gauge + E_out
+
+    call fld_get_opacity(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, kappa)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, lambda,&
+        fld_R)
+
+    w(ixOmin1:ixOmax1,i_diff_mg) = (const_c/unit_velocity)*lambda(&
+       ixOmin1:ixOmax1)/(kappa(ixOmin1:ixOmax1)*w(ixOmin1:ixOmax1,rho_))
 
   end subroutine initial_conditions
 
@@ -272,7 +278,9 @@ contains
     case(2)
 
       !> Compute mean kappa in outer blocks
-      call OPAL_and_CAK(ixImin1,ixImax1,ixImin1,ixImax1,w,x,kappa)
+      ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+      kappa(ixImin1:ixImax1) = kappa_e
+
       
       kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells)) &
          /((ixImax1-nghostcells) - (ixImin1+nghostcells))
@@ -302,15 +310,6 @@ contains
         
         
       enddo
-
-      ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
-
-      ! print*, T_out*unit_temperature, E_out
-
-      ! print*, it, 'top---------------------------------------'
-      ! print*, Local_tauout(ixBmax1-5:ixBmax1,5)
-      ! print*, Local_Tout(ixBmax1-5:ixBmax1,5)
-      ! print*, w(ixBmax1-5:ixBmax1,5,r_e)
 
     case default
       call mpistop('boundary not known')
@@ -355,7 +354,7 @@ contains
     double precision :: radius(ixImin1:ixImax1)
     double precision :: mass
 
-    radius(ixOmin1:ixOmax1) = x(ixOmin1:ixOmax1,1)*unit_length
+    radius(ixImin1:ixImax1) = x(ixImin1:ixImax1,1)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
     gravity_field(ixImin1:ixImax1,:) = 0.d0
@@ -532,21 +531,20 @@ contains
 
   subroutine get_kappa_CAK(ixImin1,ixImax1,ixOmin1,ixOmax1,w,x,kappa)
     use mod_global_parameters
-    use mod_opacity
-    use mod_fld
+
 
     integer, intent(in)          :: ixImin1,ixImax1, ixOmin1,ixOmax1
     double precision, intent(in) :: w(ixImin1:ixImax1,1:nw), x(ixImin1:ixImax1,&
        1:ndim)
     double precision, intent(out):: kappa(ixOmin1:ixOmax1)
 
-    double precision :: vel(ixImin1:ixImax1), gradv(ixOmin1:ixOmax1)
+    double precision :: vel(ixImin1:ixImax1), gradv(ixImin1:ixImax1)
     double precision :: xx(ixOmin1:ixOmax1), alpha(ixOmin1:ixOmax1)
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixImin1:ixImax1) = w(ixImin1:ixImax1,mom(1))/w(ixImin1:ixImax1,rho_)
-    call gradientO(vel,x,ixImin1,ixImax1,ixOmin1,ixOmax1,1,gradv,3)
+    call gradient(vel,ixImin1,ixImax1,ixOmin1,ixOmax1,1,gradv)
     !> Limit cak for stability purposes
     !where(gradv(ixO^S) .ge. 10.d0)
     !  kappa(ixO^S) = 10.d0
@@ -566,13 +564,13 @@ contains
       alpha(ixOmin1:ixOmax1) = cak_a
     endwhere
 
-    kappa(ixOmin1:ixOmax1) = kappa_e*cak_Q/(1-alpha(ixOmin1:ixOmax1)) &
-       *(gradv(ixOmin1:ixOmax1)*unit_velocity/(w(ixOmin1:ixOmax1,&
+    kappa(ixOmin1:ixOmax1) = kappa_e*cak_Q/(1.d0-alpha(ixOmin1:ixOmax1)) &
+       *abs(gradv(ixOmin1:ixOmax1)*unit_velocity/(w(ixOmin1:ixOmax1,&
        rho_)*const_c*cak_Q*kappa_e))**alpha(ixOmin1:ixOmax1)
 
     if (it .le. it_start_cak) then
-      kappa(ixOmin1:ixOmax1) = kappa(ixOmin1:ixOmax1)*dexp(-w(ixOmin1:ixOmax1,&
-         rho_)*kappa_e)
+      kappa(ixOmin1:ixOmax1) = w(ixOmin1:ixOmax1,&
+         rho_)*kappa(ixOmin1:ixOmax1)*dexp(-w(ixOmin1:ixOmax1,rho_)*kappa_e)
     endif
 
     !> test with no cak
@@ -615,70 +613,68 @@ contains
   end subroutine refine_base
 
 
-  !> Calculate gradient of a scalar q within ixL in direction idir
-  !> difference with gradient is gradq(ixO^S), NOT gradq(ixI^S)
-  subroutine gradientO(q,x,ixImin1,ixImax1,ixOmin1,ixOmax1,idir,gradq,n)
-    use mod_global_parameters
-
-    integer, intent(in)             :: ixImin1,ixImax1, ixOmin1,ixOmax1, idir
-    double precision, intent(in)    :: q(ixImin1:ixImax1), x(ixImin1:ixImax1,&
-       1:ndim)
-    double precision, intent(inout) :: gradq(ixOmin1:ixOmax1)
-    integer, intent(in)             :: n
-    integer                         :: jxOmin1,jxOmax1, hxOmin1,hxOmax1
-
-    hxOmin1=ixOmin1-n*kr(idir,1);hxOmax1=ixOmax1-n*kr(idir,1);
-    jxOmin1=ixOmin1+n*kr(idir,1);jxOmax1=ixOmax1+n*kr(idir,1);
-
-    if (n .gt. nghostcells) call mpistop("gradientO stencil too wide")
-
-    !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(2*n*dxlevel(idir))
-    gradq(ixOmin1:ixOmax1)=(q(jxOmin1:jxOmax1)-&
-       q(hxOmin1:hxOmax1))/(x(jxOmin1:jxOmax1,idir)-x(hxOmin1:hxOmax1,idir))
-
-    !> Using higher order derivatives with wider stencil according to:
-    !> https://en.wikipedia.org/wiki/Finite_difference_coefficient
-
-!    if (n .gt. nghostcells) then
-!      call mpistop("gradientO stencil too wide")
-!    elseif (n .eq. 1) then
-!      hxO^L=ixO^L-kr(idir,^D);
-!      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
-!    elseif (n .eq. 2) then
-!      gradq(ixI^S) = 0.d0
-!      !> coef 2/3
-!      hxO^L=ixO^L-kr(idir,^D);
-!      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 2.d0/3.d0*(q(jxO^S)-q(hxO^S))
-!      !> coef -1/12
-!      hxO^L=ixO^L-2*kr(idir,^D);
-!      jxO^L=ixO^L+2*kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) - 1.d0/12.d0*(q(jxO^S)-q(hxO^S))
-!      !> divide by dx
-!      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
-!    elseif (n .eq. 3) then
-!      gradq(ixI^S) = 0.d0
-!      !> coef 3/4
-!      hxO^L=ixO^L-kr(idir,^D);
-!      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 3.d0/4.d0*(q(jxO^S)-q(hxO^S))
-!      !> coef -3/20
-!      hxO^L=ixO^L-2*kr(idir,^D);
-!      jxO^L=ixO^L+2*kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) - 3.d0/20.d0*(q(jxO^S)-q(hxO^S))
-!      !> coef 1/60
-!      hxO^L=ixO^L-3*kr(idir,^D);
-!      jxO^L=ixO^L+3*kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 1.d0/60.d0*(q(jxO^S)-q(hxO^S))
-!      !> divide by dx
-!      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
-!    else
-!      call mpistop("gradient0 stencil unknown")
-!     endif
-
-  end subroutine gradientO
-
+!   !> Calculate gradient of a scalar q within ixL in direction idir
+!   !> difference with gradient is gradq(ixO^S), NOT gradq(ixI^S)
+!   subroutine gradientO(q,x,ixI^L,ixO^L,idir,gradq,n)
+!     use mod_global_parameters
+!
+!     integer, intent(in)             :: ixI^L, ixO^L, idir
+!     double precision, intent(in)    :: q(ixI^S), x(ixI^S,1:ndim)
+!     double precision, intent(inout) :: gradq(ixO^S)
+!     integer, intent(in)             :: n
+!     integer                         :: jxO^L, hxO^L
+!
+!     hxO^L=ixO^L-n*kr(idir,^D);
+!     jxO^L=ixO^L+n*kr(idir,^D);
+!
+!     if (n .gt. nghostcells) call mpistop("gradientO stencil too wide")
+!
+!     !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(2*n*dxlevel(idir))
+!     gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
+!
+!     !> Using higher order derivatives with wider stencil according to:
+!     !> https://en.wikipedia.org/wiki/Finite_difference_coefficient
+!
+! !    if (n .gt. nghostcells) then
+! !      call mpistop("gradientO stencil too wide")
+! !    elseif (n .eq. 1) then
+! !      hxO^L=ixO^L-kr(idir,^D);
+! !      jxO^L=ixO^L+kr(idir,^D);
+! !      gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
+! !    elseif (n .eq. 2) then
+! !      gradq(ixI^S) = 0.d0
+! !      !> coef 2/3
+! !      hxO^L=ixO^L-kr(idir,^D);
+! !      jxO^L=ixO^L+kr(idir,^D);
+! !      gradq(ixO^S) = gradq(ixO^S) + 2.d0/3.d0*(q(jxO^S)-q(hxO^S))
+! !      !> coef -1/12
+! !      hxO^L=ixO^L-2*kr(idir,^D);
+! !      jxO^L=ixO^L+2*kr(idir,^D);
+! !      gradq(ixO^S) = gradq(ixO^S) - 1.d0/12.d0*(q(jxO^S)-q(hxO^S))
+! !      !> divide by dx
+! !      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
+! !    elseif (n .eq. 3) then
+! !      gradq(ixI^S) = 0.d0
+! !      !> coef 3/4
+! !      hxO^L=ixO^L-kr(idir,^D);
+! !      jxO^L=ixO^L+kr(idir,^D);
+! !      gradq(ixO^S) = gradq(ixO^S) + 3.d0/4.d0*(q(jxO^S)-q(hxO^S))
+! !      !> coef -3/20
+! !      hxO^L=ixO^L-2*kr(idir,^D);
+! !      jxO^L=ixO^L+2*kr(idir,^D);
+! !      gradq(ixO^S) = gradq(ixO^S) - 3.d0/20.d0*(q(jxO^S)-q(hxO^S))
+! !      !> coef 1/60
+! !      hxO^L=ixO^L-3*kr(idir,^D);
+! !      jxO^L=ixO^L+3*kr(idir,^D);
+! !      gradq(ixO^S) = gradq(ixO^S) + 1.d0/60.d0*(q(jxO^S)-q(hxO^S))
+! !      !> divide by dx
+! !      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
+! !    else
+! !      call mpistop("gradient0 stencil unknown")
+! !     endif
+!
+!   end subroutine gradientO
+!
 
 
 
@@ -706,7 +702,7 @@ contains
     double precision                   :: kappa(ixOmin1:ixOmax1),&
         OPAL(ixOmin1:ixOmax1), CAK(ixOmin1:ixOmax1)
     double precision                   :: vel(ixImin1:ixImax1),&
-        gradv(ixOmin1:ixOmax1)
+        gradv(ixImin1:ixImax1)
     double precision                   :: rad_flux(ixOmin1:ixOmax1,1:ndim),&
         Lum(ixOmin1:ixOmax1)
     double precision                   :: pp_rf(ixOmin1:ixOmax1)
@@ -734,7 +730,7 @@ contains
     call get_kappa_CAK(ixImin1,ixImax1,ixOmin1,ixOmax1,w,x,CAK)
 
     vel(ixImin1:ixImax1) = w(ixImin1:ixImax1,mom(1))/w(ixImin1:ixImax1,rho_)
-    call gradientO(vel,x,ixImin1,ixImax1,ixOmin1,ixOmax1,1,gradv,3)
+    call gradient(vel,ixImin1,ixImax1,ixOmin1,ixOmax1,1,gradv)
 
     pp_rf(ixOmin1:ixOmax1) = two*rad_flux(ixOmin1:ixOmax1,1)/x(ixOmin1:ixOmax1,&
        1)*dt

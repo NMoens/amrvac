@@ -329,7 +329,7 @@ contains
     double precision :: radius(ixI^S)
     double precision :: mass
 
-    radius(ixO^S) = x(ixO^S,1)*unit_length
+    radius(ixI^S) = x(ixI^S,1)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
     gravity_field(ixI^S,:) = zero

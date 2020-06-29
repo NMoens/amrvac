@@ -261,7 +261,7 @@ contains
     phys_set_mg_bounds       => rhd_set_mg_bounds
 
     ! Whether diagonal ghost cells are required for the physics
-    phys_req_diagonal = .true.
+    phys_req_diagonal = .false.
 
     ! derive units from basic units
     call rhd_physical_units()
@@ -697,7 +697,7 @@ contains
         pth(ixI^S) = (w(ixI^S,r_e)*unit_pressure/const_rad_a)**0.25d0&
         /unit_temperature*w(ixI^S, rho_)
       case ('adiabatic')
-        pth(ixO^S) = rhd_adiab * w(ixO^S, rho_)**rhd_gamma
+        pth(ixI^S) = rhd_adiab * w(ixI^S, rho_)**rhd_gamma
       case default
         call mpistop('rhd_pressure unknown, use Trad or adiabatic')
       end select

@@ -15,6 +15,9 @@ module mod_rd_phys
   integer, protected, public :: u_ = 1
   integer, protected, public :: v_ = 2
 
+  !> Whether particles module is added
+  logical, public, protected              :: rd_particles = .false.
+
   integer            :: equation_type   = 1
   integer, parameter :: eq_gray_scott   = 1
   integer, parameter :: eq_schnakenberg = 2
@@ -54,7 +57,7 @@ contains
     character(len=20)            :: equation_name
 
     namelist /rd_list/ D1, D2, sb_alpha, sb_beta, sb_kappa, gs_F, gs_k, &
-         equation_name, rd_diffusion_method
+         equation_name, rd_diffusion_method, rd_particles
 
     equation_name = "gray-scott"
 
@@ -91,12 +94,14 @@ contains
     use mod_global_parameters
     use mod_physics
     use mod_multigrid_coupling
+    use mod_particles, only: particles_init
 
     call rd_params_read(par_files)
 
     physics_type = "rd"
     phys_energy  = .false.
     phys_req_diagonal = .false.
+    use_particles = rd_particles
 
     ! Use the first variable as a density
     u_ = var_set_fluxvar("u", "u")
@@ -120,21 +125,25 @@ contains
     case ("split")
        use_multigrid = .true.
        phys_global_source => rd_implicit_diffusion
-       if (ndim == 1) call mpistop("multigrid not available in 1d")
     case ("imex")
        use_multigrid = .true.
        phys_global_source => rd_imex_diffusion
-       if (ndim == 1) call mpistop("multigrid not available in 1d")
     case default
        call mpistop("Unknown rd_diffusion_method")
     end select
+
+    ! Initialize particles module
+    if (rd_particles) then
+       call particles_init()
+       phys_req_diagonal = .true.
+    end if
 
   end subroutine rd_phys_init
 
   subroutine rd_check_params
     use mod_multigrid_coupling
     use mod_global_parameters
-    integer :: n, idim
+    integer :: n
 
     if (any(flux_scheme /= "source")) then
        call mpistop("mod_rd requires flux_scheme = source")
@@ -145,11 +154,9 @@ contains
        call mpistop("imex requires time_integrater = onestep")
     end if
 
-    {^NOONED
     if (use_multigrid) then
        ! Set boundary conditions for the multigrid solver
        do n = 1, 2*ndim
-          idim = (n+1)/2
           select case (typeboundary(u_, n))
           case ('symm')
              ! d/dx u = 0
@@ -173,7 +180,6 @@ contains
           end select
        end do
     end if
-    }
   end subroutine rd_check_params
 
   subroutine rd_to_conserved(ixI^L, ixO^L, w, x)
@@ -229,13 +235,9 @@ contains
     double precision, intent(inout) :: dtnew
     double precision                :: maxrate
 
-    select case (rd_diffusion_method)
-    case ("explicit")
-       ! dt < dx^2 / (2 * ndim * diffusion_coeff)
-       dtnew = 0.9d0 * minval([ dx^D ])**2 / (2 * ndim * max(D1, D2))
-    case ("split", "imex")
-       dtnew = bigdouble
-    end select
+    ! dt < dx^2 / (2 * ndim * diffusion_coeff)
+    ! use dtdiffpar < 1 for explicit and > 1 for imex/split
+    dtnew = dtdiffpar * minval([ dx^D ])**2 / (2 * ndim * max(D1, D2))
 
     ! Estimate time step for reactions
     select case (equation_type)
@@ -357,7 +359,6 @@ contains
 
     max_residual = 1d-7/qdt
 
-    {^NOONED
     call mg_copy_to_tree(u_, mg_iphi)
     call diffusion_solve(mg, qdt, D1, 1, max_residual)
     call mg_copy_from_tree(mg_iphi, u_)
@@ -365,7 +366,7 @@ contains
     call mg_copy_to_tree(v_, mg_iphi)
     call diffusion_solve(mg, qdt, D2, 1, max_residual)
     call mg_copy_from_tree(mg_iphi, v_)
-    }
+
     active = .true.
 
   end subroutine rd_implicit_diffusion
@@ -399,7 +400,6 @@ contains
 
     max_residual = 1d-7/qdt
 
-    {^NOONED
     ! First handle the u variable
     nc               = mg%box_size
     mg%operator_type = mg_helmholtz
@@ -428,7 +428,6 @@ contains
        if (res < max_residual) exit
     end do
     call mg_copy_from_tree_gc(mg_iphi, v_)
-    }
 
     do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
        call rd_imex_step2(qdt, ixG^LL, ixM^LL, ps(igrid)%w, pso(igrid)%w)

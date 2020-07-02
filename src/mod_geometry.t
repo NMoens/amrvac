@@ -8,6 +8,7 @@ module mod_geometry
   integer, parameter :: Cartesian_stretched= 1
   integer, parameter :: cylindrical        = 2
   integer, parameter :: spherical          = 3
+  integer, parameter :: Cartesian_expansion= 4
 
 contains
 
@@ -23,6 +24,10 @@ contains
     case ("Cartesian","Cartesian_1D","Cartesian_2D","Cartesian_3D")
       ndir = ndim
       coordinate=Cartesian
+    case ("Cartesian_1D_expansion")
+      if (ndim /= 1) call mpistop("Geometry Cartesian_1D_expansion but ndim /= 1")
+      ndir = ndim
+      coordinate=Cartesian_expansion
     case ("Cartesian_1.5D")
       if (ndim /= 1) call mpistop("Geometry Cartesian_1.5D but ndim /= 1")
       coordinate=Cartesian
@@ -146,13 +151,29 @@ contains
   !> calculate area of surfaces of cells
   subroutine get_surface_area(s,ixG^L)
     use mod_global_parameters
+    use mod_usr_methods, only: usr_set_surface
 
     type(state) :: s
     integer, intent(in) :: ixG^L
 
-    double precision :: x(ixG^S,ndim), drs(ixG^S), dx2(ixG^S), dx3(ixG^S)
+    double precision :: x(ixG^S,ndim), xext(ixGmin1-1:ixGmax1,1), drs(ixG^S), dx2(ixG^S), dx3(ixG^S)
+    double precision :: exp_factor(ixG^S),del_exp_factor(ixG^S),exp_factor_primitive(ixG^S)
 
     select case (coordinate)
+
+    case (Cartesian_expansion)
+      drs(ixG^S)=s%dx(ixG^S,1)
+      x(ixG^S,1)=s%x(ixG^S,1)
+      {^IFONED
+      if(associated(usr_set_surface)) call usr_set_surface(ixG^L,x,drs,exp_factor,del_exp_factor,exp_factor_primitive)
+      s%surface(ixG^S,1)=exp_factor(ixG^S)
+      xext(0,1)=x(1,1)-half*drs(1)
+      xext(ixG^S,1)=x(ixG^S,1)+half*drs(ixG^S)
+      if(associated(usr_set_surface)) call usr_set_surface(ixGmin1-1,ixGmax1,xext,drs,exp_factor,del_exp_factor,exp_factor_primitive)
+      if (any(exp_factor .le. zero)) call mpistop("The area must always be strictly positive!")
+      s%surfaceC(ixGmin1-1:ixGmax1,1)=exp_factor(ixGmin1-1:ixGmax1)
+      }
+
     case (Cartesian,Cartesian_stretched)
       drs(ixG^S)=s%dx(ixG^S,1)
       {^NOONED
@@ -301,7 +322,7 @@ contains
     select case(coordinate)
     case(Cartesian)
       gradq(ixO^S)=half*(q(jxO^S)-q(hxO^S))/dxlevel(idir)
-    case(Cartesian_stretched)
+    case(Cartesian_stretched,Cartesian_expansion)
       gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
     case(spherical)
       select case(idir)
@@ -357,7 +378,7 @@ contains
       else
         gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/dxlevel(idir)
       end if
-    case(Cartesian_stretched)
+    case(Cartesian_stretched,Cartesian_expansion)
       gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
     case(spherical)
       select case(idir)
@@ -424,7 +445,7 @@ contains
     select case(coordinate)
     case(Cartesian)
       gradq(ixO^S)=(qR(ixO^S)-qL(hxO^S))*invdx
-    case(Cartesian_stretched)
+    case(Cartesian_stretched,Cartesian_expansion)
       gradq(ixO^S)=(qR(ixO^S)-qL(hxO^S))/block%dx(ixO^S,idir)
     case(spherical)
       gradq(ixO^S)=(qR(ixO^S)-qL(hxO^S))/block%dx(ixO^S,idir)
@@ -1049,6 +1070,8 @@ contains
           case default
             call mpistop('no such curl evaluator')
         end select
+        case default
+          call mpistop('not possible to calculate curl')
     end select
 
   end subroutine curlvector
@@ -1499,6 +1522,8 @@ contains
           case default
             call mpistop('no such curl evaluator')
         end select
+        case default
+          call mpistop('not possible to calculate curl')
     end select
 
   end subroutine curlvector_trans

@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./2D_output/shock'
+  base_filename='./2D_output/test'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T

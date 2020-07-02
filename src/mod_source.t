@@ -13,8 +13,6 @@ contains
     use mod_global_parameters
     use mod_ghostcells_update
     use mod_thermal_conduction, only: phys_thermal_conduction
-    use mod_physics, only: phys_req_diagonal, global_radiation_source, physics_type, phys_global_source, phys_set_mg_bounds
-    use mod_fld, only: diff_crit
 
     logical, intent(in) :: prior
 
@@ -28,12 +26,6 @@ contains
     if(associated(phys_thermal_conduction)) call phys_thermal_conduction()
 
     src_active = .false.
-
-    if (physics_type .eq. 'rhd') then
-      !> SHOULD BE A .NOT. PRIOR CONDITION
-      if (typesourcesplit=='sf' .or. typesourcesplit=='ssf') &
-      call mpistop('FLD does not run with typesourcesplit sf or ssf, use a *s scheme')
-    endif
 
     if ((.not.prior).and.&
          (typesourcesplit=='sf' .or. typesourcesplit=='ssf')) return
@@ -51,17 +43,6 @@ contains
        call addsource1_grid(igrid,qdt,qt,ps(igrid)%w,src_active)
     end do
     !$OMP END PARALLEL DO
-
-    if (physics_type .eq. 'rhd') then
-      !> SHOULD BE A .NOT. PRIOR CONDITION
-      if (typesourcesplit=='sf' .or. typesourcesplit=='ssf') &
-      call mpistop('FLD does not run with typesourcesplit sf or ssf, use a *s scheme')
-      if (.not. prior .and. associated(global_radiation_source)) then
-        call getbc(qt,0.d0,ps,1,nwflux+nwaux,phys_req_diagonal)
-        call phys_set_mg_bounds()
-        call global_radiation_source(dt, qt, src_active)
-      endif
-    endif
 
     if (.not. prior .and. associated(phys_global_source)) then
        call phys_global_source(dt, qt, src_active)

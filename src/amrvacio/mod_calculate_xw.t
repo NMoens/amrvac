@@ -180,7 +180,7 @@ contains
     x_TEC=0.d0
     {do ix^DB=ixmin^DB,ixmax^DB\}
        select case (coordinate)
-       case (Cartesian,Cartesian_stretched)
+       case (Cartesian,Cartesian_stretched,Cartesian_expansion)
           x_TEC(1:ndim)=xC(ix^D,1:ndim)
           w_TEC(1:nw+nwauxio)=wC(ix^D,1:nw+nwauxio)
        case (cylindrical)

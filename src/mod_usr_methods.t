@@ -91,6 +91,11 @@ module mod_usr_methods
   ! allow user to specify variables at physical boundaries
   procedure(set_wLR), pointer :: usr_set_wLR => null()
 
+  ! allow user to specify the expansion function for the surface of a cross sectional
+  ! area of a 1D prominence, along with the analytical derivative of that function and its
+  ! primitive shape evaluated in the boundaries \int_(x_i-dx_i/2)^(x_i+dx_i/2) A(s) ds
+  procedure(set_surface), pointer  :: usr_set_surface          => null()
+
   abstract interface
 
     subroutine p_no_args()
@@ -499,6 +504,16 @@ module mod_usr_methods
       !  wRC(ixOmin2^%2ixO^S,mom(1))=wRp(ixOmin2^%2ixO^S,mom(1))*wRp(ixOmin2^%2ixO^S,rho_)
       !end if
     end subroutine set_wLR
+
+    subroutine set_surface(ixI^L,x,delx,exp_factor,del_exp_factor,exp_factor_primitive)
+      use mod_global_parameters
+      integer, intent(in)              :: ixI^L
+      double precision, intent(in)     :: delx(ixI^S,1:ndim), x(ixI^S,1:ndim)
+      double precision, intent(out)    :: exp_factor(ixI^S), del_exp_factor(ixI^S)
+      double precision, intent(out)    :: exp_factor_primitive(ixI^S)
+
+    end subroutine set_surface
+
 
   end interface
 

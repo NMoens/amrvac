@@ -1,6 +1,6 @@
 ################# Definitions for source files #############################
 INCLUDES = mod_global_parameters.t mod_usr_methods.t mod_forest.t	\
-mod_physicaldata.o mod_connectivity.t mod_constants.t mod_variables.t	\
+mod_physicaldata.t mod_connectivity.t mod_constants.t mod_variables.t	\
 mod_basic_types.t
 
 FOBJECTS = mod_advance.t setdt.t amrini.t amr_solution_node.t errest.t		\
@@ -200,6 +200,7 @@ mod_nonlinear.o: mod_amrvac.mod
 mod_nonlinear.o: mod_nonlinear_phys.mod
 mod_nonlinear.o: mod_nonlinear_roe.mod
 mod_nonlinear_phys.o: mod_kdv.mod
+mod_nonlinear_phys.o: mod_particles.mod
 mod_nonlinear_phys.o: mod_physics.mod
 mod_nonlinear_roe.o: mod_nonlinear_phys.mod
 mod_nonlinear_roe.o: mod_physics_roe.mod
@@ -234,6 +235,7 @@ mod_radiative_cooling.o: mod_physics.mod
 mod_rd.o: mod_amrvac.mod
 mod_rd.o: mod_rd_phys.mod
 mod_rd_phys.o: mod_multigrid_coupling.mod
+mod_rd_phys.o: mod_particles.mod
 mod_rd_phys.o: mod_physics.mod
 mod_rhd.o: mod_amrvac.mod
 mod_rhd.o: mod_rhd_hllc.mod
@@ -263,6 +265,7 @@ mod_rho.o: mod_amrvac.mod
 mod_rho.o: mod_rho_phys.mod
 mod_rho.o: mod_rho_roe.mod
 mod_rho_phys.o: mod_geometry.mod
+mod_rho_phys.o: mod_particles.mod
 mod_rho_phys.o: mod_physics.mod
 mod_rho_roe.o: mod_physics_roe.mod
 mod_rho_roe.o: mod_rho_phys.mod

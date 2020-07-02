@@ -26,7 +26,7 @@ R = 1*Rsun
 M = 10*Msun
 L = 1.9e5*Lsun
 
-n_cells = 1024
+n_cells = 4096
 n_gh = 2
 R_min = 1.*R
 R_max = 21.*R
@@ -56,7 +56,7 @@ def GetProfiles():
     r,rho,v,pg,Erad = convert_all(wg,p,x)
     return r,rho,v,pg,Erad
 
-strc = os.getcwd() + '/struct_steep.txt'
+# strc = os.getcwd() + '/struct_steep.txt'
 r,rho,v,pg,er = GetProfiles()
 
 # def GetSonicPoint(r,rho,v,er):

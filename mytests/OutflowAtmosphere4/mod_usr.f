@@ -79,7 +79,7 @@ contains
     usr_aux_output    => specialvar_output
     usr_add_aux_names => specialvarnames_output
 
-    ! usr_refine_grid => refine_base
+    usr_refine_grid => refine_base
 
     ! Active the physics module
     call rhd_activate()
@@ -435,9 +435,9 @@ contains
          rho_)*R_star**2/(3*x(ixImax1-nghostcells,1))
       T_out = F_bound/StefBoltz*(3.d0/4.d0*tau_out)**0.25d0
 
-      ! T_out = max(T_out, 1.d5/unit_temperature)
+      ! T_out = max(T_out,2.d4/unit_temperature)
 
-      ! print*, tau_out, T_out*unit_temperature
+      print*, w(ixImax1-nghostcells,rho_), tau_out, T_out*unit_temperature
 
       valE_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
 
@@ -458,11 +458,11 @@ contains
       mg%bc(iB, mg_iphi)%bc_value = gradE
 
     case (2)
-      mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-      mg%bc(iB, mg_iphi)%bc_value = gradE_out
+      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+      ! mg%bc(iB, mg_iphi)%bc_value = gradE_out
 
-      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-      ! mg%bc(iB, mg_iphi)%bc_value = valE_out
+      mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+      mg%bc(iB, mg_iphi)%bc_value = valE_out
 
     case default
       print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -660,11 +660,22 @@ contains
         x(ixGmin1:ixGmax1,1:ndim)
     integer, intent(inout) :: refine, coarsen
 
-    ! test with different levels of refinement enforced
-    if (it .gt. 1) then
-      ! if (any(x(ix^S,1) < 3.d0/4.d0 * xprobmax1)) refine=1
-      ! if (any(x(ix^S,1) < 2.d0/4.d0 * xprobmax1)) refine=1
-      if (any(x(ixmin1:ixmax1,1) < 1.d0/4.d0 * xprobmax1)) refine=1
+    !> Refine close to base
+    refine = -1
+
+    if (qt .gt. 1.d-1) then
+      print*, 'refine 1'
+      if (any(x(ixGmin1:ixGmax1,1) < 1.d0)) refine=1
+    endif
+
+    if (qt .gt. 2.d-1) then
+      print*, 'refine 2'
+      if (any(x(ixGmin1:ixGmax1,1) < 2.d0)) refine=1
+    endif
+
+    if (qt .gt. 4.d-1) then
+      print*, 'refine 3'
+      if (any(x(ixGmin1:ixGmax1,1) < 3.d0)) refine=1
     endif
 
   end subroutine refine_base

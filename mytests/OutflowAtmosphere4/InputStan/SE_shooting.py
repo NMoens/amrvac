@@ -6,7 +6,7 @@ m = 0.2 #1.3694919e-2
 Gamma = 2 #2.2044134
 
 epsilon_in = 1.e-7
-epsilon_out0 = 0.5
+epsilon_out0 = 0.3
 dx0 = 1e-5
 it1_toll = 1e-10
 itot = 0

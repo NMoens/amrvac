@@ -102,7 +102,7 @@ contains
     v_inf = v_inf/unit_velocity
     Mdot = Mdot/unit_density/unit_length**3*unit_time
 
-    kappa_e = 0.34d0/unit_opacity
+    kappa_e = 0.2d0/unit_opacity
     F_bound = F_bound/unit_radflux
     L_bound = L_bound/(unit_radflux*unit_length**2)
 

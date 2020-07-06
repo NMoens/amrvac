@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./2D_output/test'
+  base_filename='./2D_output/shock'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -33,7 +33,8 @@
 /
 
  &methodlist
-   time_integrator = 'threestep'
+   time_stepper = 'twostep'
+   time_integrator = 'IMEX_Midpoint'
    flux_scheme     = 20*'hll'
    limiter         = 20*'minmod'
    source_split_usr = .false.

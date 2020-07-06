@@ -13,6 +13,8 @@ contains
     use mod_global_parameters
     use mod_ghostcells_update
     use mod_thermal_conduction, only: phys_thermal_conduction
+    use mod_physics, only: phys_req_diagonal, phys_global_source
+    use mod_fld, only: diff_crit
 
     logical, intent(in) :: prior
 

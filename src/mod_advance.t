@@ -511,7 +511,7 @@ contains
   !> Implicit global update step within IMEX schemes, advance psa=psb+dtfactor*dt*F_im(psa)
   subroutine global_implicit_update(dtfactor,qtC,psa,psb)
     use mod_global_parameters
-    use mod_physics, only: phys_req_diagonal, global_radiation_source, physics_type, phys_global_source, phys_set_mg_bounds
+    use mod_physics, only: global_radiation_source, physics_type, phys_global_source, phys_set_mg_bounds
 
 
     type(state), target :: psa(max_blocks)   !< Compute implicit part from this state and update it

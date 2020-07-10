@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./1D_output/shock'
+  base_filename='./1D_output/grad_S'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         =1
@@ -26,10 +26,10 @@
 /
 
  &methodlist
-   time_stepper = 'twostep'
-   time_integrator = 'IMEX_Midpoint'
+   time_stepper = 'threestep'
+   time_integrator = 'IMEX_ARS3'
    flux_scheme     = 20*'hll'
-   limiter         = 20*'minmod'
+   limiter         = 20*'koren'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
    small_values_method = 'replace'

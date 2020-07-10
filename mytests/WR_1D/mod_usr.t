@@ -101,7 +101,7 @@ contains
     v_inf = v_inf/unit_velocity
     Mdot = Mdot/unit_density/unit_length**3*unit_time
 
-    kappa_e = 0.2d0/unit_opacity
+    kappa_e = kappa_e/unit_opacity
     F_bound = F_bound/unit_radflux
     L_bound = L_bound/(unit_radflux*unit_length**2)
 
@@ -121,7 +121,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound, &
+    namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound, kappa_e, &
     T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound, it_start_cak, fixed_lum
 
     do n = 1, size(files)
@@ -133,7 +133,7 @@ contains
 
     R_star = R_star*R_sun
     M_star = M_star*M_sun
-    L_bound = Gamma_e_bound * 4.0 * dpi * const_G * M_star * const_c/0.34d0
+    L_bound = Gamma_e_bound * 4.0 * dpi * const_G * M_star * const_c/kappa_e
     F_bound = L_bound/(4*dpi*R_star**2)
     Mdot = Mdot*M_sun/year
 
@@ -372,6 +372,9 @@ contains
     double precision, intent(in)    :: w(ixI^S,1:nw)
     double precision, intent(inout) :: dtnew
 
+    double precision :: radius(ixI^S)
+    double precision :: mass
+
     double precision :: dt_cak
     double precision :: k_cak(ixO^S), rad_flux(ixO^S,1:ndim)
 
@@ -379,11 +382,13 @@ contains
 
     if (fixed_lum) then
       !> Fixed L = L_bound
-      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/(L_bound/(4*dpi*x(ixO^S,1)**2*const_c)*k_cak(ixO^S)*unit_velocity)))
+      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/(L_bound/(4*dpi*x(ixO^S,1)**2*const_c)*k_cak(ixO^S)*unit_velocity &
+      -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length))))
     else
       !> Local flux
       call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
-      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/(rad_flux(ixO^S,1)/const_c*k_cak(ixO^S)*unit_velocity)))
+      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/abs(rad_flux(ixO^S,1)/const_c*k_cak(ixO^S)*unit_velocity &
+      -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length))))
     endif
 
     dtnew = min(dt_cak, dtnew)
@@ -520,7 +525,7 @@ contains
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
     ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,1)
 
-    call gradientS(vel,ixI^L,ixO^L,1,gradvI)
+    call gradient(vel,ixI^L,ixO^L,1,gradvI)
     gradv(ixO^S) = gradvI(ixO^S)
 
     !> Absolute value of gradient:

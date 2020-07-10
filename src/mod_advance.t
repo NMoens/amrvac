@@ -152,7 +152,8 @@ contains
           end do
           !$OMP END PARALLEL DO
           call advect1(flux_scheme,half, idim^LIM,global_time,ps,global_time,ps1)
-          call global_implicit_update(half,global_time+half*dt,ps2,ps1)
+          ! call global_implicit_update(half,global_time+half*dt,ps2,ps1)
+          call global_implicit_update(one,global_time+half*dt,ps2,ps1)
           !$OMP PARALLEL DO PRIVATE(igrid)
           do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
              ps(igrid)%w = ps(igrid)%w+2.0d0*(ps2(igrid)%w-ps1(igrid)%w)
@@ -280,7 +281,8 @@ contains
              endif
           end do
           !$OMP END PARALLEL DO
-          call global_implicit_update(ars_gamma,global_time+(1.0d0-ars_gamma)*dt,ps4,ps3)
+          ! call global_implicit_update(ars_gamma,global_time+(1.0d0-ars_gamma)*dt,ps4,ps3)
+          call global_implicit_update(1.d0-ars_gamma,global_time+(1.0d0-ars_gamma)*dt,ps4,ps3)
           !$OMP PARALLEL DO PRIVATE(igrid)
           do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
              ps(igrid)%w=ps(igrid)%w+half*ps2(igrid)%w &

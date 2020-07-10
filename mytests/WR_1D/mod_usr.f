@@ -102,7 +102,7 @@ contains
     v_inf = v_inf/unit_velocity
     Mdot = Mdot/unit_density/unit_length**3*unit_time
 
-    kappa_e = 0.2d0/unit_opacity
+    kappa_e = kappa_e/unit_opacity
     F_bound = F_bound/unit_radflux
     L_bound = L_bound/(unit_radflux*unit_length**2)
 
@@ -124,8 +124,8 @@ contains
     integer                      :: n
 
     namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound,&
-        T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound, it_start_cak,&
-        fixed_lum
+        kappa_e, T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound,&
+        it_start_cak, fixed_lum
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -136,7 +136,7 @@ contains
 
     R_star = R_star*R_sun
     M_star = M_star*M_sun
-    L_bound = Gamma_e_bound * 4.0 * dpi * const_G * M_star * const_c/0.34d0
+    L_bound = Gamma_e_bound * 4.0 * dpi * const_G * M_star * const_c/kappa_e
     F_bound = L_bound/(4*dpi*R_star**2)
     Mdot = Mdot*M_sun/year
 
@@ -394,6 +394,9 @@ contains
     double precision, intent(in)    :: w(ixImin1:ixImax1,1:nw)
     double precision, intent(inout) :: dtnew
 
+    double precision :: radius(ixImin1:ixImax1)
+    double precision :: mass
+
     double precision :: dt_cak
     double precision :: k_cak(ixOmin1:ixOmax1), rad_flux(ixOmin1:ixOmax1,&
        1:ndim)
@@ -403,13 +406,16 @@ contains
     if (fixed_lum) then
       !> Fixed L = L_bound
       dt_cak = courantpar*minval(dsqrt(dxlevel(1)/(L_bound/(4*dpi*x(&
-         ixOmin1:ixOmax1,1)**2*const_c)*k_cak(&
-         ixOmin1:ixOmax1)*unit_velocity)))
+         ixOmin1:ixOmax1,1)**2*const_c)*k_cak(ixOmin1:ixOmax1)*unit_velocity &
+         -const_G*mass/radius(ixImin1:ixImax1)**2*(unit_time**&
+         2/unit_length))))
     else
       !> Local flux
       call fld_get_radflux(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, rad_flux)
-      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/(rad_flux(ixOmin1:ixOmax1,&
-         1)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity)))
+      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/abs(rad_flux(ixOmin1:ixOmax1,&
+         1)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity &
+         -const_G*mass/radius(ixImin1:ixImax1)**2*(unit_time**&
+         2/unit_length))))
     endif
 
     dtnew = min(dt_cak, dtnew)
@@ -561,7 +567,7 @@ contains
     vel(ixImin1:ixImax1) = w(ixImin1:ixImax1,mom(1))/w(ixImin1:ixImax1,rho_)
     ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,1)
 
-    call gradientS(vel,ixImin1,ixImax1,ixOmin1,ixOmax1,1,gradvI)
+    call gradient(vel,ixImin1,ixImax1,ixOmin1,ixOmax1,1,gradvI)
     gradv(ixOmin1:ixOmax1) = gradvI(ixOmin1:ixOmax1)
 
     !> Absolute value of gradient:

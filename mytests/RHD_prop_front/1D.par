@@ -3,12 +3,12 @@
 /
 
 &filelist
-  base_filename='./1D_output/propfront'
+  base_filename='./1D_output/Midpoint'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
   saveprim         = F
-  nwauxio          = 0
+  nwauxio          = 8
 /
 
  &savelist
@@ -27,7 +27,8 @@
 /
 
  &methodlist
-   time_integrator = 'threestep'
+   time_stepper = 'twostep'
+   time_integrator = 'IMEX_Midpoint'
    flux_scheme     = 20*'hll'
    limiter         = 20*'minmod'
    source_split_usr = .false.
@@ -48,7 +49,7 @@
    refine_max_level   = 1
    refine_criterion   = 3
    domain_nx1         = 512
-   block_nx1          = 32
+   block_nx1          = 512
    xprobmin1       = 0.d0
    xprobmax1       = 1.d0
    refine_threshold   = 20*0.5d0

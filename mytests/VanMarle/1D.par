@@ -1,0 +1,95 @@
+&testlist
+        teststr=''
+/
+
+&filelist
+  base_filename='./output/pt'
+  autoconvert      = T
+  convert_type     = 'oneblock'
+  level_io         = 1
+  saveprim         = T
+  !nwauxio = 10
+/
+
+ &savelist
+   itsave(1,1)     = 0
+   itsave(1,2)     = 0
+   !ditsave_dat     = 50
+   !ditsave_log     = 100
+   dtsave_dat     = 1.d0
+   !dtsave_log     = 5.d-2
+/
+
+ &stoplist
+   time_max = 500.d0
+   dtmin = 1.0d-20
+   it_max = 10
+/
+
+ &methodlist
+   time_stepper = 'twostep'
+   time_integrator = 'IMEX_Midpoint'
+   flux_scheme     = 20*'hll'
+   limiter         = 20*'minmod'
+   source_split_usr = .false.
+   typesourcesplit = 'sfs'
+   check_small_values = .true.
+   small_values_method = 'replace'
+   small_pressure = 1.d-20
+   small_density = 1.d-20
+/
+
+&boundlist
+  nghostcells = 3
+  typeboundary_min1 = 3*'special'
+  typeboundary_max1 = 2*'noinflow','special'
+  internalboundary = F
+/
+
+ &meshlist
+   refine_max_level   = 1
+   refine_criterion   = 0
+   domain_nx1         = 2048
+   block_nx1          = 128
+   xprobmin1      = 0.9d0
+   xprobmax1       = 51.d0
+   refine_threshold   = 20*0.5d0
+   derefine_ratio     = 20*1.d0/2.d0
+ /
+
+ &paramlist
+  courantpar       = 0.2d0
+  !dtpar           = 2.d-6
+ /
+
+ &rhd_list
+  He_abundance = 0.7d0
+  rhd_gravity = .true.
+  rhd_energy = .false.
+  rhd_pressure = 'Trad'
+  rhd_gamma = 1.6667d0
+  rhd_radiation_force = .true.
+  rhd_energy_interact = .false.
+  rhd_radiation_diffusion = .true.
+  rhd_radiation_advection = .true.
+ /
+
+ &fld_list
+  fld_Radforce_split = .false.
+  fld_opacity_law = 'const'
+  fld_fluxlimiter = 'Diffusion'
+  fld_diff_tol = 1.d-4
+  /
+
+ &wind_list
+  rho_bound = 1.d-6
+  Gamma = 2.d0
+  T_bound = 5.d5
+  E_dot = 0.d0
+  L_bound = 1.6d7
+  M_dot = 1.d-5
+  R_star = 50.d0
+  M_star = 50.d0
+  v_inf = 6.d8
+  start_Edot = 10.d0
+ /

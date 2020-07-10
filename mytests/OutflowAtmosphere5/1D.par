@@ -1,0 +1,98 @@
+&testlist
+        teststr=''
+/
+
+&filelist
+  base_filename='./1D_output/G2m02'
+  autoconvert      = T
+  convert_type     = 'oneblock'
+  level_io         = 1
+  saveprim         = F
+  nwauxio = 11
+/
+
+ &savelist
+   itsave(1,1)     = 0
+   itsave(1,2)     = 0
+   !ditsave_dat     = 10000
+   !ditsave_log     = 100
+   dtsave_dat     = 5.d-2
+   dtsave_log     = 5.d-2
+/
+
+ &stoplist
+   time_max = 3.d0
+   dtmin = 1.0d-20
+   !it_max = 100000
+/
+
+ &methodlist
+   time_stepper = 'twostep'
+   time_integrator = 'IMEX_Midpoint'
+   flux_scheme     = 20*'hll'
+   limiter         = 20*'minmod'
+   source_split_usr = .false.
+   typesourcesplit = 'sfs'
+   check_small_values = .true.
+   small_values_method = 'replace'
+   small_pressure = 1.d-8
+   small_density = 1.d-8
+/
+
+&boundlist
+  typeboundary_min1 = 3*'special'
+  typeboundary_max1 = 2*'cont','special'
+/
+
+ &meshlist
+   refine_max_level   = 1
+   refine_criterion   = 0
+   domain_nx1         = 512
+   block_nx1          = 512
+   xprobmin1       = 1.0d0
+   xprobmax1       = 11.d0
+   refine_threshold   = 20*0.5d0
+   derefine_ratio     = 20*1.d0/2.d0
+ /
+
+ &paramlist
+  courantpar       = 0.5d0
+  !dtpar           = 2.d-6
+ /
+
+ &rhd_list
+  He_abundance = 0.1d0
+  rhd_gravity = .true.
+  rhd_energy = .false.
+  rhd_gamma = 1.6667d0
+  rhd_radiation_formalism = 'fld'
+  radio_acoustic_filter = .false.
+  rhd_radiation_force = .true.
+  rhd_energy_interact = .false.
+  rhd_radiation_diffusion = .true.
+  rhd_radiation_advection = .true.
+ /
+
+ &fld_list
+  fld_Eint_split = .false.
+  fld_Radforce_split = .false
+  fld_opacity_law = 'special'
+  fld_diff_scheme = 'mg'
+  fld_interaction_method = 'Halley'
+  fld_fluxlimiter = 'Diffusion'
+  fld_diff_tol = 1.d-4
+  fld_bisect_tol = 1.d-4
+  /
+
+  &wind_list
+   rho_bound = 1.d-7
+   T_b0 = 5.d4
+   Gamma_0 = 1.d0
+   Gamma_b = 2.d0
+   L_star = 1.d6
+   Mdot = 1.d-5
+   v_inf = 1.d8
+   R_star = 50.d0
+   M_star = 50.d0
+   error_b = 5.d0
+   /

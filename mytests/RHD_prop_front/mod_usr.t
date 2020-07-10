@@ -74,6 +74,7 @@ contains
     print*, 'unit_numberdensity', unit_numberdensity
     print*, 'unit_temperature', unit_temperature
     print*, 'unit_length', unit_length
+    print*, 'unit_time', unit_time
 
 
     print*, unit_time, unit_velocity

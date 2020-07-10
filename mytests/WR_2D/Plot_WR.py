@@ -27,8 +27,10 @@ x_1D = 1 - r_1D[0]/r_1D
 
 #READING IN NICO 2D FLD
 # B = np.loadtxt('Output.okc',skiprows=23)
-B = np.loadtxt('local_flux.okc',skiprows=23)
+# B = np.loadtxt('local_flux.okc',skiprows=23)
 # B = np.loadtxt('fixed_lum.okc',skiprows=23)
+# B = np.loadtxt('stable.okc',skiprows=23)
+B = np.loadtxt('unstable.okc',skiprows=23)
 r_2D = np.transpose(B)[0]
 rho_2D = np.transpose(B)[3]*1.e-8
 v_2D = np.transpose(B)[4]*1.e8
@@ -91,13 +93,14 @@ ax1.set_xlabel('$r/R_*$')
 ax2.set_xlabel('$x = 1-R_*/r$')
 ax1.legend()
 
+logL = 5.23783519508497
 
 f,(ax1,ax2) = plt.subplots(1,2,sharey=True)
 f.suptitle('Luminosity')
-ax1.hlines(10**5.28,1,70,'b',label='1D by LUKA')
+ax1.hlines(10**logL,1,70,'b',label='1D by LUKA')
 ax1.semilogy(r_2D,L_2D,'r.',label='2D by Nico')
 ax1.semilogy(r_2D,L_w_2D,'k.',label='Wind Luminosity')
-ax2.hlines(10**5.28,0,1,'b')
+ax2.hlines(10**logL,0,1,'b')
 ax2.semilogy(x_2D,L_2D,'r.')
 ax2.semilogy(x_2D,L_w_2D,'k.')
 ax1.set_ylim([1e3,1e6])

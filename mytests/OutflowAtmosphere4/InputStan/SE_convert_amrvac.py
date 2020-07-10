@@ -26,10 +26,10 @@ R = 1*Rsun
 M = 10*Msun
 L = 1.9e5*Lsun
 
-n_cells = 4096
+n_cells = 2048
 n_gh = 2
 R_min = 1.*R
-R_max = 21.*R
+R_max = 81.*R
 
 Mdot = m*R*L/(G*M) #8.3e-6*Msun/year
 
@@ -156,13 +156,13 @@ m_1 = np.ones(len(r))*m
 m_2 = Mdot*G*M/(R*Lum_1)
 m_3 = Mdot*G*M/(r*Lum_2)
 
-np.savetxt('structure_amrvac_G' + str(Gamma) + '_m' +str(m) + '_20R' + '.txt',np.transpose([my_amrvac_grid,vnew,rhonew,ernew]))
+np.savetxt('structure_amrvac_G' + str(Gamma) + '_m' + str(m) + '_LG' + '.txt',np.transpose([my_amrvac_grid,vnew,rhonew,ernew]))
 
 params = ['Gamma', 'm', 'M_Msun', 'L_Lsun', 'R_Rsun', 'huh', 'Mdot', 'rho0', 'error_b']
 paramvals = [Gamma,m,M/Msun,L/Lsun,R/Rsun,R/Rsun,Mdot*year/Msun,dinflo,error_b]
 
 import csv
-with open('params_G' + str(Gamma) + '_m' +str(m) + '_20R'+ '.txt', 'w') as f:
+with open('params_G' + str(Gamma) + '_m' +str(m) + '_LG'+ '.txt', 'w') as f:
     writer = csv.writer(f, delimiter='\t')
     writer.writerows(zip(params,paramvals))
 

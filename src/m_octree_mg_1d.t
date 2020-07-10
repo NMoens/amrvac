@@ -739,7 +739,7 @@ contains
     real(dp), intent(in)      :: dt
     integer, intent(in)       :: order
     real(dp), intent(in)      :: max_res
-    integer, parameter        :: max_its = 10
+    integer, parameter        :: max_its = 1000
     integer                   :: n
     real(dp)                  :: res
 
@@ -764,6 +764,7 @@ contains
 
     ! Add V-cycles if necessary
     do n = 1, max_its
+      ! print*, n, res
        if (res <= max_res) exit
        call mg_fas_vcycle(mg, max_res=res)
     end do
@@ -890,7 +891,7 @@ contains
 !               tmp(i, j, k+1) + tmp(i, j, k-1) - &
 !               dr2 * box%cc(i, j, k, mg_irhs))
 ! #endif
-!       end do; 
+!       end do;
 !     end associate
 !   end subroutine box_jacobi_lpl
 
@@ -1130,7 +1131,7 @@ contains
           mg%boxes(n)%neighbors(2:mg_num_neighbors:2) = &
                n - periodic_offset
        end where
-    end do; 
+    end do;
 
     mg%lvls(mg%lowest_lvl)%ids = [(n, n=1, mg%n_boxes)]
 
@@ -3276,7 +3277,7 @@ contains
           do i=1, hnc
              mg%boxes(id)%cc(dix(1)+i, iv) = 0.5_dp * &
                   sum(mg%boxes(c_id)%cc(2*i-1:2*i, iv))
-          end do; 
+          end do;
        else
           i = mg%buf(c_rank)%i_recv
           mg%boxes(id)%cc(dix(1)+1:dix(1)+hnc, iv) = &

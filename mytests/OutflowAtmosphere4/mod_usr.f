@@ -369,7 +369,7 @@ contains
       w(ixBmin1:ixBmax1,mom(:)) = 0.d0
 
       do i = ixBmax1,ixBmin1,-1
-         w(i,mom(1)) = w(i+1,mom(1))*(x(i+1,1)/x(i,1))**2
+         w(i,mom(1)) = w(i+1,mom(1))
         
       enddo
 
@@ -377,10 +377,10 @@ contains
         ! w(ixB^S,rho_) = w(ixB^S,rho_) * (1.d0 + pert_ampl*pert(ixB^S))
         ! w(ixB^S,mom(1)) = w(ixB^S,mom(1)) * (1.d0 + pert_ampl*pert(ixB^S))
 
-
-      where (w(ixBmin1:ixBmax1,mom(1)) .lt. zero)
-         w(ixBmin1:ixBmax1,mom(1)) = zero ! abs(w(ixBmin1:ixBmax1,mom(2)))
-      end where
+      !
+      ! where (w(ixB^S,mom(1)) .lt. zero)
+      !    w(ixB^S,mom(1)) = zero ! abs(w(ixB^S,mom(2)))
+      ! end where
 
       ! print*, w(5,1:5,mom(2))
 
@@ -435,9 +435,9 @@ contains
          rho_)*R_star**2/(3*x(ixImax1-nghostcells,1))
       T_out = F_bound/StefBoltz*(3.d0/4.d0*tau_out)**0.25d0
 
-      ! T_out = max(T_out,2.d4/unit_temperature)
+      T_out = max(T_out,1.d3/unit_temperature)
 
-      print*, w(ixImax1-nghostcells,rho_), tau_out, T_out*unit_temperature
+      ! print*, w(ixImax1-nghostcells,rho_), tau_out, T_out*unit_temperature
 
       valE_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
 
@@ -458,6 +458,7 @@ contains
       mg%bc(iB, mg_iphi)%bc_value = gradE
 
     case (2)
+
       ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
       ! mg%bc(iB, mg_iphi)%bc_value = gradE_out
 

@@ -138,7 +138,7 @@ contains
     integer :: windex, ipower
     double precision :: sizeuniformpart^D
     double precision :: im_delta,im_nu,rka54,rka51,rkb54,rka55
- 
+
     namelist /filelist/ base_filename,restart_from_file, &
          typefilelog,firstprocess,reset_grid,snapshotnext, &
          convert,convert_type,saveprim,usr_filename,&
@@ -385,7 +385,7 @@ contains
     time_integrator = 'default'
     angmomfix       = .false.
     ! default PC or explicit midpoint, hence alfa=0.5
-    rk2_alfa        = half 
+    rk2_alfa        = half
     ! default SSPRK(3,3) or Gottlieb-Shu 1998 for threestep
     ! default SSPRK(4,3) or Spireti-Ruuth for fourstep
     ! default SSPRK(5,4) using Gottlieb coeffs
@@ -679,7 +679,7 @@ contains
        endif
        if (time_integrator=='RK2_alfa') then
           if(rk2_alfa<smalldouble.or.rk2_alfa>one)call mpistop("set rk2_alfa within ]0,1]")
-          rk_a21=rk2_alfa 
+          rk_a21=rk2_alfa
           rk_b2=1.0d0/(2.0d0*rk2_alfa)
           rk_b1=1.0d0-rk_b2
        endif
@@ -698,21 +698,21 @@ contains
        endif
        if(time_integrator=='RK3_BT') then
            select case(rk3_switch)
-             case(1) 
+             case(1)
               ! we code up Ralston 3rd order here
               rk3_a21=1.0d0/2.0d0
               rk3_a31=0.0d0
               rk3_a32=3.0d0/4.0d0
               rk3_b1=2.0d0/9.0d0
               rk3_b2=1.0d0/3.0d0
-             case(2) 
+             case(2)
               ! we code up RK-Wray 3rd order here
               rk3_a21=8.0d0/15.0d0
               rk3_a31=1.0d0/4.0d0
               rk3_a32=5.0d0/12.0d0
               rk3_b1=1.0d0/4.0d0
               rk3_b2=0.0d0
-             case(3) 
+             case(3)
               ! we code up Heun 3rd order here
               rk3_a21=1.0d0/3.0d0
               rk3_a31=0.0d0
@@ -838,7 +838,7 @@ contains
        endif
        if(time_integrator=='ssprk5') then
          select case(ssprk_order)
-           ! we use ssprk_order to intercompare the different coefficient choices 
+           ! we use ssprk_order to intercompare the different coefficient choices
            case(3) ! From Gottlieb 2005
             rk_beta11=0.391752226571890d0
             rk_beta22=0.368410593050371d0

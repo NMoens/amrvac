@@ -1,4 +1,4 @@
-!>setdt  - set dt for all levels between levmin and levmax. 
+!>setdt  - set dt for all levels between levmin and levmax.
 !>         dtpar>0  --> use fixed dtpar for all level
 !>         dtpar<=0 --> determine CFL limited timestep
 subroutine setdt()
@@ -149,7 +149,6 @@ subroutine setdt()
      dt_grid(igrid)=dt
   end do
   !$OMP END PARALLEL DO
-
 
   ! global Lax-Friedrich finite difference flux splitting needs fastest wave-speed
   ! so does GLM:

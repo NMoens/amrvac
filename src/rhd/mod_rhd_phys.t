@@ -347,6 +347,9 @@ contains
 
     if (rhd_dust) call dust_check_params()
 
+    if (rhd_radiation_diffusion .and. .not. use_imex_scheme) &
+    call mpistop("Use an IMEX scheme when doing FLD")
+
     if (use_multigrid) call rhd_set_mg_bounds()
 
   end subroutine rhd_check_params
@@ -1132,8 +1135,8 @@ contains
     end select
 
     !>  NOT necessary for calculation, just want to know the grid-dependent-timestep
-    ! call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
-    ! w(ixI^S,i_test) = cmax(ixI^S)
+    call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
+    w(ixI^S,i_test) = cmax(ixI^S)
 
   end subroutine rhd_add_radiation_source
 

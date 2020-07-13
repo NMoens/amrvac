@@ -112,7 +112,7 @@ module mod_fld
   subroutine fld_init(He_abundance, rhd_radiation_diffusion, phys_gamma)
     use mod_global_parameters
     use mod_variables
-    use mod_physics, only: global_radiation_source
+    use mod_physics
     use mod_opacity, only: init_opal
     use mod_multigrid_coupling
 
@@ -150,11 +150,8 @@ module mod_fld
 
         use_multigrid = .true.
 
-        if (rhd_radiation_diffusion) then
-          global_radiation_source => Diffuse_E_rad_mg
-        endif
-
-        mg_after_new_tree => set_mg_diffcoef
+        phys_implicit_update => Diffuse_E_rad_mg
+        phys_evaluate_implicit => Evaluate_E_rad_mg
 
         mg%n_extra_vars = 1
         mg%operator_type = mg_vhelmholtz
@@ -682,29 +679,233 @@ module mod_fld
   !!!!!!!!!!!!!!!!!!! Multigrid diffusion
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  ! !> Calling all subroutines to perform the multigrid method
+  ! !> Communicates rad_e and diff_coeff to multigrid library
+  ! subroutine Diffuse_E_rad_mg(dtfactor,qdt,qtC,psa,psb)
+  !   use mod_global_parameters
+  !   use mod_forest
+  !   use mod_ghostcells_update
+  !   use mod_multigrid_coupling
+  !
+  !   type(state), target :: psa(max_blocks)
+  !   type(state), target :: psb(max_blocks)
+  !   double precision, intent(in) :: qdt
+  !   double precision, intent(in) :: qtC
+  !   double precision, intent(in) :: dtfactor
+  !   double precision             :: max_res
+  !
+  !   integer                        :: iw_to,iw_from
+  !   integer                        :: iigrid, igrid, id
+  !   integer                        :: nc, lvl
+  !   type(tree_node), pointer       :: pnode
+  !   real(dp)                       :: fac
+  !
+  !   max_res = fld_diff_tol !1d-7/qdt
+  !
+  !   !> This one is probably not necessary
+  !   call set_mg_diffcoef()
+  !   call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.,1.d0)
+  !   call diffusion_solve_vcoeff(mg, qdt, 2, max_res)
+  !   call mg_copy_from_tree(mg_iphi, iw_r_e)
+  !
+  !   call getbc(qtC,0.d0,psa,1,nwflux+nwaux)
+  !
+  ! end subroutine Diffuse_E_rad_mg
+
   !> Calling all subroutines to perform the multigrid method
   !> Communicates rad_e and diff_coeff to multigrid library
-  subroutine Diffuse_E_rad_mg(qdt, qt, active)
+  subroutine Diffuse_E_rad_mg(dtfactor,qdt,qtC,psa,psb)
     use mod_global_parameters
+    use mod_forest
+    use mod_ghostcells_update
     use mod_multigrid_coupling
 
-    double precision, intent(in) :: qdt, qt
-    logical, intent(inout)       :: active
-    double precision             :: max_res
+    type(state), target :: psa(max_blocks)
+    type(state), target :: psb(max_blocks)
+    double precision, intent(in) :: qdt
+    double precision, intent(in) :: qtC
+    double precision, intent(in) :: dtfactor
 
-    !> This one is probably not necessary
-    call set_mg_diffcoef()
+    integer                      :: n
+    double precision             :: res, max_residual, lambda
+    integer, parameter           :: max_its = 1000
 
-    max_res = fld_diff_tol !1d-7/qdt
+    integer                        :: iw_to,iw_from
+    integer                        :: iigrid, igrid, id
+    integer                        :: nc, lvl, i
+    type(tree_node), pointer       :: pnode
+    real(dp)                       :: fac
 
-    call mg_copy_to_tree(iw_r_e, mg_iphi, .false., .false.,1.d0)
-    call diffusion_solve_vcoeff(mg, qdt, 2, max_res)
-    call mg_copy_from_tree(mg_iphi, iw_r_e)
+    ! Avoid setting a very restrictive limit to the residual when the time step
+    ! is small (as the operator is ~ 1/(D * qdt))
+    if (qdt < dtmin) then
+        if(mype==0)then
+            print *,'skipping implicit solve: dt too small!'
+            print *,'Currently at time=',global_time,' time step=',qdt,' dtmin=',dtmin
+        endif
+        return
+    endif
+    ! max_residual = 1d-7/qdt
+    max_residual = fld_diff_tol !1d-7/qdt
 
-    active = .true.
+    mg%operator_type = mg_vhelmholtz
+    call mg_set_methods(mg)
 
+    if (.not. mg%is_allocated) call mpistop("multigrid tree not allocated yet")
+
+    lambda           = 1/(dtfactor * qdt)
+    call vhelmholtz_set_lambda(lambda)
+
+    !This is mg_copy_to_tree from psb state
+    !!!  replaces::  call mg_copy_to_tree(i_diff_mg, mg_iveps)
+    iw_from=i_diff_mg
+    iw_to=mg_iveps
+    fac = 1.d0
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+       pnode => igrid_to_node(igrid, mype)%node
+       id    =  pnode%id
+       lvl   =  mg%boxes(id)%lvl
+       nc    =  mg%box_size_lvl(lvl)
+       ! Include one layer of ghost cells on grid leaves
+       {^IFONED
+       mg%boxes(id)%cc(0:nc+1, iw_to) = fac * &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
+       }
+       {^IFTWOD
+       mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = fac * &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+       }
+       {^IFTHREED
+       mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = fac * &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+            ixMlo3-1:ixMhi3+1, iw_from)
+       }
+    end do
+
+    if (time_advance)then
+      call mg_restrict(mg, iw_to)
+      call mg_fill_ghost_cells(mg, iw_to)
+    endif
+
+    !This is mg_copy_to_tree from psb state
+    !!!  replaces::  call mg_copy_to_tree(iw_r_e, mg_iphi)
+    iw_from=iw_r_e
+    iw_to=mg_iphi
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+       pnode => igrid_to_node(igrid, mype)%node
+       id    =  pnode%id
+       lvl   =  mg%boxes(id)%lvl
+       nc    =  mg%box_size_lvl(lvl)
+       ! Include one layer of ghost cells on grid leaves
+       {^IFONED
+       mg%boxes(id)%cc(0:nc+1, iw_to) = fac * &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
+       }
+       {^IFTWOD
+       mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = fac * &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+       }
+       {^IFTHREED
+       mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = fac * &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+            ixMlo3-1:ixMhi3+1, iw_from)
+       }
+    end do
+
+    !>replace call set_rhs(mg, -lambda, 0.0_dp)
+    ! call set_rhs(mg, -lambda, 0.0_dp)
+    do lvl = 1, mg%highest_lvl
+       nc = mg%box_size_lvl(lvl)
+       do i = 1, size(mg%lvls(lvl)%my_leaves)
+          id = mg%lvls(lvl)%my_leaves(i)
+          mg%boxes(id)%cc(1:nc, mg_irhs) = &
+               -lambda * mg%boxes(id)%cc(1:nc, mg_iphi) + &
+               0.d0 * mg%boxes(id)%cc(1:nc, mg_irhs)
+       end do
+    end do
+
+    ! print*, 'amrvac in'
+    ! print*, fac * psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
+    !
+    ! print*, 'multigrid in'
+    ! print*, mg%boxes(id)%cc(0:nc+1, iw_to)
+
+
+    call mg_fas_fmg(mg, .true., max_res=res)
+    do n = 1, max_its
+      ! print*, n, res
+      if (res < max_residual) exit
+       call mg_fas_vcycle(mg, max_res=res)
+    end do
+
+    if (n == max_its + 1) then
+       if (mg%my_rank == 0) then
+          print *, "Did you specify boundary conditions correctly?"
+          print *, "Or is the variation in diffusion too large?"
+       end if
+       error stop "diffusion_solve: no convergence"
+    end if
+
+    ! !This is mg_copy_from_tree_gc for psa state
+    ! !!! replaces:: call mg_copy_from_tree_gc(mg_iphi, u_)
+    ! call mg_copy_from_tree(mg_iphi, iw_r_e)
+    iw_from=mg_iphi
+    iw_to=iw_r_e
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+       pnode => igrid_to_node(igrid, mype)%node
+       id    =  pnode%id
+       lvl   =  mg%boxes(id)%lvl
+       nc    =  mg%box_size_lvl(lvl)
+       ! Include one layer of ghost cells on grid leaves
+       {^IFONED
+       psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_to) = &
+            mg%boxes(id)%cc(0:nc+1, iw_from)
+       }
+       {^IFTWOD
+       psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_to) = &
+            mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_from)
+       }
+       {^IFTHREED
+       psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+            ixMlo3-1:ixMhi3+1, iw_to) = &
+            mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_from)
+       }
+    end do
+
+    ! print*, 'multigrid out'
+    ! print*, mg%boxes(id)%cc(0:nc+1, iw_from)
+    !
+    ! print*, 'amrvac out'
+    ! print*, psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_to)
+
+    ! enforce boundary conditions for psa
+    call getbc(qtC,0.d0,psa,1,nwflux+nwaux)
   end subroutine Diffuse_E_rad_mg
 
+
+  !> inplace update of psa==>F_im(psa)
+  subroutine Evaluate_E_rad_mg(qtC,psa)
+    use mod_global_parameters
+    type(state), target :: psa(max_blocks)
+    double precision, intent(in) :: qtC
+
+    call mpistop("phys_evaluate_implicit not implemented for FLD")
+
+    !> Calculate Nabla D Nabla E
+    !> Poisson operator with variable coefficient
+    !> Something like below??
+
+    ! mg%operator_type = mg_vlaplacian
+    ! call mg_set_methods(mg)
+    !
+    ! call mg_copy_to_tree(i_rhs, mg_irhs, .false., .false.,1.d0)
+    ! call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.,1.d0)
+    !
+    ! call mg_fas_fmg(mg, .true., max_res)
+    ! if (mype == 0) print *, it, "max residu:", max_res
+    ! call mg_copy_from_tree_gc(mg_iphi, i_phi)
+
+  end subroutine Evaluate_E_rad_mg
 
   !> Calculates cell-centered diffusion coefficient to be used in multigrid
   subroutine fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)

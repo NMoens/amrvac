@@ -26,8 +26,8 @@
 /
 
  &methodlist
-   time_stepper = 'onestep'
-   time_integrator = 'IMEX_Euler'
+   time_stepper = 'twostep'
+   time_integrator = 'IMEX_Trapezoidal'
    flux_scheme     = 20*'hll'
    limiter         = 20*'koren'
    source_split_usr = .false.

@@ -734,7 +734,7 @@ module mod_fld
     integer                        :: iigrid, igrid, id
     integer                        :: nc, lvl, i
     type(tree_node), pointer       :: pnode
-    real(dp)                       :: fac
+    real(dp)                       :: fac, facD
 
     ! Avoid setting a very restrictive limit to the residual when the time step
     ! is small (as the operator is ~ 1/(D * qdt))
@@ -753,13 +753,46 @@ module mod_fld
 
     if (.not. mg%is_allocated) call mpistop("multigrid tree not allocated yet")
 
-    lambda           = 1/(dtfactor * qdt)
+    lambda = 1.d0/(dtfactor * qdt)
     call vhelmholtz_set_lambda(lambda)
+
+    fac = 1.d0
+    facD = 1.d0
 
     !This is mg_copy_to_tree from psb state
     !!!  replaces::  call mg_copy_to_tree(i_diff_mg, mg_iveps)
     iw_from=i_diff_mg
     iw_to=mg_iveps
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+       pnode => igrid_to_node(igrid, mype)%node
+       id    =  pnode%id
+       lvl   =  mg%boxes(id)%lvl
+       nc    =  mg%box_size_lvl(lvl)
+       ! Include one layer of ghost cells on grid leaves
+       {^IFONED
+       mg%boxes(id)%cc(0:nc+1, iw_to) = facD * &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
+       }
+       {^IFTWOD
+       mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = facD * &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+       }
+       {^IFTHREED
+       mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = facD * &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+            ixMlo3-1:ixMhi3+1, iw_from)
+       }
+    end do
+
+    if (time_advance)then
+      call mg_restrict(mg, iw_to)
+      call mg_fill_ghost_cells(mg, iw_to)
+    endif
+
+    !This is mg_copy_to_tree from psb state
+    !!!  replaces::  call mg_copy_to_tree(iw_r_e, mg_iphi)
+    iw_from=iw_r_e
+    iw_to=mg_iphi
     fac = 1.d0
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        pnode => igrid_to_node(igrid, mype)%node
@@ -782,54 +815,16 @@ module mod_fld
        }
     end do
 
-    if (time_advance)then
-      call mg_restrict(mg, iw_to)
-      call mg_fill_ghost_cells(mg, iw_to)
-    endif
-
-    !This is mg_copy_to_tree from psb state
-    !!!  replaces::  call mg_copy_to_tree(iw_r_e, mg_iphi)
-    iw_from=iw_r_e
-    iw_to=mg_iphi
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
-       pnode => igrid_to_node(igrid, mype)%node
-       id    =  pnode%id
-       lvl   =  mg%boxes(id)%lvl
-       nc    =  mg%box_size_lvl(lvl)
-       ! Include one layer of ghost cells on grid leaves
-       {^IFONED
-       mg%boxes(id)%cc(0:nc+1, iw_to) = fac * &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
-       }
-       {^IFTWOD
-       mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = fac * &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
-       }
-       {^IFTHREED
-       mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = fac * &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-            ixMlo3-1:ixMhi3+1, iw_from)
-       }
-    end do
-
-    !>replace call set_rhs(mg, -lambda, 0.0_dp)
-    ! call set_rhs(mg, -lambda, 0.0_dp)
+    !>replace call set_rhs(mg, -1/dt, 0.0_dp)
+    ! call set_rhs(mg, -1/dt, 0.0_dp)
     do lvl = 1, mg%highest_lvl
        nc = mg%box_size_lvl(lvl)
        do i = 1, size(mg%lvls(lvl)%my_leaves)
           id = mg%lvls(lvl)%my_leaves(i)
           mg%boxes(id)%cc(1:nc, mg_irhs) = &
-               -lambda * mg%boxes(id)%cc(1:nc, mg_iphi) + &
-               0.d0 * mg%boxes(id)%cc(1:nc, mg_irhs)
+               -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, mg_iphi)
        end do
     end do
-
-    ! print*, 'amrvac in'
-    ! print*, fac * psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
-    !
-    ! print*, 'multigrid in'
-    ! print*, mg%boxes(id)%cc(0:nc+1, iw_to)
-
 
     call mg_fas_fmg(mg, .true., max_res=res)
     do n = 1, max_its
@@ -858,25 +853,27 @@ module mod_fld
        nc    =  mg%box_size_lvl(lvl)
        ! Include one layer of ghost cells on grid leaves
        {^IFONED
+       psa(igrid)%w(ixMlo1-1:ixMhi1+1, 1:nw) = &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, 1:nw)
        psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_to) = &
             mg%boxes(id)%cc(0:nc+1, iw_from)
        }
        {^IFTWOD
+       psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, 1:nw) = &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, 1:nw)
        psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_to) = &
             mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_from)
        }
        {^IFTHREED
        psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+            ixMlo3-1:ixMhi3+1, 1:nw) = &
+            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+                 ixMlo3-1:ixMhi3+1, 1:nw)
+       psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
             ixMlo3-1:ixMhi3+1, iw_to) = &
             mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_from)
        }
     end do
-
-    ! print*, 'multigrid out'
-    ! print*, mg%boxes(id)%cc(0:nc+1, iw_from)
-    !
-    ! print*, 'amrvac out'
-    ! print*, psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_to)
 
     ! enforce boundary conditions for psa
     call getbc(qtC,0.d0,psa,1,nwflux+nwaux)
@@ -889,23 +886,47 @@ module mod_fld
     type(state), target :: psa(max_blocks)
     double precision, intent(in) :: qtC
 
-    call mpistop("phys_evaluate_implicit not implemented for FLD")
+    integer :: iigrid, igrid, level
+    integer :: ixO^L
 
-    !> Calculate Nabla D Nabla E
-    !> Poisson operator with variable coefficient
-    !> Something like below??
+    ixO^L=ixG^LL^LSUB1;
+    !$OMP PARALLEL DO PRIVATE(igrid)
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+       ^D&dxlevel(^D)=rnode(rpdx^D_,igrid);
 
-    ! mg%operator_type = mg_vlaplacian
-    ! call mg_set_methods(mg)
-    !
-    ! call mg_copy_to_tree(i_rhs, mg_irhs, .false., .false.,1.d0)
-    ! call mg_copy_to_tree(i_diff_mg, mg_iveps, .true., .true.,1.d0)
-    !
-    ! call mg_fas_fmg(mg, .true., max_res)
-    ! if (mype == 0) print *, it, "max residu:", max_res
-    ! call mg_copy_from_tree_gc(mg_iphi, i_phi)
+       ! call fld_get_diffcoef_central((w, wCT, x, ixI^L, ixO^L))
+       call put_diffterm_onegrid(ixG^LL,ixO^L,psa(igrid)%w)
+    end do
+    !$OMP END PARALLEL DO
 
   end subroutine Evaluate_E_rad_mg
+
+
+  !> inplace update of psa==>F_im(psa)
+  subroutine put_diffterm_onegrid(ixI^L,ixO^L,w)
+    use mod_global_parameters
+    integer, intent(in)             :: ixI^L, ixO^L
+    double precision, intent(inout) :: w(ixI^S, 1:nw)
+
+    double precision :: gradE(ixO^S),divF(ixO^S)
+    double precision :: diff_term(ixO^S)
+
+    integer                       :: idir, jxO^L, hxO^L
+
+    call mpistop("phys_evaluate_implicit not implemented for FLD")
+
+    divF(ixO^S) = 0.d0
+    do idir = 1,ndim
+      hxO^L=ixO^L-kr(idir,^D);
+      jxO^L=ixO^L+kr(idir,^D);
+      gradE(ixO^S) = (w(jxO^S,iw_r_e) - w(hxO^S,iw_r_e))/dxlevel(idir)
+      divF(ixO^S) = divF(ixO^S) + w(ixO^S,i_diff_mg)*(gradE(jxO^S)-gradE(hxO^S))/dxlevel(idir)
+    enddo
+
+    w(ixO^S,iw_r_e) = divF
+
+  end subroutine put_diffterm_onegrid
+
 
   !> Calculates cell-centered diffusion coefficient to be used in multigrid
   subroutine fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)

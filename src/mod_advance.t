@@ -102,9 +102,9 @@ contains
        case ("IMEX_Euler")
           call advect1(flux_scheme,one,idim^LIM,global_time,ps,global_time,ps1)
           call global_implicit_update(one,dt,global_time+dt,ps,ps1)
-
-          ! call advect1(flux_scheme,one,idim^LIM,global_time,ps1,global_time,ps)
-          ! call global_implicit_update(one,dt,global_time+dt,ps,ps1)
+          
+          ! call advect1(flux_scheme,one,idim^LIM,global_time,ps,global_time,ps1)
+          ! call global_implicit_update(one,dt,global_time+dt,ps1,ps)
 
        case ("IMEX_SP")
           call global_implicit_update(one,dt,global_time,ps,ps1)

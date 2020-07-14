@@ -719,6 +719,7 @@ module mod_fld
     use mod_forest
     use mod_ghostcells_update
     use mod_multigrid_coupling
+    use mod_physics, only: phys_set_mg_bounds
 
     type(state), target :: psa(max_blocks)
     type(state), target :: psb(max_blocks)
@@ -755,6 +756,8 @@ module mod_fld
 
     lambda = 1.d0/(dtfactor * qdt)
     call vhelmholtz_set_lambda(lambda)
+
+    call update_diffcoeff(psb)
 
     fac = 1.d0
     facD = 1.d0
@@ -821,10 +824,24 @@ module mod_fld
        nc = mg%box_size_lvl(lvl)
        do i = 1, size(mg%lvls(lvl)%my_leaves)
           id = mg%lvls(lvl)%my_leaves(i)
+          {^IFONED
           mg%boxes(id)%cc(1:nc, mg_irhs) = &
                -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, mg_iphi)
+          }
+          {^IFTWOD
+          mg%boxes(id)%cc(1:nc, 1:nc, mg_irhs) = &
+               f1 * mg%boxes(id)%cc(1:nc, 1:nc, mg_iphi) + &
+               f2 * mg%boxes(id)%cc(1:nc, 1:nc, mg_irhs)
+          }
+          {^IFTHREED
+          mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_irhs) = &
+               f1 * mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_iphi) + &
+               f2 * mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_irhs)
+          }
        end do
     end do
+
+    call phys_set_mg_bounds()
 
     call mg_fas_fmg(mg, .true., max_res=res)
     do n = 1, max_its
@@ -875,8 +892,6 @@ module mod_fld
        }
     end do
 
-    ! enforce boundary conditions for psa
-    call getbc(qtC,0.d0,psa,1,nwflux+nwaux)
   end subroutine Diffuse_E_rad_mg
 
 
@@ -889,18 +904,18 @@ module mod_fld
     integer :: iigrid, igrid, level
     integer :: ixO^L
 
+    call update_diffcoeff(psa)
+
     ixO^L=ixG^LL^LSUB1;
     !$OMP PARALLEL DO PRIVATE(igrid)
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        ^D&dxlevel(^D)=rnode(rpdx^D_,igrid);
-
-       ! call fld_get_diffcoef_central((w, wCT, x, ixI^L, ixO^L))
+       ! call fld_get_diffcoef_central(psa(igrid)%w, psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L)
        call put_diffterm_onegrid(ixG^LL,ixO^L,psa(igrid)%w)
     end do
     !$OMP END PARALLEL DO
 
   end subroutine Evaluate_E_rad_mg
-
 
   !> inplace update of psa==>F_im(psa)
   subroutine put_diffterm_onegrid(ixI^L,ixO^L,w)
@@ -913,20 +928,154 @@ module mod_fld
 
     integer                       :: idir, jxO^L, hxO^L
 
-    call mpistop("phys_evaluate_implicit not implemented for FLD")
+    ! call mpistop("phys_evaluate_implicit not implemented for FLD")
 
     divF(ixO^S) = 0.d0
     do idir = 1,ndim
       hxO^L=ixO^L-kr(idir,^D);
       jxO^L=ixO^L+kr(idir,^D);
-      gradE(ixO^S) = (w(jxO^S,iw_r_e) - w(hxO^S,iw_r_e))/dxlevel(idir)
-      divF(ixO^S) = divF(ixO^S) + w(ixO^S,i_diff_mg)*(gradE(jxO^S)-gradE(hxO^S))/dxlevel(idir)
+      gradE(ixO^S) = half*(w(jxO^S,iw_r_e) - w(hxO^S,iw_r_e))/dxlevel(idir)
+      divF(ixO^S) = divF(ixO^S) + half*(w(jxO^S,i_diff_mg)*gradE(jxO^S)-w(hxO^S,i_diff_mg)*gradE(hxO^S))/dxlevel(idir)
     enddo
 
-    w(ixO^S,iw_r_e) = divF
+    w(ixO^S,iw_r_e) = divF(ixO^S)
 
   end subroutine put_diffterm_onegrid
 
+  ! !> inplace update of psa==>F_im(psa)
+  ! subroutine Evaluate_E_rad_mg(qtC,psa)
+  !   use mod_global_parameters
+  !   use mod_forest
+  !   use mod_ghostcells_update
+  !   use mod_multigrid_coupling
+  !   use mod_physics, only: phys_set_mg_bounds
+  !
+  !   type(state), target :: psa(max_blocks)
+  !   double precision, intent(in) :: qtC
+  !
+  !   integer                      :: n
+  !   double precision             :: res, max_residual, lambda
+  !   integer, parameter           :: max_its = 1000
+  !
+  !   integer                        :: iw_to,iw_from
+  !   integer                        :: iigrid, igrid, id
+  !   integer                        :: nc, lvl, i, level
+  !   type(tree_node), pointer       :: pnode
+  !   real(dp)                       :: fac, facD
+  !
+  !   mg%operator_type = mg_vhelmholtz
+  !   ! mg%smoother_type = mg_smoother_gs
+  !   call mg_set_methods(mg)
+  !
+  !   call vhelmholtz_set_lambda(0.0d0)
+  !
+  !   call update_diffcoeff(psa)
+  !
+  !   fac = 1.d0
+  !   facD = 1.d0
+  !
+  !   !This is mg_copy_to_tree from psb state
+  !   !!!  replaces::  call mg_copy_to_tree(i_diff_mg, mg_iveps)
+  !   iw_from=i_diff_mg
+  !   iw_to=mg_iveps
+  !   do iigrid=1,igridstail; igrid=igrids(iigrid);
+  !      pnode => igrid_to_node(igrid, mype)%node
+  !      id    =  pnode%id
+  !      lvl   =  mg%boxes(id)%lvl
+  !      nc    =  mg%box_size_lvl(lvl)
+  !      ! Include one layer of ghost cells on grid leaves
+  !      {^IFONED
+  !      mg%boxes(id)%cc(0:nc+1, iw_to) = facD * &
+  !           psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
+  !      }
+  !      {^IFTWOD
+  !      mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = facD * &
+  !           psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+  !      }
+  !      {^IFTHREED
+  !      mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = facD * &
+  !           psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+  !           ixMlo3-1:ixMhi3+1, iw_from)
+  !      }
+  !   end do
+  !
+  !   if (time_advance)then
+  !     call mg_restrict(mg, iw_to)
+  !     call mg_fill_ghost_cells(mg, iw_to)
+  !   endif
+  !
+  !   !This is mg_copy_to_tree from psb state
+  !   !!!  replaces::  call mg_copy_to_tree(iw_r_e, mg_iphi)
+  !   iw_from=iw_r_e
+  !   iw_to=mg_iphi
+  !   fac = 1.d0
+  !   do iigrid=1,igridstail; igrid=igrids(iigrid);
+  !      pnode => igrid_to_node(igrid, mype)%node
+  !      id    =  pnode%id
+  !      lvl   =  mg%boxes(id)%lvl
+  !      nc    =  mg%box_size_lvl(lvl)
+  !      ! Include one layer of ghost cells on grid leaves
+  !      {^IFONED
+  !      mg%boxes(id)%cc(0:nc+1, iw_to) = fac * &
+  !           psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
+  !      }
+  !      {^IFTWOD
+  !      mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = fac * &
+  !           psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+  !      }
+  !      {^IFTHREED
+  !      mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = fac * &
+  !           psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+  !           ixMlo3-1:ixMhi3+1, iw_from)
+  !      }
+  !   end do
+  !
+  !   print*, 'E_r in amrvac'
+  !   print*, psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_r_e)
+  !
+  !   print*, 'E_r in mg'
+  !   print*, mg%boxes(id)%cc(0:nc+1, mg_iphi)
+  !
+  !   print*, 'D in amrvac'
+  !   print*, psa(igrid)%w(ixMlo1-1:ixMhi1+1, i_diff_mg)
+  !
+  !   print*, 'D in mg'
+  !   print*, mg%boxes(id)%cc(0:nc+1, mg_iveps)
+  !
+  !   call phys_set_mg_bounds()
+  !
+  !   call mg_apply_op(mg, mg_irhs)
+  !
+  !   print*, 'Operator in mg'
+  !   print*, mg%boxes(id)%cc(0:nc+1, mg_irhs)
+  !
+  !   ! !This is mg_copy_from_tree_gc for psa state
+  !   ! !!! replaces:: call mg_copy_from_tree_gc(mg_iphi, u_)
+  !   ! call mg_copy_from_tree(mg_iphi, iw_r_e)
+  !   iw_from=mg_irhs
+  !   iw_to=iw_r_e
+  !   do iigrid=1,igridstail; igrid=igrids(iigrid);
+  !      pnode => igrid_to_node(igrid, mype)%node
+  !      id    =  pnode%id
+  !      lvl   =  mg%boxes(id)%lvl
+  !      nc    =  mg%box_size_lvl(lvl)
+  !      ! Include one layer of ghost cells on grid leaves
+  !      {^IFONED
+  !      psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_to) = &
+  !           mg%boxes(id)%cc(0:nc+1, iw_from)
+  !      }
+  !      {^IFTWOD
+  !      psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_to) = &
+  !           mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_from)
+  !      }
+  !      {^IFTHREED
+  !      psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+  !           ixMlo3-1:ixMhi3+1, iw_to) = &
+  !           mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_from)
+  !      }
+  !   end do
+  !
+  ! end subroutine Evaluate_E_rad_mg
 
   !> Calculates cell-centered diffusion coefficient to be used in multigrid
   subroutine fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
@@ -962,6 +1111,27 @@ module mod_fld
     endif
 
   end subroutine fld_get_diffcoef_central
+
+  subroutine update_diffcoeff(psa)
+    use mod_global_parameters
+
+    type(state), target :: psa(max_blocks)
+
+    ! double precision :: wCT(ixG^LL,1:nw)
+    integer :: iigrid, igrid, level
+    integer :: ixO^L
+
+    ixO^L=ixG^LL^LSUB1;
+    !$OMP PARALLEL DO PRIVATE(igrid)
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+       ^D&dxlevel(^D)=rnode(rpdx^D_,igrid);
+
+       ! wCT = psa(igrid)%w
+        call fld_get_diffcoef_central(psa(igrid)%w, psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L)
+    end do
+    !$OMP END PARALLEL DO
+
+  end subroutine update_diffcoeff
 
   !> Use running average on Diffusion coefficient
   subroutine fld_smooth_diffcoef(w, ixI^L, ixO^L)

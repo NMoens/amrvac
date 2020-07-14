@@ -202,7 +202,7 @@ contains
     use mod_multigrid_coupling
 
     integer, intent(in)             :: iB
-      
+
     select case (iB)
     case (1)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet

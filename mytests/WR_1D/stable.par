@@ -24,6 +24,7 @@
    time_max = 400.d0
    dtmin = 1.0d-20
    !it_max = 500
+   slowsteps = 10
 /
 
  &methodlist

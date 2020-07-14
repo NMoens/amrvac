@@ -31,6 +31,7 @@
    time_max = 2.5d-5
    dtmin = 1.d-30
    !it_max = 500
+   slowsteps = 10
 /
 
  &methodlist

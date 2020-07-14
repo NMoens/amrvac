@@ -8,7 +8,7 @@
   convert_type     = 'oneblock'
   level_io         = 1
   saveprim         = F
-  nwauxio          = 8
+  nwauxio          = 0
 /
 
  &savelist
@@ -48,7 +48,7 @@
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 3
-   domain_nx1         = 128
+   domain_nx1         = 512
    block_nx1          = 128
    xprobmin1       = 0.d0
    xprobmax1       = 1.d0
@@ -59,6 +59,7 @@
  &paramlist
   ! courantpar       = 0.3d0
   dtpar = 1.d-9 !1.d-8
+  slowsteps = 10
  /
 
  &rhd_list

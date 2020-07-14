@@ -143,7 +143,7 @@ module mod_fld
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!! DELETE WHEN DONE
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    i_test = var_set_extravar('test','test')
+    ! i_test = var_set_extravar('test','test')
 
     if (rhd_radiation_diffusion) then
       if (fld_diff_scheme .eq. 'mg') then

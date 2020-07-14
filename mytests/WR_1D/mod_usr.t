@@ -192,6 +192,7 @@ contains
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
 
     w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
+    w(ixO^S,i_diff_mg) = (const_c/unit_velocity)/(3.d0*kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
 
@@ -607,7 +608,7 @@ contains
     double precision                   :: g_grav(ixI^S)
     double precision                   :: Tgas(ixI^S),Trad(ixI^S)
     double precision                   :: kappa(ixO^S), OPAL(ixO^S), CAK(ixO^S)
-    double precision                   :: vel(ixI^S), gradv(ixO^S)
+    double precision                   :: vel(ixI^S), gradv(ixI^S)
     double precision                   :: rad_flux(ixO^S,1:ndim), Lum(ixO^S)
     double precision                   :: pp_rf(ixO^S), lambda(ixO^S), fld_R(ixO^S)
     integer                            :: idim
@@ -620,15 +621,15 @@ contains
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
 
-    g_rad(ixO^S) = kappa(ixO^S)*rad_flux(ixO^S,1)/(const_c/unit_velocity)
-    g_grav(ixO^S) = const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
-    big_gamma(ixO^S) = g_rad(ixO^S)/g_grav(ixO^S)
-
     call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
     call rhd_get_trad(w, x, ixI^L, ixO^L, Trad)
 
     call get_kappa_OPAL(ixI^L,ixO^L,w,x,OPAL)
     call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
+
+    g_rad(ixO^S) = (OPAL(ixO^S)+CAK(ixO^S))*rad_flux(ixO^S,1)/(const_c/unit_velocity)
+    g_grav(ixO^S) = const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
+    big_gamma(ixO^S) = g_rad(ixO^S)/g_grav(ixO^S)
 
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
     call gradient(vel,ixI^L,ixO^L,1,gradv)
@@ -637,15 +638,18 @@ contains
 
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
 
-    Lum = 4*dpi*rad_flux(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux/L_sun
+    Lum(ixO^S) = 4*dpi*rad_flux(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux/L_sun
+
+    print*, nw
 
     w(ixO^S,nw+1) = Trad(ixO^S)*unit_temperature
-    ! w(ixO^S,nw+2) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
-    ! *unit_density*unit_velocity/M_sun*year
-    ! w(ixO^S,nw+3) = OPAL(ixO^S)/kappa_e
-    ! w(ixO^S,nw+4) = CAK(ixO^S)/kappa_e
-    ! w(ixO^S,nw+5) = lambda(ixO^S)
-    ! w(ixO^S,nw+6) = Lum(ixO^S)
+    w(ixO^S,nw+2) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
+    *unit_density*unit_velocity/M_sun*year
+    w(ixO^S,nw+3) = OPAL(ixO^S)/kappa_e
+    w(ixO^S,nw+4) = CAK(ixO^S)/kappa_e
+    w(ixO^S,nw+5) = lambda(ixO^S)
+    w(ixO^S,nw+6) = big_gamma(ixO^S)
+    w(ixO^S,nw+7) = Lum(ixO^S)
 
   end subroutine specialvar_output
 
@@ -654,8 +658,7 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'Trad'
-    ! varnames = 'Trad Mdot OPAL CAK lambda L'
+    varnames = 'Trad Mdot OPAL CAK lambda Gamma Lum'
   end subroutine specialvarnames_output
 
 end module mod_usr

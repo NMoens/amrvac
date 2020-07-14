@@ -30,7 +30,6 @@
    time_max = 20.d0
    dtmin = 1.0d-20
    it_max = 10000
-   slowsteps = 10
 /
 
  &methodlist
@@ -72,6 +71,7 @@
  &paramlist
   courantpar       = 0.8d0
   !dtpar           = 1.d-5
+  slowsteps = 10
  /
 
  &rhd_list

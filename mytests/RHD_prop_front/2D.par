@@ -31,7 +31,6 @@
    time_max = 2.5d-5
    dtmin = 1.d-30
    !it_max = 500
-   slowsteps = 10
 /
 
  &methodlist
@@ -72,7 +71,8 @@
  &paramlist
   ! courantpar       = 0.3d0
   dtpar = 1.d-9 !1.d-8
- /
+  slowsteps = 10
+/
 
  &rhd_list
   He_abundance = 0.0d0

@@ -698,17 +698,20 @@ contains
     Lum(ixOmin1:ixOmax1) = 4*dpi*rad_flux(ixOmin1:ixOmax1,&
        1)*(x(ixOmin1:ixOmax1,1)*unit_length)**2*unit_radflux/L_sun
 
-    print*, nw
+    ! w(ixO^S,nw+1) = Trad(ixO^S)*unit_temperature
+    ! w(ixO^S,nw+2) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
+    ! *unit_density*unit_velocity/M_sun*year
+    ! w(ixO^S,nw+3) = OPAL(ixO^S)/kappa_e
+    ! w(ixO^S,nw+4) = CAK(ixO^S)/kappa_e
+    ! w(ixO^S,nw+5) = lambda(ixO^S)
+    ! w(ixO^S,nw+6) = big_gamma(ixO^S)
+    ! w(ixO^S,nw+7) = Lum(ixO^S)
 
-    w(ixOmin1:ixOmax1,nw+1) = Trad(ixOmin1:ixOmax1)*unit_temperature
-    w(ixOmin1:ixOmax1,nw+2) = 4*dpi*w(ixOmin1:ixOmax1,&
-       mom(1))*radius(ixOmin1:ixOmax1)**2 &
-       *unit_density*unit_velocity/M_sun*year
-    w(ixOmin1:ixOmax1,nw+3) = OPAL(ixOmin1:ixOmax1)/kappa_e
-    w(ixOmin1:ixOmax1,nw+4) = CAK(ixOmin1:ixOmax1)/kappa_e
-    w(ixOmin1:ixOmax1,nw+5) = lambda(ixOmin1:ixOmax1)
-    w(ixOmin1:ixOmax1,nw+6) = big_gamma(ixOmin1:ixOmax1)
-    w(ixOmin1:ixOmax1,nw+7) = Lum(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+1) = OPAL(ixOmin1:ixOmax1)/kappa_e
+    w(ixOmin1:ixOmax1,nw+2) = CAK(ixOmin1:ixOmax1)/kappa_e
+    w(ixOmin1:ixOmax1,nw+3) = big_gamma(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+4) = Lum(ixOmin1:ixOmax1)
+
 
   end subroutine specialvar_output
 
@@ -717,7 +720,8 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'Trad Mdot OPAL CAK lambda Gamma Lum'
+    varnames = 'OPAL CAK Gamma Lum'
+    ! varnames = 'Trad Mdot OPAL CAK lambda Gamma Lum'
   end subroutine specialvarnames_output
 
 end module mod_usr

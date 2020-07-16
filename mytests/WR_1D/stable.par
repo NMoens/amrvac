@@ -7,8 +7,8 @@
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
-  saveprim         = F
-  nwauxio = 7
+  saveprim         = T
+  nwauxio = 4
 /
 
  &savelist
@@ -49,16 +49,16 @@
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 0
-   domain_nx1         = 2048
-   block_nx1          = 1024
+   domain_nx1         = 1024 !2048
+   block_nx1          = 512 !1024
    xprobmin1      = 1.d0
-   xprobmax1       = 51.d0
+   xprobmax1       = 26.d0 !51.d0
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
  /
 
  &paramlist
-  courantpar       = 0.4d0
+  courantpar       = 0.1d0
   !dtpar           = 1.d-4
   slowsteps = 100
  /
@@ -97,5 +97,5 @@
   M_star = 10.d0
   v_inf = 1.0d8 !40.d5
   Mdot = 1.d-5
-  fixed_lum = .false.
+  fixed_lum = .true.
 /

@@ -21,7 +21,7 @@
 /
 
  &stoplist
-   time_max = 400.d0
+   time_max = 4.d0
    dtmin = 1.0d-20
    !it_max = 500
 /
@@ -30,7 +30,7 @@
    time_stepper = 'twostep'
    time_integrator = 'IMEX_Midpoint'
    flux_scheme     = 20*'hll'
-   limiter         = 20*'minmod'
+   limiter         = 20*'cada'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
    check_small_values = .true.
@@ -40,7 +40,6 @@
 /
 
 &boundlist
-  nghostcells = 3
   typeboundary_min1 = 3*'special'
   typeboundary_max1 = 2*'noinflow','special'
   internalboundary = F
@@ -58,9 +57,9 @@
  /
 
  &paramlist
-  courantpar       = 0.1d0
+  courantpar       = 0.4d0
   !dtpar           = 1.d-4
-  slowsteps = 100
+  !slowsteps = 100
  /
 
  &rhd_list
@@ -97,5 +96,5 @@
   M_star = 10.d0
   v_inf = 1.0d8 !40.d5
   Mdot = 1.d-5
-  fixed_lum = .true.
+  fixed_lum = .false.
 /

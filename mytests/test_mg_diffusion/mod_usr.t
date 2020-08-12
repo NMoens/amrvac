@@ -18,8 +18,10 @@ contains
 
     use mod_constants
 
-    call set_coordinate_system("Cartesian_2D")
-
+    ! Choose coordinate system as n-D Cartesian
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
+    {^IFTHREED call set_coordinate_system("Cartesian_3D")}
 
     unit_velocity = 1.d0
     unit_numberdensity = 1.d0/((1.d0+4.d0*He_abundance)*mp_cgs)
@@ -69,13 +71,13 @@ contains
       w(ixG^S, e_) = one
       w(ixG^S,r_e) =  spotpattern(x,ixG^L,0.d0)
 
-      call fld_get_opacity(w, x, ixG^L, ix^L)
-      call fld_get_fluxlimiter(w, x, ixG^L, ix^L)
-      call fld_get_radflux(w, x, ixG^L, ix^L)
-      call fld_get_eddington(w, x, ixG^L, ix^L)
+      ! call fld_get_opacity(w, x, ixG^L, ix^L)
+      ! call fld_get_fluxlimiter(w, x, ixG^L, ix^L)
+      ! call fld_get_radflux(w, x, ixG^L, ix^L)
+      ! call fld_get_eddington(w, x, ixG^L, ix^L)
 
       if (fld_diff_scheme .eq. 'mg') then
-        call fld_get_diffcoef_central(w, x, ixG^L, ix^L)
+        call fld_get_diffcoef_central(w, w, x, ixG^L, ix^L)
         ! call set_mg_bounds(w, x, ixG^L, ix^L)
       endif
 
@@ -89,13 +91,10 @@ contains
       integer, intent(in) :: ixG^L
       double precision, intent(in) :: x(ixG^S, ndim), t1
       double precision :: e0(ixG^S)
-      integer i,j
+      integer ix^D
 
-      do i = ixGmin1,ixGmax1
-        do j = ixGmin2,ixGmax2
-        e0(i,j) =  2 + dexp(-8.d0 *dpi**two*t1*unit_time)*sin(two*dpi*x(i,j,1))*sin(two*dpi*x(i,j,2))
-        enddo
-      enddo
+      {^IFONED e0(ixG^S) =  2 + dexp(-8.d0 *dpi**two*t1*unit_time)*sin(two*dpi*x(ixG^S,1))}
+      {^IFTWOD e0(ixG^S) =  2 + dexp(-8.d0 *dpi**two*t1*unit_time)*sin(two*dpi*x(ixG^S,1))*sin(two*dpi*x(ixG^S,2))}
 
     end function spotpattern
 
@@ -127,10 +126,6 @@ contains
       w(ixI^S,rho_) = one
       w(ixI^S,mom(:)) = zero
       w(ixI^S,e_) = one
-
-      do i = ixOmin1, ixOmax1
-        print*, w(i,5,r_e)
-      enddo
 
     end subroutine constant_var
 

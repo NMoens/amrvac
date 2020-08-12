@@ -32,6 +32,9 @@ contains
     ! A routine for initial conditions is always required
     usr_init_one_grid => initial_conditions
 
+    ! Manually refine grid near shock
+    usr_refine_grid => refine_shock
+
     ! Specify other user routines, for a list see mod_usr_methods.t
     ! Boundary conditions
     usr_special_bc => boundary_conditions
@@ -212,5 +215,35 @@ contains
         error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
+
+  subroutine refine_shock(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+    ! Enforce additional refinement or coarsening
+    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+    ! you must set consistent values for integers refine/coarsen:
+    ! refine = -1 enforce to not refine
+    ! refine =  0 doesn't enforce anything
+    ! refine =  1 enforce refinement
+    ! coarsen = -1 enforce to not coarsen
+    ! coarsen =  0 doesn't enforce anything
+    ! coarsen =  1 enforce coarsen
+    use mod_global_parameters
+
+    integer, intent(in) :: igrid, level, ixG^L, ix^L
+    double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+    integer, intent(inout) :: refine, coarsen
+
+    !> Refine close to base
+    coarsen = -1
+    refine = -1
+
+    if (it .gt. slowsteps) then
+      if (any(x(ixG^S,1) < 2.d-1 .and. x(ixG^S,1) > -2.d-1)) refine=1
+    endif
+
+    if (it .gt. slowsteps) then
+      if (any(x(ixG^S,1) < 1.d-1 .and. x(ixG^S,1) > -1.d-1)) refine=1
+    endif
+
+  end subroutine refine_shock
 
 end module mod_usr

@@ -789,8 +789,8 @@ module mod_fld
     end do
 
     if (time_advance)then
-      call mg_restrict(mg, iw_to)
-      call mg_fill_ghost_cells(mg, iw_to)
+      call mg_restrict(mg, mg_iveps)
+      call mg_fill_ghost_cells(mg, mg_iveps)
     endif
 
     !This is mg_copy_to_tree from psb state
@@ -831,13 +831,11 @@ module mod_fld
           }
           {^IFTWOD
           mg%boxes(id)%cc(1:nc, 1:nc, mg_irhs) = &
-               f1 * mg%boxes(id)%cc(1:nc, 1:nc, mg_iphi) + &
-               f2 * mg%boxes(id)%cc(1:nc, 1:nc, mg_irhs)
+               -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, 1:nc, mg_iphi)
           }
           {^IFTHREED
           mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_irhs) = &
-               f1 * mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_iphi) + &
-               f2 * mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_irhs)
+               -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_iphi)
           }
        end do
     end do
@@ -1032,24 +1030,24 @@ module mod_fld
        }
     end do
 
-    print*, 'E_r in amrvac'
-    print*, psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_r_e)
-
-    print*, 'E_r in mg'
-    print*, mg%boxes(id)%cc(0:nc+1, mg_iphi)
-
-    print*, 'D in amrvac'
-    print*, psa(igrid)%w(ixMlo1-1:ixMhi1+1, i_diff_mg)
-
-    print*, 'D in mg'
-    print*, mg%boxes(id)%cc(0:nc+1, mg_iveps)
+    ! print*, 'E_r in amrvac'
+    ! print*, psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_r_e)
+    !
+    ! print*, 'E_r in mg'
+    ! print*, mg%boxes(id)%cc(0:nc+1, mg_iphi)
+    !
+    ! print*, 'D in amrvac'
+    ! print*, psa(igrid)%w(ixMlo1-1:ixMhi1+1, i_diff_mg)
+    !
+    ! print*, 'D in mg'
+    ! print*, mg%boxes(id)%cc(0:nc+1, mg_iveps)
 
     call phys_set_mg_bounds()
 
     call mg_apply_op(mg, mg_irhs)
 
-    print*, 'Operator in mg'
-    print*, mg%boxes(id)%cc(0:nc+1, mg_irhs)
+    ! print*, 'Operator in mg'
+    ! print*, mg%boxes(id)%cc(0:nc+1, mg_irhs)
 
     ! !This is mg_copy_from_tree_gc for psa state
     ! !!! replaces:: call mg_copy_from_tree_gc(mg_iphi, u_)

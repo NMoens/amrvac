@@ -26,7 +26,8 @@
 /
 
  &methodlist
-   time_integrator = 'twostep'
+   time_stepper = 'twostep'
+   time_integrator = 'IMEX_Midpoint'
    flux_scheme     = 20*'hll' !'tvdlf'/'hll'
    limiter         = 20*'minmod' !'minmod'/'koren'
    typesourcesplit = 'sfs'
@@ -37,7 +38,6 @@
 /
 
 &boundlist
-  !nghostcells  = 4
   typeboundary_min1 = 4*'cont'
   typeboundary_max1 = 4*'cont'
   internalboundary = T

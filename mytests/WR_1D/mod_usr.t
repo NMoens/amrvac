@@ -354,7 +354,7 @@ contains
     if (fixed_lum) then
       !> Fixed L = L_bound
       w(ixO^S,mom(1)) = w(ixO^S,mom(1)) &
-        + qdt*wCT(ixO^S,rho_)*L_bound/(4*dpi*x(ixO^S,1)**2*const_c)*k_cak(ixO^S)*unit_velocity
+        + qdt*wCT(ixO^S,rho_)*L_bound/(4*dpi*x(ixO^S,1)**2)/const_c*k_cak(ixO^S)*unit_velocity
     else
       !> Local flux
       call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
@@ -383,7 +383,7 @@ contains
 
     if (fixed_lum) then
       !> Fixed L = L_bound
-      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/(L_bound/(4*dpi*x(ixO^S,1)**2*const_c)*k_cak(ixO^S)*unit_velocity &
+      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/(L_bound/(4*dpi*x(ixO^S,1)**2)/const_c*k_cak(ixO^S)*unit_velocity &
       -const_G*mass/radius(ixI^S)**2*(unit_time**2/unit_length))))
     else
       !> Local flux

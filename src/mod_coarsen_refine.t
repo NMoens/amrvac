@@ -25,9 +25,7 @@ contains
     use mod_amr_fct
     use mod_space_filling_curve
     use mod_load_balance
-    {^NOONED
     use mod_multigrid_coupling
-    }
 
     integer :: iigrid, igrid, ipe, igridCo, ipeCo, level, ic^D
     integer, dimension(2^D&) :: igridFi, ipeFi
@@ -138,7 +136,7 @@ contains
        end do
     end do
 
-    ! A crash occurs in later MPI_WAITALL when initial condition comsumes too 
+    ! A crash occurs in later MPI_WAITALL when initial condition comsumes too
     ! much time to filling new blocks with both gfortran and intel fortran compiler.
     ! This barrier cure this problem
     !TODO to find the reason
@@ -169,9 +167,7 @@ contains
        call getbc(global_time,0.d0,ps,1,nwflux+nwaux)
     end if
 
-    {^NOONED
     if (use_multigrid) call mg_update_refinement(n_coarsen, n_refine)
-    }
 
     if (associated(usr_after_refine)) then
        call usr_after_refine(n_coarsen, n_refine)
@@ -335,7 +331,7 @@ contains
           igridFi=child_igrid(ic^D)
           ipeFi=child_ipe(ic^D)
           !if (ipeFi==mype) then
-          !   ! remove solution space of child      
+          !   ! remove solution space of child
           !   call dealloc_node(igridFi)
           !end if
           {end do\}

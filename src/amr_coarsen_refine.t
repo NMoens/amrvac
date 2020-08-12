@@ -5,9 +5,7 @@ subroutine amr_coarsen_refine
   use mod_ghostcells_update
   use mod_usr_methods, only: usr_after_refine
   use mod_amr_fct
-  {^NOONED
   use mod_multigrid_coupling
-  }
 
   integer :: iigrid, igrid, ipe, igridCo, ipeCo, level, ic^D
   integer, dimension(2^D&) :: igridFi, ipeFi
@@ -148,9 +146,7 @@ subroutine amr_coarsen_refine
      call getbc(global_time,0.d0,ps,1,nwflux+nwaux)
   end if
 
-  {^NOONED
   if (use_multigrid) call mg_update_refinement(n_coarsen, n_refine)
-  }
 
   if (associated(usr_after_refine)) then
      call usr_after_refine(n_coarsen, n_refine)

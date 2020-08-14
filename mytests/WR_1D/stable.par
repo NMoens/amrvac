@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./stable/WR'
+  base_filename='./stable/Res512'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -16,21 +16,21 @@
    itsave(1,2)     = 0
    !ditsave_dat     = 1
    !ditsave_log     = 100
-   dtsave_dat     = 1.d0
+   dtsave_dat     = 3.d0
    dtsave_log     = 5.d-2
 /
 
  &stoplist
-   time_max = 4.d0
+   time_max = 30.d0
    dtmin = 1.0d-20
    !it_max = 500
 /
 
  &methodlist
-   time_stepper = 'twostep'
-   time_integrator = 'IMEX_Midpoint'
+   time_stepper = 'onestep'
+   time_integrator = 'IMEX_Euler'
    flux_scheme     = 20*'hll'
-   limiter         = 20*'cada'
+   limiter         = 20*'minmod'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
    check_small_values = .true.
@@ -48,18 +48,18 @@
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 0
-   domain_nx1         = 1024 !2048
-   block_nx1          = 512 !1024
+   domain_nx1         = 512
+   block_nx1          = 512
    xprobmin1      = 1.d0
-   xprobmax1       = 26.d0 !51.d0
+   xprobmax1       = 26.d0
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
  /
 
  &paramlist
-  courantpar       = 0.4d0
+  courantpar       = 0.4d0 !0.4d0
   !dtpar           = 1.d-4
-  !slowsteps = 100
+  slowsteps = 100
  /
 
  &rhd_list
@@ -77,8 +77,8 @@
  &fld_list
   fld_Radforce_split = .false.
   fld_opacity_law = 'special'
-  fld_fluxlimiter = 'Minerbo'
-  fld_diff_tol = 1.d-4
+  fld_fluxlimiter = 'Pomraning'
+  fld_diff_tol = 1.d-6
   /
 
  &wind_list
@@ -90,11 +90,11 @@
   !it_start_cak = 10
   rho_bound = 1.d-8 !3.d-7
   T_bound = 3.2d5
-  Gamma_e_bound = 0.40d0
+  Gamma_e_bound = 0.4d0 !0.40d0
   kappa_e = 0.2d0
   R_star = 1.d0
   M_star = 10.d0
-  v_inf = 1.0d8 !40.d5
+  v_inf = 1.d8
   Mdot = 1.d-5
   fixed_lum = .false.
 /

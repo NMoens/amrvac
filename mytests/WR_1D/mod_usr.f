@@ -218,7 +218,7 @@ contains
 
     double precision :: kappa(ixImin1:ixImax1), Temp(ixImin1:ixImax1)
     double precision :: Temp0, rho0, T_out, n
-    double precision :: Local_gradE(ixImin1:ixImax1)
+    double precision :: Local_gradE(ixImin1:ixImax1), F_adv
     double precision :: Local_tauout(ixBmin1:ixBmax1)
     double precision :: Local_Tout(ixBmin1:ixBmax1)
 
@@ -255,8 +255,15 @@ contains
         kappa(ix1) = kappa(ixBmax1+1)
       enddo
 
-      Local_gradE(ixImin1:ixImax1) = -F_bound*3*kappa(ixImin1:ixImax1)*w(&
-         ixImin1:ixImax1,rho_)*unit_velocity/const_c
+      F_adv = 4.d0/3.d0*(w(ixBmax1,mom(1))/w(ixBmax1,rho_))*w(ixBmax1,&
+         r_e) * 4*dpi*xprobmin1**2
+      if (F_adv .ne. F_adv) F_adv = 0.d0
+
+      ! print*, w(1:5,i_diff_mg)
+
+      Local_gradE(ixImin1:ixImax1) = -(F_bound-&
+         F_adv)*3*kappa(ixImin1:ixImax1)*w(ixImin1:ixImax1,&
+         rho_)*unit_velocity/const_c
       gradE = Local_gradE(nghostcells)
 
       ! print*, gradE
@@ -290,7 +297,9 @@ contains
         w(ix1,r_e) = 2*w(ix1-1,r_e) - w(ix1-2,r_e)
       enddo
 
-      ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
+
+      w(ixBmin1:ixBmax1,r_e) = const_rad_a*(Local_Tout(&
+         ixBmin1:ixBmax1)*unit_temperature)**4.d0/unit_pressure
 
       ! print*, it, 'top---------------------------------------'
       ! print*, Local_tauout(ixBmax1-5:ixBmax1,5)
@@ -711,6 +720,8 @@ contains
     w(ixOmin1:ixOmax1,nw+2) = CAK(ixOmin1:ixOmax1)/kappa_e
     w(ixOmin1:ixOmax1,nw+3) = big_gamma(ixOmin1:ixOmax1)
     w(ixOmin1:ixOmax1,nw+4) = Lum(ixOmin1:ixOmax1)
+    ! w(ixO^S,nw+4) = lambda(ixO^S)
+
 
 
   end subroutine specialvar_output

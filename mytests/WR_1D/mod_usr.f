@@ -115,6 +115,8 @@ contains
     print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
     ! stop
 
+    print*, unit_time
+
   end subroutine initglobaldata_usr
 
   !> Read parameters from a file
@@ -378,21 +380,18 @@ contains
     w(ixOmin1:ixOmax1,r_e) = w(ixOmin1:ixOmax1,&
        r_e) + qdt*ppsource(ixOmin1:ixOmax1,r_e) !> TROUBLEMAKER
 
-    call get_kappa_CAK(ixImin1,ixImax1,ixOmin1,ixOmax1,wCT,x,k_cak)
-
-    if (fixed_lum) then
-      !> Fixed L = L_bound
-      w(ixOmin1:ixOmax1,mom(1)) = w(ixOmin1:ixOmax1,&
-         mom(1)) + qdt*wCT(ixOmin1:ixOmax1,&
-         rho_)*L_bound/(4*dpi*x(ixOmin1:ixOmax1,&
-         1)**2)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity
-    else
-      !> Local flux
-      call fld_get_radflux(wCT, x, ixImin1,ixImax1, ixOmin1,ixOmax1, rad_flux)
-      w(ixOmin1:ixOmax1,mom(1)) = w(ixOmin1:ixOmax1,&
-         mom(1)) + qdt*wCT(ixOmin1:ixOmax1,rho_)*rad_flux(ixOmin1:ixOmax1,&
-         1)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity
-    endif
+    ! call get_kappa_CAK(ixI^L,ixO^L,wCT,x,k_cak)
+    !
+    ! if (fixed_lum) then
+    !   !> Fixed L = L_bound
+    !   w(ixO^S,mom(1)) = w(ixO^S,mom(1)) &
+    !     + qdt*wCT(ixO^S,rho_)*L_bound/(4*dpi*x(ixO^S,1)**2)/const_c*k_cak(ixO^S)*unit_velocity
+    ! else
+    !   !> Local flux
+    !   call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
+    !   w(ixO^S,mom(1)) = w(ixO^S,mom(1)) &
+    !     + qdt*wCT(ixO^S,rho_)*rad_flux(ixO^S,1)/const_c*k_cak(ixO^S)*unit_velocity
+    ! endif
 
     ! print*, k_cak(10,10)
 
@@ -446,6 +445,9 @@ contains
     double precision :: rad_flux(ixOmin1:ixOmax1,1:ndir)
     double precision :: pth(ixImin1:ixImax1),v(ixOmin1:ixOmax1,1:ndim)
     double precision :: radius(ixOmin1:ixOmax1),  pert(ixOmin1:ixOmax1)
+
+    double precision :: edd(ixOmin1:ixOmax1,1:ndim,1:ndim)
+
     integer :: rdir
 
     source(ixOmin1:ixOmax1,1:nw) = zero
@@ -485,9 +487,10 @@ contains
 
     ! Not sure about this one
     if (rhd_radiation_force) then
+      call fld_get_eddington(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, edd)
       source(ixOmin1:ixOmax1,r_e) = source(ixOmin1:ixOmax1,&
          r_e) + two*v(ixOmin1:ixOmax1,rdir)*w(ixOmin1:ixOmax1,&
-         r_e)/(3*radius(ixOmin1:ixOmax1))
+         r_e)*edd(ixOmin1:ixOmax1,1,1)/radius(ixOmin1:ixOmax1)
     endif
 
   end subroutine PseudoPlanarSource
@@ -511,7 +514,8 @@ contains
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     ! call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
-    CAK(ixOmin1:ixOmax1) = 0.d0
+
+    ! CAK(ixO^S) = 0.d0
 
     !> Add OPAL and CAK for total opacity
     kappa(ixOmin1:ixOmax1) = OPAL(ixOmin1:ixOmax1) + CAK(ixOmin1:ixOmax1)

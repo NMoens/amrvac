@@ -415,6 +415,9 @@ contains
     double precision :: rad_flux(ixO^S,1:ndir)
     double precision :: pth(ixI^S),v(ixO^S,1:ndim)
     double precision :: radius(ixO^S),  pert(ixO^S)
+
+    double precision :: edd(ixO^S,1:ndim,1:ndim)
+
     integer :: rdir
 
     source(ixO^S,1:nw) = zero
@@ -448,7 +451,8 @@ contains
 
     ! Not sure about this one
     if (rhd_radiation_force) then
-      source(ixO^S,r_e) = source(ixO^S,r_e) + two*v(ixO^S,rdir)*w(ixO^S,r_e)/(3*radius(ixO^S))
+      call fld_get_eddington(w, x, ixI^L, ixO^L, edd)
+      source(ixO^S,r_e) = source(ixO^S,r_e) + two*v(ixO^S,rdir)*w(ixO^S,r_e)*edd(ixO^S,1,1)/radius(ixO^S)
     endif
 
   end subroutine PseudoPlanarSource

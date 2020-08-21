@@ -27,8 +27,8 @@
 /
 
  &methodlist
-   time_stepper = 'twostep'
-   time_integrator = 'IMEX_Midpoint'
+   time_stepper = 'onestep'
+   time_integrator = 'IMEX_Euler'
    flux_scheme     = 20*'hll'
    limiter         = 20*'koren'
    !tvdlfeps = 0.d0
@@ -44,9 +44,10 @@
 /
 
  &meshlist
-   refine_max_level   = 3
+   refine_criterion   = 0
+   refine_max_level   = 4
    domain_nx1         = 64
-   block_nx1          = 64
+   block_nx1          = 16
    xprobmin1       =  0.d0
    xprobmax1       =  2.d0
    iprob=1

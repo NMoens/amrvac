@@ -22,7 +22,8 @@ x_L = 1 - r_L[0]/r_L
 
 # plt.show()
 
-A = np.loadtxt('stable/2test0050.blk',skiprows=3)
+# A = np.loadtxt('stable/2test0050.blk',skiprows=3)
+A = np.loadtxt('stable/Cak_in_diff0040.blk',skiprows=3)
 
 r_S = np.transpose(A)[0]
 rho_S = np.transpose(A)[1]
@@ -53,7 +54,7 @@ unit_pressure = 3000000000
 a_rad = 7.5646e-15
 T_U = (E_U*unit_pressure/a_rad)**0.25
 
-Mdot_U = 4*np.pi*rho_U*3.e-7*v_U*1e8*(r_S*R_sun)**2
+Mdot_U = 4*np.pi*rho_U*3.e-7*v_U*1e8*(r_U*R_sun)**2
 Mdot_U = Mdot_U/M_sun*year
 
 x_U = 1 - r_U[0]/r_U
@@ -130,7 +131,9 @@ plt.legend()
 
 
 ind = 1
-file = 'unstable/2test'
+# file = 'unstable/2test'
+# file = 'stable/2test'
+file = 'stable/Cak_in_diff'
 
 All_E = []
 for i in range(10):
@@ -138,7 +141,7 @@ for i in range(10):
     E_S = np.transpose(A)[ind]
     All_E.append(E_S)
     print('read ', i)
-for i in range(10,100):
+for i in range(10,47):
     A = np.loadtxt(file + '00'+str(i)+'.blk',skiprows=3)
     E_S = np.transpose(A)[ind]
     All_E.append(E_S)

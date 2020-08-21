@@ -40,6 +40,9 @@ contains
     usr_aux_output    => specialvar_output
     usr_add_aux_names => specialvarnames_output
 
+    ! Refine mesh for testing purposes
+    usr_refine_grid => my_refinement
+
     ! Active the physics module
     call rhd_activate()
 
@@ -100,8 +103,30 @@ contains
 
   !==========================================================================================
 
-    ! Extra routines can be placed here
-    ! ...
+  subroutine my_refinement(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+    ! Enforce additional refinement or coarsening
+    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+    ! you must set consistent values for integers refine/coarsen:
+    ! refine = -1 enforce to not refine
+    ! refine =  0 doesn't enforce anything
+    ! refine =  1 enforce refinement
+    ! coarsen = -1 enforce to not coarsen
+    ! coarsen =  0 doesn't enforce anything
+    ! coarsen =  1 enforce coarsen
+    use mod_global_parameters
+
+    integer, intent(in) :: igrid, level, ixG^L, ix^L
+    double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+    integer, intent(inout) :: refine, coarsen
+
+    !> Refine close to base
+    coarsen = -1
+
+    if (any(x(ix^S,1) < 0.5d0)) refine=1
+    ! if (any(x(ix^S,1) < 1.0d0)) refine=1
+    ! if (any(x(ix^S,1) < 1.5d0)) refine=1
+
+  end subroutine my_refinement
 
   !==========================================================================================
 

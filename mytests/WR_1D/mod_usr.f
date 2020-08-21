@@ -20,7 +20,7 @@ module mod_usr
   double precision :: T_bound, R_star, M_star
 
   double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
-  logical :: fixed_lum
+  logical :: fixed_lum, Cak_in_D
 
 contains
 
@@ -55,7 +55,7 @@ contains
     usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
-    usr_get_dt => get_dt_cak
+    ! usr_get_dt => get_dt_cak
 
     ! Refine mesh near base
     ! usr_refine_grid => refine_base
@@ -115,8 +115,6 @@ contains
     print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
     ! stop
 
-    print*, unit_time
-
   end subroutine initglobaldata_usr
 
   !> Read parameters from a file
@@ -127,7 +125,7 @@ contains
 
     namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound,&
         kappa_e, T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound,&
-        it_start_cak, fixed_lum
+        it_start_cak, fixed_lum, Cak_in_D
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -277,7 +275,8 @@ contains
     case(2)
 
       !> Compute mean kappa in outer blocks
-      call OPAL_and_CAK(ixImin1,ixImax1,ixImin1,ixImax1,w,x,kappa)
+      call get_kappa_OPAL(ixImin1,ixImax1,ixImin1,ixImax1,w,x,kappa)
+
       kappa_out = kappa(ixImax1-nghostcells)
       ! kappa_out = kappa_e
 
@@ -293,6 +292,7 @@ contains
       T_out = Local_Tout(ixBmin1)
 
       T_out = max(1.5d4/unit_temperature, T_out)
+      ! T_out = max(3.5d4/unit_temperature, T_out)
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
       do ix1 = ixBmin1,ixBmax1
@@ -380,18 +380,24 @@ contains
     w(ixOmin1:ixOmax1,r_e) = w(ixOmin1:ixOmax1,&
        r_e) + qdt*ppsource(ixOmin1:ixOmax1,r_e) !> TROUBLEMAKER
 
-    ! call get_kappa_CAK(ixI^L,ixO^L,wCT,x,k_cak)
-    !
-    ! if (fixed_lum) then
-    !   !> Fixed L = L_bound
-    !   w(ixO^S,mom(1)) = w(ixO^S,mom(1)) &
-    !     + qdt*wCT(ixO^S,rho_)*L_bound/(4*dpi*x(ixO^S,1)**2)/const_c*k_cak(ixO^S)*unit_velocity
-    ! else
-    !   !> Local flux
-    !   call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
-    !   w(ixO^S,mom(1)) = w(ixO^S,mom(1)) &
-    !     + qdt*wCT(ixO^S,rho_)*rad_flux(ixO^S,1)/const_c*k_cak(ixO^S)*unit_velocity
-    ! endif
+    if (.not. Cak_in_D) then
+      call get_kappa_CAK(ixImin1,ixImax1,ixOmin1,ixOmax1,wCT,x,k_cak)
+
+      if (fixed_lum) then
+        !> Fixed L = L_bound
+        w(ixOmin1:ixOmax1,mom(1)) = w(ixOmin1:ixOmax1,&
+           mom(1)) + qdt*wCT(ixOmin1:ixOmax1,&
+           rho_)*L_bound/(4*dpi*x(ixOmin1:ixOmax1,&
+           1)**2)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity
+      else
+        !> Local flux
+        call fld_get_radflux(wCT, x, ixImin1,ixImax1, ixOmin1,ixOmax1,&
+            rad_flux)
+        w(ixOmin1:ixOmax1,mom(1)) = w(ixOmin1:ixOmax1,&
+           mom(1)) + qdt*wCT(ixOmin1:ixOmax1,rho_)*rad_flux(ixOmin1:ixOmax1,&
+           1)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity
+      endif
+    endif
 
     ! print*, k_cak(10,10)
 
@@ -513,9 +519,11 @@ contains
     call get_kappa_OPAL(ixImin1,ixImax1,ixOmin1,ixOmax1,w,x,OPAL)
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
-    ! call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
-
-    ! CAK(ixO^S) = 0.d0
+    if (Cak_in_D) then
+      call get_kappa_CAK(ixImin1,ixImax1,ixOmin1,ixOmax1,w,x,CAK)
+    else
+      CAK(ixOmin1:ixOmax1) = 0.d0
+    endif
 
     !> Add OPAL and CAK for total opacity
     kappa(ixOmin1:ixOmax1) = OPAL(ixOmin1:ixOmax1) + CAK(ixOmin1:ixOmax1)
@@ -594,7 +602,7 @@ contains
 
     where (xx(ixOmin1:ixOmax1) .le. cak_x0)
       alpha(ixOmin1:ixOmax1) = cak_base
-    elsewhere (x(ixOmin1:ixOmax1,1) .le. cak_x1)
+    elsewhere (xx(ixOmin1:ixOmax1) .le. cak_x1)
       alpha(ixOmin1:ixOmax1) = cak_base + (cak_a - &
          cak_base)*(xx(ixOmin1:ixOmax1) - cak_x0)/(cak_x1 - cak_x0)
     endwhere
@@ -603,10 +611,9 @@ contains
        *(gradv(ixOmin1:ixOmax1)*unit_velocity/(w(ixOmin1:ixOmax1,&
        rho_)*const_c*cak_Q*kappa_e))**alpha(ixOmin1:ixOmax1)
 
-    if (it .le. it_start_cak) then
-      kappa(ixOmin1:ixOmax1) = kappa(ixOmin1:ixOmax1)*dexp(-w(ixOmin1:ixOmax1,&
-         rho_)*kappa_e)
-    endif
+    ! if (it .le. it_start_cak) then
+    !   kappa(ixO^S) = kappa(ixO^S)*dexp(-w(ixO^S,rho_)*kappa_e)
+    ! endif
 
     !> test with no cak
     ! kappa(ixO^S) = 0.d0

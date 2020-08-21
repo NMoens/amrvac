@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./stable/2test'
+  base_filename='./stable/Cak_in_diff'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -48,8 +48,8 @@
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 0
-   domain_nx1         = 1024
-   block_nx1          = 1024
+   domain_nx1         = 2000
+   block_nx1          = 2000
    xprobmin1      = 1.d0
    xprobmax1       = 6.d0
    refine_threshold   = 20*0.5d0
@@ -90,11 +90,12 @@
   !it_start_cak = 10
   rho_bound = 3.d-7 !1.d-8 !3.d-7
   T_bound = 3.2d5
-  Gamma_e_bound = 0.15d0 !0.40d0
+  Gamma_e_bound = 0.2d0 !0.40d0
   kappa_e = 0.2d0
   R_star = 1.d0
   M_star = 10.d0
   v_inf = 1.d8
   Mdot = 1.d-5
   fixed_lum = .false.
+  Cak_in_D = .true.
 /

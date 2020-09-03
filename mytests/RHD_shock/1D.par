@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./test/shock'
+  base_filename='./convergence/Midpoint_mp5_800'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -29,7 +29,7 @@
    time_stepper = 'twostep'
    time_integrator = 'IMEX_Midpoint'
    flux_scheme     = 20*'hll'
-   limiter         = 20*'minmod'
+   limiter         = 20*'mp5'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
    small_values_method = 'replace'
@@ -44,10 +44,10 @@
 /
 
  &meshlist
-   refine_max_level   = 2
-   refine_criterion   = 0
-   domain_nx1         = 256
-   block_nx1          = 8
+   refine_max_level   = 1
+   refine_criterion   = 3
+   domain_nx1         = 800
+   block_nx1          = 100
    xprobmin1       = -0.5d0
    xprobmax1       = 0.5d0
    refine_threshold   = 20*0.5d0
@@ -57,7 +57,7 @@
  &paramlist
   courantpar       = 0.5d0
   !dtpar           = 2.d-3
-  slowsteps = 10
+  slowsteps = 100
  /
 
  &rhd_list

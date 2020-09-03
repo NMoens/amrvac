@@ -3,11 +3,12 @@
 /
 
 &filelist
-  base_filename='./output/wave_tau_thick'
+  !base_filename='./convergence/SP_weno5_3200'
   autoconvert      = T
-  convert_type     = 'vtuBCCmpi'
+  convert_type     = 'oneblock'
+  level_io         = 1
   saveprim         = F
-  nwauxio = 7
+  nwauxio = 0
 /
 
  &savelist
@@ -26,10 +27,10 @@
 /
 
  &methodlist
-   time_stepper = 'twostep'
-   time_integrator = 'IMEX_Midpoint'
+   time_stepper = 'onestep'
+   time_integrator = 'IMEX_SP'
    flux_scheme     = 20*'hll' !'tvdlf'/'hll'
-   limiter         = 20*'minmod' !'minmod'/'koren'
+   limiter         = 20*'weno5' !'minmod'/'koren'
    typesourcesplit = 'sfs'
    check_small_values = .true.
    small_values_method = 'replace'
@@ -45,8 +46,8 @@
 
  &meshlist
    refine_max_level   = 1
-   domain_nx1         = 256
-   block_nx1          = 32
+   domain_nx1         = 3200
+   block_nx1          = 50
    xprobmin1       = 0.d0
    xprobmax1       = 20.d0
  /

@@ -3,12 +3,12 @@
 /
 
 &filelist
-  base_filename='./1D_output/Euler'
+  base_filename='./test/ARS3'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
   saveprim         = F
-  nwauxio          = 0
+  nwauxio          = 2
 /
 
  &savelist
@@ -27,14 +27,14 @@
 /
 
  &methodlist
-   time_stepper = 'onestep'
-   time_integrator = 'IMEX_Euler'
+   time_stepper = 'threestep'
+   time_integrator = 'IMEX_ARS3'
    flux_scheme     = 20*'hll'
    limiter         = 20*'minmod'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
    check_small_values = .true.
-   small_values_method = 'error'
+   small_values_method = 'replace'
    small_pressure = 1.d-50
    small_density = 1.d-50
 /
@@ -48,7 +48,7 @@
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 3
-   domain_nx1         = 512
+   domain_nx1         = 128 !512
    block_nx1          = 128
    xprobmin1       = 0.d0
    xprobmax1       = 1.d0
@@ -58,8 +58,8 @@
 
  &paramlist
   ! courantpar       = 0.3d0
-  dtpar = 1.d-9 !1.d-8
-  slowsteps = 10
+  dtpar = 1.d-11 !1.d-8
+  !slowsteps = 10
  /
 
  &rhd_list
@@ -83,14 +83,14 @@
   fld_kappa0 = 0.4d0
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
-  fld_fluxlimiter = 'Pomraning'
+  fld_fluxlimiter = 'Minerbo'
   fld_diff_tol = 1.d-5
   /
 
  &front_list
-  Er0 = 1.d-6 !> 1.d-3 seems to work and give correct results... somehow
-  Er1 = 1.d0
+  Er0 = 1.d-22 !1.d-6 !> 1.d-3 seems to work and give correct results... somehow
+  Er1 = 1.d0 !1.d0
   rho0 = 0.025d0
   l1 = 1.d-1
-  l2 = 1.d-5 !-5
+  l2 = 0.5d-1 !-5
   /

@@ -719,7 +719,7 @@ module mod_fld
     use mod_forest
     use mod_ghostcells_update
     use mod_multigrid_coupling
-    use mod_physics, only: phys_set_mg_bounds
+    use mod_physics, only: phys_set_mg_bounds, phys_req_diagonal
 
     type(state), target :: psa(max_blocks)
     type(state), target :: psb(max_blocks)
@@ -891,6 +891,9 @@ module mod_fld
             mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_from)
        }
     end do
+
+    ! enforce boundary conditions for psa
+    call getbc(qtC,0.d0,psa,1,nwflux+nwaux,phys_req_diagonal)
 
   end subroutine Diffuse_E_rad_mg
 
@@ -1262,7 +1265,7 @@ module mod_fld
     !> Beginning of module substracted wCT Ekin
     !> So now add wCT Ekin
     ! if (.not. block%e_is_internal) then
-      w(ixO^S,iw_e) = w(ixO^S,iw_e) + half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
+    w(ixO^S,iw_e) = w(ixO^S,iw_e) + half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
     ! else
     !   w(ixO^S,iw_e) = w(ixO^S,iw_e)
     ! endif

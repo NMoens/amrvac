@@ -78,24 +78,27 @@ contains
     double precision :: temp(ixI^S), pth(ixI^S)
     double precision :: kappa(ixO^S), fld_R(ixO^S), lambda(ixO^S)
 
-    ! v0 = 0.d0
+    v0 = 0.d0
 
     temp(ixI^S) = T0 + (T1-T0)*dexp(-x(ixI^S,1)**2.d0/(2*wdth**2))
+
     w(ixI^S,rho_) = rho0*T0/temp(ixI^S) &
     + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) &
     * unit_temperature**3/unit_density &
     * (T0**4.d0/temp(ixI^S) - temp(ixI^S)**3.d0)
+
     w(ixI^S,mom(:)) = 0.d0
     w(ixI^S,mom(1)) = w(ixI^S,rho_)*v0
+
     pth(ixI^S) = temp(ixI^S)*w(ixI^S,rho_)
     w(ixI^S,e_) = pth(ixI^S)/(rhd_gamma-1.d0) + half*w(ixI^S,rho_)*v0**2
     w(ixI^S,r_e) = const_rad_a*(temp(ixI^S)*unit_temperature)**4.d0/unit_pressure
 
-    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
-
-    w(ixO^S,i_test) = lambda(ixO^S)
-    w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
+    ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+    !
+    ! w(ixO^S,i_test) = lambda(ixO^S)
+    ! w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
 

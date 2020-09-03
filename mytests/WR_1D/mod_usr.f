@@ -114,6 +114,9 @@ contains
 
     print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
     ! stop
+    print*, 'unit_density', unit_density
+    print*, 'unit_time', unit_time
+    print*, 'unit_pressure', unit_pressure
 
   end subroutine initglobaldata_usr
 

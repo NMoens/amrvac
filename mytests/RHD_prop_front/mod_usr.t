@@ -131,11 +131,11 @@ contains
     step(ixI^S) = (  1.d0-erf(  (x(ixI^S,1)-l1)/l2    )  )/2.d0
     w(ixI^S,r_e) = w(ixI^S,r_e) + step(ixI^S)*Er1
 
-    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
-
-    w(ixO^S,i_test) = fld_R(ixO^S)
-    w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
+    ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+    !
+    ! w(ixO^S,i_test) = fld_R(ixO^S)
+    ! w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
 
@@ -232,19 +232,19 @@ contains
     integer :: idir
 
     step(ixI^S) = (  1.d0-erf((x(ixI^S,1)-l1-global_time*const_c/unit_velocity)/l2    )  )/2.d0
-    w(ixI^S,nw+1) = step(ixI^S)
+    ! w(ixI^S,nw+1) = step(ixI^S)
 
     call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
-    w(ixO^S,nw+2) = rad_flux(ixO^S,1)
+    ! w(ixO^S,nw+2) = rad_flux(ixO^S,1)
 
-    w(ixO^S,nw+3) = const_c/unit_velocity*w(ixO^S,r_e)
+    ! w(ixO^S,nw+3) = const_c/unit_velocity*w(ixO^S,r_e)
 
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
-    w(ixO^S,nw+4) = lambda(ixO^S)
-    w(ixO^S,nw+5) = fld_R(ixO^S)
+    ! w(ixO^S,nw+4) = lambda(ixO^S)
+    ! w(ixO^S,nw+5) = fld_R(ixO^S)
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-    w(ixO^S,nw+6) = kappa(ixO^S)
+    ! w(ixO^S,nw+6) = kappa(ixO^S)
 
     normgrad2(ixO^S) = 0.d0 !smalldouble
 
@@ -254,11 +254,11 @@ contains
       normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
     end do
 
-    w(ixO^S,nw+7) = normgrad2(ixO^S)
+    ! w(ixO^S,nw+7) = normgrad2(ixO^S)
 
     call gradient(rad_e,ixI^L,ixO^L,1,grE1)
 
-    w(ixO^S,nw+8) = grE1(ixO^S)
+    ! w(ixO^S,nw+8) = grE1(ixO^S)
 
     ! if (x(1,1,1) .lt. xprobmin1) then
     !   print*, 'Er', w(1:5,5,r_e)
@@ -271,6 +271,11 @@ contains
     !   stop
     ! endif
 
+    w(ixI^S,nw+1) = step(ixI^S)
+    w(ixO^S,nw+2) = lambda(ixO^S)
+    ! w(ixO^S,nw+3) = fld_R(ixO^S)
+
+
   end subroutine specialvar_output
 
   subroutine specialvarnames_output(varnames)
@@ -278,7 +283,8 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'step F1 cE lambda R kappa ngrd grE1'
+    ! varnames = 'step F1 cE lambda R kappa ngrd grE1'
+    varnames = 'step lambda'
   end subroutine specialvarnames_output
 
 end module mod_usr

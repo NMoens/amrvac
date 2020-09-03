@@ -534,7 +534,7 @@ contains
 
     where (xx(ixO^S) .le. cak_x0)
       alpha(ixO^S) = cak_base
-    elsewhere (x(ixO^S,1) .le. cak_x1)
+    elsewhere (xx(ixO^S) .le. cak_x1)
       alpha(ixO^S) = cak_base + (cak_a - cak_base)&
       *(cak_x0 - xx(ixO^S))/(cak_x0 - cak_x1)
     elsewhere

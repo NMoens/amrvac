@@ -136,13 +136,11 @@ contains
     w(ixImin1:ixImax1,r_e) = w(ixImin1:ixImax1,&
        r_e) + step(ixImin1:ixImax1)*Er1
 
-    call fld_get_opacity(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, kappa)
-    call fld_get_fluxlimiter(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, lambda,&
-        fld_R)
-
-    w(ixOmin1:ixOmax1,i_test) = fld_R(ixOmin1:ixOmax1)
-    w(ixOmin1:ixOmax1,i_diff_mg) = (const_c/unit_velocity)*lambda(&
-       ixOmin1:ixOmax1)/(kappa(ixOmin1:ixOmax1)*w(ixOmin1:ixOmax1,rho_))
+    ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+    !
+    ! w(ixO^S,i_test) = fld_R(ixO^S)
+    ! w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
 
@@ -237,20 +235,20 @@ contains
 
     step(ixImin1:ixImax1) = (  1.d0-erf((x(ixImin1:ixImax1,&
        1)-l1-global_time*const_c/unit_velocity)/l2    )  )/2.d0
-    w(ixImin1:ixImax1,nw+1) = step(ixImin1:ixImax1)
+    ! w(ixI^S,nw+1) = step(ixI^S)
 
     call fld_get_radflux(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, rad_flux)
-    w(ixOmin1:ixOmax1,nw+2) = rad_flux(ixOmin1:ixOmax1,1)
+    ! w(ixO^S,nw+2) = rad_flux(ixO^S,1)
 
-    w(ixOmin1:ixOmax1,nw+3) = const_c/unit_velocity*w(ixOmin1:ixOmax1,r_e)
+    ! w(ixO^S,nw+3) = const_c/unit_velocity*w(ixO^S,r_e)
 
     call fld_get_fluxlimiter(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, lambda,&
         fld_R)
-    w(ixOmin1:ixOmax1,nw+4) = lambda(ixOmin1:ixOmax1)
-    w(ixOmin1:ixOmax1,nw+5) = fld_R(ixOmin1:ixOmax1)
+    ! w(ixO^S,nw+4) = lambda(ixO^S)
+    ! w(ixO^S,nw+5) = fld_R(ixO^S)
 
     call fld_get_opacity(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, kappa)
-    w(ixOmin1:ixOmax1,nw+6) = kappa(ixOmin1:ixOmax1)
+    ! w(ixO^S,nw+6) = kappa(ixO^S)
 
     normgrad2(ixOmin1:ixOmax1) = 0.d0 !smalldouble
 
@@ -261,11 +259,11 @@ contains
          grad_r_e(ixOmin1:ixOmax1)**2
     end do
 
-    w(ixOmin1:ixOmax1,nw+7) = normgrad2(ixOmin1:ixOmax1)
+    ! w(ixO^S,nw+7) = normgrad2(ixO^S)
 
     call gradient(rad_e,ixImin1,ixImax1,ixOmin1,ixOmax1,1,grE1)
 
-    w(ixOmin1:ixOmax1,nw+8) = grE1(ixOmin1:ixOmax1)
+    ! w(ixO^S,nw+8) = grE1(ixO^S)
 
     ! if (x(1,1,1) .lt. xprobmin1) then
     !   print*, 'Er', w(1:5,5,r_e)
@@ -278,6 +276,11 @@ contains
     !   stop
     ! endif
 
+    w(ixImin1:ixImax1,nw+1) = step(ixImin1:ixImax1)
+    w(ixOmin1:ixOmax1,nw+2) = lambda(ixOmin1:ixOmax1)
+    ! w(ixO^S,nw+3) = fld_R(ixO^S)
+
+
   end subroutine specialvar_output
 
   subroutine specialvarnames_output(varnames)
@@ -285,7 +288,8 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'step F1 cE lambda R kappa ngrd grE1'
+    ! varnames = 'step F1 cE lambda R kappa ngrd grE1'
+    varnames = 'step lambda'
   end subroutine specialvarnames_output
 
 end module mod_usr

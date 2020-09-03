@@ -3,9 +3,10 @@
 /
 
 &filelist
-  base_filename='./output/1D_advected'
+  base_filename='./1D_output/still_Euler'
   autoconvert      = T
-  convert_type     = 'vtuBCCmpi'
+  convert_type     = 'oneblock'
+  level_io         = 1
   saveprim         = T
 /
 
@@ -25,7 +26,8 @@
 /
 
  &methodlist
-   time_integrator = 'threestep'
+   time_stepper = 'onestep'
+   time_integrator = 'IMEX_Euler'
    flux_scheme     = 20*'hll'
    limiter         = 20*'minmod'
    source_split_usr = .false.
@@ -38,7 +40,7 @@
 &boundlist
   typeboundary_min1 = 4*'special'
   typeboundary_max1 = 4*'special'
-  internalboundary = T
+  internalboundary = F
 /
 
  &meshlist

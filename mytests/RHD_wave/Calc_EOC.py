@@ -66,9 +66,9 @@ def get_data(myfile):
 def get_error(x1,y1,x2,y2):
     f1 = interp1d(x1,y1)
     err = y2 - f1(x2)
-    return err
+    return abs(err)
 
-def Calculate_EOC(Imex,limiter,it,norm):
+def Calculate_EOC(Imex,limiter,it,norm,plot):
 
     # Imex = 'SP'
     # limiter = 'weno5'
@@ -81,6 +81,13 @@ def Calculate_EOC(Imex,limiter,it,norm):
     x_800 , rho_800, v_800, e_800, E_800 = get_data('./convergence/' + Imex + '_' + limiter + '_800' + it + '.blk')
     x_1600 , rho_1600, v_1600, e_1600, E_1600 = get_data('./convergence/' + Imex + '_' + limiter + '_1600' + it + '.blk')
     x_3200 , rho_3200, v_3200, e_3200, E_3200 = get_data('./convergence/' + Imex + '_' + limiter + '_3200' + it + '.blk')
+
+    # rho_100 = v_100
+    # rho_200 = v_200
+    # rho_400 = v_400
+    # rho_800 = v_800
+    # rho_1600 = v_1600
+    # rho_3200 = v_3200
 
     x_max = x_3200
     rho_max = rho_3200
@@ -108,76 +115,115 @@ def Calculate_EOC(Imex,limiter,it,norm):
     err2_800 = get_error(x_max,rho_max,x_800,rho_800)
     err2_1600 = get_error(x_max,rho_max,x_1600,rho_1600)
 
+    if plot:
+        fig,(ax1,ax2,ax3) = plt.subplots(3,1,sharex=True)
 
-    fig,(ax1,ax2,ax3) = plt.subplots(3,1,sharex=True)
+        ax1.set_title(Imex+' & '+limiter)
 
-    ax1.set_title(Imex+' & '+limiter)
+        ax1.plot(x_100,rho_100,'x',label='$N_c = 100$')
+        ax1.plot(x_200,rho_200,'x',label='$N_c = 200$')
+        ax1.plot(x_400,rho_400,'x',label='$N_c = 400$')
+        ax1.plot(x_800,rho_800,'x',label='$N_c = 800$')
+        ax1.plot(x_1600,rho_1600,'x',label='$N_c = 1600$')
+        ax1.plot(x_3200,rho_3200,'x',label='$N_c = 3200$')
+        ax1.plot(x_3200,analytic_3200,'k-',label='analytic')
+        ax1.set_ylabel('$\\rho$')
+        ax1.legend()
 
-    ax1.plot(x_100,rho_100,'x',label='$N_c = 100$')
-    ax1.plot(x_200,rho_200,'x',label='$N_c = 200$')
-    ax1.plot(x_400,rho_400,'x',label='$N_c = 400$')
-    ax1.plot(x_800,rho_800,'x',label='$N_c = 800$')
-    ax1.plot(x_1600,rho_1600,'x',label='$N_c = 1600$')
-    ax1.plot(x_3200,rho_3200,'x',label='$N_c = 3200$')
-    ax1.plot(x_3200,analytic_3200,'k-',label='analytic')
-    ax1.set_ylabel('$\\rho$')
-    ax1.legend()
+        ax2.plot(x_100,err_100,'x')
+        ax2.plot(x_200,err_200,'x')
+        ax2.plot(x_400,err_400,'x')
+        ax2.plot(x_800,err_800,'x')
+        ax2.plot(x_1600,err_1600,'x')
+        ax2.plot(x_3200,err_3200,'x')
+        ax2.set_ylabel('error wrt analytic')
 
-    ax2.plot(x_100,err_100,'x')
-    ax2.plot(x_200,err_200,'x')
-    ax2.plot(x_400,err_400,'x')
-    ax2.plot(x_800,err_800,'x')
-    ax2.plot(x_1600,err_1600,'x')
-    ax2.plot(x_3200,err_3200,'x')
-    ax2.set_ylabel('error wrt analytic')
+        ax3.plot(x_100,err2_100,'x')
+        ax3.plot(x_200,err2_200,'x')
+        ax3.plot(x_400,err2_400,'x')
+        ax3.plot(x_800,err2_800,'x')
+        ax3.plot(x_1600,err2_1600,'x')
+        ax3.set_ylabel('error wrt $N_max$')
+        ax3.set_xlabel('$x/\\lambda$')
 
-    ax3.plot(x_100,err2_100,'x')
-    ax3.plot(x_200,err2_200,'x')
-    ax3.plot(x_400,err2_400,'x')
-    ax3.plot(x_800,err2_800,'x')
-    ax3.plot(x_1600,err2_1600,'x')
-    ax3.set_ylabel('error wrt $N_max$')
-    ax3.set_xlabel('$x/\\lambda$')
-
-    norm = np.inf
 
     # EOC_200 = -np.log(np.linalg.norm(err_200,norm)/np.linalg.norm(err_100,norm))/np.log(200/100)
     # EOC_400 = -np.log(np.linalg.norm(err_400,norm)/np.linalg.norm(err_200,norm))/np.log(400/200)
     # EOC_800 = -np.log(np.linalg.norm(err_800,norm)/np.linalg.norm(err_400,norm))/np.log(800/400)
     # EOC_1600 = -np.log(np.linalg.norm(err_1600,norm)/np.linalg.norm(err_800,norm))/np.log(1600/800)
 
-    EOC2_200 = -np.log(np.linalg.norm(err2_200,norm)/np.linalg.norm(err2_100,norm))/np.log(200/100)
-    EOC2_400 = -np.log(np.linalg.norm(err2_400,norm)/np.linalg.norm(err2_200,norm))/np.log(400/200)
-    EOC2_800 = -np.log(np.linalg.norm(err2_800,norm)/np.linalg.norm(err2_400,norm))/np.log(800/400)
-    EOC2_1600 = -np.log(np.linalg.norm(err2_1600,norm)/np.linalg.norm(err2_800,norm))/np.log(1600/800)
+    EOC2_200 = np.log(np.linalg.norm(err2_200,norm)/np.linalg.norm(err2_100,norm))/np.log(0.5)
+    EOC2_400 = np.log(np.linalg.norm(err2_400,norm)/np.linalg.norm(err2_200,norm))/np.log(0.5)
+    EOC2_800 = np.log(np.linalg.norm(err2_800,norm)/np.linalg.norm(err2_400,norm))/np.log(0.5)
+    EOC2_1600 = np.log(np.linalg.norm(err2_1600,norm)/np.linalg.norm(err2_800,norm))/np.log(0.5)
 
     print(Imex+' & '+limiter)
-    print('EOC_200', EOC2_200)
-    print('EOC_400', EOC2_400)
-    print('EOC_800', EOC2_800)
+    print('EOC_200', round(EOC2_200,2))
+    print('EOC_400', round(EOC2_400,2))
+    print('EOC_800', round(EOC2_800,2))
+    print('EOC_1600', round(EOC2_1600,2))
 
     return [EOC2_200, EOC2_400, EOC2_800, EOC2_1600]
 
 res = [200, 400, 800, 1600]
 
-sp_minmod = Calculate_EOC('SP','minmod','0010',np.inf)
-# sp_weno5 = Calculate_EOC('SP','weno5','0010',np.inf)
-Midpoint_mp5 = Calculate_EOC('Midpoint','mp5','0010',np.inf)
-Midpoint_weno5 = Calculate_EOC('Midpoint','weno5','0010',np.inf)
+# nrm = 2
+# it = '0012'
+#
+# sp_minmod = Calculate_EOC('SP','minmod',it,nrm,True)
+# # sp_weno5 = Calculate_EOC('SP','weno5',it,nrm,True)
+# Midpoint_mp5 = Calculate_EOC('Midpoint','mp5',it,nrm,True)
+# Midpoint_weno5 = Calculate_EOC('Midpoint','weno5',it,nrm,True)
+# ARS3_weno5 = Calculate_EOC('ARS3','weno5',it,nrm,True)
+#
+# plt.figure()
+# plt.title('RHD wave EOC at it ' + it)
+# plt.loglog(res,sp_minmod,'b^',label='SP & minmod')
+# plt.loglog(res,sp_minmod,'b-')
+# # plt.plot(res,sp_weno5,'bs',label='SP & Weno5')
+# # plt.plot(res,sp_weno5,'b')
+# plt.loglog(res,Midpoint_mp5,'rs',label='Midpoint & mp5')
+# plt.loglog(res,Midpoint_mp5,'r-')
+# plt.loglog(res,Midpoint_weno5,'r^',label='Midpoint & Weno5')
+# plt.loglog(res,Midpoint_weno5,'r-')
+# plt.loglog(res,ARS3_weno5,'g^',label='ARS3 & Weno5')
+# plt.loglog(res,ARS3_weno5,'g-')
+# plt.xlabel('$N_{cells}$')
+# plt.xticks(res,res)
+# plt.ylabel('$EOC_{N}$')
+# plt.hlines(1,200,2000,linestyles='--',colors='blue')
+# plt.hlines(2,200,2000,linestyles='--',colors='red')
+# plt.hlines(3,200,2000,linestyles='--',colors='green')
+# plt.legend()
 
-plt.figure()
-plt.plot(res,sp_minmod,'b^',label='SP & minmod')
-plt.plot(res,sp_minmod,'b-')
-# plt.plot(res,sp_weno5,'bs',label='SP & Weno5')
-# plt.plot(res,sp_weno5,'b')
-plt.plot(res,Midpoint_mp5,'rs',label='Midpoint & mp5')
-plt.plot(res,Midpoint_mp5,'r-')
-plt.plot(res,Midpoint_weno5,'r^',label='Midpoint & Weno5')
-plt.plot(res,Midpoint_weno5,'r-')
+imex = 'Midpoint'
+limiter = 'mp5'
+nrm = np.inf
+# its = ['0010','0020','0030','0040','0050']
+its = ['0050','0060','0070','0080','0090','0100']
+cls = 1- np.linspace(0.1,0.9,len(its))
+
+for i in range(len(its)):
+    EOC_arr = Calculate_EOC('SP','minmod',its[i],nrm,False)
+    plt.plot(res,EOC_arr,'bs')
+    plt.plot(res,EOC_arr,'-',c=str(cls[i]),label= its[i])
+
+    EOC_arr = Calculate_EOC('Midpoint','weno5',its[i],nrm,False)
+    plt.plot(res,EOC_arr,'rs')
+    plt.plot(res,EOC_arr,'-',c=str(cls[i]))
+
+    EOC_arr = Calculate_EOC('ARS3','weno5',its[i],nrm,False)
+    plt.plot(res,EOC_arr,'gs')
+    plt.plot(res,EOC_arr,'-',c=str(cls[i]))
+
+plt.title('RHD wave EOC using '+str(nrm)+'-norm')
+plt.hlines(1,200,2000,linestyles='--',colors='blue',label='SP')
+plt.hlines(2,200,2000,linestyles='--',colors='red',label='Midoint')
+plt.hlines(3,200,2000,linestyles='--',colors='green',label='ARS3')
 plt.xlabel('$N_{cells}$')
+plt.xticks(res,res)
 plt.ylabel('$EOC_{N}$')
-plt.hlines(1,100,2000,linestyles='--',colors='blue')
-plt.hlines(2,100,2000,linestyles='--',colors='red')
+
 plt.legend()
 
 

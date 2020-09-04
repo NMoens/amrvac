@@ -3,7 +3,7 @@
 /
 
 &filelist
-  !base_filename='./convergence/SP_weno5_3200'
+  base_filename='./convergence/ARS3_weno5_3200'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -27,8 +27,8 @@
 /
 
  &methodlist
-   time_stepper = 'onestep'
-   time_integrator = 'IMEX_SP'
+   time_stepper = 'threestep'
+   time_integrator = 'IMEX_ARS3'
    flux_scheme     = 20*'hll' !'tvdlf'/'hll'
    limiter         = 20*'weno5' !'minmod'/'koren'
    typesourcesplit = 'sfs'

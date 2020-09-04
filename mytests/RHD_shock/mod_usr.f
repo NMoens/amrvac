@@ -22,8 +22,8 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
+     call set_coordinate_system("Cartesian_1D")
     
-     call set_coordinate_system("Cartesian_2D")
     
 
     ! Initialize units
@@ -138,70 +138,58 @@ contains
   end subroutine params_read
 
   !> A routine for specifying initial conditions
-  subroutine initial_conditions(ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-     ixOmin2,ixOmax1,ixOmax2, w, x)
+  subroutine initial_conditions(ixImin1,ixImax1, ixOmin1,ixOmax1, w, x)
 
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixOmin1,ixOmin2,ixOmax1,ixOmax2
-    double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    integer, intent(in)             :: ixImin1,ixImax1, ixOmin1,ixOmax1
+    double precision, intent(in)    :: x(ixImin1:ixImax1,1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
 
-    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
-        fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2), lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    double precision :: kappa(ixOmin1:ixOmax1), fld_R(ixOmin1:ixOmax1),&
+        lambda(ixOmin1:ixOmax1)
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho1
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = 0.d0
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = rho1*v1
-    w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg1
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er1
+    w(ixImin1:ixImax1,rho_) = rho1
+    w(ixImin1:ixImax1,mom(:)) = 0.d0
+    w(ixImin1:ixImax1,mom(1)) = rho1*v1
+    w(ixImin1:ixImax1,e_) = eg1
+    w(ixImin1:ixImax1,r_e) = Er1
 
-    where (x(ixImin1:ixImax1,ixImin2:ixImax2,1) .gt. 0.d0)
-      w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho2
-      w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = rho2*v2
-      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = eg2
-      w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = Er2
+    where (x(ixImin1:ixImax1,1) .gt. 0.d0)
+      w(ixImin1:ixImax1,rho_) = rho2
+      w(ixImin1:ixImax1,mom(1)) = rho2*v2
+      w(ixImin1:ixImax1,e_) = eg2
+      w(ixImin1:ixImax1,r_e) = Er2
     end where
 
-    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, kappa)
-    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
-
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
-       (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
+    ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+    !
+    ! w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
 
-  subroutine boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixBmin1,&
-     ixBmin2,ixBmax1,ixBmax2,iB,w,x)
+  subroutine boundary_conditions(qt,ixImin1,ixImax1,ixBmin1,ixBmax1,iB,w,x)
     use mod_global_parameters
     use mod_fld
 
 
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixBmin1,ixBmin2,ixBmax1,ixBmax2, iB
-    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    integer, intent(in)             :: ixImin1,ixImax1, ixBmin1,ixBmax1, iB
+    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
     select case (iB)
 
     case(1)
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_) = rho1
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(:)) = 0.d0
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = rho1*v1
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = eg1
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = Er1
+      w(ixBmin1:ixBmax1,rho_) = rho1
+      w(ixBmin1:ixBmax1,mom(:)) = 0.d0
+      w(ixBmin1:ixBmax1,mom(1)) = rho1*v1
+      w(ixBmin1:ixBmax1,e_) = eg1
+      w(ixBmin1:ixBmax1,r_e) = Er1
 
     case(2)
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_) = rho2
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(:)) = 0.d0
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = rho2*v2
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = eg2
-      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = Er2
+      w(ixBmin1:ixBmax1,rho_) = rho2
+      w(ixBmin1:ixBmax1,mom(:)) = 0.d0
+      w(ixBmin1:ixBmax1,mom(1)) = rho2*v2
+      w(ixBmin1:ixBmax1,e_) = eg2
+      w(ixBmin1:ixBmax1,r_e) = Er2
 
     case default
       call mpistop('boundary not known')
@@ -230,8 +218,8 @@ contains
     end select
   end subroutine mg_boundary_conditions
 
-  subroutine refine_shock(igrid,level,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixmin1,&
-     ixmin2,ixmax1,ixmax2,qt,w,x,refine,coarsen)
+  subroutine refine_shock(igrid,level,ixGmin1,ixGmax1,ixmin1,ixmax1,qt,w,x,&
+     refine,coarsen)
     ! Enforce additional refinement or coarsening
     ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
     ! you must set consistent values for integers refine/coarsen:
@@ -243,10 +231,9 @@ contains
     ! coarsen =  1 enforce coarsen
     use mod_global_parameters
 
-    integer, intent(in) :: igrid, level, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
-        ixmin1,ixmin2,ixmax1,ixmax2
-    double precision, intent(in) :: qt, w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
-       1:nw), x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:ndim)
+    integer, intent(in) :: igrid, level, ixGmin1,ixGmax1, ixmin1,ixmax1
+    double precision, intent(in) :: qt, w(ixGmin1:ixGmax1,1:nw),&
+        x(ixGmin1:ixGmax1,1:ndim)
     integer, intent(inout) :: refine, coarsen
 
     !> Refine close to base
@@ -254,14 +241,12 @@ contains
     refine = -1
 
     if (it .gt. slowsteps) then
-      if (any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
-         1) < 2.d-1 .and. x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+      if (any(x(ixGmin1:ixGmax1,1) < 2.d-1 .and. x(ixGmin1:ixGmax1,&
          1) > -2.d-1)) refine=1
     endif
 
     if (it .gt. slowsteps) then
-      if (any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
-         1) < 1.d-1 .and. x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+      if (any(x(ixGmin1:ixGmax1,1) < 1.d-1 .and. x(ixGmin1:ixGmax1,&
          1) > -1.d-1)) refine=1
     endif
 

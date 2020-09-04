@@ -158,10 +158,10 @@ contains
       w(ixI^S,r_e) = Er2
     end where
 
-    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
-
-    w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
+    ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+    ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+    !
+    ! w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
 

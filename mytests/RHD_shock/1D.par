@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./convergence/Midpoint_mp5_800'
+  base_filename='./convergence/Euler_weno5_6400'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -23,13 +23,14 @@
    time_max = 20.d0
    dtmin = 1.0d-20
    !it_max = 5
+   ! final_dt_reduction = .false.
 /
 
  &methodlist
-   time_stepper = 'twostep'
-   time_integrator = 'IMEX_Midpoint'
+   time_stepper = 'onestep'
+   time_integrator = 'IMEX_Euler'
    flux_scheme     = 20*'hll'
-   limiter         = 20*'mp5'
+   limiter         = 20*'weno5'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
    small_values_method = 'replace'
@@ -46,8 +47,8 @@
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 3
-   domain_nx1         = 800
-   block_nx1          = 100
+   domain_nx1         = 6400
+   block_nx1          = 1600
    xprobmin1       = -0.5d0
    xprobmax1       = 0.5d0
    refine_threshold   = 20*0.5d0
@@ -55,9 +56,9 @@
  /
 
  &paramlist
-  courantpar       = 0.5d0
+  courantpar       = 0.1d0
   !dtpar           = 2.d-3
-  slowsteps = 100
+  slowsteps = 20
  /
 
  &rhd_list
@@ -81,7 +82,7 @@
   fld_diff_scheme = 'mg'
   fld_interaction_method = 'Halley'
   fld_fluxlimiter = 'Diffusion'
-  fld_diff_tol = 1.d-4
+  fld_diff_tol = 1.d-6
   /
 
   &shock_list

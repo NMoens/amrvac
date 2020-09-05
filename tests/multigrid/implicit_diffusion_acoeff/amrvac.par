@@ -1,5 +1,5 @@
  &filelist
-        base_filename='test'
+        base_filename='output/test'
     	convert_type='vtuBCCmpi'
         autoconvert=T
  /
@@ -39,9 +39,9 @@
         block_nx2=8
         domain_nx1=32
         domain_nx2=32
-        xprobmin1=0.0d0
+        xprobmin1=-1.0d0
         xprobmax1=1.0d0
-        xprobmin2=0.0d0
+        xprobmin2=-1.0d0
         xprobmax2=1.0d0
  /
 
@@ -52,4 +52,3 @@
  &rho_list
         rho_v = 0.0,0.0
  /
- 

@@ -7,9 +7,8 @@ module mod_usr
   integer             :: i_sol
   integer             :: i_eps1, i_eps2
   integer             :: i_err
-  real(dp), parameter :: pi = acos(-1.0_dp)
-  real(dp), parameter :: diffusion_coeff = 0.2_dp
-  real(dp), parameter :: solution_modes(2) = [1, 1]
+  real(dp), parameter :: diffusion_coeff1 = 0.2d0
+  real(dp), parameter :: diffusion_coeff2 = 0.2d-2
 
 contains
 
@@ -46,8 +45,8 @@ contains
     double precision, intent(inout) :: w(ixG^S, 1:nw)
 
     w(ix^S, rho_) = solution(x(ix^S, 1), x(ix^S, 2), 0.0d0)
-    w(ix^S, i_eps1) = diffusion_coeff + 1.0 * x(ix^S, 1)
-    w(ix^S, i_eps2) = diffusion_coeff + 1.0 * x(ix^S, 1)
+    w(ix^S, i_eps1) = diffusion_coeff1
+    w(ix^S, i_eps2) = diffusion_coeff2
 
   end subroutine initial_conditions
 
@@ -55,9 +54,14 @@ contains
     real(dp), intent(in) :: x, y, t
     real(dp)             :: sol, tmp(ndim)
 
-    tmp = 2 * pi * solution_modes * [x, y]
-    sol = 1 + product(cos(tmp)) * &
-         exp(-sum((2 * pi * solution_modes)**2) * diffusion_coeff * t)
+    ! tmp = dexp(-(x**2 + y**2)/0.1d0)
+
+    ! tmp = 2 * pi * solution_modes * [x, y]
+    ! sol = 1 + product(cos(tmp)) * &
+    !      exp(-sum((2 * pi * solution_modes)**2) * diffusion_coeff * t)
+
+    sol = dexp(-(x**2 + y**2)/0.1d0)
+
   end function solution
 
   subroutine diffuse_density(qdt, qt, active)
@@ -68,7 +72,7 @@ contains
     double precision             :: max_res
 
     call mg_copy_to_tree(rho_, mg_iphi, .false., .false.)
-    call diffusion_solve_vcoeff(mg, qdt, 1, 1d-4)
+    call diffusion_solve_acoeff(mg, qdt, 1, 1d-4)
     call mg_copy_from_tree(mg_iphi, rho_)
 
     active = .true.

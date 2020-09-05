@@ -2,6 +2,9 @@ from scipy.interpolate import interp1d
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+
 
 def get_data(myfile):
     A = np.loadtxt(myfile,skiprows=3)
@@ -73,26 +76,25 @@ def Calculate_EOC(Imex,limiter,it,norm,plot,N_c):
 
     return EOC_[1:]
 
-# N_c = ['50', '100', '200', '400', '800', '1600', '3200','6400']
-# res = [100, 200, 400, 800, 1600, 3200]
-#
-# nrm = np.inf
-# it = '0014'
-#
-#
-# # Euler_weno5 = Calculate_EOC('Euler','weno5',it,nrm,True,N_c)
-# # SP_weno5 = Calculate_EOC('SP','weno5',it,nrm,True,N_c)
+N_c = ['50', '100', '200', '400', '800', '1600', '3200','6400']
+res = [100, 200, 400, 800, 1600, 3200]
+
+nrm = np.inf
+it = '0029'
+
+# Euler_weno5 = Calculate_EOC('Euler','weno5',it,nrm,True,N_c)
+# SP_weno5 = Calculate_EOC('SP','weno5',it,nrm,True,N_c)
 # Midpoint_mp5 = Calculate_EOC('Midpoint','mp5',it,nrm,True,N_c)
-# # ARS3_mp5 = Calculate_EOC('ARS3','mp5',it,nrm,True,N_c)
-#
+# ARS3_mp5 = Calculate_EOC('ARS3','mp5',it,nrm,True,N_c)
+
 # plt.figure()
 # plt.title('RHD Shock EOC at it ' + it)
 # # plt.loglog(res,Euler_weno5,'b^',label='Euler & weno5')
 # # plt.loglog(res,Euler_weno5,'b-')
 # # plt.loglog(res,SP_weno5,'bs',label='SP & weno5')
 # # plt.loglog(res,SP_weno5,'b-')
-# plt.loglog(res,Midpoint_mp5,'r^',label='Midpoint & mp5')
-# plt.loglog(res,Midpoint_mp5,'r-')
+# # plt.loglog(res,Midpoint_mp5,'r^',label='Midpoint & mp5')
+# # plt.loglog(res,Midpoint_mp5,'r-')
 # # plt.loglog(res,ARS3_mp5,'g^',label='ARS3 & mp5')
 # # plt.loglog(res,ARS3_mp5,'g-')
 # plt.xlabel('$N_{cells}$')
@@ -107,10 +109,13 @@ def Calculate_EOC(Imex,limiter,it,norm,plot,N_c):
 
 # limiter = 'weno5'
 nrm = np.inf
-# its = ['0021','0022','0023','0024','0025','0026','0027','0028','0029','0030','0031','0032','0033','0034','0035','0036','0037','0038','0039','0040']
-its = ['0001','0002','0003','0004','0005','0006','0007','0008','0009','0010','0011','0012','0013','0014','0015','0016']
 
-cls = 1- np.linspace(0.01,0.99,len(its))
+its = ['0021','0022','0023','0024','0025','0026','0027','0028','0029','0030','0031','0032','0033','0034','0035','0036','0037','0038','0039','0040']
+# its = ['0001','0002','0003','0004','0005','0006','0007','0008','0009']
+# its = ['0001','0002','0003','0004','0005','0006','0007','0008','0009','0010','0011','0012','0013','0014','0015','0016','0017','0018','0019','0020','0021']
+# its = ['0021','0022','0023','0024','0025','0026','0027','0028','0029','0030']
+
+cls = 1- np.linspace(0.1,0.9,len(its))
 
 N_c = ['50', '100', '200', '400', '800', '1600', '3200', '6400']
 res = [100, 200, 400, 800, 1600, 3200]
@@ -120,21 +125,21 @@ res = [100, 200, 400, 800, 1600, 3200]
 
 plt.figure()
 for i in range(len(its)):
-    # EOC_arr = Calculate_EOC('Euler','weno5',its[i],nrm,False, N_c)
-    # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]),label= its[i])
-    # plt.semilogx(res,EOC_arr,'bs')
+    EOC_arr = Calculate_EOC('Euler','weno5',its[i],nrm,False, N_c)
+    plt.semilogx(res,EOC_arr,'-',c=str(cls[i]),label= its[i])
+    plt.semilogx(res,EOC_arr,'bs')
 
-    # EOC_arr = Calculate_EOC('SP','weno5',its[i],nrm,False, N_c)
-    # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
-    # plt.semilogx(res,EOC_arr,'b^')
+    EOC_arr = Calculate_EOC('SP','weno5',its[i],nrm,False, N_c)
+    plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
+    plt.semilogx(res,EOC_arr,'b^')
 
     EOC_arr = Calculate_EOC('Midpoint','mp5',its[i],nrm,False, N_c)
     plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
     plt.semilogx(res,EOC_arr,'rs')
 
-    # EOC_arr = Calculate_EOC('ARS3','mp5',its[i],nrm,False, N_c)
-    # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
-    # plt.semilogx(res,EOC_arr,'gs')
+    EOC_arr = Calculate_EOC('ARS3','mp5',its[i],nrm,False, N_c)
+    plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
+    plt.semilogx(res,EOC_arr,'gs')
 
 plt.title('RHD Shock EOC using '+str(nrm)+'-norm')
 plt.hlines(1,100,4000,linestyles='--',colors='blue',label='SP')
@@ -143,10 +148,17 @@ plt.hlines(3,100,4000,linestyles='--',colors='green',label='ARS3')
 plt.xlabel('$N_{cells}$')
 plt.xticks(res,res)
 plt.ylabel('$EOC_{N}$')
+
+# colormap = cm.gray
+# normalize = mcolors.Normalize(vmin=np.min(cls), vmax=np.max(cls))
+# s_map = cm.ScalarMappable(norm=normalize, cmap=colormap)
+# s_map.set_array(cls)
+# halfdist = (cls[1] - cls[0])/2.0
+# boundaries = np.linspace(cls[0] - halfdist, cls[-1] + halfdist, len(cls) + 1)
+#
+# plt.colorbar(s_map, spacing='proportional', ticks=cls, boundaries=boundaries)
+
 plt.legend()
-
-
-
 
 
 plt.show()

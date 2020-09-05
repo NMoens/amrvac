@@ -5,7 +5,7 @@ module mod_usr
   implicit none
 
   integer             :: i_sol
-  integer             :: i_eps
+  integer             :: i_eps1, i_eps2
   integer             :: i_err
   real(dp), parameter :: pi = acos(-1.0_dp)
   real(dp), parameter :: diffusion_coeff = 0.2_dp
@@ -25,7 +25,7 @@ contains
     usr_process_grid => set_error
     mg_after_new_tree => set_epsilon
 
-    mg%operator_type = mg_vhelmholtz
+    mg%operator_type = mg_ahelmholtz
     mg%bc(:, mg_iphi)%bc_type = mg_bc_neumann
     mg%bc(:, mg_iphi)%bc_value = 0.0d0
 
@@ -34,7 +34,8 @@ contains
 
     i_sol = var_set_extravar("sol", "sol")
     i_err = var_set_extravar("err", "err")
-    i_eps = var_set_extravar("eps", "eps")
+    i_eps1 = var_set_extravar("eps1", "eps1")
+    i_eps2 = var_set_extravar("eps2", "eps2")
 
   end subroutine usr_init
 
@@ -45,7 +46,8 @@ contains
     double precision, intent(inout) :: w(ixG^S, 1:nw)
 
     w(ix^S, rho_) = solution(x(ix^S, 1), x(ix^S, 2), 0.0d0)
-    w(ix^S, i_eps) = diffusion_coeff + 1.0 * x(ix^S, 1)
+    w(ix^S, i_eps1) = diffusion_coeff + 1.0 * x(ix^S, 1)
+    w(ix^S, i_eps2) = diffusion_coeff + 1.0 * x(ix^S, 1)
 
   end subroutine initial_conditions
 
@@ -82,7 +84,8 @@ contains
   end subroutine set_error
 
   subroutine set_epsilon()
-    call mg_copy_to_tree(i_eps, mg_iveps, .true., .true.)
+    call mg_copy_to_tree(i_eps1, mg_iveps1, .true., .true.)
+    call mg_copy_to_tree(i_eps2, mg_iveps2, .true., .true.)
   end subroutine set_epsilon
 
 end module mod_usr

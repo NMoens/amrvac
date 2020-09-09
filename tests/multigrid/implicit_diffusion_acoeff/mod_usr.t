@@ -6,9 +6,11 @@ module mod_usr
 
   integer             :: i_sol
   integer             :: i_eps1, i_eps2
-  integer             :: i_err
+  integer             :: i_err,i_rel_err
+  real(dp), parameter :: sig1 = 0.5d0
+  real(dp), parameter :: sig2 = 0.5d0
   real(dp), parameter :: diffusion_coeff1 = 0.2d0
-  real(dp), parameter :: diffusion_coeff2 = 0.2d-2
+  real(dp), parameter :: diffusion_coeff2 = 0.2d0
 
 contains
 
@@ -33,6 +35,7 @@ contains
 
     i_sol = var_set_extravar("sol", "sol")
     i_err = var_set_extravar("err", "err")
+    i_rel_err = var_set_extravar("rel_err", "rel_err")
     i_eps1 = var_set_extravar("eps1", "eps1")
     i_eps2 = var_set_extravar("eps2", "eps2")
 
@@ -52,15 +55,13 @@ contains
 
   elemental function solution(x, y, t) result(sol)
     real(dp), intent(in) :: x, y, t
-    real(dp)             :: sol, tmp(ndim)
+    real(dp)             :: sol,k1,k2
 
-    ! tmp = dexp(-(x**2 + y**2)/0.1d0)
+    k1 = sig1+diffusion_coeff1*t
+    k2 = sig2+diffusion_coeff2*t
 
-    ! tmp = 2 * pi * solution_modes * [x, y]
-    ! sol = 1 + product(cos(tmp)) * &
-    !      exp(-sum((2 * pi * solution_modes)**2) * diffusion_coeff * t)
-
-    sol = dexp(-(x**2 + y**2)/0.1d0)
+    sol = dsqrt(1.d0/(4*dpi*k1))*dsqrt(1.d0/(4*dpi*k2))
+    sol = sol*dexp(-x**2/(4*k1))*dexp(-y**2/(4*k2))
 
   end function solution
 
@@ -85,6 +86,7 @@ contains
 
     w(ixO^S,i_sol) = solution(x(ixO^S, 1), x(ixO^S, 2), qt)
     w(ixO^S,i_err) = abs(w(ixO^S,rho_) - w(ixO^S,i_sol))
+    w(ixO^S,i_rel_err) = abs(w(ixO^S,rho_) - w(ixO^S,i_sol))/w(ixO^S,i_sol)
   end subroutine set_error
 
   subroutine set_epsilon()

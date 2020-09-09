@@ -125,17 +125,17 @@ res = [100, 200, 400, 800, 1600, 3200]
 
 plt.figure()
 for i in range(len(its)):
-    EOC_arr = Calculate_EOC('Euler','weno5',its[i],nrm,False, N_c)
-    plt.semilogx(res,EOC_arr,'-',c=str(cls[i]),label= its[i])
-    plt.semilogx(res,EOC_arr,'bs')
+    # EOC_arr = Calculate_EOC('Euler','weno5',its[i],nrm,False, N_c)
+    # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]),label= its[i])
+    # plt.semilogx(res,EOC_arr,'bs')
 
-    EOC_arr = Calculate_EOC('SP','weno5',its[i],nrm,False, N_c)
-    plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
-    plt.semilogx(res,EOC_arr,'b^')
+    # EOC_arr = Calculate_EOC('SP','weno5',its[i],nrm,False, N_c)
+    # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
+    # plt.semilogx(res,EOC_arr,'b^')
 
-    EOC_arr = Calculate_EOC('Midpoint','mp5',its[i],nrm,False, N_c)
-    plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
-    plt.semilogx(res,EOC_arr,'rs')
+    # EOC_arr = Calculate_EOC('Midpoint','mp5',its[i],nrm,False, N_c)
+    # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
+    # plt.semilogx(res,EOC_arr,'rs')
 
     EOC_arr = Calculate_EOC('ARS3','mp5',its[i],nrm,False, N_c)
     plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))

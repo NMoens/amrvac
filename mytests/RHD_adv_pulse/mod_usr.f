@@ -19,8 +19,8 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-     call set_coordinate_system("Cartesian_1D")
     
+     call set_coordinate_system("Cartesian_2D")
     
 
     ! Initialize units
@@ -69,35 +69,43 @@ contains
 
 
   !> A routine for specifying initial conditions
-  subroutine initial_conditions(ixImin1,ixImax1, ixOmin1,ixOmax1, w, x)
+  subroutine initial_conditions(ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+     ixOmin2,ixOmax1,ixOmax2, w, x)
     use mod_global_parameters
 
-    integer, intent(in)             :: ixImin1,ixImax1, ixOmin1,ixOmax1
-    double precision, intent(in)    :: x(ixImin1:ixImax1,1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
+    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
+        ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-    double precision :: temp(ixImin1:ixImax1), pth(ixImin1:ixImax1)
-    double precision :: kappa(ixOmin1:ixOmax1), fld_R(ixOmin1:ixOmax1),&
-        lambda(ixOmin1:ixOmax1)
+    double precision :: temp(ixImin1:ixImax1,ixImin2:ixImax2),&
+        pth(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2), lambda(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
 
     v0 = 0.d0
 
-    temp(ixImin1:ixImax1) = T0 + (T1-T0)*dexp(-x(ixImin1:ixImax1,&
-       1)**2.d0/(2*wdth**2))
+    temp(ixImin1:ixImax1,ixImin2:ixImax2) = T0 + &
+       (T1-T0)*dexp(-x(ixImin1:ixImax1,ixImin2:ixImax2,1)**2.d0/(2*wdth**2))
 
-    w(ixImin1:ixImax1,rho_) = rho0*T0/temp(ixImin1:ixImax1) + &
-       const_rad_a*fld_mu*const_mp/(3.d0*const_kB) * &
-       unit_temperature**3/unit_density * (T0**4.d0/temp(ixImin1:ixImax1) - &
-       temp(ixImin1:ixImax1)**3.d0)
+    w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = rho0*T0/temp(ixImin1:ixImax1,&
+       ixImin2:ixImax2) + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) * &
+       unit_temperature**3/unit_density * (T0**4.d0/temp(ixImin1:ixImax1,&
+       ixImin2:ixImax2) - temp(ixImin1:ixImax1,ixImin2:ixImax2)**3.d0)
 
-    w(ixImin1:ixImax1,mom(:)) = 0.d0
-    w(ixImin1:ixImax1,mom(1)) = w(ixImin1:ixImax1,rho_)*v0
+    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = 0.d0
+    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(1)) = w(ixImin1:ixImax1,&
+       ixImin2:ixImax2,rho_)*v0
 
-    pth(ixImin1:ixImax1) = temp(ixImin1:ixImax1)*w(ixImin1:ixImax1,rho_)
-    w(ixImin1:ixImax1,e_) = pth(ixImin1:ixImax1)/(rhd_gamma-1.d0) + &
-       half*w(ixImin1:ixImax1,rho_)*v0**2
-    w(ixImin1:ixImax1,r_e) = const_rad_a*(temp(&
-       ixImin1:ixImax1)*unit_temperature)**4.d0/unit_pressure
+    pth(ixImin1:ixImax1,ixImin2:ixImax2) = temp(ixImin1:ixImax1,&
+       ixImin2:ixImax2)*w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
+    w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = pth(ixImin1:ixImax1,&
+       ixImin2:ixImax2)/(rhd_gamma-1.d0) + half*w(ixImin1:ixImax1,&
+       ixImin2:ixImax2,rho_)*v0**2
+    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = const_rad_a*(temp(ixImin1:ixImax1,&
+       ixImin2:ixImax2)*unit_temperature)**4.d0/unit_pressure
 
     ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
@@ -107,32 +115,40 @@ contains
 
   end subroutine initial_conditions
 
-  subroutine boundary_conditions(qt,ixImin1,ixImax1,ixBmin1,ixBmax1,iB,w,x)
+  subroutine boundary_conditions(qt,ixImin1,ixImin2,ixImax1,ixImax2,ixBmin1,&
+     ixBmin2,ixBmax1,ixBmax2,iB,w,x)
     use mod_global_parameters
     use mod_fld
 
 
-    integer, intent(in)             :: ixImin1,ixImax1, ixBmin1,ixBmax1, iB
-    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,1:nw)
+    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
+        ixBmin1,ixBmin2,ixBmax1,ixBmax2, iB
+    double precision, intent(in)    :: qt, x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
 
-    double precision :: temp(ixBmin1:ixBmax1), pth(ixBmin1:ixBmax1)
+    double precision :: temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2),&
+        pth(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
 
     select case (iB)
     case(1,2)
-      temp(ixBmin1:ixBmax1) = T0 + (T1-T0)*dexp(-x(ixBmin1:ixBmax1,&
-         1)**2.d0/(2*wdth**2))
-      w(ixBmin1:ixBmax1,rho_) = rho0*T0/temp(ixBmin1:ixBmax1) + &
-         const_rad_a*fld_mu*const_mp/(3.d0*const_kB) * &
-         unit_temperature**3/unit_density * (T0**4.d0/temp(ixBmin1:ixBmax1) - &
-         temp(ixBmin1:ixBmax1)**3.d0)
-      w(ixBmin1:ixBmax1,mom(:)) = 0.d0
-      w(ixBmin1:ixBmax1,mom(1)) = w(ixBmin1:ixBmax1,rho_)*v0
-      pth(ixBmin1:ixBmax1) = temp(ixBmin1:ixBmax1)*w(ixBmin1:ixBmax1,rho_)
-      w(ixBmin1:ixBmax1,e_) = pth(ixBmin1:ixBmax1)/(rhd_gamma-1.d0) + &
-         half*w(ixBmin1:ixBmax1,rho_)*v0**2
-      w(ixBmin1:ixBmax1,r_e) = const_rad_a*(temp(&
-         ixBmin1:ixBmax1)*unit_temperature)**4.d0/unit_pressure
+      temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = T0 + &
+         (T1-T0)*dexp(-x(ixBmin1:ixBmax1,ixBmin2:ixBmax2,1)**2.d0/(2*wdth**2))
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_) = rho0*T0/temp(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2) + const_rad_a*fld_mu*const_mp/(3.d0*const_kB) * &
+         unit_temperature**3/unit_density * (T0**4.d0/temp(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2) - temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2)**3.d0)
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(:)) = 0.d0
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = w(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2,rho_)*v0
+      pth(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = temp(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2)*w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_)
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = pth(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2)/(rhd_gamma-1.d0) + half*w(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2,rho_)*v0**2
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = &
+         const_rad_a*(temp(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2)*unit_temperature)**4.d0/unit_pressure
 
     case default
       call mpistop('boundary not known')

@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./1D_output/still_Euler'
+  base_filename='./1D_output/test'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1

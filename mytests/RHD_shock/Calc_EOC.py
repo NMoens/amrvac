@@ -133,13 +133,13 @@ for i in range(len(its)):
     # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
     # plt.semilogx(res,EOC_arr,'b^')
 
-    # EOC_arr = Calculate_EOC('Midpoint','mp5',its[i],nrm,False, N_c)
-    # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
-    # plt.semilogx(res,EOC_arr,'rs')
-
-    EOC_arr = Calculate_EOC('ARS3','mp5',its[i],nrm,False, N_c)
+    EOC_arr = Calculate_EOC('Midpoint','mp5',its[i],nrm,False, N_c)
     plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
-    plt.semilogx(res,EOC_arr,'gs')
+    plt.semilogx(res,EOC_arr,'rs')
+
+    # EOC_arr = Calculate_EOC('ARS3','mp5',its[i],nrm,False, N_c)
+    # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
+    # plt.semilogx(res,EOC_arr,'gs')
 
 plt.title('RHD Shock EOC using '+str(nrm)+'-norm')
 plt.hlines(1,100,4000,linestyles='--',colors='blue',label='SP')

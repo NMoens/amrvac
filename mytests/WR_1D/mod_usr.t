@@ -155,7 +155,7 @@ contains
     double precision :: kappa(ixO^S), lambda(ixO^S), fld_R(ixO^S)
     double precision :: vel(ixI^S)
     double precision :: T_out, E_out, E_gauge
-    double precision :: T_in, E_in, rr(ixI^S), bb
+    double precision :: T_in, E_in, rr(ixI^S), bb, temp(ixI^S)
 
     w(ixI^S,rho_)   = rho_bound
     w(ixI^S,mom(1)) = 0.d0
@@ -190,6 +190,11 @@ contains
               *(16*xprobmax1**2 + 8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
 
     w(ixI^S,r_e) = w(ixI^S,r_e) - E_gauge + E_out
+
+    if (rhd_energy) then
+      temp(ixI^S) = (w(ixI^S,r_e)*unit_pressure/const_rad_a)**0.25d0/unit_temperature
+      w(ixI^S,e_) = w(ixI^S,rho_)*temp(ixI^S)/(rhd_gamma-1.d0) + half*w(ixI^S,mom(1))**2/w(ixI^S,rho_)
+    endif
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
@@ -233,9 +238,9 @@ contains
         w(ix1,mom(1)) = w(ix1+1,mom(1))
       enddo
 
-      !where(w(ixB^S,mom(1)) .lt. 0.d0)
-      !  w(ixB^S,mom(1)) = 0.d0
-      !endwhere
+      where(w(ixB^S,mom(1)) .lt. 0.d0)
+       w(ixB^S,mom(1)) = 0.d0
+      endwhere
 
       !where(w(ixB^S,mom(1))/w(ixB^S,rho_) .gt. 0.5d0)
       !  w(ixB^S,mom(1)) = 0.1d0*w(ixB^S,rho_)
@@ -264,6 +269,24 @@ contains
         w(ix1,r_e) = w(ix1+2,r_e) &
         + (x(ix1,1)-x(ix1+2,1))*Local_gradE(ix1+1)
       enddo
+
+      if (rhd_energy) then
+        temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0/unit_temperature
+        w(ixB^S,e_) = w(ixB^S,rho_)*temp(ixB^S)/(rhd_gamma-1.d0) + half*w(ixB^S,mom(1))**2/w(ixB^S,rho_)
+
+        ! do ix1 = ixBmax1,ixBmin1,-1
+        !   w(ix1,e_) = dexp(2*dlog(w(ix1+1,e_)) - dlog(w(ix1+2,e_)))
+        ! enddo
+        !
+        ! do ix1 = ixBmax1,ixBmin1,-1
+        !   w(ix1,e_) = 2*w(ix1+1,e_) - w(ix1+2,e_)
+        ! enddo
+        !
+        ! do ix1 = ixBmax1,ixBmin1,-1
+        !   w(ix1,e_) = w(ix1+1,e_)
+        ! enddo
+
+      endif
 
     case(2)
 
@@ -359,6 +382,7 @@ contains
     call PseudoPlanarSource(ixI^L,ixO^L,wCT,x,ppsource)
     w(ixO^S,rho_) = w(ixO^S,rho_) + qdt*ppsource(ixO^S,rho_) !> OK
     w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt*ppsource(ixO^S,mom(1)) !> OK
+    if (rhd_energy) w(ixO^S,e_) = w(ixO^S,e_) + qdt*ppsource(ixO^S,e_) !> OK
     w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*ppsource(ixO^S,r_e) !> TROUBLEMAKER
 
     if (.not. Cak_in_D) then
@@ -368,11 +392,19 @@ contains
         !> Fixed L = L_bound
         w(ixO^S,mom(1)) = w(ixO^S,mom(1)) &
           + qdt*wCT(ixO^S,rho_)*L_bound/(4*dpi*x(ixO^S,1)**2)/const_c*k_cak(ixO^S)*unit_velocity
+        if (rhd_energy) then
+          w(ixO^S,e_) = w(ixO^S,e_) &
+            + qdt*wCT(ixO^S,mom(1))*L_bound/(4*dpi*x(ixO^S,1)**2)/const_c*k_cak(ixO^S)*unit_velocity
+        endif
       else
         !> Local flux
         call fld_get_radflux(wCT, x, ixI^L, ixO^L, rad_flux)
         w(ixO^S,mom(1)) = w(ixO^S,mom(1)) &
           + qdt*wCT(ixO^S,rho_)*rad_flux(ixO^S,1)/const_c*k_cak(ixO^S)*unit_velocity
+        if (rhd_energy) then
+          w(ixO^S,e_) = w(ixO^S,e_) &
+            + qdt*wCT(ixO^S,mom(1))*rad_flux(ixO^S,1)/const_c*k_cak(ixO^S)*unit_velocity
+        endif
       endif
     endif
 
@@ -444,6 +476,9 @@ contains
     !> dm_r/dt = +(rho*v_p**2 + 2pth)/r -2 (rho*v_r**2 + pth)/r
     !> dm_phi/dt = - 3*rho*v_p m_r/r
     source(ixO^S,mom(rdir)) = - 2*w(ixO^S,rho_)*v(ixO^S,rdir)**two/radius(ixO^S)
+
+    !> de/dt = -2 (e+p) v_r/r
+    if (rhd_energy) source(ixO^S,e_) = -two*(w(ixO^S,e_)+pth(ixO^S))*v(ixO^S,rdir)/radius(ixO^S)
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
@@ -670,10 +705,12 @@ contains
     ! w(ixO^S,nw+6) = big_gamma(ixO^S)
     ! w(ixO^S,nw+7) = Lum(ixO^S)
 
-    w(ixO^S,nw+1) = OPAL(ixO^S)/kappa_e
-    w(ixO^S,nw+2) = CAK(ixO^S)/kappa_e
-    w(ixO^S,nw+3) = big_gamma(ixO^S)
-    w(ixO^S,nw+4) = Lum(ixO^S)
+    ! w(ixO^S,nw+1) = OPAL(ixO^S)/kappa_e
+    ! w(ixO^S,nw+2) = CAK(ixO^S)/kappa_e
+    w(ixO^S,nw+1) = big_gamma(ixO^S)
+    w(ixO^S,nw+2) = Lum(ixO^S)
+    w(ixO^S,nw+3) = Trad(ixO^S)*unit_temperature
+    w(ixO^S,nw+4) = Tgas(ixO^S)*unit_temperature
     ! w(ixO^S,nw+4) = lambda(ixO^S)
 
 
@@ -685,7 +722,8 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'OPAL CAK Gamma Lum'
+    ! varnames = 'OPAL CAK Gamma Lum'
+    varnames = 'Gamma Lum Trad Tgas'
     ! varnames = 'Trad Mdot OPAL CAK lambda Gamma Lum'
   end subroutine specialvarnames_output
 

@@ -1,0 +1,102 @@
+&testlist
+        teststr=''
+/
+
+&filelist
+  base_filename='./test/w_e'
+  autoconvert      = T
+  convert_type     = 'oneblock'
+  level_io         = 1
+  saveprim         = T
+  nwauxio = 4
+/
+
+ &savelist
+   itsave(1,1)     = 0
+   itsave(1,2)     = 0
+   !ditsave_dat     = 1
+   !ditsave_log     = 100
+   dtsave_dat     = 1.d-1
+   dtsave_log     = 5.d-2
+/
+
+ &stoplist
+   time_max = 300.d0
+   dtmin = 1.0d-20
+   !it_max = 500
+/
+
+ &methodlist
+   time_stepper = 'onestep'
+   time_integrator = 'IMEX_Euler'
+   flux_scheme     = 20*'tvdlf'
+   limiter         = 20*'minmod'
+   source_split_usr = .false.
+   typesourcesplit = 'sfs'
+   check_small_values = .true.
+   small_values_method = 'replace'
+   small_pressure = 1.d-20
+   small_density = 1.d-20
+/
+
+&boundlist
+  typeboundary_min1 = 4*'special'
+  typeboundary_max1 = 3*'noinflow','special'
+  internalboundary = F
+/
+
+ &meshlist
+   refine_max_level   = 1
+   refine_criterion   = 0
+   domain_nx1         = 1000
+   block_nx1          = 1000
+   xprobmin1      = 1.d0
+   xprobmax1       = 6.d0
+   refine_threshold   = 20*0.5d0
+   derefine_ratio     = 20*1.d0/2.d0
+ /
+
+ &paramlist
+  courantpar       = 0.4d0 !0.4d0
+  !dtpar           = 1.d-4
+  slowsteps = 500
+ /
+
+ &rhd_list
+  He_abundance = 0.7d0
+  rhd_gravity = .true.
+  rhd_energy = .true.
+  rhd_pressure = 'Trad'
+  rhd_gamma = 1.6667d0
+  rhd_radiation_force = .true.
+  rhd_energy_interact = .true.
+  rhd_radiation_diffusion = .true.
+  rhd_radiation_advection = .true.
+ /
+
+ &fld_list
+  fld_Radforce_split = .false.
+  fld_opacity_law = 'special'
+  fld_fluxlimiter = 'Pomraning'
+  fld_diff_tol = 1.d-4
+  fld_bisect_tol = 1.d-7
+  /
+
+ &wind_list
+  cak_Q = 2.30d3
+  cak_a = 0.50d0
+  cak_base = 0.66d0
+  cak_x0 = 0.4d0
+  cak_x1 = 0.65d0
+  !it_start_cak = 10
+  rho_bound = 1.d-7 !3.d-7
+  T_bound = 3.2d5
+  Gamma_e_bound = 0.11d0 !0.40d0
+  kappa_e = 0.2d0
+  R_star = 1.d0
+  M_star = 10.d0
+  v_inf = 1.d8
+  Mdot = 1.d-5
+  fixed_lum = .false.
+  Cak_in_D = .false.
+/

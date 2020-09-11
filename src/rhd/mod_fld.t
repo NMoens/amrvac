@@ -844,10 +844,13 @@ module mod_fld
 
     call mg_fas_fmg(mg, .true., max_res=res)
     do n = 1, max_its
-      print*, n, res
+      ! print*, n, res
       if (res < max_residual) exit
        call mg_fas_vcycle(mg, max_res=res)
     end do
+
+    if (res .lt. smalldouble) &
+      error stop "Diffusion residual to zero"
 
     if (n == max_its + 1) then
        if (mg%my_rank == 0) then

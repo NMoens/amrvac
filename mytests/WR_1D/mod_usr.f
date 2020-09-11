@@ -159,7 +159,8 @@ contains
         fld_R(ixOmin1:ixOmax1)
     double precision :: vel(ixImin1:ixImax1)
     double precision :: T_out, E_out, E_gauge
-    double precision :: T_in, E_in, rr(ixImin1:ixImax1), bb
+    double precision :: T_in, E_in, rr(ixImin1:ixImax1), bb,&
+        temp(ixImin1:ixImax1)
 
     w(ixImin1:ixImax1,rho_)   = rho_bound
     w(ixImin1:ixImax1,mom(1)) = 0.d0
@@ -197,6 +198,14 @@ contains
        8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
 
     w(ixImin1:ixImax1,r_e) = w(ixImin1:ixImax1,r_e) - E_gauge + E_out
+
+    if (rhd_energy) then
+      temp(ixImin1:ixImax1) = (w(ixImin1:ixImax1,&
+         r_e)*unit_pressure/const_rad_a)**0.25d0/unit_temperature
+      w(ixImin1:ixImax1,e_) = w(ixImin1:ixImax1,&
+         rho_)*temp(ixImin1:ixImax1)/(rhd_gamma-1.d0) + half*w(ixImin1:ixImax1,&
+         mom(1))**2/w(ixImin1:ixImax1,rho_)
+    endif
 
     call fld_get_opacity(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, kappa)
     call fld_get_fluxlimiter(w, x, ixImin1,ixImax1, ixOmin1,ixOmax1, lambda,&
@@ -243,9 +252,9 @@ contains
         w(ix1,mom(1)) = w(ix1+1,mom(1))
       enddo
 
-      !where(w(ixB^S,mom(1)) .lt. 0.d0)
-      !  w(ixB^S,mom(1)) = 0.d0
-      !endwhere
+      where(w(ixBmin1:ixBmax1,mom(1)) .lt. 0.d0)
+       w(ixBmin1:ixBmax1,mom(1)) = 0.d0
+      endwhere
 
       !where(w(ixB^S,mom(1))/w(ixB^S,rho_) .gt. 0.5d0)
       !  w(ixB^S,mom(1)) = 0.1d0*w(ixB^S,rho_)
@@ -274,6 +283,27 @@ contains
       do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,r_e) = w(ix1+2,r_e) + (x(ix1,1)-x(ix1+2,1))*Local_gradE(ix1+1)
       enddo
+
+      if (rhd_energy) then
+        temp(ixBmin1:ixBmax1) = (w(ixBmin1:ixBmax1,&
+           r_e)*unit_pressure/const_rad_a)**0.25d0/unit_temperature
+        w(ixBmin1:ixBmax1,e_) = w(ixBmin1:ixBmax1,&
+           rho_)*temp(ixBmin1:ixBmax1)/(rhd_gamma-1.d0) + &
+           half*w(ixBmin1:ixBmax1,mom(1))**2/w(ixBmin1:ixBmax1,rho_)
+
+        ! do ix1 = ixBmax1,ixBmin1,-1
+        !   w(ix1,e_) = dexp(2*dlog(w(ix1+1,e_)) - dlog(w(ix1+2,e_)))
+        ! enddo
+        !
+        ! do ix1 = ixBmax1,ixBmin1,-1
+        !   w(ix1,e_) = 2*w(ix1+1,e_) - w(ix1+2,e_)
+        ! enddo
+        !
+        ! do ix1 = ixBmax1,ixBmin1,-1
+        !   w(ix1,e_) = w(ix1+1,e_)
+        ! enddo
+
+      endif
 
     case(2)
 
@@ -380,6 +410,8 @@ contains
        rho_) + qdt*ppsource(ixOmin1:ixOmax1,rho_) !> OK
     w(ixOmin1:ixOmax1,mom(1)) = w(ixOmin1:ixOmax1,&
        mom(1)) + qdt*ppsource(ixOmin1:ixOmax1,mom(1)) !> OK
+    if (rhd_energy) w(ixOmin1:ixOmax1,e_) = w(ixOmin1:ixOmax1,&
+       e_) + qdt*ppsource(ixOmin1:ixOmax1,e_) !> OK
     w(ixOmin1:ixOmax1,r_e) = w(ixOmin1:ixOmax1,&
        r_e) + qdt*ppsource(ixOmin1:ixOmax1,r_e) !> TROUBLEMAKER
 
@@ -392,6 +424,12 @@ contains
            mom(1)) + qdt*wCT(ixOmin1:ixOmax1,&
            rho_)*L_bound/(4*dpi*x(ixOmin1:ixOmax1,&
            1)**2)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity
+        if (rhd_energy) then
+          w(ixOmin1:ixOmax1,e_) = w(ixOmin1:ixOmax1,&
+             e_) + qdt*wCT(ixOmin1:ixOmax1,&
+             mom(1))*L_bound/(4*dpi*x(ixOmin1:ixOmax1,&
+             1)**2)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity
+        endif
       else
         !> Local flux
         call fld_get_radflux(wCT, x, ixImin1,ixImax1, ixOmin1,ixOmax1,&
@@ -399,6 +437,11 @@ contains
         w(ixOmin1:ixOmax1,mom(1)) = w(ixOmin1:ixOmax1,&
            mom(1)) + qdt*wCT(ixOmin1:ixOmax1,rho_)*rad_flux(ixOmin1:ixOmax1,&
            1)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity
+        if (rhd_energy) then
+          w(ixOmin1:ixOmax1,e_) = w(ixOmin1:ixOmax1,&
+             e_) + qdt*wCT(ixOmin1:ixOmax1,mom(1))*rad_flux(ixOmin1:ixOmax1,&
+             1)/const_c*k_cak(ixOmin1:ixOmax1)*unit_velocity
+        endif
       endif
     endif
 
@@ -479,6 +522,11 @@ contains
     !> dm_phi/dt = - 3*rho*v_p m_r/r
     source(ixOmin1:ixOmax1,mom(rdir)) = - 2*w(ixOmin1:ixOmax1,&
        rho_)*v(ixOmin1:ixOmax1,rdir)**two/radius(ixOmin1:ixOmax1)
+
+    !> de/dt = -2 (e+p) v_r/r
+    if (rhd_energy) source(ixOmin1:ixOmax1,e_) = -two*(w(ixOmin1:ixOmax1,&
+       e_)+pth(ixOmin1:ixOmax1))*v(ixOmin1:ixOmax1,&
+       rdir)/radius(ixOmin1:ixOmax1)
 
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
@@ -730,10 +778,12 @@ contains
     ! w(ixO^S,nw+6) = big_gamma(ixO^S)
     ! w(ixO^S,nw+7) = Lum(ixO^S)
 
-    w(ixOmin1:ixOmax1,nw+1) = OPAL(ixOmin1:ixOmax1)/kappa_e
-    w(ixOmin1:ixOmax1,nw+2) = CAK(ixOmin1:ixOmax1)/kappa_e
-    w(ixOmin1:ixOmax1,nw+3) = big_gamma(ixOmin1:ixOmax1)
-    w(ixOmin1:ixOmax1,nw+4) = Lum(ixOmin1:ixOmax1)
+    ! w(ixO^S,nw+1) = OPAL(ixO^S)/kappa_e
+    ! w(ixO^S,nw+2) = CAK(ixO^S)/kappa_e
+    w(ixOmin1:ixOmax1,nw+1) = big_gamma(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+2) = Lum(ixOmin1:ixOmax1)
+    w(ixOmin1:ixOmax1,nw+3) = Trad(ixOmin1:ixOmax1)*unit_temperature
+    w(ixOmin1:ixOmax1,nw+4) = Tgas(ixOmin1:ixOmax1)*unit_temperature
     ! w(ixO^S,nw+4) = lambda(ixO^S)
 
 
@@ -745,7 +795,8 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-    varnames = 'OPAL CAK Gamma Lum'
+    ! varnames = 'OPAL CAK Gamma Lum'
+    varnames = 'Gamma Lum Trad Tgas'
     ! varnames = 'Trad Mdot OPAL CAK lambda Gamma Lum'
   end subroutine specialvarnames_output
 

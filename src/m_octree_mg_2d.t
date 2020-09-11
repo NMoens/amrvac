@@ -815,7 +815,7 @@ contains
     real(dp), intent(in)      :: dt
     integer, intent(in)       :: order
     real(dp), intent(in)      :: max_res
-    integer, parameter        :: max_its = 10
+    integer, parameter        :: max_its = 100
     integer                   :: n
     real(dp)                  :: res
 
@@ -840,6 +840,7 @@ contains
 
     ! Add V-cycles if necessary
     do n = 1, max_its
+      print*, n, res
        if (res <= max_res) exit
        call mg_fas_vcycle(mg, max_res=res)
     end do

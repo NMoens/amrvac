@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./convergence/Euler_weno5_6400'
+  base_filename='./test/Big_stenc'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -27,10 +27,10 @@
 /
 
  &methodlist
-   time_stepper = 'onestep'
-   time_integrator = 'IMEX_Euler'
+   time_stepper = 'twostep'
+   time_integrator = 'IMEX_Midpoint'
    flux_scheme     = 20*'hll'
-   limiter         = 20*'weno5'
+   limiter         = 20*'mp5'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
    small_values_method = 'replace'
@@ -47,8 +47,8 @@
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 3
-   domain_nx1         = 6400
-   block_nx1          = 1600
+   domain_nx1         = 512
+   block_nx1          = 128
    xprobmin1       = -0.5d0
    xprobmax1       = 0.5d0
    refine_threshold   = 20*0.5d0

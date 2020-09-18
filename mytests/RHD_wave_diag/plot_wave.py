@@ -17,7 +17,23 @@ mu = 0.60869565217391308
 hd_gamma = 1.6667
 
 wvl = 777363184079.60193
-x = np.linspace(0,25*wvl,10000)
+x_a = np.linspace(0,28*wvl,10000)
+
+def get_data(myfile):
+    A = np.loadtxt(myfile,skiprows=3)
+
+    x0 = np.transpose(A)[0]
+    rho0 = np.transpose(A)[1]
+    v0 = np.transpose(A)[2]
+    e0 = np.transpose(A)[3]
+    E0 = np.transpose(A)[4]
+
+    delta_rho = 100*(rho0-np.mean(rho0))
+    delta_v = v0
+    delta_e = e0-np.mean(e0)
+    delta_E = E0-np.mean(E0)
+
+    return x0, delta_rho, delta_v, delta_e, delta_E
 
 def AMRVAC_single_profile(file,variable):
     ds = amrvac_reader.load_file(file)
@@ -70,9 +86,11 @@ def AMRVAC_single_profile(file,variable):
 
         data = np.sqrt(p/(ad['rho']*ds.units.unit_density))
 
-    data = np.mean(data,axis=1)
-    x = x*ds.units.unit_length
-    return x,data
+    data_1D = np.zeros(len(x))
+    for i in range(len(x)):
+        data_1D[i] = data[i][i]
+    x = np.sqrt(x**2+y**2)*ds.units.unit_length
+    return x,data_1D
 
 def analytic(ii,jj,cheat):
     a = 3.e6
@@ -100,52 +118,38 @@ def analytic(ii,jj,cheat):
     if cheat:
         L_damp = L_damp/(2*np.pi)
 
-    osc = np.sin(x/L_oscillate)
-    damp = np.exp((x-wvl)/L_damp)
+    osc = np.sin(x_a/L_oscillate)
+    damp = np.exp((x_a-wvl)/L_damp)
     sol = osc
     for i in range(len(sol)):
-        if x[i] > wvl:
+        if x_a[i] > wvl:
             sol[i] = sol[i]*damp[i]
     return sol
 
 # folder = 'output'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/RHD_wave/output/wave_tau_thick10100.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/RHD_wave_diag/output/2wave_thick0039.dat'
 
 
 r0,rho0 = AMRVAC_single_profile(amrvac_outfile0,'rho')
-r0,v0 = AMRVAC_single_profile(amrvac_outfile0,'v')
-r0,p0 = AMRVAC_single_profile(amrvac_outfile0,'p')
-r0,e0 = AMRVAC_single_profile(amrvac_outfile0,'e')
-r0,Er0 = AMRVAC_single_profile(amrvac_outfile0,'re')
-r0,a0 = AMRVAC_single_profile(amrvac_outfile0,'a')
-r0,Diff0 = AMRVAC_single_profile(amrvac_outfile0,'D')
+# r0,v0 = AMRVAC_single_profile(amrvac_outfile0,'v')
+# r0,p0 = AMRVAC_single_profile(amrvac_outfile0,'p')
+# r0,e0 = AMRVAC_single_profile(amrvac_outfile0,'e')
+# r0,Er0 = AMRVAC_single_profile(amrvac_outfile0,'re')
+# r0,a0 = AMRVAC_single_profile(amrvac_outfile0,'a')
+# r0,Diff0 = AMRVAC_single_profile(amrvac_outfile0,'D')
 
-analytic_cheat = analytic(0,0,True)
-analytic_mix = analytic(2,0,False)
-
+r_1D , rho_1D, v_1D, e_1D, Er_1D = get_data('/lhome/nicolasm/amrvac/mytests/RHD_wave/convergence/Midpoint_mp5_4000039.blk')
 
 
-
-plt.figure()
-
-plt.title('Density perturbation')
-plt.plot(r0/unit_length,1e4*(rho0-np.mean(rho0)),'rx',label='simulation')
-plt.plot(x/wvl,analytic_cheat,'k--',label='cheaty')
-plt.plot(x/wvl,analytic_mix,'b--',label='mixed')
-plt.ylabel('perturbation')
-plt.xlabel('$x/\\lambda$')
-plt.legend()
+analytic = analytic(0,0,False)
 
 
-
-amrvac_outfile1 = '/lhome/nicolasm/amrvac/mytests/RHD_wave/output/wave_tau_thick20100.dat'
-r1,rho1 = AMRVAC_single_profile(amrvac_outfile1,'rho')
-
-plt.figure()
+plt.figure()    
 
 plt.title('Density perturbation')
-plt.plot(r0/unit_length,1e4*(rho0-np.mean(rho0)),'r-',label='sim, cfl = 0.5')
-plt.plot(r1/unit_length,1e4*(rho0-np.mean(rho1)),'kx',label='sim, cfl = 0.005')
+plt.plot(x_a/wvl,analytic,'k--',label='analytic')
+plt.plot((r0)/unit_length+0.25,1e4*(rho0-np.mean(rho0)),'r-',label='Diagonal')
+plt.plot(r_1D,(rho_1D-np.mean(rho_1D)),'b-',label='1D')
 plt.ylabel('perturbation')
 plt.xlabel('$x/\\lambda$')
 plt.legend()

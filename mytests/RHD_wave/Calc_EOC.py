@@ -128,7 +128,7 @@ def Calculate_EOC(Imex,limiter,it,norm,plot):
         ax1.plot(x_3200,rho_3200,'x',label='$N_c = 3200$')
         ax1.plot(x_3200,analytic_3200,'k-',label='analytic')
         ax1.set_ylabel('$\\rho$')
-        ax1.legend()
+        ax1.legend(loc='right')
 
         ax2.plot(x_100,err_100,'x')
         ax2.plot(x_200,err_200,'x')
@@ -198,23 +198,29 @@ plt.legend()
 
 imex = 'Midpoint'
 limiter = 'mp5'
-nrm = np.inf
+nrm = 2#np.inf
 # its = ['0010','0020','0030','0040','0050']
-its = ['0050','0060','0070','0080','0090','0100']
+# its = ['0050','0060','0070','0080','0090','0100']
+its = ['0100']
 cls = 1- np.linspace(0.1,0.9,len(its))
 
+plt.figure()
 for i in range(len(its)):
     EOC_arr = Calculate_EOC('SP','minmod',its[i],nrm,False)
     plt.plot(res,EOC_arr,'bs')
-    plt.plot(res,EOC_arr,'-',c=str(cls[i]),label= its[i])
+    # plt.plot(res,EOC_arr,'-',c=str(cls[i]),label= its[i])
+    plt.plot(res,EOC_arr,'-',c='b',label= its[i])
 
     EOC_arr = Calculate_EOC('Midpoint','weno5',its[i],nrm,False)
     plt.plot(res,EOC_arr,'rs')
-    plt.plot(res,EOC_arr,'-',c=str(cls[i]))
+    # plt.plot(res,EOC_arr,'-',c=str(cls[i]))
+    plt.plot(res,EOC_arr,'-',c='r')
 
     EOC_arr = Calculate_EOC('ARS3','weno5',its[i],nrm,False)
     plt.plot(res,EOC_arr,'gs')
-    plt.plot(res,EOC_arr,'-',c=str(cls[i]))
+    # plt.plot(res,EOC_arr,'-',c=str(cls[i]))
+    plt.plot(res,EOC_arr,'-',c='g')
+
 
 plt.title('RHD wave EOC using '+str(nrm)+'-norm')
 plt.hlines(1,200,2000,linestyles='--',colors='blue',label='SP')

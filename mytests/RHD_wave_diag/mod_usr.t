@@ -116,9 +116,10 @@ contains
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
+      print*, 'unit_numberdensity', unit_numberdensity
+      print*, 'unit_temperature', unit_temperature
       print*, 'unit_density', unit_density
       print*, 'unit_pressure', unit_pressure
-      print*, 'unit_temperature', unit_temperature
       print*, 'unit_radflux', unit_radflux
       print*, 'unit_opacity', unit_opacity
       print*, 'unit_time', unit_time

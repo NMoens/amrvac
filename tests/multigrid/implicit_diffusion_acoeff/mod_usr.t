@@ -7,9 +7,9 @@ module mod_usr
   integer             :: i_sol
   integer             :: i_eps1, i_eps2
   integer             :: i_err,i_rel_err
-  real(dp), parameter :: sig1 = 1.5d0
-  real(dp), parameter :: sig2 = 1.5d0
-  real(dp), parameter :: diffusion_coeff1 = 2.d0
+  real(dp), parameter :: sig1 = 1.0d-2
+  real(dp), parameter :: sig2 = 1.0d-2
+  real(dp), parameter :: diffusion_coeff1 = 1.d0
   real(dp), parameter :: diffusion_coeff2 = 1.d0
 
 contains
@@ -28,7 +28,7 @@ contains
 
     mg%operator_type = mg_ahelmholtz
     mg%bc(:, mg_iphi)%bc_type = mg_bc_continuous
-    mg%bc(:, mg_iphi)%bc_value = 0.0d0
+    ! mg%bc(:, mg_iphi)%bc_value = 0.0d0
 
     call set_coordinate_system("Cartesian_2D")
     call rho_activate()
@@ -62,6 +62,8 @@ contains
 
     sol = dsqrt(1.d0/(4*dpi*k1))*dsqrt(1.d0/(4*dpi*k2))
     sol = sol*dexp(-x**2/(4*k1))*dexp(-y**2/(4*k2))
+
+    sol = 1.d0 + sol
 
   end function solution
 

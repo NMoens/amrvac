@@ -36,8 +36,8 @@ contains
     usr_special_mg_bc => mg_boundary_conditions
 
     ! Output routines
-    usr_aux_output    => specialvar_output
-    usr_add_aux_names => specialvarnames_output
+    ! usr_aux_output    => specialvar_output
+    ! usr_add_aux_names => specialvarnames_output
 
     ! Active the physics module
     call rhd_activate()
@@ -75,6 +75,7 @@ contains
     print*, 'unit_temperature', unit_temperature
     print*, 'unit_length', unit_length
     print*, 'unit_time', unit_time
+    print*, 'unit_pressure', unit_pressure
 
 
     print*, unit_time, unit_velocity
@@ -197,11 +198,18 @@ contains
     case (1)
         mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
         mg%bc(iB, mg_iphi)%bc_value = Er1
+
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+
+
     case (2)
         ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
 
-        mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-        mg%bc(iB, mg_iphi)%bc_value = 0.d0
+        ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+        ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
+
+        mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
+        mg%bc(iB, mg_iphi)%bc_value = Er0
     case default
       print *, "Not a standard: ", trim(typeboundary(r_e, iB))
       error stop "Set special bound for this Boundary "
@@ -209,82 +217,82 @@ contains
   end subroutine mg_boundary_conditions
 
 
-  subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
-    ! this subroutine can be used in convert, to add auxiliary variables to the
-    ! converted output file, for further analysis using tecplot, paraview, ....
-    ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
-    !
-    ! the array normconv can be filled in the (nw+1:nw+nwauxio) range with
-    ! corresponding normalization values (default value 1)
-    use mod_global_parameters
-    use mod_fld
-
-    integer, intent(in)                :: ixI^L,ixO^L
-    double precision, intent(in)       :: x(ixI^S,1:ndim)
-    double precision                   :: w(ixI^S,nw+nwauxio)
-    double precision                   :: normconv(0:nw+nwauxio)
-
-    double precision :: step(ixI^S), rad_flux(ixO^S,1:ndim)
-    double precision :: lambda(ixO^S), fld_R(ixO^S), kappa(ixO^S)
-
-    double precision :: rad_e(ixI^S), normgrad2(ixO^S), grad_r_e(ixI^S)
-    double precision :: grE1(ixI^S), grE2(ixI^S)
-    integer :: idir
-
-    step(ixI^S) = (  1.d0-erf((x(ixI^S,1)-l1-global_time*const_c/unit_velocity)/l2    )  )/2.d0
-    ! w(ixI^S,nw+1) = step(ixI^S)
-
-    call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
-    ! w(ixO^S,nw+2) = rad_flux(ixO^S,1)
-
-    ! w(ixO^S,nw+3) = const_c/unit_velocity*w(ixO^S,r_e)
-
-    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
-    ! w(ixO^S,nw+4) = lambda(ixO^S)
-    ! w(ixO^S,nw+5) = fld_R(ixO^S)
-
-    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-    ! w(ixO^S,nw+6) = kappa(ixO^S)
-
-    normgrad2(ixO^S) = 0.d0 !smalldouble
-
-    rad_e(ixI^S) = w(ixI^S, r_e)
-    do idir = 1,ndim
-      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-      normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
-    end do
-
-    ! w(ixO^S,nw+7) = normgrad2(ixO^S)
-
-    call gradient(rad_e,ixI^L,ixO^L,1,grE1)
-
-    ! w(ixO^S,nw+8) = grE1(ixO^S)
-
-    ! if (x(1,1,1) .lt. xprobmin1) then
-    !   print*, 'Er', w(1:5,5,r_e)
-    !   print*, 'step', step(1:5,1)
-    !   print*, 'lambda', lambda(1:5,5)
-    !   print*, 'R', fld_R(1:5,5)
-    !   print*, 'normgr', normgrad2(1:5,5)
-    !   print*, 'gr1', grE1(1:5,5)
-    !   print*, 'gr2', grE2(1:5,5)
-    !   stop
-    ! endif
-
-    w(ixI^S,nw+1) = step(ixI^S)
-    w(ixO^S,nw+2) = lambda(ixO^S)
-    ! w(ixO^S,nw+3) = fld_R(ixO^S)
-
-
-  end subroutine specialvar_output
-
-  subroutine specialvarnames_output(varnames)
-    ! newly added variables need to be concatenated with the w_names/primnames string
-    use mod_global_parameters
-    character(len=*) :: varnames
-
-    ! varnames = 'step F1 cE lambda R kappa ngrd grE1'
-    varnames = 'step lambda'
-  end subroutine specialvarnames_output
+  ! subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
+  !   ! this subroutine can be used in convert, to add auxiliary variables to the
+  !   ! converted output file, for further analysis using tecplot, paraview, ....
+  !   ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
+  !   !
+  !   ! the array normconv can be filled in the (nw+1:nw+nwauxio) range with
+  !   ! corresponding normalization values (default value 1)
+  !   use mod_global_parameters
+  !   use mod_fld
+  !
+  !   integer, intent(in)                :: ixI^L,ixO^L
+  !   double precision, intent(in)       :: x(ixI^S,1:ndim)
+  !   double precision                   :: w(ixI^S,nw+nwauxio)
+  !   double precision                   :: normconv(0:nw+nwauxio)
+  !
+  !   double precision :: step(ixI^S), rad_flux(ixO^S,1:ndim)
+  !   double precision :: lambda(ixO^S), fld_R(ixO^S), kappa(ixO^S)
+  !
+  !   double precision :: rad_e(ixI^S), normgrad2(ixO^S), grad_r_e(ixI^S)
+  !   double precision :: grE1(ixI^S), grE2(ixI^S)
+  !   integer :: idir
+  !
+  !   step(ixI^S) = (  1.d0-erf((x(ixI^S,1)-l1-global_time*const_c/unit_velocity)/l2    )  )/2.d0
+  !   ! w(ixI^S,nw+1) = step(ixI^S)
+  !
+  !   call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
+  !   ! w(ixO^S,nw+2) = rad_flux(ixO^S,1)
+  !
+  !   ! w(ixO^S,nw+3) = const_c/unit_velocity*w(ixO^S,r_e)
+  !
+  !   call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+  !   ! w(ixO^S,nw+4) = lambda(ixO^S)
+  !   ! w(ixO^S,nw+5) = fld_R(ixO^S)
+  !
+  !   call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+  !   ! w(ixO^S,nw+6) = kappa(ixO^S)
+  !
+  !   normgrad2(ixO^S) = 0.d0 !smalldouble
+  !
+  !   rad_e(ixI^S) = w(ixI^S, r_e)
+  !   do idir = 1,ndim
+  !     call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+  !     normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+  !   end do
+  !
+  !   ! w(ixO^S,nw+7) = normgrad2(ixO^S)
+  !
+  !   call gradient(rad_e,ixI^L,ixO^L,1,grE1)
+  !
+  !   ! w(ixO^S,nw+8) = grE1(ixO^S)
+  !
+  !   ! if (x(1,1,1) .lt. xprobmin1) then
+  !   !   print*, 'Er', w(1:5,5,r_e)
+  !   !   print*, 'step', step(1:5,1)
+  !   !   print*, 'lambda', lambda(1:5,5)
+  !   !   print*, 'R', fld_R(1:5,5)
+  !   !   print*, 'normgr', normgrad2(1:5,5)
+  !   !   print*, 'gr1', grE1(1:5,5)
+  !   !   print*, 'gr2', grE2(1:5,5)
+  !   !   stop
+  !   ! endif
+  !
+  !   w(ixI^S,nw+1) = step(ixI^S)
+  !   w(ixO^S,nw+2) = lambda(ixO^S)
+  !   ! w(ixO^S,nw+3) = fld_R(ixO^S)
+  !
+  !
+  ! end subroutine specialvar_output
+  !
+  ! subroutine specialvarnames_output(varnames)
+  !   ! newly added variables need to be concatenated with the w_names/primnames string
+  !   use mod_global_parameters
+  !   character(len=*) :: varnames
+  !
+  !   ! varnames = 'step F1 cE lambda R kappa ngrd grE1'
+  !   varnames = 'step lambda'
+  ! end subroutine specialvarnames_output
 
 end module mod_usr

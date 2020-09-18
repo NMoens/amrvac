@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./stable/2Cak_notin_diff'
+  base_filename='./test/Big_stenc'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -97,5 +97,5 @@
   v_inf = 1.d8
   Mdot = 1.d-5
   fixed_lum = .false.
-  Cak_in_D = .false.
+  Cak_in_D = .true.
 /

@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./output/wave_tau_thick'
+  base_filename='./output/2wave_thick'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = F

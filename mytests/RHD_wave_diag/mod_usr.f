@@ -117,9 +117,10 @@ contains
 
     if (mype .eq. 0) then
       print*, 'unit_length', unit_length
+      print*, 'unit_numberdensity', unit_numberdensity
+      print*, 'unit_temperature', unit_temperature
       print*, 'unit_density', unit_density
       print*, 'unit_pressure', unit_pressure
-      print*, 'unit_temperature', unit_temperature
       print*, 'unit_radflux', unit_radflux
       print*, 'unit_opacity', unit_opacity
       print*, 'unit_time', unit_time
@@ -293,27 +294,27 @@ contains
     case(1)
       do ix1 = ixBmax1,ixBmin1,-1
         do ix2 = ixBmin2,ixBmax2
-          w(ix1,ix2,:) = w(ix1-1,ix2+1,:)
+          w(ix1,ix2,:) = w(ix1+1,ix2-1,:)
         enddo
       enddo
 
     case(2)
       do ix1 = ixBmin1,ixBmax1
-        do ix2 = ixBmax2,ixBmin2,-1
-          w(ix1,ix2,:) = w(ix1+1,ix2-1,:)
+        do ix2 = ixBmin2,ixBmax2
+          w(ix1,ix2,:) = w(ix1-1,ix2+1,:)
         enddo
       enddo
 
     case(3)
-      do ix1 = ixBmin1,ixBmax1
-        do ix2 = ixBmin2,ixBmax2
-          w(ix1,ix2,:) = w(ix1+1,ix2-1,:)
+      do ix2 = ixBmax2,ixBmin2, -1
+        do ix1 = ixBmin1,ixBmax1
+          w(ix1,ix2,:) = w(ix1-1,ix2+1,:)
         enddo
       enddo
 
     case(4)
-      do ix1 = ixBmin1,ixBmax1
-        do ix2 = ixBmax2,ixBmax2
+      do ix2 = ixBmin2,ixBmax2
+        do ix1 = ixBmin1,ixBmax1
           w(ix1,ix2,:) = w(ix1-1,ix2+1,:)
         enddo
       enddo

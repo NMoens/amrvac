@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./convergence/ARS3_weno5_3200'
+  base_filename='./test/Big_stenc'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -46,7 +46,7 @@
 
  &meshlist
    refine_max_level   = 1
-   domain_nx1         = 3200
+   domain_nx1         = 2000
    block_nx1          = 50
    xprobmin1       = 0.d0
    xprobmax1       = 20.d0

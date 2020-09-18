@@ -110,10 +110,12 @@ it = '0029'
 # limiter = 'weno5'
 nrm = np.inf
 
-its = ['0021','0022','0023','0024','0025','0026','0027','0028','0029','0030','0031','0032','0033','0034','0035','0036','0037','0038','0039','0040']
+# its = ['0021','0022','0023','0024','0025','0026','0027','0028','0029','0030','0031','0032','0033','0034','0035','0036','0037','0038','0039','0040']
 # its = ['0001','0002','0003','0004','0005','0006','0007','0008','0009']
 # its = ['0001','0002','0003','0004','0005','0006','0007','0008','0009','0010','0011','0012','0013','0014','0015','0016','0017','0018','0019','0020','0021']
 # its = ['0021','0022','0023','0024','0025','0026','0027','0028','0029','0030']
+
+its = ['0040']
 
 cls = 1- np.linspace(0.1,0.9,len(its))
 
@@ -125,26 +127,33 @@ res = [100, 200, 400, 800, 1600, 3200]
 
 plt.figure()
 for i in range(len(its)):
-    # EOC_arr = Calculate_EOC('Euler','weno5',its[i],nrm,False, N_c)
+    EOC_arr = Calculate_EOC('Euler','weno5',its[i],nrm,False, N_c)
     # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]),label= its[i])
-    # plt.semilogx(res,EOC_arr,'bs')
+    plt.semilogx(res,EOC_arr,'-',c='b')
+    plt.semilogx(res,EOC_arr,'bs',label= 'Euler')
 
-    # EOC_arr = Calculate_EOC('SP','weno5',its[i],nrm,False, N_c)
+    EOC_arr = Calculate_EOC('SP','weno5',its[i],nrm,False, N_c)
     # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
-    # plt.semilogx(res,EOC_arr,'b^')
+    plt.semilogx(res,EOC_arr,'-',c='b')
+    plt.semilogx(res,EOC_arr,'b^',label= 'SP')
 
     EOC_arr = Calculate_EOC('Midpoint','mp5',its[i],nrm,False, N_c)
-    plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
-    plt.semilogx(res,EOC_arr,'rs')
-
-    # EOC_arr = Calculate_EOC('ARS3','mp5',its[i],nrm,False, N_c)
     # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
-    # plt.semilogx(res,EOC_arr,'gs')
+    plt.semilogx(res,EOC_arr,'-',c='r')
+    plt.semilogx(res,EOC_arr,'rs',label= 'Midpoint')
+
+    EOC_arr = Calculate_EOC('ARS3','mp5',its[i],nrm,False, N_c)
+    # plt.semilogx(res,EOC_arr,'-',c=str(cls[i]))
+    plt.semilogx(res,EOC_arr,'-',c='g')
+    plt.semilogx(res,EOC_arr,'gs',label= 'ARS3')
 
 plt.title('RHD Shock EOC using '+str(nrm)+'-norm')
-plt.hlines(1,100,4000,linestyles='--',colors='blue',label='SP')
-plt.hlines(2,100,4000,linestyles='--',colors='red',label='Midoint')
-plt.hlines(3,100,4000,linestyles='--',colors='green',label='ARS3')
+# plt.hlines(1,100,4000,linestyles='--',colors='blue',label='SP')
+# plt.hlines(2,100,4000,linestyles='--',colors='red',label='Midoint')
+# plt.hlines(3,100,4000,linestyles='--',colors='green',label='ARS3')
+plt.hlines(1,100,4000,linestyles='--',colors='blue')
+plt.hlines(2,100,4000,linestyles='--',colors='red')
+plt.hlines(3,100,4000,linestyles='--',colors='green')
 plt.xlabel('$N_{cells}$')
 plt.xticks(res,res)
 plt.ylabel('$EOC_{N}$')

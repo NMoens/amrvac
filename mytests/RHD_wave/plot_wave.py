@@ -74,6 +74,22 @@ def AMRVAC_single_profile(file,variable):
     x = x*ds.units.unit_length
     return x,data
 
+def get_data(myfile):
+    A = np.loadtxt(myfile,skiprows=3)
+
+    x0 = np.transpose(A)[0]
+    rho0 = np.transpose(A)[1]
+    v0 = np.transpose(A)[2]
+    e0 = np.transpose(A)[3]
+    E0 = np.transpose(A)[4]
+
+    delta_rho = 100*(rho0-np.mean(rho0))
+    delta_v = v0
+    delta_e = e0-np.mean(e0)
+    delta_E = E0-np.mean(E0)
+
+    return x0, delta_rho, delta_v, delta_e, delta_E
+
 def analytic(ii,jj,cheat):
     a = 3.e6
     omega = 1.8769477562401875e-005
@@ -109,16 +125,9 @@ def analytic(ii,jj,cheat):
     return sol
 
 # folder = 'output'
-amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/RHD_wave/output/wave_tau_thick10100.dat'
+amrvac_outfile0 = '/lhome/nicolasm/amrvac/mytests/RHD_wave/test/fs_hll_lim_mp50100.dat'
 
-
-r0,rho0 = AMRVAC_single_profile(amrvac_outfile0,'rho')
-r0,v0 = AMRVAC_single_profile(amrvac_outfile0,'v')
-r0,p0 = AMRVAC_single_profile(amrvac_outfile0,'p')
-r0,e0 = AMRVAC_single_profile(amrvac_outfile0,'e')
-r0,Er0 = AMRVAC_single_profile(amrvac_outfile0,'re')
-r0,a0 = AMRVAC_single_profile(amrvac_outfile0,'a')
-r0,Diff0 = AMRVAC_single_profile(amrvac_outfile0,'D')
+r0 , rho0, v0, e0, Er0 = get_data('test/fs_hll_lim_mp50100.blk')
 
 analytic_cheat = analytic(0,0,True)
 analytic_mix = analytic(2,0,False)
@@ -126,47 +135,54 @@ analytic_mix = analytic(2,0,False)
 
 
 
-plt.figure()
-
-plt.title('Density perturbation')
-plt.plot(r0/unit_length,1e4*(rho0-np.mean(rho0)),'rx',label='simulation')
-plt.plot(x/wvl,analytic_cheat,'k--',label='cheaty')
-plt.plot(x/wvl,analytic_mix,'b--',label='mixed')
-plt.ylabel('perturbation')
-plt.xlabel('$x/\\lambda$')
-plt.legend()
-
-
-
-amrvac_outfile1 = '/lhome/nicolasm/amrvac/mytests/RHD_wave/output/wave_tau_thick20100.dat'
-r1,rho1 = AMRVAC_single_profile(amrvac_outfile1,'rho')
-
-plt.figure()
-
-plt.title('Density perturbation')
-plt.plot(r0/unit_length,1e4*(rho0-np.mean(rho0)),'r-',label='sim, cfl = 0.5')
-plt.plot(r1/unit_length,1e4*(rho0-np.mean(rho1)),'kx',label='sim, cfl = 0.005')
-plt.ylabel('perturbation')
-plt.xlabel('$x/\\lambda$')
-plt.legend()
-
-
-# f,(ax1,ax2,ax3,ax4) = plt.subplots(4,1,sharex=True)
+# plt.figure()
 #
-#
-# ax1.plot(r0,rho0,'rx')
-# ax1.set_ylabel('$\\rho$')
-#
-# e_sc = (e0-0.5*rho0*v0**2)
-# ax2.plot(r0,e_sc,'rx')
-# ax2.set_ylabel('$e_g$')
-#
-# ax3.plot(r0,Er0,'rx')
-# ax3.set_ylabel('$E_r$')
-#
-# ax4.plot(r0,v0,'rx')
-# ax4.set_ylabel('$v$')
-# ax4.set_xlabel('$x/\\lambda$')
+# plt.title('Density perturbation')
+# plt.plot(r0/unit_length,1e4*(rho0-np.mean(rho0)),'rx',label='simulation')
+# plt.plot(x/wvl,analytic_cheat,'k--',label='cheaty')
+# plt.plot(x/wvl,analytic_mix,'b--',label='mixed')
+# plt.ylabel('perturbation')
+# plt.xlabel('$x/\\lambda$')
+# plt.legend()
 
+
+
+# amrvac_outfile1 = '/lhome/nicolasm/amrvac/mytests/RHD_wave/test/fs_hll_lim_mp50100.dat'
+# r1,rho1 = AMRVAC_single_profile(amrvac_outfile1,'rho')
+#
+# plt.figure()
+#
+# plt.title('Density perturbation')
+# plt.plot(r0/unit_length,1e4*(rho0-np.mean(rho0)),'r-',label='sim, cfl = 0.5')
+# plt.plot(r1/unit_length,1e4*(rho0-np.mean(rho1)),'kx',label='sim, cfl = 0.005')
+# plt.ylabel('perturbation')
+# plt.xlabel('$x/\\lambda$')
+# plt.legend()
+#
+
+
+f,(ax1,ax2,ax3,ax4) = plt.subplots(4,1,sharex=True)
+
+
+ax1.plot(r0,rho0,'rx')
+ax1.set_ylabel('$\\delta \\rho$',fontsize=15)
+
+ax2.plot(r0,v0,'rx')
+ax2.set_ylabel('$v$',fontsize=15)
+
+e_sc = (e0-0.5*rho0*v0**2)
+ax3.plot(r0,e_sc,'rx')
+ax3.set_ylabel('$\\delta e_g$',fontsize=15)
+
+Er_cheat = Er0*0.e0
+for i in range(len(r0)):
+    if r0[i] > 1.0:
+        Er_cheat[i] = 0.002/0.025*e_sc[i]
+
+ax4.plot(r0,Er_cheat,'rx')
+ax4.set_ylabel('$\\delta E_r$',fontsize=15)
+ax4.set_xlabel('$x/\\lambda$',fontsize=15)
+
+plt.tight_layout()
 
 plt.show()

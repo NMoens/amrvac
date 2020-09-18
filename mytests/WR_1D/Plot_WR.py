@@ -183,5 +183,11 @@ plt.ylabel('Mdot [Msun/year]')
 plt.xlabel('x = 1-R/r')
 plt.legend()
 
+plt.figure()
+plt.title('Wolf-Rayet wind')
+plt.plot(r_SCD,v_SCD,'r-',label='stable')
+plt.xlabel('$r/R_{sun}$',fontsize=15)
+plt.ylabel('$v [10^8 cm/s]$',fontsize=15)
+
 
 plt.show()

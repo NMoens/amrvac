@@ -14,8 +14,9 @@ year = 365*24*60*60
 ind = 1
 # file = 'unstable/2test'
 # file = 'stable/Cak_in_diff'
-file = 'unstable/2Cak_in_diff'
+# file = 'unstable/2Cak_in_diff'
 # file = 'unstable/2Cak_notin_diff'
+file = 'test/w_e'
 
 
 unit_time = 695.9
@@ -25,37 +26,15 @@ A = np.loadtxt(file + '0000.blk',skiprows=3)
 r_axis = np.transpose(A)[0]
 x_axis = 1. - 1./r_axis
 
-for i in range(1,10):
+
+for i in range(500,2000):
+    t = str(i).zfill(4)
     try:
-        A = np.loadtxt(file + '000'+str(i)+'.blk',skiprows=3)
+        A = np.loadtxt(file + t + '.blk',skiprows=3)
         E_S = np.transpose(A)[ind]
         All_E.append(E_S)
 
-        t = open(file + '000'+str(i)+'.blk', "r").readlines()[2]
-        t_axis.append(float(t))
-        print('read ', i)
-    except:
-        print('Failed ', i)
-
-for i in range(10,100):
-    try:
-        A = np.loadtxt(file + '00'+str(i)+'.blk',skiprows=3)
-        E_S = np.transpose(A)[ind]
-        All_E.append(E_S)
-
-        t = open(file + '00'+str(i)+'.blk', "r").readlines()[2]
-        t_axis.append(float(t))
-        print('read ', i)
-    except:
-        print('Failed ', i)
-
-for i in range(100,300):
-    try:
-        A = np.loadtxt(file + '0'+str(i)+'.blk',skiprows=3)
-        E_S = np.transpose(A)[ind]
-        All_E.append(E_S)
-
-        t = open(file + '0'+str(i)+'.blk', "r").readlines()[2]
+        t = open(file + t +'.blk', "r").readlines()[2]
         t_axis.append(float(t))
         print('read ', i)
     except:
@@ -80,12 +59,15 @@ except:
     print("Logdiff or Relldiff not defined")
 
 plt.figure()
-plt.pcolor(t_mesh,x_mesh,Logdiff_E,cmap='seismic',vmin=-1,vmax=1)
+plt.pcolor(t_mesh,x_mesh,Logdiff_E,cmap='seismic',vmin=-0.01,vmax=0.01)
 # plt.pcolor(t_mesh,x_mesh,All_E,cmap='viridis',vmin=0,vmax=3)
 
 cbar = plt.colorbar()
-cbar.set_label('Relative difference')
-plt.contour(t_mesh,x_mesh,Logdiff_E, [0.0], colors = 'k')
+cbar.set_label('$Log(\\rho/<\\rho>)')
+# plt.contour(t_mesh,x_mesh,Logdiff_E, [0.0], colors = 'k')
+
+plt.ylabel('x = 1-R/r')
+plt.xlabel('t [s]')
 
 plt.figure()
 plt.semilogy(x_axis,mean_E)

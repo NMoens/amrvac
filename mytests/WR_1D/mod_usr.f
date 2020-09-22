@@ -112,7 +112,9 @@ contains
     !> Very bad initial guess for gradE using kappa_e
     gradE = -F_bound*3*kappa_e*rho_bound*unit_velocity/const_c
 
-    print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
+    print*, 'L_bound (cgs)', L_bound*(unit_radflux*unit_length**2)
+    print*, 'log10(L_bound)', log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
+    print*, 'L_bound', L_bound*(unit_radflux*unit_length**2)/L_sun
     ! stop
     print*, 'unit_density', unit_density
     print*, 'unit_time', unit_time
@@ -273,9 +275,10 @@ contains
 
       ! print*, w(1:5,i_diff_mg)
 
-      Local_gradE(ixImin1:ixImax1) = -(F_bound-&
-         F_adv)*3*kappa(ixImin1:ixImax1)*w(ixImin1:ixImax1,&
-         rho_)*unit_velocity/const_c
+      ! Local_gradE(ixI^S) = -(F_bound-F_adv)*3*kappa(ixI^S)*w(ixI^S,rho_)&
+      ! *unit_velocity/const_c
+      Local_gradE(ixImin1:ixImax1) = -(F_bound-F_adv)/w(nghostcells+1,&
+         i_diff_mg)
       gradE = Local_gradE(nghostcells)
 
       ! print*, gradE

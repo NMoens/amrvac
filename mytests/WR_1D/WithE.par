@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./test/w_e'
+  base_filename='./test/u_w_e'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -27,8 +27,8 @@
 /
 
  &methodlist
-   time_stepper = 'onestep'
-   time_integrator = 'IMEX_Euler'
+   time_stepper = 'threestep'
+   time_integrator = 'IMEX_ARS3'
    flux_scheme     = 20*'tvdlf'
    limiter         = 20*'minmod'
    source_split_usr = .false.
@@ -57,7 +57,7 @@
  /
 
  &paramlist
-  courantpar       = 0.4d0 !0.4d0
+  courantpar       = 0.2d0 !0.4d0
   !dtpar           = 1.d-4
   slowsteps = 500
  /
@@ -91,12 +91,12 @@
   !it_start_cak = 10
   rho_bound = 1.d-7 !3.d-7
   T_bound = 3.2d5
-  Gamma_e_bound = 0.11d0 !0.40d0
+  Gamma_e_bound = 0.4d0 !0.1d0 !0.40d0
   kappa_e = 0.2d0
   R_star = 1.d0
   M_star = 10.d0
   v_inf = 1.d8
   Mdot = 1.d-5
   fixed_lum = .false.
-  Cak_in_D = .false.
+  Cak_in_D = .true.
 /

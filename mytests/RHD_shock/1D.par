@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./test/Big_stenc'
+  base_filename='./test/Big_stenc_trap'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -27,8 +27,8 @@
 /
 
  &methodlist
-   time_stepper = 'twostep'
-   time_integrator = 'IMEX_Midpoint'
+   time_stepper = 'threestep'
+   time_integrator = 'IMEX_232'
    flux_scheme     = 20*'hll'
    limiter         = 20*'mp5'
    source_split_usr = .false.
@@ -47,8 +47,8 @@
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 3
-   domain_nx1         = 512
-   block_nx1          = 128
+   domain_nx1         = 256
+   block_nx1          = 64
    xprobmin1       = -0.5d0
    xprobmax1       = 0.5d0
    refine_threshold   = 20*0.5d0

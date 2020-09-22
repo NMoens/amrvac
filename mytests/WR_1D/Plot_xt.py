@@ -17,6 +17,7 @@ ind = 1
 # file = 'unstable/2Cak_in_diff'
 # file = 'unstable/2Cak_notin_diff'
 file = 'test/w_e'
+file = 'test/u_w_e'
 
 
 unit_time = 695.9
@@ -27,7 +28,7 @@ r_axis = np.transpose(A)[0]
 x_axis = 1. - 1./r_axis
 
 
-for i in range(500,2000):
+for i in range(200,3000):
     t = str(i).zfill(4)
     try:
         A = np.loadtxt(file + t + '.blk',skiprows=3)
@@ -60,10 +61,10 @@ except:
 
 plt.figure()
 plt.pcolor(t_mesh,x_mesh,Logdiff_E,cmap='seismic',vmin=-0.01,vmax=0.01)
-# plt.pcolor(t_mesh,x_mesh,All_E,cmap='viridis',vmin=0,vmax=3)
+# plt.pcolor(t_mesh,x_mesh,All_E,cmap='viridis',vmin=0,vmax=0.6)
 
 cbar = plt.colorbar()
-cbar.set_label('$Log(\\rho/<\\rho>)')
+cbar.set_label('$Log(\\rho/<\\rho>)$')
 # plt.contour(t_mesh,x_mesh,Logdiff_E, [0.0], colors = 'k')
 
 plt.ylabel('x = 1-R/r')

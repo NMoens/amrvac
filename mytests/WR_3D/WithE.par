@@ -3,18 +3,17 @@
 /
 
 &filelist
-  base_filename='./test/u_w_e'
+  base_filename='./test/3D'
   autoconvert      = T
-  convert_type     = 'oneblock'
-  level_io         = 1
+  convert_type     = 'vtuBCCmpi'
   saveprim         = T
-  nwauxio = 4
+  !nwauxio = 4
 /
 
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   !ditsave_dat     = 1
+   ditsave_dat     = 1
    !ditsave_log     = 100
    dtsave_dat     = 1.d-1
    dtsave_log     = 5.d-2
@@ -23,13 +22,13 @@
  &stoplist
    time_max = 300.d0
    dtmin = 1.0d-20
-   !it_max = 500
+   it_max = 5
 /
 
  &methodlist
    time_stepper = 'onestep'
    time_integrator = 'IMEX_Euler'
-   flux_scheme     = 20*'tvdlf'
+   flux_scheme     = 20*'hll'
    limiter         = 20*'minmod'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
@@ -40,18 +39,30 @@
 /
 
 &boundlist
-  typeboundary_min1 = 4*'special'
-  typeboundary_max1 = 3*'noinflow','special'
+  typeboundary_min1 = 6*'special'
+  typeboundary_max1 = 5*'noinflow','special'
+  typeboundary_min2 = 6*'symm'
+  typeboundary_max2 = 6*'symm'
+  typeboundary_min3 = 6*'symm'
+  typeboundary_max3 = 6*'symm'
   internalboundary = F
 /
 
  &meshlist
    refine_max_level   = 1
    refine_criterion   = 0
-   domain_nx1         = 1000
-   block_nx1          = 1000
+   domain_nx1         = 500
+   domain_nx2         = 100
+   domain_nx3         = 100
+   block_nx1          = 10
+   block_nx2          = 10
+   block_nx3          = 10
    xprobmin1      = 1.d0
    xprobmax1       = 6.d0
+   xprobmin2      = -0.5d0
+   xprobmax2       = 0.5d0
+   xprobmin3      = -0.5d0
+   xprobmax3       = 0.5d0
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
  /
@@ -77,14 +88,14 @@
  &fld_list
   fld_Radforce_split = .false.
   fld_opacity_law = 'special'
-  fld_fluxlimiter = 'Pomraning'
+  fld_fluxlimiter = 'Minerbo'
   fld_diff_tol = 1.d-4
   fld_bisect_tol = 1.d-7
   /
 
  &wind_list
   cak_Q = 2.30d3
-  cak_a = 0.60d0
+  cak_a = 0.50d0
   cak_base = 0.66d0
   cak_x0 = 0.4d0
   cak_x1 = 0.65d0

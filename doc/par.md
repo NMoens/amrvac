@@ -382,7 +382,7 @@ linear in the time step, which is good for getting a steady state, by setting
 `time_stepper='onestep'`.
 
 There is also a fourth order Runge-Kutta type method, when
-`time_stepper='fourstep'` 
+`time_stepper='fourstep'`
 and one sets
 `time_integrator='rk4'`. It can be used with _dimsplit=.true._.
  These higher order time integration methods can be
@@ -403,8 +403,8 @@ all, and 'source' merely adds sources. These latter two values must be used
 with care, obviously, and are only useful for testing source terms or to save
 computations when fluxes are known to be zero.
 
-The `typepred1` array is only used when `time_stepper='twostep'` and 
-`time_integrator='Predictor_Corrector'` and 
+The `typepred1` array is only used when `time_stepper='twostep'` and
+`time_integrator='Predictor_Corrector'` and
 specifies the predictor step discretization, again per level (so _nlevelshi_
 strings must be set). By default, it contains _typepred1=20*'default'_ (default
 value _nlevelshi=20_), and it then deduces e.g. that 'cd' is predictor for
@@ -558,7 +558,7 @@ Due to limited spatial resolution, numerically underresolved transition region i
 numerical models of solar atmosphere leads to significant underestimation of coronal
 density and large errors in thermodynamic evolution. Transition Region Adaptive
 thermal Conduction (TRAC) invented by Johnson and Bradshaw (2019 ApJL, 873, L22)
-is implemented to fix this problem by setting `trac=F` for 1D HD and
+is implemented to fix this problem by setting `trac=T` for 1D HD and
 multidimensional MHD solar atmospheric models.
 
 ## Boundlist {#par_boundlist}
@@ -974,6 +974,8 @@ sharp discontinuities. It is normally inactive with a default value -1.
      mhd_viscosity= F | T
      mhd_particles= F | T
      mhd_4th_order= F | T
+     mhd_internal_e= F | T
+     mhd_solve_eaux= F | T
      typedivbfix= 'linde'|'ct'|'glm'|'powel'|'lindejanhunen'|'lindepowel'|'lindeglm'|'multigrid'|'none'
      type_ct='uct_contact'|'uct_hll'|'average'
      source_split_divb= F | T
@@ -1098,6 +1100,27 @@ cylindrical coordinates as well. User can possibly prescibe analytic current in
 _usr_set_J0_ subroutine to significantly increase accuracy. Choose
 `B0field_forcefree=T` when your background magnetic field is forcefree for better
 efficiency and accuracy.
+
+### Solve internal energy to avoid negative pressure{#par_AIE}
+
+In extremely low beta plasma, internal energy or gas pressure easily goes to
+negative values when solving total energy equation, because numerical error of magnetic
+ energy is comparable to the internal energy due to its extremely small fraction in the
+total energy. We have two methods to avoid this problem. In the first method, we solve
+internal energy equation instead of total energy equation by setting `mhd_internal_e=T`.
+In the second method, we solve both the total energy equation and an auxiliary internal energy equation
+ and synchronize the internal energy with the result from total energy equation.  In each step of
+advection, the synchronization replace the internal energy from
+the total energy with the auxiliary internal energy where plasma beta is lower than 0.005,
+mix them where plasma beta is between 0.005 and 0.05, and replace the auxiliary internal
+energy with the internal energy from the total energy where plasma beta is larger than 0.05.
+This function is activated by `mhd_solve_eaux=T`. It is needed to specify the special boundary
+for the auxiliary internal energy in mod_usr.t if special boundary is used. The boundary type
+of the auxiliary internal energy is coded to be the same as the boundary type of density.
+So you do not need to specify boundary types for the auxiliary internal energy in the par file.
+This function is compatible with all finite volume and finite difference schemes we have, including
+HLL, HLLC, and HLLD, in which the Riemann flux of the auxiliary internal energy is evaluted
+as the HLL flux in all intermediate states of the Riemann fan.
 
 ## Synthetic EUV emission {#par_euvlist}
 

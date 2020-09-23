@@ -21,6 +21,18 @@ module mod_physics
   !> computing a curl.
   logical :: phys_req_diagonal = .true.
 
+  !> Solve energy equation or not
+  logical :: phys_energy=.false.
+
+  !> Solve total energy equation or not
+  logical :: phys_total_energy=.false.
+
+  !> Solve internal enery instead of total energy
+  logical :: phys_internal_e=.false.
+
+  !> Solve internal energy and total energy equations
+  logical :: phys_solve_eaux=.false.
+
   !> Array per direction per variable, which can be used to specify that certain
   !> fluxes have to be treated differently
   integer, allocatable :: flux_type(:, :)
@@ -48,6 +60,8 @@ module mod_physics
   procedure(sub_set_mg_bounds), pointer   :: phys_set_mg_bounds          => null()
   procedure(sub_convert), pointer         :: phys_to_conserved           => null()
   procedure(sub_convert), pointer         :: phys_to_primitive           => null()
+  procedure(sub_convert), pointer         :: phys_ei_to_e                => null()
+  procedure(sub_convert), pointer         :: phys_e_to_ei                => null()
   procedure(sub_modify_wLR), pointer      :: phys_modify_wLR             => null()
   procedure(sub_get_cmax), pointer        :: phys_get_cmax               => null()
   procedure(sub_get_a2max), pointer       :: phys_get_a2max              => null()
@@ -59,8 +73,8 @@ module mod_physics
   procedure(sub_get_dt), pointer          :: phys_get_dt                 => null()
   procedure(sub_add_source_geom), pointer :: phys_add_source_geom        => null()
   procedure(sub_add_source), pointer      :: phys_add_source             => null()
-  procedure(sub_global_rad_source), pointer   :: global_radiation_source     => null()
-  procedure(sub_global_source), pointer   :: phys_global_source          => null()
+  procedure(sub_global_source), pointer   :: phys_global_source_before   => null()
+  procedure(sub_global_source), pointer   :: phys_global_source_after    => null()
   procedure(sub_get_aux), pointer         :: phys_get_aux                => null()
   procedure(sub_check_w), pointer         :: phys_check_w                => null()
   procedure(sub_get_pthermal), pointer    :: phys_get_pthermal           => null()
@@ -154,10 +168,10 @@ module mod_physics
        double precision, intent(out)   :: f(ixI^S, nwflux)
      end subroutine sub_get_flux
 
-     subroutine sub_energy_synchro(ixI^L,ixO^L,w,x)
+     subroutine sub_energy_synchro(qdt,ixI^L,ixO^L,wCT,w,x)
        use mod_global_parameters
        integer, intent(in) :: ixI^L,ixO^L
-       double precision, intent(in) :: x(ixI^S,1:ndim)
+       double precision, intent(in) :: qdt,wCT(ixI^S,1:nw),x(ixI^S,1:ndim)
        double precision, intent(inout) :: w(ixI^S,1:nw)
      end subroutine sub_energy_synchro
 
@@ -180,7 +194,8 @@ module mod_physics
      end subroutine sub_add_source
 
      !> Add global source terms on complete domain (potentially implicit)
-     subroutine sub_global_rad_source(qdt, qt, active)
+     subroutine sub_global_source(qdt, qt, active)
+       use mod_global_parameters
        double precision, intent(in) :: qdt    !< Current time step
        double precision, intent(in) :: qt     !< Current time
        logical, intent(inout)       :: active !< Output if the source is active

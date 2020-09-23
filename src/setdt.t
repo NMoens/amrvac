@@ -67,12 +67,12 @@ subroutine setdt()
 
 
   if(final_dt_reduction)then
-     if (dtmin_mype>time_max-global_time) then
-        write(unitterm,*)"WARNING final timestep artificially reduced!"
-        write(unitterm,*)"on processor:", mype, "at time:", global_time," step:", it
-     endif
+     !if (dtmin_mype>time_max-global_time) then
+     !   write(unitterm,*)"WARNING final timestep artificially reduced!"
+     !   write(unitterm,*)"on processor:", mype, "at time:", global_time," step:", it
+     !endif
      if(time_max-global_time<=dtmin) then
-        write(unitterm,*)'Forcing to leave timeloop as time is reached!'
+        !write(unitterm,*)'Forcing to leave timeloop as time is reached!'
         final_dt_exit=.true.
      endif
      dtmin_mype=min(dtmin_mype,time_max-global_time)
@@ -179,13 +179,13 @@ subroutine setdt()
       {^IFONED
       ps(igrid)%special_values(1)=tco_global
       }
+      if(ps(igrid)%special_values(1)<trac_alfa*ps(igrid)%special_values(2)) then
+        ps(igrid)%special_values(1)=trac_alfa*ps(igrid)%special_values(2)
+      end if
       if(ps(igrid)%special_values(1) < T_bott) then
         ps(igrid)%special_values(1)=T_bott
       else if(ps(igrid)%special_values(1) > 0.2d0*T_peak) then
         ps(igrid)%special_values(1)=0.2d0*T_peak
-      end if
-      if(ps(igrid)%special_values(1) .lt. trac_alfa*ps(igrid)%special_values(2)) then
-        ps(igrid)%special_values(1)=trac_alfa*ps(igrid)%special_values(2)
       end if
       !> special values(2) to save old tcutoff
       ps(igrid)%special_values(2)=ps(igrid)%special_values(1)

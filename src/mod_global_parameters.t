@@ -371,12 +371,6 @@ module mod_global_parameters
   !> Use SI units (.true.) or use cgs units (.false.)
   logical :: SI_unit=.false.
 
-  !> Solve energy equation or not
-  logical :: phys_energy=.true.
-
-  !> Solve polytropic process instead of solving total energy
-  logical :: phys_solve_eaux=.false.
-
   !> Use TRAC (Johnston 2019 ApJL, 873, L22) for MHD or 1D HD
   logical :: trac=.false.
 
@@ -420,8 +414,8 @@ module mod_global_parameters
   double precision, allocatable :: amr_wavefilter(:)
 
   integer                       :: refine_criterion
-  logical                       :: prolongprimitive
-  logical                       :: coarsenprimitive
+  logical                       :: prolongprimitive=.false.
+  logical                       :: coarsenprimitive=.false.
 
   !> Error tolerance for refinement decision
   double precision, allocatable :: refine_threshold(:)

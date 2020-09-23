@@ -10,6 +10,9 @@ module mod_mf_phys
   !> decay scale of frictional velocity 
   double precision, public                :: mf_decay_scale = 1.d0
 
+  !> Whether particles module is added
+  logical, public, protected              :: mf_particles = .false.
+
   !> Whether GLM-MHD is used
   logical, public, protected              :: mf_glm = .false.
 
@@ -113,7 +116,7 @@ contains
     integer                      :: n
 
     namelist /mf_list/ mf_nu, mf_decay_scale, &
-      mf_eta, mf_eta_hyper, mf_glm_alpha, &
+      mf_eta, mf_eta_hyper, mf_glm_alpha, mf_particles,&
       mf_4th_order, typedivbfix, source_split_divb, divbdiff,&
       typedivbdiff, type_ct, compactres, divbwave, He_abundance, SI_unit, B0field,&
       B0field_forcefree, Bdip, Bquad, Boct, Busr, &
@@ -161,6 +164,7 @@ contains
   subroutine mf_phys_init()
     use mod_global_parameters
     use mod_physics
+    use mod_particles, only: particles_init
     {^NOONED
     use mod_multigrid_coupling
     }
@@ -171,6 +175,7 @@ contains
 
     physics_type = "mf"
     phys_energy = .false.
+    use_particles=mf_particles
 
     if(ndim==1) typedivbfix='none'
     select case (typedivbfix)
@@ -181,7 +186,7 @@ contains
        type_divb = divb_multigrid
        use_multigrid = .true.
        mg%operator_type = mg_laplacian
-       phys_global_source => mf_clean_divb_multigrid
+       phys_global_source_after => mf_clean_divb_multigrid
     }
     case ('glm')
       mf_glm          = .true.
@@ -254,9 +259,16 @@ contains
     phys_check_params        => mf_check_params
     phys_write_info          => mf_write_info
     phys_angmomfix           => mf_angmomfix
+    phys_global_source_before=> mf_velocity_update
 
     if(type_divb==divb_glm) then
       phys_modify_wLR => mf_modify_wLR
+    end if
+
+    ! Initialize particles module
+    if(mf_particles) then
+      call particles_init()
+      phys_req_diagonal = .true.
     end if
 
     ! if using ct stagger grid, boundary divb=0 is not done here
@@ -283,16 +295,18 @@ contains
 
   subroutine mf_physical_units()
     use mod_global_parameters
-    double precision :: mp,kB,miu0
+    double precision :: mp,kB,miu0,c_lightspeed
     ! Derive scaling units
     if(SI_unit) then
       mp=mp_SI
       kB=kB_SI
       miu0=miu0_SI
+      c_lightspeed=c_SI
     else
       mp=mp_cgs
       kB=kB_cgs
       miu0=4.d0*dpi
+      c_lightspeed=const_c
     end if
     if(unit_velocity==0) then
       unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
@@ -307,6 +321,11 @@ contains
       unit_magneticfield=sqrt(miu0*unit_pressure)
       unit_time=unit_length/unit_velocity
     end if
+    ! Additional units needed for the particles
+    c_norm=c_lightspeed/unit_velocity
+    unit_charge=unit_magneticfield*unit_length**2/unit_velocity/miu0
+    if (.not. SI_unit) unit_charge = unit_charge*const_c
+    unit_mass=unit_density*unit_length**3
 
   end subroutine mf_physical_units
 
@@ -515,6 +534,26 @@ contains
 
   end subroutine mf_get_flux
 
+  !> Add global source terms to update frictional velocity on complete domain
+  subroutine mf_velocity_update(qdt, qt, active)
+    use mod_global_parameters
+    double precision, intent(in) :: qdt    !< Current time step
+    double precision, intent(in) :: qt     !< Current time
+    logical, intent(inout)       :: active !< Output if the source is active
+
+    integer :: iigrid,igrid
+
+    !$OMP PARALLEL DO PRIVATE(igrid)
+    do iigrid=1,igridstail_active; igrid=igrids_active(iigrid);
+      block=>ps(igrid)
+      call frictional_velocity(ps(igrid)%w,ps(igrid)%x,ixG^LL,ixM^LL,qdt)
+    end do
+    !$OMP END PARALLEL DO
+
+    active=.true.
+
+  end subroutine mf_velocity_update
+
   !> w[iws]=w[iws]+qdt*S[iws,wCT] where S is the source based on wCT within ixO
   subroutine mf_add_source(qdt,ixI^L,ixO^L,wCT,w,x,qsourcesplit,active)
     use mod_global_parameters
@@ -622,12 +661,6 @@ contains
       end select
     end if
     }
-
-    if (.not. qsourcesplit) then
-      active = .true.
-      ! update velocity
-      call frictional_velocity(w,x,ixI^L,ixO^L,qdt)
-    end if
 
   end subroutine mf_add_source
 
@@ -2238,7 +2271,7 @@ contains
     integer                            :: hxC^L,ixC^L,ixCp^L,jxC^L,ixCm^L
     integer                            :: idim1,idim2,idir
 
-    associate(bfaces=>s%ws,x=>s%x,vbarC=>vcts%vbarC,cbarmin=>vcts%cbarmin,&
+    associate(bfaces=>s%ws,bfacesCT=>sCT%ws,x=>s%x,vbarC=>vcts%vbarC,cbarmin=>vcts%cbarmin,&
       cbarmax=>vcts%cbarmax)
 
     ! Calculate contribution to FEM of each edge,
@@ -2286,10 +2319,10 @@ contains
       ! Reconstruct magnetic fields
       ! Eventhough the arrays are larger, reconstruct works with
       ! the limits ixG.
-      call reconstruct(ixI^L,ixC^L,idim2,bfaces(ixI^S,idim1),&
+      call reconstruct(ixI^L,ixC^L,idim2,bfacesCT(ixI^S,idim1),&
                btilL(ixI^S,idim1),btilR(ixI^S,idim1))
 
-      call reconstruct(ixI^L,ixC^L,idim1,bfaces(ixI^S,idim2),&
+      call reconstruct(ixI^L,ixC^L,idim1,bfacesCT(ixI^S,idim2),&
                btilL(ixI^S,idim2),btilR(ixI^S,idim2))
 
       ! Take the maximum characteristic
@@ -2391,14 +2424,14 @@ contains
       do idim2=1,ndim
         do idir=7-2*ndim,3
           if (lvc(idim1,idim2,idir)==0) cycle
-          ixCmax^D=ixOmax^D;
-          ixCmin^D=ixOmin^D+kr(idir,^D)-1;
+          ixCmax^D=ixOmax^D+1;
+          ixCmin^D=ixOmin^D+kr(idir,^D)-2;
           ixBmax^D=ixCmax^D-kr(idir,^D)+1;
           ixBmin^D=ixCmin^D;
           ! current at transverse faces
           xs(ixB^S,:)=x(ixB^S,:)
           xs(ixB^S,idim2)=x(ixB^S,idim2)+half*dx(ixB^S,idim2)
-          call gradientx(wCTs(ixGs^T,idim2),xs,ixGs^LL,ixC^L,idim1,gradi,.true.)
+          call gradientx(wCTs(ixGs^T,idim2),xs,ixGs^LL,ixC^L,idim1,gradi,.false.)
           if (lvc(idim1,idim2,idir)==1) then
             jce(ixC^S,idir)=jce(ixC^S,idir)+gradi(ixC^S)
           else
@@ -2409,7 +2442,7 @@ contains
     end do
     ! get resistivity
     if(mf_eta>zero)then
-      jce(ixC^S,:)=jce(ixC^S,:)*mf_eta
+      jce(ixI^S,:)=jce(ixI^S,:)*mf_eta
     else
       ixA^L=ixO^L^LADD1;
       call get_current(wCT,ixI^L,ixO^L,idirmin,jcc)

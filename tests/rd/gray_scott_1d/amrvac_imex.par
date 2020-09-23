@@ -1,9 +1,10 @@
 !=====================================================
+! Project : Reaction Diffusion in 1D
 !
 !=====================================================
 
  &filelist
-        base_filename='output/maze_'
+        base_filename='output/testimexrd_'
     	convert_type='vtuBCCmpi'
         autoconvert=T
  /
@@ -15,41 +16,35 @@
  /
 
  &stoplist
-        time_max=2d4
+        time_max=1d5
  /
 
  &methodlist
         time_stepper = 'twostep'
-        time_integrator = 'IMEX_Midpoint'
+        time_integrator = 'IMEX_Trapezoidal'
         flux_scheme = 20*'source'
  /
 
  &boundlist
         typeboundary_min1=2*'periodic'
         typeboundary_max1=2*'periodic'
-        typeboundary_min2=2*'periodic'
-        typeboundary_max2=2*'periodic'
  /
 
  &meshlist
         refine_max_level=1
         refine_threshold=20*0.1d0
         block_nx1=16
-        block_nx2=16
         domain_nx1=512
-        domain_nx2=512
+        iprob=3
         xprobmin1=0.0d0
         xprobmax1=2.5d0
-        xprobmin2=0.0d0
-        xprobmax2=2.5d0
  /
 
  &paramlist
-       courantpar=0.8d0
        dtdiffpar=100.0d0
- /
+       courantpar=0.8d0
        typecourant='minimum'
-       dtpar=0.25d0
+ /
 
  &rd_list
        equation_name = "gray-scott"

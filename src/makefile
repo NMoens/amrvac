@@ -65,6 +65,7 @@ convert.o: mod_calculate_xw.mod
 convert.o: mod_ghostcells_update.mod
 convert.o: mod_physics.mod
 convert.o: mod_thermal_emission.mod
+errest.o: mod_physics.mod
 forest.o: mod_space_filling_curve.mod
 mod_advance.o: mod_finite_difference.mod
 mod_advance.o: mod_finite_volume.mod
@@ -169,6 +170,7 @@ mod_mf.o: mod_mf_phys.mod
 mod_mf_phys.o: mod_constrained_transport.mod
 mod_mf_phys.o: mod_geometry.mod
 mod_mf_phys.o: mod_multigrid_coupling.mod
+mod_mf_phys.o: mod_particles.mod
 mod_mf_phys.o: mod_physics.mod
 mod_mhd.o: mod_amrvac.mod
 mod_mhd.o: mod_mhd_hllc.mod
@@ -234,7 +236,6 @@ mod_ppm.o: mod_physics.mod
 mod_radiative_cooling.o: mod_physics.mod
 mod_rd.o: mod_amrvac.mod
 mod_rd.o: mod_rd_phys.mod
-mod_rd_phys.o: mod_ghostcells_update.mod
 mod_rd_phys.o: mod_multigrid_coupling.mod
 mod_rd_phys.o: mod_particles.mod
 mod_rd_phys.o: mod_physics.mod

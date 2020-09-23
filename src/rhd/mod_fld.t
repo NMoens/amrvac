@@ -444,11 +444,11 @@ module mod_fld
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
-        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+        ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
 
-        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -465,11 +465,11 @@ module mod_fld
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
-        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+        ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
 
-        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -488,11 +488,11 @@ module mod_fld
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
-        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+        ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
 
-        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -516,11 +516,11 @@ module mod_fld
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
-        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+        ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
 
-        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -577,7 +577,7 @@ module mod_fld
   !> stores radiation flux in w-array
   subroutine fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
     use mod_global_parameters
-    ! use mod_geometry
+    use mod_geometry
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S, 1:nw)
@@ -597,11 +597,11 @@ module mod_fld
     !> Calculate the Flux using the fld closure relation
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndim
-      call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-      rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_eO(ixO^S)
+      ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+      ! rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_eO(ixO^S)
 
-      ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-      ! rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
+      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+      rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
 
   end subroutine fld_get_radflux
@@ -629,11 +629,11 @@ module mod_fld
 
     rad_e(ixI^S) = w(ixI^S, iw_r_e)
     do idir = 1,ndim
-      call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-      normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+      ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+      ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
 
-      ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
-      ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
+      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
+      normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
@@ -784,28 +784,29 @@ module mod_fld
 
     !This is mg_copy_to_tree from psb state
     !!!  replaces::  call mg_copy_to_tree(i_diff_mg, mg_iveps)
-    iw_from=i_diff_mg
-    iw_to=mg_iveps
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
-       pnode => igrid_to_node(igrid, mype)%node
-       id    =  pnode%id
-       lvl   =  mg%boxes(id)%lvl
-       nc    =  mg%box_size_lvl(lvl)
-       ! Include one layer of ghost cells on grid leaves
-       {^IFONED
-       mg%boxes(id)%cc(0:nc+1, iw_to) = facD * &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
-       }
-       {^IFTWOD
-       mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = facD * &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
-       }
-       {^IFTHREED
-       mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = facD * &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-            ixMlo3-1:ixMhi3+1, iw_from)
-       }
-    end do
+    call mg_copy_to_tree(i_diff_mg, mg_iveps, factor=facD, state_from=psb)
+    ! iw_from=i_diff_mg
+    ! iw_to=mg_iveps
+    ! do iigrid=1,igridstail; igrid=igrids(iigrid);
+    !    pnode => igrid_to_node(igrid, mype)%node
+    !    id    =  pnode%id
+    !    lvl   =  mg%boxes(id)%lvl
+    !    nc    =  mg%box_size_lvl(lvl)
+    !    ! Include one layer of ghost cells on grid leaves
+    !    {^IFONED
+    !    mg%boxes(id)%cc(0:nc+1, iw_to) = facD * &
+    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
+    !    }
+    !    {^IFTWOD
+    !    mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = facD * &
+    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+    !    }
+    !    {^IFTHREED
+    !    mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = facD * &
+    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+    !         ixMlo3-1:ixMhi3+1, iw_from)
+    !    }
+    ! end do
 
     if (time_advance)then
       call mg_restrict(mg, mg_iveps)
@@ -814,56 +815,58 @@ module mod_fld
 
     !This is mg_copy_to_tree from psb state
     !!!  replaces::  call mg_copy_to_tree(iw_r_e, mg_iphi)
-    iw_from=iw_r_e
-    iw_to=mg_iphi
-    fac = 1.d0
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
-       pnode => igrid_to_node(igrid, mype)%node
-       id    =  pnode%id
-       lvl   =  mg%boxes(id)%lvl
-       nc    =  mg%box_size_lvl(lvl)
-       ! Include one layer of ghost cells on grid leaves
-       {^IFONED
-       mg%boxes(id)%cc(0:nc+1, iw_to) = fac * &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
-       }
-       {^IFTWOD
-       mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = fac * &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
-       }
-       {^IFTHREED
-       mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = fac * &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-            ixMlo3-1:ixMhi3+1, iw_from)
-       }
-    end do
+    call mg_copy_to_tree(iw_r_e, mg_iphi, factor=fac, state_from=psb)
+    ! iw_from=iw_r_e
+    ! iw_to=mg_iphi
+    ! fac = 1.d0
+    ! do iigrid=1,igridstail; igrid=igrids(iigrid);
+    !    pnode => igrid_to_node(igrid, mype)%node
+    !    id    =  pnode%id
+    !    lvl   =  mg%boxes(id)%lvl
+    !    nc    =  mg%box_size_lvl(lvl)
+    !    ! Include one layer of ghost cells on grid leaves
+    !    {^IFONED
+    !    mg%boxes(id)%cc(0:nc+1, iw_to) = fac * &
+    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
+    !    }
+    !    {^IFTWOD
+    !    mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = fac * &
+    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
+    !    }
+    !    {^IFTHREED
+    !    mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = fac * &
+    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+    !         ixMlo3-1:ixMhi3+1, iw_from)
+    !    }
+    ! end do
 
     !>replace call set_rhs(mg, -1/dt, 0.0_dp)
     ! call set_rhs(mg, -1/dt, 0.0_dp)
-    do lvl = 1, mg%highest_lvl
-       nc = mg%box_size_lvl(lvl)
-       do i = 1, size(mg%lvls(lvl)%my_leaves)
-          id = mg%lvls(lvl)%my_leaves(i)
-          {^IFONED
-          mg%boxes(id)%cc(1:nc, mg_irhs) = &
-               -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, mg_iphi)
-          }
-          {^IFTWOD
-          mg%boxes(id)%cc(1:nc, 1:nc, mg_irhs) = &
-               -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, 1:nc, mg_iphi)
-          }
-          {^IFTHREED
-          mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_irhs) = &
-               -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_iphi)
-          }
-       end do
-    end do
+    call mg_copy_to_tree(iw_r_e, mg_irhs, factor=-1/(dtfactor*qdt), state_from=psb)
+    ! do lvl = 1, mg%highest_lvl
+    !    nc = mg%box_size_lvl(lvl)
+    !    do i = 1, size(mg%lvls(lvl)%my_leaves)
+    !       id = mg%lvls(lvl)%my_leaves(i)
+    !       {^IFONED
+    !       mg%boxes(id)%cc(1:nc, mg_irhs) = &
+    !            -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, mg_iphi)
+    !       }
+    !       {^IFTWOD
+    !       mg%boxes(id)%cc(1:nc, 1:nc, mg_irhs) = &
+    !            -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, 1:nc, mg_iphi)
+    !       }
+    !       {^IFTHREED
+    !       mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_irhs) = &
+    !            -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_iphi)
+    !       }
+    !    end do
+    ! end do
 
     call phys_set_mg_bounds()
 
     call mg_fas_fmg(mg, .true., max_res=res)
     do n = 1, max_its
-      print*, n, res
+      ! print*, n, res
       if (res < max_residual) exit
        call mg_fas_vcycle(mg, max_res=res)
     end do
@@ -883,36 +886,37 @@ module mod_fld
     ! !This is mg_copy_from_tree_gc for psa state
     ! !!! replaces:: call mg_copy_from_tree_gc(mg_iphi, u_)
     ! call mg_copy_from_tree(mg_iphi, iw_r_e)
-    iw_from=mg_iphi
-    iw_to=iw_r_e
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
-       pnode => igrid_to_node(igrid, mype)%node
-       id    =  pnode%id
-       lvl   =  mg%boxes(id)%lvl
-       nc    =  mg%box_size_lvl(lvl)
-       ! Include one layer of ghost cells on grid leaves
-       {^IFONED
-       psa(igrid)%w(ixMlo1-1:ixMhi1+1, 1:nw) = &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, 1:nw)
-       psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_to) = &
-            mg%boxes(id)%cc(0:nc+1, iw_from)
-       }
-       {^IFTWOD
-       psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, 1:nw) = &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, 1:nw)
-       psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_to) = &
-            mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_from)
-       }
-       {^IFTHREED
-       psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-            ixMlo3-1:ixMhi3+1, 1:nw) = &
-            psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-                 ixMlo3-1:ixMhi3+1, 1:nw)
-       psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-            ixMlo3-1:ixMhi3+1, iw_to) = &
-            mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_from)
-       }
-    end do
+    call mg_copy_from_tree_gc(mg_iphi, iw_r_e, state_to=psa)
+    ! iw_from=mg_iphi
+    ! iw_to=iw_r_e
+    ! do iigrid=1,igridstail; igrid=igrids(iigrid);
+    !    pnode => igrid_to_node(igrid, mype)%node
+    !    id    =  pnode%id
+    !    lvl   =  mg%boxes(id)%lvl
+    !    nc    =  mg%box_size_lvl(lvl)
+    !    ! Include one layer of ghost cells on grid leaves
+    !    {^IFONED
+    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, 1:nw) = &
+    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, 1:nw)
+    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_to) = &
+    !         mg%boxes(id)%cc(0:nc+1, iw_from)
+    !    }
+    !    {^IFTWOD
+    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, 1:nw) = &
+    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, 1:nw)
+    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_to) = &
+    !         mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_from)
+    !    }
+    !    {^IFTHREED
+    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+    !         ixMlo3-1:ixMhi3+1, 1:nw) = &
+    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+    !              ixMlo3-1:ixMhi3+1, 1:nw)
+    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
+    !         ixMlo3-1:ixMhi3+1, iw_to) = &
+    !         mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_from)
+    !    }
+    ! end do
 
     ! enforce boundary conditions for psa
     call getbc(qtC,0.d0,psa,1,nwflux+nwaux,phys_req_diagonal)
@@ -1359,9 +1363,10 @@ module mod_fld
     use mod_global_parameters
 
     integer, intent(in)             :: ixI^L, ixO^L, idir
+    integer, intent(in)             :: n
+
     double precision, intent(in)    :: q(ixI^S), x(ixI^S,1:ndim)
     double precision, intent(out)   :: gradq(ixO^S)
-    integer, intent(in)             :: n
     integer                         :: jxO^L, hxO^L
 
     ! hxO^L=ixO^L-n*kr(idir,^D);

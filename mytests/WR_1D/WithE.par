@@ -66,7 +66,6 @@
   He_abundance = 0.7d0
   rhd_gravity = .true.
   rhd_energy = .true.
-  rhd_pressure = 'Trad'
   rhd_gamma = 1.6667d0
   rhd_radiation_force = .true.
   rhd_energy_interact = .true.

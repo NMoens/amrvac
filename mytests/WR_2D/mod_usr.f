@@ -20,6 +20,7 @@ module mod_usr
   double precision :: T_bound, R_star, M_star
 
   double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
+  logical :: fixed_lum, Cak_in_D
 
 contains
 
@@ -54,10 +55,10 @@ contains
     usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
-    ! usr_get_dt => pp_dt
+    ! usr_get_dt => get_dt_cak
 
     ! Refine mesh near base
-    usr_refine_grid => refine_base
+    ! usr_refine_grid => refine_base
 
     ! Active the physics module
     call rhd_activate()
@@ -101,7 +102,7 @@ contains
     v_inf = v_inf/unit_velocity
     Mdot = Mdot/unit_density/unit_length**3*unit_time
 
-    kappa_e = 0.2d0/unit_opacity
+    kappa_e = kappa_e/unit_opacity
     F_bound = F_bound/unit_radflux
     L_bound = L_bound/(unit_radflux*unit_length**2)
 
@@ -111,8 +112,13 @@ contains
     !> Very bad initial guess for gradE using kappa_e
     gradE = -F_bound*3*kappa_e*rho_bound*unit_velocity/const_c
 
-    print*, 'L_bound', L_bound*(unit_radflux*unit_length**2), log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
-    ! stop
+    ! print*, 'L_bound (cgs)', L_bound*(unit_radflux*unit_length**2)
+    ! print*, 'log10(L_bound)', log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
+    ! print*, 'L_bound', L_bound*(unit_radflux*unit_length**2)/L_sun
+    ! ! stop
+    ! print*, 'unit_density', unit_density
+    ! print*, 'unit_time', unit_time
+    ! print*, 'unit_pressure', unit_pressure
 
   end subroutine initglobaldata_usr
 
@@ -123,7 +129,8 @@ contains
     integer                      :: n
 
     namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound,&
-        T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound, it_start_cak
+        kappa_e, T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound,&
+        it_start_cak, fixed_lum, Cak_in_D
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -134,7 +141,7 @@ contains
 
     R_star = R_star*R_sun
     M_star = M_star*M_sun
-    L_bound = Gamma_e_bound * 4.0 * dpi * const_G * M_star * const_c/0.34d0
+    L_bound = Gamma_e_bound * 4.0 * dpi * const_G * M_star * const_c/kappa_e
     F_bound = L_bound/(4*dpi*R_star**2)
     Mdot = Mdot*M_sun/year
 
@@ -158,7 +165,8 @@ contains
        ixOmin2:ixOmax2)
     double precision :: vel(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: T_out, E_out, E_gauge
-    double precision :: T_in, E_in, rr(ixImin1:ixImax1,ixImin2:ixImax2), bb
+    double precision :: T_in, E_in, rr(ixImin1:ixImax1,ixImin2:ixImax2), bb,&
+        temp(ixImin1:ixImax1,ixImin2:ixImax2)
 
     w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)   = rho_bound
     w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = 0.d0
@@ -202,6 +210,16 @@ contains
     w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
        r_e) - E_gauge + E_out
 
+    if (rhd_energy) then
+      temp(ixImin1:ixImax1,ixImin2:ixImax2) = (w(ixImin1:ixImax1,&
+         ixImin2:ixImax2,r_e)*unit_pressure/const_rad_a)**&
+         0.25d0/unit_temperature
+      w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = w(ixImin1:ixImax1,&
+         ixImin2:ixImax2,rho_)*temp(ixImin1:ixImax1,&
+         ixImin2:ixImax2)/(rhd_gamma-1.d0) + half*w(ixImin1:ixImax1,&
+         ixImin2:ixImax2,mom(1))**2/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
+    endif
+
     call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2, kappa)
     call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
@@ -210,6 +228,9 @@ contains
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
        (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
+       (const_c/unit_velocity)/(3.d0*kappa(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
 
   end subroutine initial_conditions
@@ -230,9 +251,10 @@ contains
     double precision :: kappa(ixImin1:ixImax1,ixImin2:ixImax2),&
         Temp(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: Temp0, rho0, T_out, n
-    double precision :: Local_gradE(ixImin1:ixImax1,ixImin2:ixImax2)
-    double precision :: Local_tauout(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
-    double precision :: Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
+    double precision :: Local_gradE(ixImin1:ixImax1,ixImin2:ixImax2),&
+        F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2)
+    double precision :: Local_tauout(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: Local_Tout(ixImin1:ixImax1,ixImin2:ixImax2)
 
     double precision :: kappa_out
 
@@ -253,26 +275,24 @@ contains
         w(ix1,ixBmin2:ixBmax2,mom(1)) = w(ix1+1,ixBmin2:ixBmax2,mom(1))
       enddo
 
-      ! where(w(ixB^S,mom(1)) .lt. 0.d0)
-      !   w(ixB^S,mom(1)) = 0.d0
-      ! endwhere
-      !
-      ! where(w(ixB^S,mom(1))/w(ixB^S,rho_) .gt. 0.5d0)
-      !   w(ixB^S,mom(1)) = 0.1d0*w(ixB^S,rho_)
-      ! endwhere
+      where(w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) .lt. 0.d0)
+       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) = 0.d0
+      endwhere
 
-      call get_kappa_OPAL(ixImin1,ixImin2,ixImax1,ixImax2,ixImin1,ixImin2,&
-         ixImax1,ixImax2,w,x,kappa)
-      do ix1 = ixBmin1,ixBmax1
-        kappa(ix1,ixBmin2:ixBmax2) = kappa(ixBmax1+1,ixBmin2:ixBmax2)
+      F_adv(ixBmax1,ixBmin2:ixBmax2) = 4.d0/3.d0*(w(ixBmax1,ixBmin2:ixBmax2,&
+         mom(1))/w(ixBmax1,ixBmin2:ixBmax2,rho_))*w(ixBmax1,ixBmin2:ixBmax2,&
+         r_e) * 4*dpi*xprobmin1**2
+
+      where (F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2) .ne. F_adv(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2)) F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = 0.d0
+      where (F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2) .le. 0.d0) &
+         F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = 0.d0
+
+      do ix1 = ixImin1,ixImax1
+        Local_gradE(ix1,ixBmin2:ixBmax2) = -(F_bound-F_adv(ixBmax1,&
+           ixBmin2:ixBmax2))/w(nghostcells+1,ixBmin2:ixBmax2,i_diff_mg)
       enddo
-
-      Local_gradE(ixImin1:ixImax1,ixImin2:ixImax2) = &
-         -F_bound*3*kappa(ixImin1:ixImax1,ixImin2:ixImax2)*w(ixImin1:ixImax1,&
-         ixImin2:ixImax2,rho_)*unit_velocity/const_c
       gradE = sum(Local_gradE(nghostcells,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
-
-      ! print*, gradE
 
       do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,ixBmin2:ixBmax2,r_e) = w(ix1+2,ixBmin2:ixBmax2,r_e) + (x(ix1,&
@@ -280,14 +300,27 @@ contains
            ixBmin2:ixBmax2)
       enddo
 
+      if (rhd_energy) then
+        temp(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = (w(ixBmin1:ixBmax1,&
+           ixBmin2:ixBmax2,r_e)*unit_pressure/const_rad_a)**&
+           0.25d0/unit_temperature
+        w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,e_) = w(ixBmin1:ixBmax1,&
+           ixBmin2:ixBmax2,rho_)*temp(ixBmin1:ixBmax1,&
+           ixBmin2:ixBmax2)/(rhd_gamma-1.d0) + half*w(ixBmin1:ixBmax1,&
+           ixBmin2:ixBmax2,mom(1))**2/w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,rho_)
+      endif
+
+      ! print*, gradE
+
     case(2)
 
       !> Compute mean kappa in outer blocks
-      call OPAL_and_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixImin1,ixImin2,&
+      call get_kappa_OPAL(ixImin1,ixImin2,ixImax1,ixImax2,ixImin1,ixImin2,&
          ixImax1,ixImax2,w,x,kappa)
-      kappa_out = sum(kappa(ixImin1+nghostcells:ixImax1-nghostcells,&
-         ixImin2+nghostcells:ixImax2-nghostcells)) /(((ixImax1-nghostcells) - &
-         (ixImin1+nghostcells))*((ixImax2-nghostcells)-(ixImin2+nghostcells)))
+
+      kappa_out = sum(kappa(ixImax1-nghostcells,&
+         ixBmin2:ixBmax2))/((ixBmax2-ixBmin2))
+
       if (kappa_out .ne. kappa_out) kappa_out = kappa_e
       kappa_out = max(kappa_out,kappa_e)
       kappa_out = min(kappa_out,20*kappa_e)
@@ -299,29 +332,16 @@ contains
          F_bound/StefBoltz*(3.d0/4.d0*Local_tauout(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2))**0.25d0
 
-      !> one single NaN will kill the average and then we automatically take the floor temp
-      where (Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2) .ne. &
-         Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2))
-        Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = 2.d4
-      endwhere
       T_out = sum(Local_Tout(ixBmin1,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
 
       T_out = max(1.5d4/unit_temperature, T_out)
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
-      do ix1 = ixBmin1,ixBmax1
-        w(ix1,:,r_e) = 2*w(ix1-1,:,r_e) - w(ix1-2,:,r_e)
-      enddo
+      w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = &
+         const_rad_a*(Local_Tout(ixBmin1:ixBmax1,&
+         ixBmin2:ixBmax2)*unit_temperature)**4.d0/unit_pressure
 
-      ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
-
-      ! print*, T_out*unit_temperature, E_out
-
-      ! print*, it, 'top---------------------------------------'
-      ! print*, Local_tauout(ixBmax1-5:ixBmax1,5)
-      ! print*, Local_Tout(ixBmax1-5:ixBmax1,5)
-      ! print*, w(ixBmax1-5:ixBmax1,5,r_e)
-
+      ! print*, E_out
     case default
       call mpistop('boundary not known')
     end select
@@ -337,14 +357,10 @@ contains
     case (1)
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
       mg%bc(iB, mg_iphi)%bc_value = gradE
-      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
-      ! mg%bc(iB, mg_iphi)%bc_value = const_rad_a*(T_bound*unit_temperature)**4/unit_pressure
 
     case (2)
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(iB, mg_iphi)%bc_value = E_out
-      ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
-      ! mg%bc(iB, mg_iphi)%bc_value = 0.d0
 
     case default
       print *, "Not a standard: ", trim(typeboundary(r_e, iB))
@@ -364,16 +380,16 @@ contains
     double precision, intent(in)    :: wCT(ixImin1:ixImax1,ixImin2:ixImax2,&
        1:nw)
     double precision, intent(out)   :: gravity_field(ixImin1:ixImax1,&
-       ixImin2:ixImax2,ndim)
+       ixImin2:ixImax2,1:ndim)
 
     double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: mass
 
-    radius(ixImin1:ixImax1,ixImin2:ixImax2) = x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,1)*unit_length
+    radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = x(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,1)*unit_length
     mass = M_star*(unit_density*unit_length**3.d0)
 
-    gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,:) = zero
+    gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,:) = 0.d0
     gravity_field(ixImin1:ixImax1,ixImin2:ixImax2,&
        1) = -const_G*mass/radius(ixImin1:ixImax1,&
        ixImin2:ixImax2)**2*(unit_time**2/unit_length)
@@ -408,41 +424,89 @@ contains
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(2)) = w(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,mom(2)) + qdt*ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        mom(2)) !> OK
+    if (rhd_energy) w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = w(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,e_) + qdt*ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) !> OK
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        r_e) + qdt*ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) !> TROUBLEMAKER
 
-    call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
-       ixOmax2,wCT,x,k_cak)
+    if (.not. Cak_in_D) then
+      call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+         ixOmax1,ixOmax2,wCT,x,k_cak)
 
-    !> Fixed L = L_bound
-    ! w(ixO^S,mom(1)) = w(ixO^S,mom(1)) &
-    !   + qdt*wCT(ixO^S,rho_)*L_bound/(4*dpi*x(ixO^S,1)**2*const_c)*k_cak(ixO^S)*unit_velocity
-
-    !> Local flux
-    call fld_get_radflux(wCT, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, rad_flux)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(1)) = w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,mom(1)) + qdt*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       rho_)*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       1)/const_c*k_cak(ixOmin1:ixOmax1,ixOmin2:ixOmax2)*unit_velocity
+      if (fixed_lum) then
+        !> Fixed L = L_bound
+        w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(1)) = w(ixOmin1:ixOmax1,&
+           ixOmin2:ixOmax2,mom(1)) + qdt*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+           rho_)*L_bound/(4*dpi*x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+           1)**2)/const_c*k_cak(ixOmin1:ixOmax1,ixOmin2:ixOmax2)*unit_velocity
+        if (rhd_energy) then
+          w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = w(ixOmin1:ixOmax1,&
+             ixOmin2:ixOmax2,e_) + qdt*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+             mom(1))*L_bound/(4*dpi*x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+             1)**2)/const_c*k_cak(ixOmin1:ixOmax1,&
+             ixOmin2:ixOmax2)*unit_velocity
+        endif
+      else
+        !> Local flux
+        call fld_get_radflux(wCT, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+           ixOmin2,ixOmax1,ixOmax2, rad_flux)
+        w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,mom(1)) = w(ixOmin1:ixOmax1,&
+           ixOmin2:ixOmax2,mom(1)) + qdt*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+           rho_)*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+           1)/const_c*k_cak(ixOmin1:ixOmax1,ixOmin2:ixOmax2)*unit_velocity
+        if (rhd_energy) then
+          w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,e_) = w(ixOmin1:ixOmax1,&
+             ixOmin2:ixOmax2,e_) + qdt*wCT(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+             mom(1))*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+             1)/const_c*k_cak(ixOmin1:ixOmax1,ixOmin2:ixOmax2)*unit_velocity
+        endif
+      endif
+    endif
 
     ! print*, k_cak(10,10)
 
   end subroutine PseudoPlanar
 
-  ! subroutine pp_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
-  !   use mod_global_parameters
-  !   integer, intent(in)             :i: ixI^L, ixO^L
-  !   double precision, intent(in)    :: dx^D, x(ixI^S,1:ndim)
-  !   double precision, intent(in)    :: w(ixI^S,1:nw)
-  !   double precision, intent(inout) :: dtnew
-  !   double precision :: ppsource(ixO^S,1:nw)
-  !
-  !   call PseudoPlanarSource(ixI^L,ixO^L,w,x,ppsource)
-  !
-  !   dtnew = 1.d-1* minval(abs(w(ixO^S,r_e)/ppsource(ixO^S,r_e)))
-  ! end subroutine pp_dt
+  subroutine get_dt_cak(w,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,dtnew,dx1,dx2,x)
+    use mod_global_parameters
+    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
+        ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in)    :: dx1,dx2, x(ixImin1:ixImax1,&
+       ixImin2:ixImax2,1:ndim)
+    double precision, intent(in)    :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+    double precision, intent(inout) :: dtnew
 
+    double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: mass
+
+    double precision :: dt_cak
+    double precision :: k_cak(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndim)
+
+    call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
+       ixOmax2,w,x,k_cak)
+
+    if (fixed_lum) then
+      !> Fixed L = L_bound
+      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/(L_bound/(4*dpi*x(&
+         ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)**2)/const_c*k_cak(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)*unit_velocity -const_G*mass/radius(ixImin1:ixImax1,&
+         ixImin2:ixImax2)**2*(unit_time**2/unit_length))))
+    else
+      !> Local flux
+      call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+         ixOmin2,ixOmax1,ixOmax2, rad_flux)
+      dt_cak = courantpar*minval(dsqrt(dxlevel(1)/abs(rad_flux(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,1)/const_c*k_cak(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2)*unit_velocity -const_G*mass/radius(ixImin1:ixImax1,&
+         ixImin2:ixImax2)**2*(unit_time**2/unit_length))))
+    endif
+
+    dtnew = min(dt_cak, dtnew)
+
+  end subroutine get_dt_cak
+  !
 
   subroutine PseudoPlanarSource(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,&
      ixOmin2,ixOmax1,ixOmax2,w,x,source)
@@ -458,9 +522,10 @@ contains
 
     double precision :: rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndir)
     double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2),v(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,2)
+       ixOmin2:ixOmax2,1:ndim)
     double precision :: radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
          pert(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+    double precision :: edd(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndim,1:ndim)
     integer :: rdir, pdir
 
     source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:nw) = zero
@@ -498,6 +563,7 @@ contains
        pdir)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)/radius(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)
 
+
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
       !> THIS BAD BOiii IS GIVING US SOME TROUBLE
@@ -517,10 +583,12 @@ contains
 
     ! Not sure about this one
     if (rhd_radiation_force) then
+      call fld_get_eddington(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+         ixOmin2,ixOmax1,ixOmax2, edd)
       source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) = source(ixOmin1:ixOmax1,&
          ixOmin2:ixOmax2,r_e) + two*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-         rdir)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-         r_e)/(3*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2))
+         rdir)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e)*edd(ixOmin1:ixOmax1,&
+         ixOmin2:ixOmax2,1,1)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     endif
 
   end subroutine PseudoPlanarSource
@@ -547,8 +615,12 @@ contains
        ixOmax1,ixOmax2,w,x,OPAL)
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
-    ! call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
-    CAK(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = 0.d0
+    if (Cak_in_D) then
+      call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+         ixOmax1,ixOmax2,w,x,CAK)
+    else
+      CAK(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = 0.d0
+    endif
 
     !> Add OPAL and CAK for total opacity
     kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = OPAL(ixOmin1:ixOmax1,&
@@ -633,11 +705,6 @@ contains
     gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = gradvI(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)
 
-    !> Limit cak for stability purposes
-    !where(gradv(ixO^S) .ge. 10.d0)
-    !  kappa(ixO^S) = 10.d0
-    !endwhere
-
     !> Absolute value of gradient:
     gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = abs(gradv(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2))
@@ -645,14 +712,14 @@ contains
     xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = 1.d0-xprobmin1/x(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,1)
 
+    alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = cak_a
+
     where (xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2) .le. cak_x0)
       alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = cak_base
-    elsewhere (x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1) .le. cak_x1)
+    elsewhere (xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2) .le. cak_x1)
       alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = cak_base + (cak_a - &
-         cak_base)*(cak_x0 - xx(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2))/(cak_x0 - cak_x1)
-    elsewhere
-      alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = cak_a
+         cak_base)*(xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2) - cak_x0)/(cak_x1 - &
+         cak_x0)
     endwhere
 
     kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
@@ -661,124 +728,46 @@ contains
        ixOmin2:ixOmax2)*unit_velocity/(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        rho_)*const_c*cak_Q*kappa_e))**alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
-    if (it .le. it_start_cak) then
-      kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa(ixOmin1:ixOmax1,&
-         ixOmin2:ixOmax2)*dexp(-w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-         rho_)*kappa_e)
-    endif
+    ! if (it .le. it_start_cak) then
+    !   kappa(ixO^S) = kappa(ixO^S)*dexp(-w(ixO^S,rho_)*kappa_e)
+    ! endif
 
     !> test with no cak
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
 
-  subroutine refine_base(igrid,level,ixGmin1,ixGmin2,ixGmax1,ixGmax2,ixmin1,&
-     ixmin2,ixmax1,ixmax2,qt,w,x,refine,coarsen)
-    ! Enforce additional refinement or coarsening
-    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
-    ! you must set consistent values for integers refine/coarsen:
-    ! refine = -1 enforce to not refine
-    ! refine =  0 doesn't enforce anything
-    ! refine =  1 enforce refinement
-    ! coarsen = -1 enforce to not coarsen
-    ! coarsen =  0 doesn't enforce anything
-    ! coarsen =  1 enforce coarsen
-    use mod_global_parameters
-
-    integer, intent(in) :: igrid, level, ixGmin1,ixGmin2,ixGmax1,ixGmax2,&
-        ixmin1,ixmin2,ixmax1,ixmax2
-    double precision, intent(in) :: qt, w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
-       1:nw), x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1:ndim)
-    integer, intent(inout) :: refine, coarsen
-
-    !> Refine close to base
-    refine = -1
-
-    if (qt .gt. 1.d0) then
-      if (any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1) < 1.d0)) refine=1
-    endif
-
-    if (qt .gt. 2.d0) then
-      if (any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1) < 1.d0)) refine=1
-    endif
-
-    if (qt .gt. 4.d0) then
-      if (any(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,1) < 1.d0)) refine=1
-    endif
-
-  end subroutine refine_base
-
-
-  !> Calculate gradient of a scalar q within ixL in direction idir
-  !> difference with gradient is gradq(ixO^S), NOT gradq(ixI^S)
-  subroutine gradientO(q,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-     ixOmax1,ixOmax2,idir,gradq,n)
-    use mod_global_parameters
-
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixOmin1,ixOmin2,ixOmax1,ixOmax2, idir
-    double precision, intent(in)    :: q(ixImin1:ixImax1,ixImin2:ixImax2),&
-        x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
-    double precision, intent(inout) :: gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
-    integer, intent(in)             :: n
-    integer                         :: jxOmin1,jxOmin2,jxOmax1,jxOmax2,&
-        hxOmin1,hxOmin2,hxOmax1,hxOmax2
-
-    hxOmin1=ixOmin1-n*kr(idir,1);hxOmin2=ixOmin2-n*kr(idir,2)
-    hxOmax1=ixOmax1-n*kr(idir,1);hxOmax2=ixOmax2-n*kr(idir,2);
-    jxOmin1=ixOmin1+n*kr(idir,1);jxOmin2=ixOmin2+n*kr(idir,2)
-    jxOmax1=ixOmax1+n*kr(idir,1);jxOmax2=ixOmax2+n*kr(idir,2);
-
-    if (n .gt. nghostcells) call mpistop("gradientO stencil too wide")
-
-    !gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(2*n*dxlevel(idir))
-    gradq(ixOmin1:ixOmax1,ixOmin2:ixOmax2)=(q(jxOmin1:jxOmax1,&
-       jxOmin2:jxOmax2)-q(hxOmin1:hxOmax1,hxOmin2:hxOmax2))/(x(jxOmin1:jxOmax1,&
-       jxOmin2:jxOmax2,idir)-x(hxOmin1:hxOmax1,hxOmin2:hxOmax2,idir))
-
-    !> Using higher order derivatives with wider stencil according to:
-    !> https://en.wikipedia.org/wiki/Finite_difference_coefficient
-
-!    if (n .gt. nghostcells) then
-!      call mpistop("gradientO stencil too wide")
-!    elseif (n .eq. 1) then
-!      hxO^L=ixO^L-kr(idir,^D);
-!      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/(x(jxO^S,idir)-x(hxO^S,idir))
-!    elseif (n .eq. 2) then
-!      gradq(ixI^S) = 0.d0
-!      !> coef 2/3
-!      hxO^L=ixO^L-kr(idir,^D);
-!      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 2.d0/3.d0*(q(jxO^S)-q(hxO^S))
-!      !> coef -1/12
-!      hxO^L=ixO^L-2*kr(idir,^D);
-!      jxO^L=ixO^L+2*kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) - 1.d0/12.d0*(q(jxO^S)-q(hxO^S))
-!      !> divide by dx
-!      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
-!    elseif (n .eq. 3) then
-!      gradq(ixI^S) = 0.d0
-!      !> coef 3/4
-!      hxO^L=ixO^L-kr(idir,^D);
-!      jxO^L=ixO^L+kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 3.d0/4.d0*(q(jxO^S)-q(hxO^S))
-!      !> coef -3/20
-!      hxO^L=ixO^L-2*kr(idir,^D);
-!      jxO^L=ixO^L+2*kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) - 3.d0/20.d0*(q(jxO^S)-q(hxO^S))
-!      !> coef 1/60
-!      hxO^L=ixO^L-3*kr(idir,^D);
-!      jxO^L=ixO^L+3*kr(idir,^D);
-!      gradq(ixO^S) = gradq(ixO^S) + 1.d0/60.d0*(q(jxO^S)-q(hxO^S))
-!      !> divide by dx
-!      gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
-!    else
-!      call mpistop("gradient0 stencil unknown")
-!     endif
-
-  end subroutine gradientO
-
-
+  ! subroutine refine_base(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+  !   ! Enforce additional refinement or coarsening
+  !   ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+  !   ! you must set consistent values for integers refine/coarsen:
+  !   ! refine = -1 enforce to not refine
+  !   ! refine =  0 doesn't enforce anything
+  !   ! refine =  1 enforce refinement
+  !   ! coarsen = -1 enforce to not coarsen
+  !   ! coarsen =  0 doesn't enforce anything
+  !   ! coarsen =  1 enforce coarsen
+  !   use mod_global_parameters
+  !
+  !   integer, intent(in) :: igrid, level, ixG^L, ix^L
+  !   double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+  !   integer, intent(inout) :: refine, coarsen
+  !
+  !   !> Refine close to base
+  !   refine = -1
+  !
+  !   if (qt .gt. 1.d0) then
+  !     if (any(x(ixG^S,1) < 1.d0)) refine=1
+  !   endif
+  !
+  !   if (qt .gt. 2.d0) then
+  !     if (any(x(ixG^S,1) < 1.d0)) refine=1
+  !   endif
+  !
+  !   if (qt .gt. 4.d0) then
+  !     if (any(x(ixG^S,1) < 1.d0)) refine=1
+  !   endif
+  !
+  ! end subroutine refine_base
 
 
   subroutine specialvar_output(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
@@ -811,7 +800,7 @@ contains
        ixOmin2:ixOmax2), OPAL(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
         CAK(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     double precision                   :: vel(ixImin1:ixImax1,ixImin2:ixImax2),&
-        gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+        gradv(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision                   :: rad_flux(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,1:ndim), Lum(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
     double precision                   :: pp_rf(ixOmin1:ixOmax1,&
@@ -830,15 +819,6 @@ contains
     call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2, rad_flux)
 
-    g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kappa(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       1)/(const_c/unit_velocity)
-    g_grav(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
-       const_G*mass/radius(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)**2*(unit_time**2/unit_length)
-    big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = g_rad(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)/g_grav(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
-
     call rhd_get_tgas(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
        ixOmax1,ixOmax2, Tgas)
     call rhd_get_trad(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
@@ -849,10 +829,20 @@ contains
     call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
        ixOmax2,w,x,CAK)
 
+    g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = (OPAL(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)+CAK(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2))*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       1)/(const_c/unit_velocity)
+    g_grav(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
+       const_G*mass/radius(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)**2*(unit_time**2/unit_length)
+    big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = g_rad(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)/g_grav(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+
     vel(ixImin1:ixImax1,ixImin2:ixImax2) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
        mom(1))/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
-    call gradientO(vel,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-       ixOmax1,ixOmax2,1,gradv,1)
+    call gradient(vel,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
+       ixOmax2,1,gradv)
 
     pp_rf(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = two*rad_flux(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,1)/x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)*dt
@@ -860,32 +850,32 @@ contains
     call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
 
-    Lum = 4*dpi*rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1)*(x(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,1)*unit_length)**2*unit_radflux/L_sun
+    Lum(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = 4*dpi*rad_flux(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,1)*(x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       1)*unit_length)**2*unit_radflux/L_sun
 
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1) = kappa(ixOmin1:ixOmax1,&
+    ! w(ixO^S,nw+1) = Trad(ixO^S)*unit_temperature
+    ! w(ixO^S,nw+2) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
+    ! *unit_density*unit_velocity/M_sun*year
+    ! w(ixO^S,nw+3) = OPAL(ixO^S)/kappa_e
+    ! w(ixO^S,nw+4) = CAK(ixO^S)/kappa_e
+    ! w(ixO^S,nw+5) = lambda(ixO^S)
+    ! w(ixO^S,nw+6) = big_gamma(ixO^S)
+    ! w(ixO^S,nw+7) = Lum(ixO^S)
+
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+1) = OPAL(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)/kappa_e
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2) = rad_flux(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,1)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3) = Trad(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)*unit_temperature
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4) = big_gamma(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+5) = 4*dpi*w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,mom(1))*radius(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)**2 *unit_density*unit_velocity/M_sun*year
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+6) = OPAL(ixOmin1:ixOmax1,&
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+2) = CAK(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)/kappa_e
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+7) = CAK(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)/kappa_e
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+8) = gradv(ixOmin1:ixOmax1,&
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+3) = big_gamma(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+9) = pp_rf(ixOmin1:ixOmax1,&
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+4) = Lum(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+10) = lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,nw+11) = Lum(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    ! w(ixO^S,nw+3) = Trad(ixO^S)*unit_temperature
+    ! w(ixO^S,nw+4) = Tgas(ixO^S)*unit_temperature
+    ! w(ixO^S,nw+4) = lambda(ixO^S)
+
+
 
   end subroutine specialvar_output
 
@@ -894,8 +884,9 @@ contains
     use mod_global_parameters
     character(len=*) :: varnames
 
-               !9     10 11   12    13   14   15  16    17    18     19
-    varnames = 'kappa F1 Trad Gamma Mdot OPAL CAK gradv pp_rf lambda L'
+    varnames = 'OPAL CAK Gamma Lum'
+    ! varnames = 'Gamma Lum Trad Tgas'
+    ! varnames = 'Trad Mdot OPAL CAK lambda Gamma Lum'
   end subroutine specialvarnames_output
 
 end module mod_usr

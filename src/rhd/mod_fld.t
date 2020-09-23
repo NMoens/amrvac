@@ -769,7 +769,7 @@ module mod_fld
     max_residual = fld_diff_tol !1d-7/qdt
 
     mg%operator_type = mg_vhelmholtz
-    ! mg%smoother_type = mg_smoother_gs
+    ! mg%smoother_type = mg_smoothe_gs
     call mg_set_methods(mg)
 
     if (.not. mg%is_allocated) call mpistop("multigrid tree not allocated yet")

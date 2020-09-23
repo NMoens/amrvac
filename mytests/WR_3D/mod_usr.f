@@ -51,8 +51,8 @@ contains
     usr_special_opacity => OPAL_and_CAK
 
     ! Output routines
-    ! usr_aux_output    => specialvar_output
-    ! usr_add_aux_names => specialvarnames_output
+    usr_aux_output    => specialvar_output
+    usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
     ! usr_get_dt => get_dt_cak
@@ -112,13 +112,13 @@ contains
     !> Very bad initial guess for gradE using kappa_e
     gradE = -F_bound*3*kappa_e*rho_bound*unit_velocity/const_c
 
-    print*, 'L_bound (cgs)', L_bound*(unit_radflux*unit_length**2)
-    print*, 'log10(L_bound)', log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
-    print*, 'L_bound', L_bound*(unit_radflux*unit_length**2)/L_sun
-    ! stop
-    print*, 'unit_density', unit_density
-    print*, 'unit_time', unit_time
-    print*, 'unit_pressure', unit_pressure
+    ! print*, 'L_bound (cgs)', L_bound*(unit_radflux*unit_length**2)
+    ! print*, 'log10(L_bound)', log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
+    ! print*, 'L_bound', L_bound*(unit_radflux*unit_length**2)/L_sun
+    ! ! stop
+    ! print*, 'unit_density', unit_density
+    ! print*, 'unit_time', unit_time
+    ! print*, 'unit_pressure', unit_pressure
 
   end subroutine initglobaldata_usr
 
@@ -266,7 +266,8 @@ contains
         Temp(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3)
     double precision :: Temp0, rho0, T_out, n
     double precision :: Local_gradE(ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3), F_adv
+       ixImin3:ixImax3), F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+       ixBmin3:ixBmax3)
     double precision :: Local_tauout(ixImin1:ixImax1,ixImin2:ixImax2,&
        ixImin3:ixImax3)
     double precision :: Local_Tout(ixImin1:ixImax1,ixImin2:ixImax2,&
@@ -299,9 +300,19 @@ contains
        w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,mom(1)) = 0.d0
       endwhere
 
+      F_adv(ixBmax1,ixBmin2:ixBmax2,ixBmin3:ixBmax3) = 4.d0/3.d0*(w(ixBmax1,&
+         ixBmin2:ixBmax2,ixBmin3:ixBmax3,mom(1))/w(ixBmax1,ixBmin2:ixBmax2,&
+         ixBmin3:ixBmax3,rho_))*w(ixBmax1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,&
+         r_e) * 4*dpi*xprobmin1**2
+
+      where (F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+         ixBmin3:ixBmax3) .ne. F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+         ixBmin3:ixBmax3)) F_adv = 0.d0
+
       do ix1 = ixImin1,ixImax1
         Local_gradE(ix1,ixBmin2:ixBmax2,ixBmin3:ixBmax3) = &
-           -(F_bound-F_adv)/w(nghostcells+1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,&
+           -(F_bound-F_adv(ixBmax1,ixBmin2:ixBmax2,&
+           ixBmin3:ixBmax3))/w(nghostcells+1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,&
            i_diff_mg)
       enddo
       gradE = sum(Local_gradE(nghostcells,ixBmin2:ixBmax2,&
@@ -327,7 +338,7 @@ contains
            ixBmin2:ixBmax2,ixBmin3:ixBmax3,rho_)
       endif
 
-      print*, gradE
+      ! print*, gradE
     case(2)
 
       !> Compute mean kappa in outer blocks
@@ -354,7 +365,7 @@ contains
          ixBmin3:ixBmax3))/((ixBmax2-ixBmin2)*(ixBmax3-ixBmin3))
 
       T_out = max(1.5d4/unit_temperature, T_out)
-      ! T_out = max(3.5d4/unit_temperature, T_out)
+      T_out = 2.5d4/unit_temperature
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
       ! do ix1 = ixBmin1,ixBmax1
@@ -362,16 +373,16 @@ contains
       ! enddo
 
 
+      ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,&
-         r_e) = const_rad_a*(Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
-         ixBmin3:ixBmax3)*unit_temperature)**4.d0/unit_pressure
+         r_e) = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
       ! print*, it, 'top---------------------------------------'
       ! print*, Local_tauout(ixBmax1-5:ixBmax1,5)
       ! print*, Local_Tout(ixBmax1-5:ixBmax1,5)
       ! print*, w(ixBmax1-5:ixBmax1,5,r_e)
 
-      print*, E_out
+      ! print*, E_out
     case default
       call mpistop('boundary not known')
     end select

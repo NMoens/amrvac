@@ -58,7 +58,7 @@ contains
     ! usr_get_dt => get_dt_cak
 
     ! Refine mesh near base
-    ! usr_refine_grid => refine_base
+    usr_refine_grid => refine_base
 
     ! Active the physics module
     call rhd_activate()
@@ -613,38 +613,41 @@ contains
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
 
-  ! subroutine refine_base(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
-  !   ! Enforce additional refinement or coarsening
-  !   ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
-  !   ! you must set consistent values for integers refine/coarsen:
-  !   ! refine = -1 enforce to not refine
-  !   ! refine =  0 doesn't enforce anything
-  !   ! refine =  1 enforce refinement
-  !   ! coarsen = -1 enforce to not coarsen
-  !   ! coarsen =  0 doesn't enforce anything
-  !   ! coarsen =  1 enforce coarsen
-  !   use mod_global_parameters
-  !
-  !   integer, intent(in) :: igrid, level, ixG^L, ix^L
-  !   double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
-  !   integer, intent(inout) :: refine, coarsen
-  !
-  !   !> Refine close to base
-  !   refine = -1
-  !
-  !   if (qt .gt. 1.d0) then
-  !     if (any(x(ixG^S,1) < 1.d0)) refine=1
-  !   endif
-  !
-  !   if (qt .gt. 2.d0) then
-  !     if (any(x(ixG^S,1) < 1.d0)) refine=1
-  !   endif
-  !
-  !   if (qt .gt. 4.d0) then
-  !     if (any(x(ixG^S,1) < 1.d0)) refine=1
-  !   endif
-  !
-  ! end subroutine refine_base
+  subroutine refine_base(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+    ! Enforce additional refinement or coarsening
+    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+    ! you must set consistent values for integers refine/coarsen:
+    ! refine = -1 enforce to not refine
+    ! refine =  0 doesn't enforce anything
+    ! refine =  1 enforce refinement
+    ! coarsen = -1 enforce to not coarsen
+    ! coarsen =  0 doesn't enforce anything
+    ! coarsen =  1 enforce coarsen
+    use mod_global_parameters
+
+    integer, intent(in) :: igrid, level, ixG^L, ix^L
+    double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+    integer, intent(inout) :: refine, coarsen
+
+    refine=0
+    coarsen=0
+
+    !> Refine close to base
+    refine = -1
+
+    if (qt .gt. 1.d0) then
+      if (any(x(ixG^S,1) < 1.d0)) refine=1
+    endif
+
+    if (qt .gt. 2.d0) then
+      if (any(x(ixG^S,1) < 1.d0)) refine=1
+    endif
+
+    if (qt .gt. 4.d0) then
+      if (any(x(ixG^S,1) < 1.d0)) refine=1
+    endif
+
+  end subroutine refine_base
 
 
   subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)

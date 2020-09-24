@@ -444,11 +444,11 @@ module mod_fld
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
-        ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
 
-        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -465,11 +465,11 @@ module mod_fld
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
-        ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
 
-        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -488,11 +488,11 @@ module mod_fld
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
-        ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
 
-        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -516,11 +516,11 @@ module mod_fld
 
       rad_e(ixI^S) = w(ixI^S, iw_r_e)
       do idir = 1,ndim
-        ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
 
-        call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
       end do
 
       call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
@@ -597,11 +597,11 @@ module mod_fld
     !> Calculate the Flux using the fld closure relation
     !> F = -c*lambda/(kappa*rho) *grad E
     do idir = 1,ndim
-      ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-      ! rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_eO(ixO^S)
+      call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+      rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_eO(ixO^S)
 
-      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-      rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
+      ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+      ! rad_flux(ixO^S, idir) = -(const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,iw_rho))*grad_r_e(ixO^S)
     end do
 
   end subroutine fld_get_radflux
@@ -619,7 +619,7 @@ module mod_fld
     double precision :: tnsr2(ixO^S,1:ndim,1:ndim)
     double precision :: normgrad2(ixO^S), f(ixO^S)
     double precision :: grad_r_e(ixI^S, 1:ndim), rad_e(ixI^S)
-    double precision :: grad_r_eO(ixO^S)
+    double precision :: grad_r_eO(ixO^S, 1:ndim)
     double precision :: lambda(ixO^S), fld_R(ixO^S)
     integer :: i,j, idir,jdir
 
@@ -629,11 +629,11 @@ module mod_fld
 
     rad_e(ixI^S) = w(ixI^S, iw_r_e)
     do idir = 1,ndim
-      ! call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-      ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+      call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO(ixO^S, idir),nghostcells)
+      normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S,idir)**2
 
-      call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
-      normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
+      ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e(ixI^S,idir))
+      ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S,idir)**two
     end do
 
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
@@ -656,9 +656,17 @@ module mod_fld
       do jdir = 1,ndim
         if (idir .ne. jdir) eddington_tensor(ixO^S,idir,jdir) = zero
         tnsr2(ixO^S,idir,jdir) =  half*(3.d0*f(ixO^S) - 1)&
-        *grad_r_e(ixO^S,idir)*grad_r_e(ixO^S,jdir)/normgrad2(ixO^S)
+        *grad_r_eO(ixO^S,idir)*grad_r_eO(ixO^S,jdir)/normgrad2(ixO^S)
       enddo
     enddo
+
+    ! do idir = 1,ndim
+    !   do jdir = 1,ndim
+    !     if (idir .ne. jdir) eddington_tensor(ixO^S,idir,jdir) = zero
+    !     tnsr2(ixO^S,idir,jdir) =  half*(3.d0*f(ixO^S) - 1)&
+    !     *grad_r_e(ixO^S,idir)*grad_r_e(ixO^S,jdir)/normgrad2(ixO^S)
+    !   enddo
+    ! enddo
 
     do idir = 1,ndim
       do jdir = 1,ndim

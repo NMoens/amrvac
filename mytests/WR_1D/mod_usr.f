@@ -642,10 +642,10 @@ contains
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixImin1:ixImax1) = w(ixImin1:ixImax1,mom(1))/w(ixImin1:ixImax1,rho_)
-    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,1)
+    call gradientO(vel,x,ixImin1,ixImax1,ixOmin1,ixOmax1,1,gradv,nghostcells)
 
-    call gradient(vel,ixImin1,ixImax1,ixOmin1,ixOmax1,1,gradvI)
-    gradv(ixOmin1:ixOmax1) = gradvI(ixOmin1:ixOmax1)
+    ! call gradient(vel,ixI^L,ixO^L,1,gradvI)
+    ! gradv(ixO^S) = gradvI(ixO^S)
 
     !> Absolute value of gradient:
     gradv(ixOmin1:ixOmax1) = abs(gradv(ixOmin1:ixOmax1))

@@ -51,8 +51,8 @@ contains
     usr_special_opacity => OPAL_and_CAK
 
     ! Output routines
-    usr_aux_output    => specialvar_output
-    usr_add_aux_names => specialvarnames_output
+    ! usr_aux_output    => specialvar_output
+    ! usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
     ! usr_get_dt => get_dt_cak
@@ -583,10 +583,10 @@ contains
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
-    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,1)
+    call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
 
-    call gradient(vel,ixI^L,ixO^L,1,gradvI)
-    gradv(ixO^S) = gradvI(ixO^S)
+    ! call gradient(vel,ixI^L,ixO^L,1,gradvI)
+    ! gradv(ixO^S) = gradvI(ixO^S)
 
     !> Absolute value of gradient:
     gradv(ixO^S) = abs(gradv(ixO^S))

@@ -103,9 +103,6 @@ contains
           call advect1(flux_scheme,one,idim^LIM,global_time,ps,global_time,ps1)
           call global_implicit_update(one,dt,global_time+dt,ps,ps1)
 
-          ! call advect1(flux_scheme,one,idim^LIM,global_time,ps,global_time,ps1)
-          ! call global_implicit_update(one,dt,global_time+dt,ps1,ps)
-
        case ("IMEX_SP")
           call global_implicit_update(one,dt,global_time,ps,ps1)
           call advect1(flux_scheme,one,idim^LIM,global_time,ps1,global_time,ps)
@@ -526,6 +523,14 @@ contains
     double precision, intent(in) :: qdt      !< overall time step dt
     double precision, intent(in) :: qtC      !< Both states psa and psb at this time level
     double precision, intent(in) :: dtfactor !< Advance psa=psb+dtfactor*qdt*F_im(psa)
+
+    integer                        :: iigrid, igrid
+
+    !> First copy all variables from a to b, this is necessary to account for
+    ! quantities is w with no implicit sourceterm
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+       psa(igrid)%w = psb(igrid)%w
+    end do
 
     if (associated(phys_implicit_update)) then
        call phys_implicit_update(dtfactor,qdt,qtC,psa,psb)

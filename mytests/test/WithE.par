@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./test/2D_amr_stable'
+  base_filename='./stable/2D_amr_stable'
   autoconvert      = T
   convert_type     = 'vtuBCCmpi'
   saveprim         = T
@@ -26,8 +26,8 @@
 /
 
  &methodlist
-   time_stepper = 'onestep'
-   time_integrator = 'IMEX_Euler'
+   time_stepper = 'twostep'
+   time_integrator = 'IMEX_Midpoint'
    flux_scheme     = 20*'tvdlf'
    limiter         = 20*'minmod'
    source_split_usr = .false.

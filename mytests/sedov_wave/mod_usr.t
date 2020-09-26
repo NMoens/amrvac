@@ -32,7 +32,10 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system
-    call set_coordinate_system("Cartesian_3D")
+    ! Choose coordinate system as 2D Cartesian with three components for vectors
+    {^IFONED call set_coordinate_system("Cartesian_1D")}
+    {^IFTWOD call set_coordinate_system("Cartesian_2D")}
+    {^IFTHREED call set_coordinate_system("Cartesian_3D")}
 
     usr_special_opacity => kramers_opacity
 

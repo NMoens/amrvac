@@ -1,0 +1,77 @@
+&filelist
+       base_filename='output/bw_1d'
+       saveprim=.false.
+       convert_type='oneblock'
+       level_io = 1
+       autoconvert=.true.
+/
+
+&savelist
+       itsave(1,1)     = 0
+       itsave(1,2)     = 0
+       !dtsave_log      = 1.d-4
+       dtsave_dat      = 1.d-1
+       !ditsave_dat    = 1
+/
+
+&stoplist
+       time_max        = 3.d0
+       dtmin = 1.d-8
+       !it_max = 50
+/
+
+&methodlist
+       time_stepper = 'onestep'
+       time_integrator =  'IMEX_Euler'
+       flux_scheme=    20*'hll'
+       limiter= 20*'koren'
+       small_values_method = 'replace'
+       small_pressure = 1.d-10
+       small_density = 1.d-10
+       typesourcesplit = 'sfs'
+/
+
+&boundlist
+       typeboundary_min1=4*'cont'
+       typeboundary_max1=4*'cont'
+/
+
+&meshlist
+       refine_criterion=3
+       refine_max_level=4
+       domain_nx1=128
+       block_nx1=16
+       iprob=1
+       xprobmin1=-3.d0
+       xprobmax1=3.d0
+/
+
+&paramlist
+       courantpar=0.6d0
+/
+
+&rhd_list
+       rhd_energy = .true.
+       rhd_gamma = 1.4d0
+       rhd_radiation_formalism = 'fld'
+       rhd_radiation_advection = .true.
+       rhd_radiation_force = .false.
+       rhd_energy_interact = .true.
+       rhd_radiation_diffusion = .true.
+/
+
+&fld_list
+      fld_opacity_law = 'special'
+      fld_diff_scheme = 'mg'
+      fld_fluxlimiter = 'Diffusion'
+      fld_diff_testcase = .false.
+      fld_interaction_method = 'Halley'
+/
+
+ &sedov_list
+  a = -2
+  g0 = 1.d0
+  E0 = 135.d0
+  Xi0 = 1.d0
+  delta_r = 0.01d0
+  /

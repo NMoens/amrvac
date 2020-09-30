@@ -238,6 +238,7 @@ contains
 
       do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,ixBmin2:ixBmax2,mom(1)) = w(ix1+1,ixBmin2:ixBmax2,mom(1))
+        w(ix1,ixBmin2:ixBmax2,mom(2)) = w(ix1+1,ixBmin2:ixBmax2,mom(2))
       enddo
 
       where(w(ixB^S,mom(1)) .lt. 0.d0)
@@ -288,7 +289,7 @@ contains
 
       w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
 
-      ! print*, E_out
+      ! print*, 'E_out', E_out
     case default
       call mpistop('boundary not known')
     end select
@@ -302,10 +303,14 @@ contains
 
     select case (iB)
     case (1)
+      ! print*, 'bval 1', gradE
+
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
       mg%bc(iB, mg_iphi)%bc_value = gradE
 
     case (2)
+      ! print*, 'bval 2', E_out
+
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(iB, mg_iphi)%bc_value = E_out
 
@@ -517,8 +522,13 @@ contains
     double precision :: Temp(ixI^S)
     double precision :: n, rho0, Temp0
 
-    !> Get OPAL opacities by reading from table
-    call phys_get_trad(w,x,ixI^L,ixO^L,Temp)
+    !> Get OPAL opacities by reading from table'
+    if (rhd_energy) then
+      call phys_get_trad(w,x,ixI^L,ixO^L,Temp)
+    else
+      call phys_get_trad(w,x,ixI^L,ixO^L,Temp)
+    endif
+
     {do ix^D=ixOmin^D,ixOmax^D\ }
         rho0 = w(ix^D,rho_)*unit_density
         Temp0 = Temp(ix^D)*unit_temperature
@@ -551,7 +561,7 @@ contains
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
-    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,1)
+    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
 
     call gradient(vel,ixI^L,ixO^L,1,gradvI)
     gradv(ixO^S) = gradvI(ixO^S)
@@ -572,6 +582,10 @@ contains
 
     kappa(ixO^S) = kappa_e*cak_Q/(1-alpha(ixO^S)) &
     *(gradv(ixO^S)*unit_velocity/(w(ixO^S,rho_)*const_c*cak_Q*kappa_e))**alpha(ixO^S)
+
+    if (x(ixImax1,nghostcells,1) .ge. xprobmax1) then
+      kappa(ixOmin1,ixOmin2:ixOmax2) = kappa(ixOmin1-1,ixOmin2:ixOmax2)
+    endif
 
     ! if (it .le. it_start_cak) then
     !   kappa(ixO^S) = kappa(ixO^S)*dexp(-w(ixO^S,rho_)*kappa_e)

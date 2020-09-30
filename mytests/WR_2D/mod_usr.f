@@ -273,6 +273,7 @@ contains
 
       do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,ixBmin2:ixBmax2,mom(1)) = w(ix1+1,ixBmin2:ixBmax2,mom(1))
+        w(ix1,ixBmin2:ixBmax2,mom(2)) = w(ix1+1,ixBmin2:ixBmax2,mom(2))
       enddo
 
       where(w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,mom(1)) .lt. 0.d0)
@@ -341,7 +342,7 @@ contains
          const_rad_a*(Local_Tout(ixBmin1:ixBmax1,&
          ixBmin2:ixBmax2)*unit_temperature)**4.d0/unit_pressure
 
-      ! print*, E_out
+      ! print*, 'E_out', E_out
     case default
       call mpistop('boundary not known')
     end select
@@ -355,10 +356,14 @@ contains
 
     select case (iB)
     case (1)
+      ! print*, 'bval 1', gradE
+
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
       mg%bc(iB, mg_iphi)%bc_value = gradE
 
     case (2)
+      ! print*, 'bval 2', E_out
+
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(iB, mg_iphi)%bc_value = E_out
 
@@ -698,7 +703,7 @@ contains
     !> Need diffusion coefficient depending on direction?
     vel(ixImin1:ixImax1,ixImin2:ixImax2) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
        mom(1))/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
-    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,1)
+    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
 
     call gradient(vel,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
        ixOmax2,1,gradvI)
@@ -727,6 +732,10 @@ contains
        ixOmin2:ixOmax2)) *(gradv(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)*unit_velocity/(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        rho_)*const_c*cak_Q*kappa_e))**alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+
+    if (x(ixImax1,nghostcells,1) .gt. xprobmax1) then
+      kappa(ixOmin1,ixOmin2:ixOmax2) = kappa(ixOmin1-1,ixOmin2:ixOmax2)
+    endif
 
     ! if (it .le. it_start_cak) then
     !   kappa(ixO^S) = kappa(ixO^S)*dexp(-w(ixO^S,rho_)*kappa_e)

@@ -17,8 +17,6 @@ ind = 1
 # file = 'unstable/2Cak_in_diff'
 # file = 'unstable/2Cak_notin_diff'
 file = 'test/w_e'
-file = 'test/u_w_e'
-
 
 unit_time = 695.9
 All_E = []
@@ -28,7 +26,7 @@ r_axis = np.transpose(A)[0]
 x_axis = 1. - 1./r_axis
 
 
-for i in range(200,3000):
+for i in range(1,3000):
     t = str(i).zfill(4)
     try:
         A = np.loadtxt(file + t + '.blk',skiprows=3)

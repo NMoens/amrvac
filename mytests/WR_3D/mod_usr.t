@@ -535,7 +535,12 @@ contains
     double precision :: n, rho0, Temp0
 
     !> Get OPAL opacities by reading from table
-    call phys_get_trad(w,x,ixI^L,ixO^L,Temp)
+    if (rhd_energy) then
+      call phys_get_trad(w,x,ixI^L,ixO^L,Temp)
+    else
+      call phys_get_trad(w,x,ixI^L,ixO^L,Temp)
+    endif
+    
     {do ix^D=ixOmin^D,ixOmax^D\ }
         rho0 = w(ix^D,rho_)*unit_density
         Temp0 = Temp(ix^D)*unit_temperature

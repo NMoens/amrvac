@@ -889,6 +889,7 @@ module mod_fld
          ! print*, '@%$@$%@#$^@%&#^$%^&'
           print *, "Did you specify boundary conditions correctly?"
           print *, "Or is the variation in diffusion too large?"
+          print *, mg%bc(1, mg_iphi)%bc_value, mg%bc(2, mg_iphi)%bc_value
        end if
        error stop "diffusion_solve: no convergence"
     end if

@@ -3,12 +3,12 @@
 /
 
 &filelist
-  base_filename='./test/Big_stenc'
+  base_filename='./test/stable2'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
   saveprim         = T
-  nwauxio = 4
+  !nwauxio = 4
 /
 
  &savelist
@@ -90,7 +90,7 @@
   !it_start_cak = 10
   rho_bound = 1.d-7 !3.d-7
   T_bound = 3.2d5
-  Gamma_e_bound = 0.21d0 !0.40d0
+  Gamma_e_bound = 0.4d0 !0.40d0
   kappa_e = 0.2d0
   R_star = 1.d0
   M_star = 10.d0

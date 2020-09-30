@@ -51,8 +51,8 @@ contains
     usr_special_opacity => OPAL_and_CAK
 
     ! Output routines
-    ! usr_aux_output    => specialvar_output
-    ! usr_add_aux_names => specialvarnames_output
+    usr_aux_output    => specialvar_output
+    usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
     ! usr_get_dt => get_dt_cak
@@ -605,7 +605,12 @@ contains
     double precision :: n, rho0, Temp0
 
     !> Get OPAL opacities by reading from table
-    call phys_get_trad(w,x,ixImin1,ixImax1,ixOmin1,ixOmax1,Temp)
+    if (rhd_energy) then
+      call phys_get_trad(w,x,ixImin1,ixImax1,ixOmin1,ixOmax1,Temp)
+    else
+      call phys_get_trad(w,x,ixImin1,ixImax1,ixOmin1,ixOmax1,Temp)
+    endif
+
     do ix1=ixOmin1,ixOmax1
     
         rho0 = w(ix1,rho_)*unit_density
@@ -664,6 +669,10 @@ contains
     kappa(ixOmin1:ixOmax1) = kappa_e*cak_Q/(1-alpha(ixOmin1:ixOmax1)) &
        *(gradv(ixOmin1:ixOmax1)*unit_velocity/(w(ixOmin1:ixOmax1,&
        rho_)*const_c*cak_Q*kappa_e))**alpha(ixOmin1:ixOmax1)
+
+    if (x(ixImax1,1) .ge. xprobmax1) then
+      kappa(ixOmin1) = kappa(ixOmin1-1)
+    endif
 
     ! if (it .le. it_start_cak) then
     !   kappa(ixO^S) = kappa(ixO^S)*dexp(-w(ixO^S,rho_)*kappa_e)

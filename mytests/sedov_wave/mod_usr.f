@@ -34,8 +34,8 @@ contains
     ! Choose coordinate system
     ! Choose coordinate system as 2D Cartesian with three components for vectors
     
-     call set_coordinate_system("Cartesian_2D")
     
+     call set_coordinate_system("Cartesian_3D")
 
     usr_special_opacity => kramers_opacity
 
@@ -45,7 +45,7 @@ contains
     ! Choose independent normalization units if using dimensionless variables.
     unit_length        = 1.d0 ! cm
     unit_temperature   = 1.d0 ! K
-    unit_numberdensity = 1.d0 ! cm-3,cm-3
+    unit_numberdensity = 1.d0 ! cm-3,cm-3,cm-3
 
     ! Active the physics module
     call rhd_activate()
@@ -96,79 +96,95 @@ contains
   end subroutine usr_params_read
 
   !> A routine for specifying initial conditions
-  subroutine initial_conditions(ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-     ixOmin2,ixOmax1,ixOmax2, w, x)
+  subroutine initial_conditions(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
+     ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, w, x)
     use mod_global_parameters
     use mod_physics, only: phys_get_tgas,phys_get_trad
     use mod_fld
 
-    integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
-        ixOmin1,ixOmin2,ixOmax1,ixOmax2
+    integer, intent(in)             :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
+       ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
     double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
-       1:ndim)
-    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw)
+       ixImin3:ixImax3,1:ndim)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,1:nw)
 
-    double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2)
-    double precision :: local_rad_e(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3)
+    double precision :: local_rad_e(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3)
 
-    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
-        lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2), fld_R(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
-    double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3),&
+        lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3),&
+        fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
+    double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3)
 
-    radius(ixImin1:ixImax1,ixImin2:ixImax2) = dsqrt(sum(x(ixImin1:ixImax1,&
-       ixImin2:ixImax2,:)**2,dim=ndim+1))
-    w(ixImin1:ixImax1,ixImin2:ixImax2,ind_r) = radius(ixImin1:ixImax1,&
-       ixImin2:ixImax2)
+    radius(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3) = dsqrt(sum(x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,:)**2,dim=ndim+1))
+    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
+       ind_r) = radius(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3)
 
-    where (radius(ixImin1:ixImax1,ixImin2:ixImax2) > delta_r/2)
-      w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = g0*radius(ixImin1:ixImax1,&
-         ixImin2:ixImax2)**(-kp)
-    else where (radius(ixImin1:ixImax1,ixImin2:ixImax2) <= delta_r/2)
-      w(ixImin1:ixImax1,ixImin2:ixImax2,rho_) = g0*(delta_r/2)**(-kp)
+    where (radius(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3) > delta_r/2)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
+         rho_) = g0*radius(ixImin1:ixImax1,ixImin2:ixImax2,&
+         ixImin3:ixImax3)**(-kp)
+    else where (radius(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3) <= delta_r/2)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
+         rho_) = g0*(delta_r/2)**(-kp)
     end where
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,mom(:)) = zero
-    w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = 1d-3
-    w(ixImin1:ixImax1,ixImin2:ixImax2,r_e) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       e_)*w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       rho_)/(rhd_gamma-1) *const_rad_a/unit_pressure*unit_temperature**4
+    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,mom(:)) = zero
+    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,e_) = 1d-3
+    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,r_e) = w(ixImin1:ixImax1,&
+       ixImin2:ixImax2,ixImin3:ixImax3,e_)*w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,rho_)/(rhd_gamma-1) &
+       *const_rad_a/unit_pressure*unit_temperature**4
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,e_) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       e_) + E0/dsqrt(2*dpi*delta_r**2)*dexp(-radius(ixImin1:ixImax1,&
-       ixImin2:ixImax2)**2/(2*delta_r**2))
+    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,e_) = w(ixImin1:ixImax1,&
+       ixImin2:ixImax2,ixImin3:ixImax3,e_) + &
+       E0/dsqrt(2*dpi*delta_r**2)*dexp(-radius(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3)**2/(2*delta_r**2))
 
-    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, kappa)
-    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2, lambda, fld_R)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg) = &
-       (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)/(kappa(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_))
+    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+        ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, kappa)
+    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
+       ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, lambda,&
+        fld_R)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_diff_mg) = (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,ixOmin3:ixOmax3)/(kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       ixOmin3:ixOmax3)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       rho_))
 
   end subroutine initial_conditions
 
-  subroutine kramers_opacity(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-     ixOmax1,ixOmax2,w,x,kappa)
+  subroutine kramers_opacity(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+     ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x,kappa)
     use mod_global_parameters
     use mod_physics, only: phys_get_tgas
     use mod_fld
 
-    integer, intent(in)          :: ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
-       ixOmin2,ixOmax1,ixOmax2
-    double precision, intent(in) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw),&
-        x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
-    double precision, intent(out):: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+    integer, intent(in)          :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
+       ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
+    double precision, intent(in) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,1:nw), x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,1:ndim)
+    double precision, intent(out):: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       ixOmin3:ixOmax3)
 
-    double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2)
+    double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3)
 
-    call phys_get_tgas(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-       ixOmax1,ixOmax2,Temp)
+    call phys_get_tgas(w,x,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+       ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,Temp)
 
-    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = kap0*(w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,rho_)*unit_density)**m*(Temp(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)*unit_temperature)**(-ndim)*unit_opacity
+    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       ixOmin3:ixOmax3) = kap0*(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       ixOmin3:ixOmax3,rho_)*unit_density)**m*(Temp(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2,ixOmin3:ixOmax3)*unit_temperature)**(-&
+       ndim)*unit_opacity
 
   end subroutine kramers_opacity
 

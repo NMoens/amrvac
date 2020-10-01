@@ -63,7 +63,7 @@
  /
 
  &rhd_list
-  He_abundance = 0.7d0
+  He_abundance = 1.d0
   rhd_gravity = .true.
   rhd_energy = .false.
   rhd_pressure = 'Trad'

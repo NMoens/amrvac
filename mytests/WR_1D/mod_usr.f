@@ -305,8 +305,9 @@ contains
         ! do ix1 = ixBmax1,ixBmin1,-1
         !   w(ix1,e_) = w(ix1+1,e_)
         ! enddo
-
       endif
+
+      ! print*, it
 
     case(2)
 
@@ -590,7 +591,7 @@ contains
 
 
   subroutine get_kappa_OPAL(ixImin1,ixImax1,ixOmin1,ixOmax1,w,x,kappa)
-    use mod_physics, only: phys_get_trad
+    use mod_physics, only: phys_get_trad, phys_get_tgas
     use mod_global_parameters
     use mod_opacity
     use mod_fld
@@ -606,7 +607,7 @@ contains
 
     !> Get OPAL opacities by reading from table
     if (rhd_energy) then
-      call phys_get_trad(w,x,ixImin1,ixImax1,ixOmin1,ixOmax1,Temp)
+      call phys_get_tgas(w,x,ixImin1,ixImax1,ixOmin1,ixOmax1,Temp)
     else
       call phys_get_trad(w,x,ixImin1,ixImax1,ixOmin1,ixOmax1,Temp)
     endif

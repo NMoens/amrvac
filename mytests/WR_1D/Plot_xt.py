@@ -17,6 +17,7 @@ ind = 1
 # file = 'unstable/2Cak_in_diff'
 # file = 'unstable/2Cak_notin_diff'
 file = 'test/w_e'
+file = 'test/bl_w_e'
 
 unit_time = 695.9
 All_E = []
@@ -44,6 +45,7 @@ t_axis = np.multiply(t_axis,unit_time)
 t_mesh,r_mesh = np.meshgrid(t_axis,r_axis)
 x_mesh = 1.-1./r_mesh
 
+first_E = All_E[0]
 All_E = np.transpose(All_E)
 mean_E = np.mean(All_E,axis=1)
 nx,nt = np.shape(All_E)
@@ -52,14 +54,16 @@ try:
     Logdiff_E = copy.copy(All_E)
     Relldiff_E = copy.copy(All_E)
     for x in range(nx):
-        Logdiff_E[x] = np.log10(All_E[x]/mean_E[x])
-        Relldiff_E[x] = (All_E[x]-mean_E[x])/mean_E[x]
+        # Logdiff_E[x] = np.log10(All_E[x]/mean_E[x])
+        Logdiff_E[x] = np.log10(All_E[x]/first_E[x])
+        # Relldiff_E[x] = (All_E[x]-mean_E[x])/mean_E[x]
+        Relldiff_E[x] = (All_E[x]-first_E[x])/first_E[x]
 except:
     print("Logdiff or Relldiff not defined")
 
 plt.figure()
-plt.pcolor(t_mesh,x_mesh,Logdiff_E,cmap='seismic',vmin=-0.01,vmax=0.01)
-# plt.pcolor(t_mesh,x_mesh,All_E,cmap='viridis',vmin=0,vmax=0.6)
+# plt.pcolor(t_mesh,x_mesh,Logdiff_E,cmap='seismic',vmin=-0.01,vmax=0.01)
+plt.pcolor(t_mesh,x_mesh,All_E,cmap='viridis',vmin=0,vmax=0.6)
 
 cbar = plt.colorbar()
 cbar.set_label('$Log(\\rho/<\\rho>)$')

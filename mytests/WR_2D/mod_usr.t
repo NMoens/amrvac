@@ -509,7 +509,7 @@ contains
 
 
   subroutine get_kappa_OPAL(ixI^L,ixO^L,w,x,kappa)
-    use mod_physics, only: phys_get_trad
+    use mod_physics, only: phys_get_t, phys_get_tgas
     use mod_global_parameters
     use mod_opacity
     use mod_fld

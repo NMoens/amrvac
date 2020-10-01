@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./test/bl_w_e'
+  base_filename='./test/u_w_e'
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
@@ -21,7 +21,7 @@
 /
 
  &stoplist
-   time_max = 300.d0
+   time_max = 10.d0
    dtmin = 1.0d-20
    !it_max = 100
 /
@@ -84,7 +84,7 @@
 
  &wind_list
   cak_Q = 2.30d3
-  cak_a = 0.6d0
+  cak_a = 0.5d0
   cak_base = 0.66d0
   cak_x0 = 0.4d0
   cak_x1 = 0.65d0

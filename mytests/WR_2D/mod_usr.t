@@ -51,8 +51,8 @@ contains
     usr_special_opacity => OPAL_and_CAK
 
     ! Output routines
-    usr_aux_output    => specialvar_output
-    usr_add_aux_names => specialvarnames_output
+    ! usr_aux_output    => specialvar_output
+    ! usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
     ! usr_get_dt => get_dt_cak
@@ -509,7 +509,7 @@ contains
 
 
   subroutine get_kappa_OPAL(ixI^L,ixO^L,w,x,kappa)
-    use mod_physics, only: phys_get_t, phys_get_tgas
+    use mod_physics, only: phys_get_trad, phys_get_tgas
     use mod_global_parameters
     use mod_opacity
     use mod_fld

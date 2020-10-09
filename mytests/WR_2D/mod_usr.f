@@ -51,8 +51,8 @@ contains
     usr_special_opacity => OPAL_and_CAK
 
     ! Output routines
-    usr_aux_output    => specialvar_output
-    usr_add_aux_names => specialvarnames_output
+    ! usr_aux_output    => specialvar_output
+    ! usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
     ! usr_get_dt => get_dt_cak
@@ -641,7 +641,7 @@ contains
 
   subroutine get_kappa_OPAL(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2,w,x,kappa)
-    use mod_physics, only: phys_get_trad
+    use mod_physics, only: phys_get_trad, phys_get_tgas
     use mod_global_parameters
     use mod_opacity
     use mod_fld
@@ -656,9 +656,15 @@ contains
     double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision :: n, rho0, Temp0
 
-    !> Get OPAL opacities by reading from table
-    call phys_get_trad(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-       ixOmax1,ixOmax2,Temp)
+    !> Get OPAL opacities by reading from table'
+    if (rhd_energy) then
+      call phys_get_trad(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+         ixOmax1,ixOmax2,Temp)
+    else
+      call phys_get_trad(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+         ixOmax1,ixOmax2,Temp)
+    endif
+
     do ix1=ixOmin1,ixOmax1
      do ix2=ixOmin2,ixOmax2
     
@@ -733,7 +739,7 @@ contains
        ixOmin2:ixOmax2)*unit_velocity/(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
        rho_)*const_c*cak_Q*kappa_e))**alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
-    if (x(ixImax1,nghostcells,1) .gt. xprobmax1) then
+    if (x(ixImax1,nghostcells,1) .ge. xprobmax1) then
       kappa(ixOmin1,ixOmin2:ixOmax2) = kappa(ixOmin1-1,ixOmin2:ixOmax2)
     endif
 

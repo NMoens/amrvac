@@ -11,13 +11,13 @@ year = 365*24*60*60
 
 
 
-ind = 1
+ind = 5
 # file = 'unstable/2test'
 # file = 'stable/Cak_in_diff'
 # file = 'unstable/2Cak_in_diff'
 # file = 'unstable/2Cak_notin_diff'
 file = 'test/w_e'
-file = 'test/bl_w_e'
+file = 'test/u_w_e'
 
 unit_time = 695.9
 All_E = []
@@ -63,7 +63,7 @@ except:
 
 plt.figure()
 # plt.pcolor(t_mesh,x_mesh,Logdiff_E,cmap='seismic',vmin=-0.01,vmax=0.01)
-plt.pcolor(t_mesh,x_mesh,All_E,cmap='viridis',vmin=0,vmax=0.6)
+plt.pcolor(t_mesh,x_mesh,np.log10(All_E),cmap='viridis',vmin=0,vmax=0.6)
 
 cbar = plt.colorbar()
 cbar.set_label('$Log(\\rho/<\\rho>)$')

@@ -16,6 +16,9 @@ def Get_data(still,adv,ind,Deltax):
     still = np.transpose(A)[ind]
     adv = np.transpose(B)[ind]
 
+    if ind == 4:
+        still = np.transpose(A)[4] + 
+
     spl_still = interpolate.splrep(x, still, s=0)
     spl_adv = interpolate.splrep(x, adv, s=0)
 
@@ -30,24 +33,24 @@ def Get_data(still,adv,ind,Deltax):
 
     return x_new, x, x_adv,  still, adv, reldiff
 
-ind = 1
+ind = 4
 dx = 10.08
 
 still_file = '1D_output/still_Euler0010.blk'
 adv_file = '1D_output/adv_Euler0010.blk'
 x_new, x_still, x_adv, still, adv, delta_Euler = Get_data(still_file, adv_file, ind, dx)
 
-still_file = '1D_output/still_SP0010.blk'
-adv_file = '1D_output/adv_SP0010.blk'
-x_new, x_still, x_adv, still, adv, delta_SP = Get_data(still_file, adv_file, ind, dx)
-
-still_file = '1D_output/still_Midpoint0010.blk'
-adv_file = '1D_output/adv_Midpoint0010.blk'
-x_new, x_still, x_adv, still, adv, delta_Midpoint = Get_data(still_file, adv_file, ind, dx)
-
-still_file = '1D_output/still_ARS30010.blk'
-adv_file = '1D_output/adv_ARS30010.blk'
-x_new, x_still, x_adv, still, adv, delta_ARS3 = Get_data(still_file, adv_file, ind, dx)
+# still_file = '1D_output/still_SP0010.blk'
+# adv_file = '1D_output/adv_SP0010.blk'
+# x_new, x_still, x_adv, still, adv, delta_SP = Get_data(still_file, adv_file, ind, dx)
+#
+# still_file = '1D_output/still_Midpoint0010.blk'
+# adv_file = '1D_output/adv_Midpoint0010.blk'
+# x_new, x_still, x_adv, still, adv, delta_Midpoint = Get_data(still_file, adv_file, ind, dx)
+#
+# still_file = '1D_output/still_ARS30010.blk'
+# adv_file = '1D_output/adv_ARS30010.blk'
+# x_new, x_still, x_adv, still, adv, delta_ARS3 = Get_data(still_file, adv_file, ind, dx)
 
 
 # #FIND OPTIMAL dx
@@ -73,9 +76,9 @@ plt.plot(x_still,adv)
 plt.figure()
 plt.title('advection pulse: relative difference')
 plt.plot(x_new,delta_Euler,label='Euler')
-plt.plot(x_new,delta_SP,label='SP')
-plt.plot(x_new,delta_Midpoint,label='Midpoint')
-plt.plot(x_new,delta_ARS3,label='ARS3')
+# plt.plot(x_new,delta_SP,label='SP')
+# plt.plot(x_new,delta_Midpoint,label='Midpoint')
+# plt.plot(x_new,delta_ARS3,label='ARS3')
 
 plt.ylabel('$(\\rho_s - \\rho_a)/\\rho_s$',fontsize = 10)
 plt.xlabel('$x$',fontsize = 10)

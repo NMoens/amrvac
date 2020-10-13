@@ -34,6 +34,7 @@
        typeboundary_max1=4*'noinflow','cont'
        typeboundary_min2=4*'noinflow','cont'
        typeboundary_max2=4*'noinflow','cont'
+       internalboundary = F
 /
 
 &meshlist

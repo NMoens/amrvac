@@ -42,6 +42,9 @@ contains
     ! A routine for initial conditions is always required
     usr_init_one_grid => initial_conditions
 
+    ! Drive the wave using an internal boundary
+    usr_internal_bc => Initialize_Wave
+
     ! Choose independent normalization units if using dimensionless variables.
     unit_length        = 1.d0 ! cm
     unit_temperature   = 1.d0 ! K
@@ -160,6 +163,28 @@ contains
        rho_))
 
   end subroutine initial_conditions
+
+  subroutine Initialize_Wave(level,qt,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
+     ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x)
+    use mod_global_parameters
+    use mod_fld
+    integer, intent(in)             :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
+       ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,level
+    double precision, intent(in)    :: qt
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,1:nw)
+    double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,1:ndim)
+
+    double precision :: radius(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3)
+
+    where (radius(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3) <= delta_r/2)
+      w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,e_) = E0 !w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,e_) + E0/dsqrt(2*dpi*delta_r**2)*dexp(-radius(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3)**2/(2*delta_r**2))
+    end where
+
+  end subroutine Initialize_Wave
 
   subroutine kramers_opacity(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
      ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x,kappa)

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+#PBS -A lt1_starter-194
+#PBS -l nodes=4:ppn=28:skylake
+#PBS -l walltime=12:00:00
+#PBS -l pmem=1gb
+
+cd $AMRVAC_DIR/mytests/WR_2D
+
+module purge
+module load intel/2018a
+
+make ARCH=intel -j 20 > cmp_out
+
+mpiexec ./amrvac -i WithE_init.par -resume 1> std_out_i 2> std_err_i
+mpiexec ./amrvac -i WithE.par -resume 1> std_out 2> std_err

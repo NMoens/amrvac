@@ -5,7 +5,7 @@
 
  &filelist
         base_filename='vaclogo'
-    	convert_type='vtuBCCmpi'
+    	  convert_type='vtuBCCmpi'
         autoconvert=T
         typefilelog='special'
  /
@@ -55,4 +55,3 @@
  &rho_list
         rho_v = 1.0,1.0
  /
- 

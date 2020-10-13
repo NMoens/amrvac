@@ -19,10 +19,10 @@
 /
 
 &methodlist
-       time_stepper = 'threestep'
-       time_integrator =  'IMEX_ARS3'
+       time_stepper = 'twostep'
+       time_integrator =  'IMEX_Midpoint'
        flux_scheme=    20*'tvdlf'
-       limiter= 20*'minmod'
+       limiter= 20*'weno5'
        small_values_method = 'replace'
        small_pressure = 1.d-10
        small_density = 1.d-10
@@ -36,12 +36,15 @@
        typeboundary_max2=5*'noinflow','cont'
        typeboundary_min3=5*'noinflow','cont'
        typeboundary_max3=5*'noinflow','cont'
+       internalboundary = F
 /
 
 &meshlist
        max_blocks = 100000
-       refine_criterion=2
+       refine_criterion=3
        refine_max_level=3
+       w_refine_weight(1)=0.5d0
+       w_refine_weight(5)=0.5d0
        domain_nx1=64
        domain_nx2=64
        domain_nx3=64

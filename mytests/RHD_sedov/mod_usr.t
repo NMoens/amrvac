@@ -42,6 +42,9 @@ contains
     ! A routine for initial conditions is always required
     usr_init_one_grid => initial_conditions
 
+    ! Drive the wave using an internal boundary
+    usr_internal_bc => Initialize_Wave
+
     ! Choose independent normalization units if using dimensionless variables.
     unit_length        = 1.d0 ! cm
     unit_temperature   = 1.d0 ! K
@@ -131,6 +134,22 @@ contains
     w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
   end subroutine initial_conditions
+
+  subroutine Initialize_Wave(level,qt,ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+    use mod_fld
+    integer, intent(in)             :: ixI^L,ixO^L,level
+    double precision, intent(in)    :: qt
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision, intent(in)    :: x(ixI^S,1:ndim)
+
+    double precision :: radius(ixI^S)
+
+    where (radius(ixI^S) <= delta_r/2)
+      w(ixI^S,e_) = E0 !w(ixI^S,e_) + E0/dsqrt(2*dpi*delta_r**2)*dexp(-radius(ixI^S)**2/(2*delta_r**2))
+    end where
+
+  end subroutine Initialize_Wave
 
   subroutine kramers_opacity(ixI^L,ixO^L,w,x,kappa)
     use mod_global_parameters

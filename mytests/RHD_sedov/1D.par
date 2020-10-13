@@ -34,6 +34,7 @@
 &boundlist
        typeboundary_min1=4*'cont'
        typeboundary_max1=4*'cont'
+       internalboundary = F
 /
 
 &meshlist
@@ -54,7 +55,7 @@
        rhd_energy = .true.
        rhd_gamma = 1.4d0
        rhd_radiation_formalism = 'fld'
-       rhd_radiation_advection = .true.
+       rhd_radiation_advection = .false.
        rhd_radiation_force = .false.
        rhd_energy_interact = .true.
        rhd_radiation_diffusion = .true.

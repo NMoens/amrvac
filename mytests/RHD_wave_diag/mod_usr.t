@@ -206,8 +206,6 @@ contains
 
     where (r(ixI^S) .lt. one)
       w(ixI^S, rho_) = rho0 + A_rho*dsin(wavenumber*r(ixI^S)-omega*global_time)
-      {^NOONED w(ixI^S, mom(2)) = zero}
-      {^IFTHREED w(ixI^S, mom(3)) = zero}
       w(ixI^S, mom(1)) = ndim**(-0.5d0)*w(ixI^S, rho_)*A_v*dsin(wavenumber*r(ixI^S)-omega*global_time)
       w(ixI^S, mom(2)) = ndim**(-0.5d0)*w(ixI^S, rho_)*A_v*dsin(wavenumber*r(ixI^S)-omega*global_time)
 {^IFTHREED      w(ixI^S, mom(3)) = ndim**(-0.5d0)*w(ixI^S, rho_)*A_v*dsin(wavenumber*r(ixI^S)-omega*global_time)}

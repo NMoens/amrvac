@@ -337,6 +337,8 @@ contains
        if (rhd_gamma <= 0.0d0) call mpistop ("Error: rhd_gamma <= 0")
        if (rhd_adiab < 0.0d0) call mpistop  ("Error: rhd_adiab < 0")
        small_pressure= rhd_adiab*small_density**rhd_gamma
+    elseif (rhd_pressure == 'Tcond') then
+      small_pressure = smalldouble
     else
        if (rhd_gamma <= 0.0d0 .or. rhd_gamma == 1.0d0) &
             call mpistop ("Error: rhd_gamma <= 0 or rhd_gamma == 1.0")
@@ -402,11 +404,13 @@ contains
       kB=kB_cgs
     end if
     if(unit_velocity==0) then
+      !> Set numberdensity, temperature and length
       unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
       unit_pressure=(2.d0+3.d0*He_abundance)*unit_numberdensity*kB*unit_temperature
       unit_velocity=dsqrt(unit_pressure/unit_density)
       unit_time=unit_length/unit_velocity
     else
+      !> Set numberdensity, velocity and length
       unit_density=(1.d0+4.d0*He_abundance)*mp*unit_numberdensity
       unit_pressure=unit_density*unit_velocity**2
       unit_temperature=unit_pressure/((2.d0+3.d0*He_abundance)*unit_numberdensity*kB)
@@ -701,6 +705,8 @@ contains
         /unit_temperature*w(ixI^S, rho_)
       case ('adiabatic')
         pth(ixI^S) = rhd_adiab * w(ixI^S, rho_)**rhd_gamma
+      case ('Tcond')
+        pth(ixI^S) = (rhd_gamma-1.d0)*w(ixI^S,r_e)
       case default
         call mpistop('rhd_pressure unknown, use Trad or adiabatic')
       end select
@@ -1231,11 +1237,11 @@ contains
           where(flag(ixO^S) == rho_) w(ixO^S,rho_) = small_density
         end if
 
-        do idir = 1, ndir
-          if (small_values_fix_iw(mom(idir))) then
-            where(flag(ixO^S) == rho_) w(ixO^S, mom(idir)) = 0.0d0
-          end if
-        end do
+        ! do idir = 1, ndir
+        !   if (small_values_fix_iw(mom(idir))) then
+        !     where(flag(ixO^S) == rho_) w(ixO^S, mom(idir)) = 0.0d0
+        !   end if
+        ! end do
 
         if (small_values_fix_iw(r_e)) then
           where(flag(ixO^S) == r_e) w(ixO^S,r_e) = small_r_e

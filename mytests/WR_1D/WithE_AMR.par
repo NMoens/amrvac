@@ -7,7 +7,7 @@
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
-  saveprim         = T
+  saveprim         = F
   !nwauxio = 4
 /
 
@@ -30,10 +30,10 @@
    time_stepper = 'onestep'
    time_integrator = 'IMEX_SP'
    flux_scheme     = 20*'tvdlf'
-   limiter         = 20*'mp5'
+   limiter         = 20*'minmod'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
-   check_small_values = .true.
+   check_small_values = .false.
    small_values_method = 'replace'
    small_pressure = 1.d-20
    small_density = 1.d-20
@@ -46,10 +46,10 @@
 /
 
  &meshlist
-   refine_max_level   = 1
+   refine_max_level   = 4   !3
    refine_criterion   = 3
-   domain_nx1         = 128
-   block_nx1          = 32
+   domain_nx1         = 128 !128
+   block_nx1          = 8  !32
    xprobmin1      = 1.d0
    xprobmax1       = 9.d0
    refine_threshold   = 20*0.5d0
@@ -59,7 +59,7 @@
  &paramlist
   courantpar       = 0.2d0 !0.4d0
   !dtpar           = 1.d-4
-  !slowsteps = 500
+  slowsteps = 100
  /
 
  &rhd_list

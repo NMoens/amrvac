@@ -144,14 +144,15 @@ r_1D , rho_1D, v_1D, e_1D, Er_1D = get_data('/lhome/nicolasm/amrvac/mytests/RHD_
 analytic = analytic(0,0,False)
 
 
-plt.figure()    
+plt.figure()
 
-plt.title('Density perturbation')
+# plt.title('Density perturbation')
+plt.grid()
 plt.plot(x_a/wvl,analytic,'k--',label='analytic')
 plt.plot((r0)/unit_length+0.25,1e4*(rho0-np.mean(rho0)),'r-',label='Diagonal')
 plt.plot(r_1D,(rho_1D-np.mean(rho_1D)),'b-',label='1D')
-plt.ylabel('perturbation')
-plt.xlabel('$x/\\lambda$')
+plt.ylabel('$(\\rho - \\rho_0) / A_\\rho$',fontsize=10)
+plt.xlabel('$x/\\lambda$',fontsize=10)
 plt.legend()
 
 

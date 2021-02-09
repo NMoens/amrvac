@@ -74,7 +74,9 @@ module mod_usr_methods
 
   ! Radiation quantity related
   procedure(special_opacity), pointer   :: usr_special_opacity => null()
+  procedure(special_opacity_qdot), pointer   :: usr_special_opacity_qdot => null()
   procedure(special_fluxlimiter), pointer   :: usr_special_fluxlimiter => null()
+  procedure(special_diffcoef), pointer   :: usr_special_diffcoef => null()
 
   ! Called after the mesh has been adjuste
   procedure(after_refine), pointer      :: usr_after_refine => null()
@@ -481,12 +483,27 @@ module mod_usr_methods
       double precision, intent(out):: kappa(ixO^S)
     end subroutine special_opacity
 
+    subroutine special_opacity_qdot(ixI^L,ixO^L,w,x,kappa)
+      use mod_global_parameters
+      integer, intent(in)          :: ixI^L, ixO^L
+      double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
+      double precision, intent(out):: kappa(ixO^S)
+    end subroutine special_opacity_qdot
+
     subroutine special_fluxlimiter(ixI^L,ixO^L,w,x,fld_lambda,fld_R)
       use mod_global_parameters
       integer, intent(in)          :: ixI^L, ixO^L
       double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
       double precision, intent(out):: fld_lambda(ixI^S),fld_R(ixI^S)
     end subroutine special_fluxlimiter
+
+    subroutine special_diffcoef(w, wCT, x, ixI^L, ixO^L)
+      use mod_global_parameters
+      integer, intent(in)          :: ixI^L, ixO^L
+      double precision, intent(inout) :: w(ixI^S, 1:nw)
+      double precision, intent(in) :: wCT(ixI^S, 1:nw)
+      double precision, intent(in) :: x(ixI^S, 1:ndim)
+    end subroutine special_diffcoef
 
     !> allow user to specify variables' left and right state at physical boundaries to control flux through the boundary surface
     subroutine set_wLR(ixI^L,ixO^L,qt,wLC,wRC,wLp,wRp,s,idir)

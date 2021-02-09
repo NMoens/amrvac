@@ -3,39 +3,40 @@
 /
 
 &filelist
-  base_filename='./test/3D'
+  base_filename='./with_e/3D_unstable'
   autoconvert      = T
-  convert_type     = 'vtuBCCmpi'
-  saveprim         = T
-  nwauxio = 4
+  convert_type = 'vtuBCCmpi'
+  saveprim         = F
 /
 
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
-   ditsave_dat     = 1
-   !ditsave_log     = 100
-   dtsave_dat     = 1.d-1
-   dtsave_log     = 5.d-2
+   !ditsave_dat     = 1
+   !ditsave_log     = 1
+   dtsave_dat     = 1.d0 !1.d0
+   dtsave_log     = 1.d0 !1.d0
+   itsave(1,5)     = 0
+   ditsave_custom  = 100
 /
 
  &stoplist
-   time_max = 300.d0
-   dtmin = 1.0d-20
-   it_max = 100
+   time_max = 30.d0
+   dtmin = 1.0d-10
+   !it_max = 20
 /
 
  &methodlist
    time_stepper = 'onestep'
    time_integrator = 'IMEX_Euler'
    flux_scheme     = 20*'hll'
-   limiter         = 20*'koren'
+   limiter         = 20*'minmod'
    source_split_usr = .false.
    typesourcesplit = 'sfs'
    check_small_values = .true.
    small_values_method = 'replace'
-   small_pressure = 1.d-20
-   small_density = 1.d-20
+   small_pressure = 1.d-13 !1.d-8
+   small_density = 1.d-8 !1.d-5
 /
 
 &boundlist
@@ -45,20 +46,22 @@
   typeboundary_max2 = 6*'periodic'
   typeboundary_min3 = 6*'periodic'
   typeboundary_max3 = 6*'periodic'
-  internalboundary = F
+  internalboundary = T
 /
 
  &meshlist
    refine_max_level   = 2
    refine_criterion   = 3
-   domain_nx1         = 256
-   domain_nx2         = 64
-   domain_nx3         = 64
-   block_nx1          = 8
-   block_nx2          = 8
-   block_nx3          = 8
+   !w_refine_weight(4) = 1.d0
+   max_blocks         = 4000000
+   domain_nx1         = 1024
+   domain_nx2         = 128
+   domain_nx3         = 128
+   block_nx1          = 16
+   block_nx2          = 16
+   block_nx3          = 16
    xprobmin1      = 1.d0
-   xprobmax1       = 5.d0
+   xprobmax1       = 9.d0
    xprobmin2      = -0.5d0
    xprobmax2       = 0.5d0
    xprobmin3      = -0.5d0
@@ -68,16 +71,16 @@
  /
 
  &paramlist
-  courantpar       = 0.2d0 !0.4d0
-  !dtpar           = 1.d-4
-  !slowsteps = 500
+  courantpar       = 0.9d0
+  !dtpar           = 1.d-5
+  slowsteps = 500
  /
 
  &rhd_list
   He_abundance = 0.7d0
   rhd_gravity = .true.
   rhd_energy = .true.
-  rhd_gamma = 1.6667d0
+  rhd_gamma = 1.6667d0 !1.4d0
   rhd_radiation_force = .true.
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
@@ -87,26 +90,27 @@
  &fld_list
   fld_Radforce_split = .false.
   fld_opacity_law = 'special'
-  fld_fluxlimiter = 'Minerbo'
-  fld_diff_tol = 1.d-4
-  fld_bisect_tol = 1.d-7
-  /
+  fld_fluxlimiter = 'Pomraning'
+  fld_interaction_method = 'Halley'
+  fld_diff_tol = 1.d-5 !1.d-5
+  fld_bisect_tol = 1.d-13! 1.d-12
+ /
 
- &wind_list
-  cak_Q = 2.30d3
-  cak_a = 0.50d0
-  cak_base = 0.66d0
-  cak_x0 = 0.4d0
-  cak_x1 = 0.65d0
-  !it_start_cak = 10
-  rho_bound = 1.d-7 !3.d-7
-  T_bound = 3.2d5
-  Gamma_e_bound = 0.4d0
-  kappa_e = 0.2d0
-  R_star = 1.d0
-  M_star = 10.d0
-  v_inf = 1.d8
-  Mdot = 1.d-5
-  fixed_lum = .false.
-  Cak_in_D = .true.
-/
+  &wind_list
+   cak_Q = 2.30d3
+   cak_a = 0.5d0
+   cak_base = 0.66d0
+   cak_x0 = 0.4d0
+   cak_x1 = 0.65d0
+   !it_start_cak = 10
+   rho_bound = 5.d-7 !3.d-7 !5.d-8 !3.d-7
+   T_bound = 3.2d5
+   Gamma_e_bound = 0.4d0 !0.40d0
+   kappa_e = 0.2d0
+   R_star = 1.d0
+   M_star = 10.d0
+   v_inf = 1.d8
+   Mdot = 1.d-4
+   fixed_lum = .false.
+   Cak_in_D = .true.
+ /

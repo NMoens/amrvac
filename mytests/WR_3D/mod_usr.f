@@ -22,6 +22,13 @@ module mod_usr
   double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
   logical :: fixed_lum, Cak_in_D
 
+  integer :: i_v1, i_v2, i_v3, i_p
+  integer :: i_Trad, i_Tgas, i_Mdot, i_Opal, i_CAK, i_lambda
+  integer :: i_Gamma, i_Lum, i_F1, i_F2, i_F3
+
+  double precision :: sum_time
+  double precision, allocatable :: vr_sumt(:), rho_sumt(:), sumt(:)
+
 contains
 
   !> This routine should set user methods, and activate the physics module
@@ -41,6 +48,9 @@ contains
     usr_special_bc => boundary_conditions
     usr_special_mg_bc => mg_boundary_conditions
 
+    !> lasy fix for inexplicable pressure
+    usr_internal_bc => Fix_pressure
+
     ! PseudoPlanar correction
     usr_source => PseudoPlanar
 
@@ -50,9 +60,15 @@ contains
     ! Special Opacity
     usr_special_opacity => OPAL_and_CAK
 
+    ! Write out energy levels and temperature
+    usr_write_analysis => collapse_to_1D
+
+    !> Additional variables
+    usr_process_grid => update_extravars
+
     ! Output routines
-    usr_aux_output    => specialvar_output
-    usr_add_aux_names => specialvarnames_output
+    ! usr_aux_output    => specialvar_output
+    ! usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
     ! usr_get_dt => get_dt_cak
@@ -62,6 +78,22 @@ contains
 
     ! Active the physics module
     call rhd_activate()
+
+    i_v1 = var_set_extravar("v1", "v1")
+    i_v2 = var_set_extravar("v2", "v2")
+    i_v3 = var_set_extravar("v3", "v3")
+    i_p = var_set_extravar("p","p")
+    i_Trad = var_set_extravar("Trad", "Trad")
+    i_Tgas = var_set_extravar("Tgas", "Tgas")
+    i_Mdot = var_set_extravar("Mdot", "Mdot")
+    i_Opal = var_set_extravar("OPAL", "OPAL")
+    i_CAK = var_set_extravar("CAK", "CAK")
+    i_lambda = var_set_extravar("lambda", "lambda")
+    i_Gamma = var_set_extravar("Gamma", "Gamma")
+    i_Lum = var_set_extravar("Lum", "Lum")
+    i_F1 = var_set_extravar("F1", "F1")
+    i_F2 = var_set_extravar("F2", "F2")
+    i_F3 = var_set_extravar("F3", "F3")
 
   end subroutine usr_init
 
@@ -120,6 +152,14 @@ contains
     ! print*, 'unit_time', unit_time
     ! print*, 'unit_pressure', unit_pressure
 
+    sum_time = 0.d0
+
+    allocate(vr_sumt(domain_nx1))
+    vr_sumt = 0.d0
+    allocate(rho_sumt(domain_nx1))
+    rho_sumt = 0.d0
+
+
   end subroutine initglobaldata_usr
 
   !> Read parameters from a file
@@ -153,6 +193,7 @@ contains
   subroutine initial_conditions(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
      ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, w, x)
     use mod_constants
+    use mod_physics
 
     integer, intent(in)             :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
        ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
@@ -170,83 +211,105 @@ contains
        ixImin3:ixImax3), bb, temp(ixImin1:ixImax1,ixImin2:ixImax2,&
        ixImin3:ixImax3)
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,rho_)   = rho_bound
-    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,mom(:)) = 0.d0
+    integer :: ii
 
-    where(x(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,1) .gt. 1.d0)
-      vel(ixImin1:ixImax1,ixImin2:ixImax2,&
-         ixImin3:ixImax3) =  v_inf*(1 - 0.999d0*( 1.d0/x(ixImin1:ixImax1,&
-         ixImin2:ixImax2,ixImin3:ixImax3,1)))**0.5d0
-      w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-         rho_) = Mdot/(4.d0*dpi*vel(ixImin1:ixImax1,ixImin2:ixImax2,&
-         ixImin3:ixImax3)*x(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-         1)**2)
-    endwhere
+!    w(ixI^S,rho_)   = rho_bound
+!    w(ixI^S,mom(:)) = 0.d0
+!
+!    where(x(ixI^S,1) .gt. 1.d0)
+!      vel(ixI^S) =  v_inf*(1 - 0.999d0*( 1.d0/x(ixI^S,1)))**0.5d0
+!      w(ixI^S,rho_) = Mdot/(4.d0*dpi*vel(ixI^S)*x(ixI^S,1)**2)
+!    endwhere
+!
+!    w(ixI^S,mom(1)) = vel(ixI^S)*w(ixI^S,rho_)
+!
+!    !> Outer/Inner temperature
+!    T_out = 28445.836732569689/unit_temperature
+!    E_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
+!    T_in = T_bound
+!    E_in = const_rad_a*(T_in*unit_temperature)**4/unit_pressure
+!
+!    !>Very bad initial profile using constant gradE
+!    ! w(ixI^S,r_e) = E_out + gradE*(x(ixI^S,1)-xprobmax1)
+!    ! w(ixI^S,r_e) = E_in + gradE*(x(ixI^S,1)-xprobmin1)
+!    rr(ixI^S) = dsqrt(x(ixI^S,1)-xprobmin1)*(16*x(ixI^S,1)**2 + 8*x(ixI^S,1)+ 6) &
+!                /(15*x(ixI^S,1)**(5.d0/2))
+!    bb = -kappa_e*L_bound*Mdot*unit_velocity*3/(16*dpi**2*const_c*v_inf)
+!
+!    ! bb = bb*2
+!
+!    ! rr(ixI^S) = 2*dsqrt(x(ixI^S,1)-xprobmin1)/dsqrt(x(ixI^S,1))
+!    ! bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
+!    w(ixI^S,r_e) = E_in + bb*rr(ixI^S)
+!
+!    E_gauge = E_in + bb*dsqrt(xprobmax1-xprobmin1)&
+!              *(16*xprobmax1**2 + 8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
+!
+!    w(ixI^S,r_e) = w(ixI^S,r_e) - E_gauge + E_out
+!
+!    if (rhd_energy) then
+!      temp(ixI^S) = (w(ixI^S,r_e)*unit_pressure/const_rad_a)**0.25d0/unit_temperature
+!      w(ixI^S,e_) = w(ixI^S,rho_)*temp(ixI^S)/(rhd_gamma-1.d0) + half*w(ixI^S,mom(1))**2/w(ixI^S,rho_)
+!    endif
+!
+!
+!    call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+!    call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
+!
+!    w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
+!    w(ixO^S,i_diff_mg) = (const_c/unit_velocity)/(3.d0*kappa(ixO^S)*w(ixO^S,rho_))
+!
 
-    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-       mom(1)) = vel(ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3)*w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-       rho_)
+    if (mype == 1) print*, 'starting to read initial conditions'
 
-    !> Outer/Inner temperature
-    T_out = 28445.836732569689/unit_temperature
-    E_out = const_rad_a*(T_out*unit_temperature)**4/unit_pressure
-    T_in = T_bound
-    E_in = const_rad_a*(T_in*unit_temperature)**4/unit_pressure
+    do ii = ixOmin1,ixOmax1
+      w(ii,:,:,rho_) = read_initial_conditions(x(ii,3,3,1),2)
+      w(ii,:,:,mom(1)) = read_initial_conditions(x(ii,3,3,1),3)
+      w(ii,:,:,mom(2)) = 0.d0
+      w(ii,:,:,mom(3)) = 0.d0
+      w(ii,:,:,e_) = read_initial_conditions(x(ii,3,3,1),4)
+      w(ii,:,:,r_e) = read_initial_conditions(x(ii,3,3,1),5)
+      w(ii,:,:,i_diff_mg) = read_initial_conditions(x(ii,3,3,1),6)
+    enddo
 
-    !>Very bad initial profile using constant gradE
-    ! w(ixI^S,r_e) = E_out + gradE*(x(ixI^S,1)-xprobmax1)
-    ! w(ixI^S,r_e) = E_in + gradE*(x(ixI^S,1)-xprobmin1)
-    rr(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3) = &
-       dsqrt(x(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-       1)-xprobmin1)*(16*x(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-       1)**2 + 8*x(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-       1)+ 6) /(15*x(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-       1)**(5.d0/2))
-    bb = -kappa_e*L_bound*Mdot*unit_velocity*3/(16*dpi**2*const_c*v_inf)
-
-    ! bb = bb*2
-
-    ! rr(ixI^S) = 2*dsqrt(x(ixI^S,1)-xprobmin1)/dsqrt(x(ixI^S,1))
-    ! bb = kappa_e*F_bound*Mdot*unit_velocity*3/(4*dpi*const_c*v_inf)
-    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-       r_e) = E_in + bb*rr(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3)
-
-    E_gauge = E_in + bb*dsqrt(xprobmax1-xprobmin1)*(16*xprobmax1**2 + &
-       8*xprobmax1+ 6)/(15*xprobmax1**(5.d0/2))
-
-    w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,r_e) = w(ixImin1:ixImax1,&
-       ixImin2:ixImax2,ixImin3:ixImax3,r_e) - E_gauge + E_out
-
-    if (rhd_energy) then
-      temp(ixImin1:ixImax1,ixImin2:ixImax2,&
-         ixImin3:ixImax3) = (w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-         r_e)*unit_pressure/const_rad_a)**0.25d0/unit_temperature
-      w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-         e_) = w(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3,&
-         rho_)*temp(ixImin1:ixImax1,ixImin2:ixImax2,&
-         ixImin3:ixImax3)/(rhd_gamma-1.d0) + half*w(ixImin1:ixImax1,&
-         ixImin2:ixImax2,ixImin3:ixImax3,mom(1))**2/w(ixImin1:ixImax1,&
-         ixImin2:ixImax2,ixImin3:ixImax3,rho_)
-    endif
-
-    call fld_get_opacity(w, x, ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
-        ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, kappa)
-    call fld_get_fluxlimiter(w, x, ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
-       ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, lambda,&
-        fld_R)
-
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
-       i_diff_mg) = (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,ixOmin3:ixOmax3)/(kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       ixOmin3:ixOmax3)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
-       rho_))
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
-       i_diff_mg) = (const_c/unit_velocity)/(3.d0*kappa(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,ixOmin3:ixOmax3)*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-       ixOmin3:ixOmax3,rho_))
+    call phys_to_conserved(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+       ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x)
 
   end subroutine initial_conditions
+
+
+
+  function read_initial_conditions(r_in,index) result(var)
+    integer, intent(in) :: index
+    double precision, intent(in) :: r_in
+    double precision :: var
+
+    double precision :: w(1:6), w_mo(1:6), w_po(1:6)
+    integer :: ll
+
+    w(:) = 0.d0
+
+    open(unit=1, file='1D_stable.blk')
+    read(1,*) !> header
+    read(1,*) !>header
+    read(1,*) !>header
+    read(1,*) w !> first line of data
+    do ll = 1,1024
+      w_mo = w
+      read(1,*) w
+        if (w(1) .gt. r_in) then
+          w_po = w
+          goto 8765
+        endif
+      w_po = w
+    enddo
+
+8765 CLOSE(1)
+    var = w_mo(index) + (w_po(index) - w_mo(index))/(w_po(1) - w_mo(1))*(r_in &
+       - w_mo(1))
+
+  end function read_initial_conditions
+
 
   subroutine boundary_conditions(qt,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
      ixImax3,ixBmin1,ixBmin2,ixBmin3,ixBmax1,ixBmax2,ixBmax3,iB,w,x)
@@ -293,6 +356,7 @@ contains
       do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,mom(1)) = w(ix1+1,&
            ixBmin2:ixBmax2,ixBmin3:ixBmax3,mom(1))
+       ! w(ix1,ixBmin2:ixBmax2,mom(2)) = w(ix1+1,ixBmin2:ixBmax2,mom(2))
       enddo
 
       where(w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,&
@@ -307,7 +371,11 @@ contains
 
       where (F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
          ixBmin3:ixBmax3) .ne. F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
-         ixBmin3:ixBmax3)) F_adv = 0.d0
+         ixBmin3:ixBmax3)) F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+         ixBmin3:ixBmax3) = 0.d0
+      where (F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+         ixBmin3:ixBmax3) .le. 0.d0) F_adv(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+         ixBmin3:ixBmax3) = 0.d0
 
       do ix1 = ixImin1,ixImax1
         Local_gradE(ix1,ixBmin2:ixBmax2,ixBmin3:ixBmax3) = &
@@ -338,8 +406,8 @@ contains
            ixBmin2:ixBmax2,ixBmin3:ixBmax3,rho_)
       endif
 
-      ! print*, gradE
-    case(2)
+
+   case(2)
 
       !> Compute mean kappa in outer blocks
       call get_kappa_OPAL(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
@@ -347,7 +415,6 @@ contains
 
       kappa_out = sum(kappa(ixImax1-nghostcells,ixBmin2:ixBmax2,&
          ixBmin3:ixBmax3))/((ixBmax2-ixBmin2)*(ixBmax3-ixBmin3))
-      ! kappa_out = kappa_e
 
       if (kappa_out .ne. kappa_out) kappa_out = kappa_e
       kappa_out = max(kappa_out,kappa_e)
@@ -365,24 +432,13 @@ contains
          ixBmin3:ixBmax3))/((ixBmax2-ixBmin2)*(ixBmax3-ixBmin3))
 
       T_out = max(1.5d4/unit_temperature, T_out)
-      T_out = 2.5d4/unit_temperature
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
-      ! do ix1 = ixBmin1,ixBmax1
-      !   w(ix1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,r_e) = 2*w(ix1-1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,r_e) - w(ix1-2,ixBmin2:ixBmax2,ixBmin3:ixBmax3,r_e)
-      ! enddo
-
-
-      ! w(ixB^S,r_e) = const_rad_a*(Local_Tout(ixB^S)*unit_temperature)**4.d0/unit_pressure
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,ixBmin3:ixBmax3,&
-         r_e) = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
+         r_e) = const_rad_a*(Local_Tout(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
+         ixBmin3:ixBmax3)*unit_temperature)**4.d0/unit_pressure
 
-      ! print*, it, 'top---------------------------------------'
-      ! print*, Local_tauout(ixBmax1-5:ixBmax1,5)
-      ! print*, Local_Tout(ixBmax1-5:ixBmax1,5)
-      ! print*, w(ixBmax1-5:ixBmax1,5,r_e)
-
-      ! print*, E_out
+      ! print*, 'E_out', E_out
     case default
       call mpistop('boundary not known')
     end select
@@ -393,13 +449,39 @@ contains
     use mod_multigrid_coupling
 
     integer, intent(in)             :: iB
+    integer          :: iigrid, igrid
+    double precision :: snd_g, rcv_g, snd_e, rcv_e
 
     select case (iB)
     case (1)
+      !> communicate boundary
+      ! do iigrid=1,igridstail; igrid=igrids(iigrid);
+      !   if (node(pig1_,igrid) > 1) &
+      !     gradE = 0.d0
+      ! enddo
+      !
+      ! snd_g = gradE
+      ! call mpi_allreduce(snd_g,rcv_g,1,&
+      ! MPI_DOUBLE_PRECISION,MPI_MIN,icomm,ierrmpi)
+      ! gradE = rcv_g
+
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
       mg%bc(iB, mg_iphi)%bc_value = gradE
 
+
     case (2)
+      !> communicate boundary
+      ! do iigrid=1,igridstail; igrid=igrids(iigrid);
+      !   if (node(pig1_,igrid) < domain_nx1/block_nx1*node(plevel_,igrid)) &
+      !     E_out = bigdouble
+      ! enddo
+      !
+      ! snd_e = E_out
+      ! call mpi_allreduce(snd_e,rcv_e,1,&
+      ! MPI_DOUBLE_PRECISION,MPI_MIN,icomm,ierrmpi)
+      ! E_out = rcv_e
+
+
       mg%bc(iB, mg_iphi)%bc_type = mg_bc_dirichlet
       mg%bc(iB, mg_iphi)%bc_value = E_out
 
@@ -408,6 +490,41 @@ contains
       error stop "Set special bound for this Boundary "
     end select
   end subroutine mg_boundary_conditions
+
+
+  subroutine Fix_pressure(level,qt,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
+     ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x)
+    use mod_global_parameters
+    use mod_physics, only: phys_get_pthermal
+
+    integer, intent(in)             :: ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
+       ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,level
+    double precision, intent(in)    :: qt
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,1:nw)
+    double precision, intent(in)    :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,1:ndim)
+
+    double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3),&
+        mean_p
+
+    call phys_get_pthermal(w,x,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+       ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,pth)
+
+    ! if (any(press(ixO^S)) .lt. 0.d0) then
+      mean_p = sum(pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         ixOmin3:ixOmax3))/(block_nx1*block_nx2)
+      where (pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+         ixOmin3:ixOmax3) .le. small_pressure + smalldouble)
+        w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+           e_) = mean_p/(rhd_gamma - 1) +  0.5d0 * sum(w(ixOmin1:ixOmax1,&
+           ixOmin2:ixOmax2,ixOmin3:ixOmax3, mom(:))**2,&
+            dim=ndim+1)/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+           rho_)
+      end where
+    ! endif
+
+  end subroutine Fix_pressure
 
 
   !> Calculate gravitational acceleration in each dimension
@@ -525,9 +642,8 @@ contains
              ixOmin3:ixOmax3)*unit_velocity
         endif
       endif
-    endif
 
-    ! print*, k_cak(10,10)
+    endif
 
   end subroutine PseudoPlanar
 
@@ -655,9 +771,15 @@ contains
        rho_)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
 
 
+    !> de/dt = -2 (e + p)v_r/r
+    if (rhd_energy) source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       e_) = -two*(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       e_)+pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       ixOmin3:ixOmax3))*v(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       rdir)/radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
+
     !> dEr/dt = -2 (E v_r + F_r)/r
     if (rhd_radiation_diffusion) then
-      !> THIS BAD BOiii IS GIVING US SOME TROUBLE
       call fld_get_radflux(w, x, ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,&
          ixImax3, ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3, rad_flux)
       source(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
@@ -735,7 +857,7 @@ contains
 
   subroutine get_kappa_OPAL(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
      ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x,kappa)
-    use mod_physics, only: phys_get_trad
+    use mod_physics, only: phys_get_trad, phys_get_tgas
     use mod_global_parameters
     use mod_opacity
     use mod_fld
@@ -754,13 +876,13 @@ contains
 
     !> Get OPAL opacities by reading from table
     if (rhd_energy) then
-      call phys_get_trad(w,x,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+      call phys_get_tgas(w,x,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
          ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,Temp)
     else
       call phys_get_trad(w,x,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
          ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,Temp)
     endif
-    
+
     do ix1=ixOmin1,ixOmax1
      do ix2=ixOmin2,ixOmax2
      do ix3=ixOmin3,ixOmax3
@@ -780,6 +902,12 @@ contains
        ixOmin3:ixOmax3))
       kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3) = kappa_e
     endwhere
+
+    !> Lower limit is electron scattering:
+    where(kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3) .lt. kappa_e)
+      kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3) = kappa_e
+    endwhere
+
 
     !> test without opal
     ! kappa(ixO^S) = kappa_e
@@ -811,7 +939,7 @@ contains
     vel(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3) = w(ixImin1:ixImax1,&
        ixImin2:ixImax2,ixImin3:ixImax3,mom(1))/w(ixImin1:ixImax1,&
        ixImin2:ixImax2,ixImin3:ixImax3,rho_)
-    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,1)
+    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
 
     call gradient(vel,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,ixOmin1,&
        ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,1,gradvI)
@@ -845,6 +973,11 @@ contains
        ixOmin2:ixOmax2,ixOmin3:ixOmax3,rho_)*const_c*cak_Q*kappa_e))**&
        alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
 
+    if (x(ixImax1,nghostcells,nghostcells,1) .ge. xprobmax1) then
+      kappa(ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3) = kappa(ixOmax1-1,&
+         ixOmin2:ixOmax2,ixOmin3:ixOmax3)
+    endif
+
     ! if (it .le. it_start_cak) then
     !   kappa(ixO^S) = kappa(ixO^S)*dexp(-w(ixO^S,rho_)*kappa_e)
     ! endif
@@ -853,59 +986,213 @@ contains
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
 
-  ! subroutine refine_base(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
-  !   ! Enforce additional refinement or coarsening
-  !   ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
-  !   ! you must set consistent values for integers refine/coarsen:
-  !   ! refine = -1 enforce to not refine
-  !   ! refine =  0 doesn't enforce anything
-  !   ! refine =  1 enforce refinement
-  !   ! coarsen = -1 enforce to not coarsen
-  !   ! coarsen =  0 doesn't enforce anything
-  !   ! coarsen =  1 enforce coarsen
-  !   use mod_global_parameters
-  !
-  !   integer, intent(in) :: igrid, level, ixG^L, ix^L
-  !   double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
-  !   integer, intent(inout) :: refine, coarsen
-  !
-  !   !> Refine close to base
-  !   refine = -1
-  !
-  !   if (qt .gt. 1.d0) then
-  !     if (any(x(ixG^S,1) < 1.d0)) refine=1
-  !   endif
-  !
-  !   if (qt .gt. 2.d0) then
-  !     if (any(x(ixG^S,1) < 1.d0)) refine=1
-  !   endif
-  !
-  !   if (qt .gt. 4.d0) then
-  !     if (any(x(ixG^S,1) < 1.d0)) refine=1
-  !   endif
-  !
-  ! end subroutine refine_base
 
-
-  subroutine specialvar_output(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
-     ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,w,x,normconv)
-    ! this subroutine can be used in convert, to add auxiliary variables to the
-    ! converted output file, for further analysis using tecplot, paraview, ....
-    ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
-    !
-    ! the array normconv can be filled in the (nw+1:nw+nwauxio) range with
-    ! corresponding normalization values (default value 1)
+  subroutine collapse_to_1D()
     use mod_global_parameters
-    use mod_physics
-    use mod_fld
 
-    integer, intent(in)                :: ixImin1,ixImin2,ixImin3,ixImax1,&
-       ixImax2,ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
-    double precision, intent(in)       :: x(ixImin1:ixImax1,ixImin2:ixImax2,&
+    integer          :: iigrid, igrid, jj_blk,ii, jj, nbx, i, il, ih, dn_mdot
+    integer          :: lvl, ibx
+    integer          :: np_mdot, nc
+    double precision :: ratio, sf_mdot, dx_l1
+
+    double precision, allocatable :: rp_mdot(:), p_mdot(:)
+    double precision, allocatable :: mdot_S(:), mdot_R(:)
+    integer, allocatable :: jp_mdot(:)
+
+    double precision :: rr(1:domain_nx1), rr_S(1:domain_nx1),&
+        rr_R(1:domain_nx1)
+    double precision :: vr(1:domain_nx1), vr_S(1:domain_nx1),&
+        vr_R(1:domain_nx1)
+    double precision :: mdot(1:domain_nx1)
+    double precision :: rho(1:domain_nx1), rho_S(1:domain_nx1),&
+        rho_R(1:domain_nx1)
+
+    integer :: lvl_h(1:domain_nx1), lvl_h_S(1:domain_nx1),&
+        lvl_h_R(1:domain_nx1)
+    integer :: lvl_l(1:domain_nx1), lvl_l_S(1:domain_nx1),&
+        lvl_l_R(1:domain_nx1)
+
+      ! if (refine_max_level .ne. 1) &
+      ! call mpistop("collapse_to_1D doesnt work YET with mpi")
+
+    !> #R_star -1 in simulation
+    np_mdot = floor((xprobmax1-xprobmin1)/R_star)
+
+    allocate(rp_mdot(1:np_mdot))
+    allocate(p_mdot(1:np_mdot))
+    allocate(jp_mdot(1:np_mdot))
+    allocate(mdot_S(1:np_mdot))
+    allocate(mdot_R(1:np_mdot))
+
+    rr = 0.d0
+    rp_mdot = 0.d0
+    vr = 0.0d0
+    rho = 0.d0
+    mdot = 0.d0
+    p_mdot = 0.d0
+    lvl_h = 0.d0
+    lvl_l = 2* refine_max_level
+
+    !> Reconstruct radius at level 1
+    do jj = 1,domain_nx1
+      rr(jj) = xprobmin1 + (jj-0.5d0)*(xprobmax1-xprobmin1)/domain_nx1
+    enddo
+
+    !> Choose radii at which to save mdot
+    !> This is done at every stellar radii
+    do jj = 1,np_mdot
+      ! rp_mdot(jj) = xprobmin1 + (jj-1)* R_star
+      dx_l1 = (xprobmax1-xprobmin1)/domain_nx1
+      dn_mdot = floor(1.d0*domain_nx1/np_mdot+smalldouble)
+      rp_mdot(jj) = xprobmin1 + dx_l1/2 + (jj-1)*dn_mdot*dx_l1
+    enddo
+
+    !> Find cells that are closest to radii where we want to track mdot
+    do jj = 1,domain_nx1
+      do ii = 1,np_mdot
+        if (rr(jj) - rp_mdot(ii) .le. smalldouble) jp_mdot(ii) = jj
+          ! rp_mdot(ii) = rr(jj)
+      enddo
+    enddo
+
+    !> loop over all grids for this proc
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+      block=>ps(igrid)
+
+      !> widht in cells per cell of lvl 1: On lvl 1: 1, lvl 2: 2, lvl 3: 4
+      nc = 2**(node(plevel_,igrid)-1)
+
+      !> Map the block index to the global index
+      !> nbx = nr of blocks between i=0 and current block
+      jj_blk = (node(pig1_,igrid)-1)*block_nx1/nc
+
+      if (nc > block_nx1) call mpistop&
+         ("collapse_to_1D doesnt work, reduce amr")
+
+      !> For all cells in the current block, average velocity over lateral direction.
+      !> Take into account possible amr
+      do ii = 1,block_nx1/nc
+        !> relate global index jj to local index ii on grid
+        il = nghostcells + 1 + (ii-1)*nc
+        ih = nghostcells + 1 + (ii)*nc -1
+        jj = jj_blk + ii
+
+        !> Velocity
+        vr(jj) = vr(jj) + sum(block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
+           mom(1))/block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
+           rho_))/(domain_nx2*domain_nx3)/nc**3 !> average value on lvl 1
+        ! + sum(block%w(il:ih,ixMlo2:ixMhi2,mom(1))/block%w(il:ih,ixMlo2:ixMhi2,rho_))/domain_nx2/nc**2 !> average value on lvl 1
+
+        !> Density
+        rho(jj) = rho(jj) + sum(block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
+           rho_))/(domain_nx2*domain_nx3)/nc**3 !> average value on lvl 1
+        ! + sum(block%w(il:ih,ixMlo2:ixMhi2,rho_))/domain_nx2/nc**2 !> average value on lvl 1
+
+        !> Mass loss rate
+        mdot(jj) = mdot(jj) + 4*dpi*sum(block%x(il:ih,ixMlo2:ixMhi2,&
+           ixMlo3:ixMhi3,1)**2*block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
+           mom(1)))/(domain_nx2*domain_nx3)/nc**3 !> average value on lvl 1
+        ! + 4*dpi*sum(block%x(il:ih,ixMlo2:ixMhi2,1)**2*block%w(il:ih,ixMlo2:ixMhi2,mom(1)))/domain_nx2/nc**2 !> average value on lvl 1
+
+        !> Highest/Lowest amr level
+        lvl_h(jj) = node(plevel_,igrid)
+        lvl_l(jj) = node(plevel_,igrid)
+      enddo
+
+    enddo
+
+    !> communicate velocity
+    vr_S=vr
+    call mpi_allreduce(vr_S,vr_R,domain_nx1,MPI_DOUBLE_PRECISION,MPI_SUM,icomm,&
+       ierrmpi)
+    vr=vr_R
+
+    !> communicate density
+    rho_S=rho
+    call mpi_allreduce(rho_S,rho_R,domain_nx1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+       icomm,ierrmpi)
+    rho=rho_R
+
+    !> Only keep mdot in interested radii
+    do ii = 1,np_mdot
+      jj = jp_mdot(ii)
+      p_mdot(ii) = mdot(jj)
+    enddo
+
+    !> communicate mdot array
+    mdot_S=p_mdot
+    call mpi_reduce(mdot_S,mdot_R,np_mdot,MPI_DOUBLE_PRECISION,MPI_SUM,0,icomm,&
+       ierrmpi)
+    p_mdot=mdot_R*unit_density*unit_velocity*unit_length**2/M_sun*year
+
+    !> communicate highest amr level
+    lvl_h_S=lvl_h
+    call mpi_allreduce(lvl_h_S,lvl_h_R,domain_nx1,MPI_INTEGER,MPI_MAX,icomm,&
+       ierrmpi)
+    lvl_h = lvl_h_R
+    lvl_l_S=lvl_l
+    call mpi_allreduce(lvl_l_S,lvl_l_R,domain_nx1,MPI_INTEGER,MPI_MIN,icomm,&
+       ierrmpi)
+    lvl_l = lvl_l_R
+
+
+    !> integrate over time
+    sum_time = sum_time + dt
+    vr_sumt(1:domain_nx1) = vr_sumt(1:domain_nx1) + vr(1:domain_nx1)*dt
+    rho_sumt(1:domain_nx1) = rho_sumt(1:domain_nx1) + rho(1:domain_nx1)*dt
+
+    !> Write out average velocity profile
+    if (mype==0) then
+      !> Always update file to give the last mean snapshot
+      open(unit=unitanalysis,file=trim(base_filename)//'_vr',status='replace')
+      write(unitanalysis,*)&
+          'r | vr_int_theta | vr_int_theta_int_t | lvl_h lvl_l'
+      do i=1,domain_nx1
+        write(unitanalysis,'(3f10.7,3i4)') rr(i), vr(i), vr_sumt(i)/sum_time,&
+            lvl_h(i), lvl_l(i)
+      enddo
+    close(unitanalysis)
+    endif
+
+    !> Write out average density profile
+    if (mype==0) then
+      !> Always update file to give the last mean snapshot
+      open(unit=unitanalysis,file=trim(base_filename)//'_rho',&
+         status='replace')
+      write(unitanalysis,*) 'r | rho_int_theta | rho_int_theta_int_t'
+      do i=1,domain_nx1
+        write(unitanalysis,'(3f10.7)') rr(i), rho(i), rho_sumt(i)/sum_time
+      enddo
+    close(unitanalysis)
+    endif
+
+    !> Write out average mdot at different radii
+    if (mype==0) then
+       if (global_time<smalldouble) then ! if very 1st iteration
+         open(unit=unitanalysis,file=trim(base_filename)//'_mdot',&
+            status='replace')
+         write(unitanalysis,'(a16,*(f7.2))') 'Mdot at t | r= ', rp_mdot
+         write(unitanalysis,'(f10.3,*(E15.6))') global_time, p_mdot
+       else
+         open(unit=unitanalysis,file=trim(base_filename)//'_mdot',&
+            access='append')
+         write(unitanalysis,'(f10.3,*(E15.6))') global_time, p_mdot
+       endif
+       close(unitanalysis)
+     endif
+
+  end subroutine collapse_to_1D
+
+
+  subroutine update_extravars(igrid,level,ixImin1,ixImin2,ixImin3,ixImax1,&
+     ixImax2,ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,qt,w,x)
+    use mod_global_parameters
+    integer, intent(in)             :: igrid,level,ixImin1,ixImin2,ixImin3,&
+       ixImax1,ixImax2,ixImax3,ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3
+    double precision, intent(in)    :: qt,x(ixImin1:ixImax1,ixImin2:ixImax2,&
        ixImin3:ixImax3,1:ndim)
-    double precision                   :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
-       ixImin3:ixImax3,nw+nwauxio)
-    double precision                   :: normconv(0:nw+nwauxio)
+    double precision, intent(inout) :: w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       ixImin3:ixImax3,1:nw)
 
     double precision                   :: g_rad(ixImin1:ixImax1,&
        ixImin2:ixImax2,ixImin3:ixImax3), big_gamma(ixImin1:ixImax1,&
@@ -985,39 +1272,51 @@ contains
        1)*(x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
        1)*unit_length)**2*unit_radflux/L_sun
 
-    ! w(ixO^S,nw+1) = Trad(ixO^S)*unit_temperature
-    ! w(ixO^S,nw+2) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
-    ! *unit_density*unit_velocity/M_sun*year
-    ! w(ixO^S,nw+3) = OPAL(ixO^S)/kappa_e
-    ! w(ixO^S,nw+4) = CAK(ixO^S)/kappa_e
-    ! w(ixO^S,nw+5) = lambda(ixO^S)
-    ! w(ixO^S,nw+6) = big_gamma(ixO^S)
-    ! w(ixO^S,nw+7) = Lum(ixO^S)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_v1) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       mom(1))/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,rho_)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_v2) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       mom(2))/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,rho_)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_v3) = w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       mom(3))/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,rho_)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_p) = (w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       e_) - 0.5d0 * sum(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+        mom(:))**2, dim=ndim+1) / w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       ixOmin3:ixOmax3, rho_)) *(rhd_gamma - 1)
 
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
-       nw+1) = OPAL(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)/kappa_e
+       i_Trad) = Trad(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       ixOmin3:ixOmax3)*unit_temperature
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
-       nw+2) = CAK(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)/kappa_e
+       i_Tgas) = Tgas(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       ixOmin3:ixOmax3)*unit_temperature
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
-       nw+3) = big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
+       i_Mdot) = 4*dpi*w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       mom(1))*radius(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       ixOmin3:ixOmax3)**2 *unit_density*unit_velocity/M_sun*year
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
-       nw+4) = Lum(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
-    ! w(ixO^S,nw+3) = Trad(ixO^S)*unit_temperature
-    ! w(ixO^S,nw+4) = Tgas(ixO^S)*unit_temperature
-    ! w(ixO^S,nw+4) = lambda(ixO^S)
+       i_Opal) = OPAL(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)/kappa_e
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_CAK) = CAK(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)/kappa_e
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_lambda) = lambda(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_Gamma) = big_gamma(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_Lum) = Lum(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_F1) = rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       1)/F_bound
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_F2) = rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       2)/F_bound
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       i_F3) = rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3,&
+       3)/F_bound
 
-
-
-  end subroutine specialvar_output
-
-  subroutine specialvarnames_output(varnames)
-    ! newly added variables need to be concatenated with the w_names/primnames string
-    use mod_global_parameters
-    character(len=*) :: varnames
-
-    varnames = 'OPAL CAK Gamma Lum'
-    ! varnames = 'Gamma Lum Trad Tgas'
-    ! varnames = 'Trad Mdot OPAL CAK lambda Gamma Lum'
-  end subroutine specialvarnames_output
+  end subroutine update_extravars
 
 end module mod_usr

@@ -108,7 +108,8 @@ mod_finite_volume.o: mod_source.mod
 mod_finite_volume.o: mod_tvd.mod
 mod_fld.o: mod_geometry.mod
 mod_fld.o: mod_multigrid_coupling.mod
-mod_fld.o: mod_opacity.mod
+mod_fld.o: mod_opal_opacity.mod
+mod_fld.o: mod_cak_opacity.mod
 mod_fld.o: mod_physics.mod
 mod_geometry.o: mod_limiter.mod
 mod_geometry.o: mod_ppm.mod

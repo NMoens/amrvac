@@ -56,14 +56,20 @@ module mod_fld
     logical :: flux_lim_filter = .false.
     integer :: size_L_filter = 1
 
-    !> Use or don't use lineforce opacities
+    !> Use or dont use lineforce opacities
     logical :: Lineforce_opacities = .false.
+
+    !> Resume run when multigrid returns error
+    logical :: diffcrash_resume = .true.
 
     !> Index for Flux weighted opacities
     integer, allocatable, public :: i_opf(:)
 
     !> A copy of rhd_Gamma
     double precision, private, protected :: fld_gamma
+
+    !> running timestep for diffusion solver, initialised as zero
+    double precision :: dt_diff = 0.d0
 
     !> public methods
     !> these are called in mod_rhd_phys
@@ -93,7 +99,7 @@ module mod_fld
     fld_bisect_tol, fld_diff_testcase, fld_diff_tol,&
     fld_opacity_law, fld_fluxlimiter, fld_diff_scheme, fld_interaction_method, &
     diff_coef_filter, size_D_filter, flux_lim_filter, size_L_filter, &
-    lineforce_opacities
+    lineforce_opacities, diffcrash_resume
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -113,7 +119,7 @@ module mod_fld
     use mod_global_parameters
     use mod_variables
     use mod_physics
-    use mod_opacity, only: init_opal
+    use mod_opal_opacity, only: init_opal
     use mod_multigrid_coupling
 
     double precision, intent(in) :: He_abundance, phys_gamma
@@ -198,7 +204,8 @@ module mod_fld
     double precision :: div_v(ixI^S,1:ndim,1:ndim)
     double precision :: edd(ixO^S,1:ndim,1:ndim)
     double precision :: nabla_vP(ixO^S)
-    double precision :: vel(ixI^S), grad_v(ixI^S)
+    double precision :: vel(ixI^S), grad_v(ixI^S), grad0_v(ixO^S)
+    double precision :: grad_E(ixO^S)
 
     integer :: idir, jdir
 
@@ -213,31 +220,42 @@ module mod_fld
       call fld_get_fluxlimiter(wCT, x, ixI^L, ixO^L, lambda, fld_R)
 
       do idir = 1,ndim
-        !> Radiation force = kappa*rho/c *Flux
+        !> Radiation force = kappa*rho/c *Flux = lambda gradE
         radiation_forceCT(ixO^S,idir) = kappaCT(ixO^S)*rad_fluxCT(ixO^S,idir)/(const_c/unit_velocity)
+
+        ! call gradientO(wCT(ixI^S,iw_r_e),x,ixI^L,ixO^L,idir,grad_E,nghostcells)
+        ! radiation_forceCT(ixO^S,idir) = lambda(ixO^S)*grad_E(ixO^S)
 
         !> Momentum equation source term
         w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
             + qdt * wCT(ixO^S,iw_rho)*radiation_forceCT(ixO^S,idir)
+        ! w(ixO^S,iw_mom(idir)) = w(ixO^S,iw_mom(idir)) &
+        !     + qdt *radiation_forceCT(ixO^S,idir)
 
         ! if (energy .and. .not. block%e_is_internal) then
           !> Energy equation source term (kinetic energy)
           w(ixO^S,iw_e) = w(ixO^S,iw_e) &
               + qdt * wCT(ixO^S,iw_mom(idir))*radiation_forceCT(ixO^S,idir)
+          ! w(ixO^S,iw_e) = w(ixO^S,iw_e) &
+          !     + qdt * wCT(ixO^S,iw_mom(idir))/wCT(ixO^S,iw_rho)*radiation_forceCT(ixO^S,idir)
         ! endif
       enddo
 
       !> Photon tiring
       !> calculate tensor div_v
-      !$OMP PARALLEL DO
+      !> !$OMP PARALLEL DO
       do idir = 1,ndim
         do jdir = 1,ndim
           vel(ixI^S) = wCt(ixI^S,iw_mom(jdir))/wCt(ixI^S,iw_rho)
+
           call gradient(vel,ixI^L,ixO^L,idir,grad_v)
           div_v(ixO^S,idir,jdir) = grad_v(ixO^S)
+
+          ! call gradientO(vel,x,ixI^L,ixO^L,idir,grad0_v,nghostcells)
+          ! div_v(ixO^S,idir,jdir) = grad0_v(ixO^S)
         enddo
       enddo
-      !$OMP END PARALLEL DO
+      !> !$OMP END PARALLEL DO
 
       call fld_get_eddington(wCt, x, ixI^L, ixO^L, edd)
 
@@ -328,13 +346,13 @@ module mod_fld
   end subroutine get_fld_energy_interact
 
   !> Sets the opacity in the w-array
-  !> by calling mod_opacity
+  !> by calling mod_opal_opacity
   subroutine fld_get_opacity(w, x, ixI^L, ixO^L, fld_kappa)
     use mod_global_parameters
     use mod_physics, only: phys_get_pthermal
     use mod_physics, only: phys_get_tgas
     use mod_usr_methods
-    use mod_opacity
+    use mod_opal_opacity
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(in) :: w(ixI^S, 1:nw)
@@ -756,13 +774,17 @@ module mod_fld
 
     integer                      :: n
     double precision             :: res, max_residual, lambda
-    integer, parameter           :: max_its = 1000
+    integer, parameter           :: max_its = 5000
 
     integer                        :: iw_to,iw_from
     integer                        :: iigrid, igrid, id
     integer                        :: nc, lvl, i
     type(tree_node), pointer       :: pnode
     real(dp)                       :: fac, facD
+
+
+    !> Set diffusion timestep, add previous timestep if mg did not converge:
+    dt_diff = dt_diff + qdt
 
     ! Avoid setting a very restrictive limit to the residual when the time step
     ! is small (as the operator is ~ 1/(D * qdt))
@@ -777,12 +799,13 @@ module mod_fld
     max_residual = fld_diff_tol !1d-7/qdt
 
     mg%operator_type = mg_vhelmholtz
-    ! mg%smoother_type = mg_smoothe_gs
+    mg%smoother_type = mg_smoother_gsrb
     call mg_set_methods(mg)
 
     if (.not. mg%is_allocated) call mpistop("multigrid tree not allocated yet")
 
-    lambda = 1.d0/(dtfactor * qdt)
+!    lambda = 1.d0/(dtfactor * qdt)
+    lambda = 1.d0/(dtfactor * dt_diff)
     call vhelmholtz_set_lambda(lambda)
 
     call update_diffcoeff(psb)
@@ -791,30 +814,7 @@ module mod_fld
     facD = 1.d0
 
     !This is mg_copy_to_tree from psb state
-    !!!  replaces::  call mg_copy_to_tree(i_diff_mg, mg_iveps)
     call mg_copy_to_tree(i_diff_mg, mg_iveps, factor=facD, state_from=psb)
-    ! iw_from=i_diff_mg
-    ! iw_to=mg_iveps
-    ! do iigrid=1,igridstail; igrid=igrids(iigrid);
-    !    pnode => igrid_to_node(igrid, mype)%node
-    !    id    =  pnode%id
-    !    lvl   =  mg%boxes(id)%lvl
-    !    nc    =  mg%box_size_lvl(lvl)
-    !    ! Include one layer of ghost cells on grid leaves
-    !    {^IFONED
-    !    mg%boxes(id)%cc(0:nc+1, iw_to) = facD * &
-    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
-    !    }
-    !    {^IFTWOD
-    !    mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = facD * &
-    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
-    !    }
-    !    {^IFTHREED
-    !    mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = facD * &
-    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-    !         ixMlo3-1:ixMhi3+1, iw_from)
-    !    }
-    ! end do
 
     if (time_advance)then
       call mg_restrict(mg, mg_iveps)
@@ -822,53 +822,11 @@ module mod_fld
     endif
 
     !This is mg_copy_to_tree from psb state
-    !!!  replaces::  call mg_copy_to_tree(iw_r_e, mg_iphi)
     call mg_copy_to_tree(iw_r_e, mg_iphi, factor=fac, state_from=psb)
-    ! iw_from=iw_r_e
-    ! iw_to=mg_iphi
-    ! fac = 1.d0
-    ! do iigrid=1,igridstail; igrid=igrids(iigrid);
-    !    pnode => igrid_to_node(igrid, mype)%node
-    !    id    =  pnode%id
-    !    lvl   =  mg%boxes(id)%lvl
-    !    nc    =  mg%box_size_lvl(lvl)
-    !    ! Include one layer of ghost cells on grid leaves
-    !    {^IFONED
-    !    mg%boxes(id)%cc(0:nc+1, iw_to) = fac * &
-    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, iw_from)
-    !    }
-    !    {^IFTWOD
-    !    mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_to) = fac * &
-    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_from)
-    !    }
-    !    {^IFTHREED
-    !    mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_to) = fac * &
-    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-    !         ixMlo3-1:ixMhi3+1, iw_from)
-    !    }
-    ! end do
 
     !>replace call set_rhs(mg, -1/dt, 0.0_dp)
-    ! call set_rhs(mg, -1/dt, 0.0_dp)
-    call mg_copy_to_tree(iw_r_e, mg_irhs, factor=-1/(dtfactor*qdt), state_from=psb)
-    ! do lvl = 1, mg%highest_lvl
-    !    nc = mg%box_size_lvl(lvl)
-    !    do i = 1, size(mg%lvls(lvl)%my_leaves)
-    !       id = mg%lvls(lvl)%my_leaves(i)
-    !       {^IFONED
-    !       mg%boxes(id)%cc(1:nc, mg_irhs) = &
-    !            -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, mg_iphi)
-    !       }
-    !       {^IFTWOD
-    !       mg%boxes(id)%cc(1:nc, 1:nc, mg_irhs) = &
-    !            -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, 1:nc, mg_iphi)
-    !       }
-    !       {^IFTHREED
-    !       mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_irhs) = &
-    !            -1/(dtfactor*qdt) * mg%boxes(id)%cc(1:nc, 1:nc, 1:nc, mg_iphi)
-    !       }
-    !    end do
-    ! end do
+!    call mg_copy_to_tree(iw_r_e, mg_irhs, factor=-1/(dtfactor*qdt), state_from=psb)
+    call mg_copy_to_tree(iw_r_e, mg_irhs, factor=-1/(dtfactor*dt_diff), state_from=psb)
 
     call phys_set_mg_bounds()
 
@@ -880,57 +838,40 @@ module mod_fld
     end do
 
     if (res .le. 0.d0) then
-      print*, res
-      error stop "Diffusion residual to zero"
+      if (diffcrash_resume) then
+        if (mg%my_rank == 0) &
+        write(*,*) it, ' resiudal zero ', res
+        goto 0888
+      endif
+      if (mg%my_rank == 0) then
+        print*, res
+        error stop "Diffusion residual to zero"
+      endif
     endif
 
     if (n == max_its + 1) then
+      if (diffcrash_resume) then
+        if (mg%my_rank == 0) &
+        write(*,*) it, ' resiudal high ', res
+        goto 0888
+      endif
        if (mg%my_rank == 0) then
-         ! print*, '@%$@$%@#$^@%&#^$%^&'
           print *, "Did you specify boundary conditions correctly?"
           print *, "Or is the variation in diffusion too large?"
+          print*, n, res
           print *, mg%bc(1, mg_iphi)%bc_value, mg%bc(2, mg_iphi)%bc_value
        end if
        error stop "diffusion_solve: no convergence"
     end if
 
+    !> Reset dt_diff when diffusion worked out
+    dt_diff = 0.d0
+
     ! !This is mg_copy_from_tree_gc for psa state
-    ! !!! replaces:: call mg_copy_from_tree_gc(mg_iphi, u_)
-    ! call mg_copy_from_tree(mg_iphi, iw_r_e)
     call mg_copy_from_tree_gc(mg_iphi, iw_r_e, state_to=psa)
-    ! iw_from=mg_iphi
-    ! iw_to=iw_r_e
-    ! do iigrid=1,igridstail; igrid=igrids(iigrid);
-    !    pnode => igrid_to_node(igrid, mype)%node
-    !    id    =  pnode%id
-    !    lvl   =  mg%boxes(id)%lvl
-    !    nc    =  mg%box_size_lvl(lvl)
-    !    ! Include one layer of ghost cells on grid leaves
-    !    {^IFONED
-    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, 1:nw) = &
-    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, 1:nw)
-    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, iw_to) = &
-    !         mg%boxes(id)%cc(0:nc+1, iw_from)
-    !    }
-    !    {^IFTWOD
-    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, 1:nw) = &
-    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, 1:nw)
-    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, iw_to) = &
-    !         mg%boxes(id)%cc(0:nc+1, 0:nc+1, iw_from)
-    !    }
-    !    {^IFTHREED
-    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-    !         ixMlo3-1:ixMhi3+1, 1:nw) = &
-    !         psb(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-    !              ixMlo3-1:ixMhi3+1, 1:nw)
-    !    psa(igrid)%w(ixMlo1-1:ixMhi1+1, ixMlo2-1:ixMhi2+1, &
-    !         ixMlo3-1:ixMhi3+1, iw_to) = &
-    !         mg%boxes(id)%cc(0:nc+1, 0:nc+1, 0:nc+1, iw_from)
-    !    }
-    ! end do
 
     ! enforce boundary conditions for psa
-    call getbc(qtC,0.d0,psa,1,nwflux+nwaux,phys_req_diagonal)
+0888 call getbc(qtC,0.d0,psa,1,nwflux+nwaux,phys_req_diagonal)
 
   end subroutine Diffuse_E_rad_mg
 
@@ -996,6 +937,7 @@ module mod_fld
   subroutine fld_get_diffcoef_central(w, wCT, x, ixI^L, ixO^L)
     use mod_global_parameters
     use mod_geometry
+    use mod_usr_methods
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S, 1:nw)
@@ -1019,11 +961,17 @@ module mod_fld
       !> calculate diffusion coefficient
       w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*wCT(ixO^S,iw_rho))
 
+      where (w(ixO^S,i_diff_mg) .lt. 0.d0) &
+        w(ixO^S,i_diff_mg) = smalldouble
+
       if (diff_coef_filter) then
         !call mpistop('Hold your bloody horses, not implemented yet ')
         call fld_smooth_diffcoef(w, ixI^L, ixO^L)
       endif
     endif
+
+    if (associated(usr_special_diffcoef)) &
+      call usr_special_diffcoef(w, wCT, x, ixI^L, ixO^L)
 
   end subroutine fld_get_diffcoef_central
 
@@ -1105,6 +1053,7 @@ module mod_fld
     use mod_global_parameters
     use mod_geometry
     use mod_physics
+    use mod_usr_methods
 
     integer, intent(in)             :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
@@ -1119,6 +1068,11 @@ module mod_fld
 
     integer :: i,j,idir,ix^D
 
+    ! if (fld_interaction_method .eq. 'Instant') then
+    !   call Instant_qdot(w, w, ixI^L, ixO^L)
+    !   return
+    ! endif
+
     !> e_gas is the INTERNAL ENERGY without KINETIC ENERGY
     ! if (.not. block%e_is_internal) then
       e_gas(ixO^S) = wCT(ixO^S,iw_e) - half*sum(wCT(ixO^S, iw_mom(:))**2, dim=ndim+1)/wCT(ixO^S, iw_rho)
@@ -1126,18 +1080,35 @@ module mod_fld
     !   e_gas(ixO^S) = wCT(ixO^S,iw_e)
     ! endif
 
+    {do ix^D=ixOmin^D,ixOmax^D\ }
+      e_gas(ix^D) = max(e_gas(ix^D),small_pressure/(fld_gamma-1.d0))
+    {enddo\}
+
     E_rad(ixO^S) = wCT(ixO^S,iw_r_e)
 
-    call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
+    if (associated(usr_special_opacity_qdot)) then
+      call usr_special_opacity_qdot(ixI^L,ixO^L,w,x,kappa)
+    else
+      call fld_get_opacity(wCT, x, ixI^L, ixO^L, kappa)
+    endif
 
     sigma_b = const_rad_a*const_c/4.d0*(unit_temperature**4.d0)/(unit_velocity*unit_pressure)
 
-    !> Calculate coefficients for polynomial
-    a1(ixO^S) = 4*kappa(ixO^S)*sigma_b*(fld_gamma-one)**4/wCT(ixO^S,iw_rho)**3*dt
-    a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*wCT(ixO^S,iw_rho)*dt
+    if (fld_interaction_method .eq. 'Instant') then
+      a1(ixO^S) = const_rad_a*(fld_mu*const_mp/const_kB*(fld_gamma-1))**4/(wCT(ixO^S,iw_rho)*unit_density)**4 &
+                  /unit_pressure**3
+      a2(ixO^S) = e_gas(ixO^S) + E_rad(ixO^S)
 
-    c0(ixO^S) = ((one + a2(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/a1(ixO^S)
-    c1(ixO^S) = (one + a2(ixO^S))/a1(ixO^S)
+      c0(ixO^S) = a2(ixO^S)/a1(ixO^S)
+      c1(ixO^S) = 1.d0/a1(ixO^S)
+    else
+      !> Calculate coefficients for polynomial
+      a1(ixO^S) = 4*kappa(ixO^S)*sigma_b*(fld_gamma-one)**4/wCT(ixO^S,iw_rho)**3*dt
+      a2(ixO^S) = (const_c/unit_velocity)*kappa(ixO^S)*wCT(ixO^S,iw_rho)*dt
+
+      c0(ixO^S) = ((one + a2(ixO^S))*e_gas(ixO^S) + a2(ixO^S)*E_rad(ixO^S))/a1(ixO^S)
+      c1(ixO^S) = (one + a2(ixO^S))/a1(ixO^S)
+    endif
 
     ! w(ixO^S,i_test) = a2(ixO^S)
 
@@ -1150,13 +1121,19 @@ module mod_fld
         call Newton_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
       case('Halley')
         call Halley_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
+      case('Instant')
+        call Halley_method(e_gas(ix^D), E_rad(ix^D), c0(ix^D), c1(ix^D))
       case default
         call mpistop('root-method not known')
       end select
     {enddo\}
 
-    !> advance E_rad
-    E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S))
+    if (fld_interaction_method .eq. 'Instant') then
+      E_rad(ixO^S) = a2(ixO^S) - e_gas(ixO^S)
+    else
+      !> advance E_rad
+      E_rad(ixO^S) = (a1(ixO^S)*e_gas(ixO^S)**4.d0 + E_rad(ixO^S))/(one + a2(ixO^S))
+    endif
 
     !> new w = w + dt f(wCT)
     !> e_gas,E_rad = wCT + dt f(wCT)
@@ -1172,6 +1149,10 @@ module mod_fld
 
     !> Update gas-energy in w, internal + kinetic
     ! w(ixO^S,iw_e) = w(ixO^S,iw_e) + e_gas(ixO^S) - wCT(ixO^S,iw_e)
+    ! {do ix^D=ixOmin^D,ixOmax^D\ }
+    !   e_gas(ix^D) = max(e_gas(ix^D),small_pressure/(fld_gamma-1.d0))
+    ! {enddo\}
+
     w(ixO^S,iw_e) = e_gas(ixO^S)
 
     !> Beginning of module substracted wCT Ekin
@@ -1187,6 +1168,7 @@ module mod_fld
     w(ixO^S,iw_r_e) = E_rad(ixO^S)
 
   end subroutine Energy_interaction
+
 
   !> Find the root of the 4th degree polynomial using the bisection method
   subroutine Bisection_method(e_gas, E_rad, c0, c1)
@@ -1426,7 +1408,7 @@ module mod_fld
        !> divide by dx
        gradq(ixO^S) = gradq(ixO^S)/dxlevel(idir)
      else
-       call mpistop("gradient0 stencil unknown")
+       call mpistop("gradientO stencil unknown")
      endif
 
   end subroutine gradientO

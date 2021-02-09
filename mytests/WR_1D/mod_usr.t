@@ -19,6 +19,10 @@ module mod_usr
   double precision :: rho_bound, v_inf, Mdot
   double precision :: T_bound, R_star, M_star
 
+  integer :: i_v1, i_v2, i_p
+  integer :: i_Trad, i_Tgas, i_Mdot, i_Opal, i_CAK, i_lambda
+  integer :: i_Gamma, i_Lum, i_F1, i_F2
+
   double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
   logical :: fixed_lum, Cak_in_D
 
@@ -50,9 +54,12 @@ contains
     ! Special Opacity
     usr_special_opacity => OPAL_and_CAK
 
+    !> Additional variables
+    usr_process_grid => update_extravars
+
     ! Output routines
-    usr_aux_output    => specialvar_output
-    usr_add_aux_names => specialvarnames_output
+    ! usr_aux_output    => specialvar_output
+    ! usr_add_aux_names => specialvarnames_output
 
     ! Timestep for PseudoPlanar
     ! usr_get_dt => get_dt_cak
@@ -63,12 +70,24 @@ contains
     ! Active the physics module
     call rhd_activate()
 
+    i_v1 = var_set_extravar("v1", "v1")
+    i_p = var_set_extravar("p","p")
+    i_Trad = var_set_extravar("Trad", "Trad")
+    i_Tgas = var_set_extravar("Tgas", "Tgas")
+    i_Mdot = var_set_extravar("Mdot", "Mdot")
+    i_Opal = var_set_extravar("OPAL", "OPAL")
+    i_CAK = var_set_extravar("CAK", "CAK")
+    i_lambda = var_set_extravar("lambda", "lambda")
+    i_Gamma = var_set_extravar("Gamma", "Gamma")
+    i_Lum = var_set_extravar("Lum", "Lum")
+    i_F1 = var_set_extravar("F1", "F1")
+
   end subroutine usr_init
 
 
   subroutine initglobaldata_usr
     use mod_global_parameters
-    use mod_opacity, only: init_opal
+    use mod_opal_opacity, only: init_opal
 
     use mod_fld
 
@@ -209,7 +228,7 @@ contains
   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
     use mod_physics, only: phys_get_trad
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)             :: ixI^L, ixB^L, iB
@@ -234,8 +253,6 @@ contains
         w(ix1,rho_) = dexp(2*dlog(w(ix1+1,rho_)) - dlog(w(ix1+2,rho_)))
       enddo
 
-      w(ixB^S,mom(2)) = 0.d0
-
       do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,mom(1)) = w(ix1+1,mom(1))
       enddo
@@ -243,12 +260,6 @@ contains
       where(w(ixB^S,mom(1)) .lt. 0.d0)
        w(ixB^S,mom(1)) = 0.d0
       endwhere
-
-      !where(w(ixB^S,mom(1))/w(ixB^S,rho_) .gt. 0.5d0)
-      !  w(ixB^S,mom(1)) = 0.1d0*w(ixB^S,rho_)
-      !endwhere
-
-      ! w(ixB^S,r_e) = const_rad_a*(T_bound*unit_temperature)**4/unit_pressure
 
       call get_kappa_OPAL(ixI^L,ixI^L,w,x,kappa)
       do ix1 = ixBmin1,ixBmax1
@@ -259,14 +270,8 @@ contains
                  * 4*dpi*xprobmin1**2
       if (F_adv .ne. F_adv) F_adv = 0.d0
 
-      ! print*, w(1:5,i_diff_mg)
-
-      ! Local_gradE(ixI^S) = -(F_bound-F_adv)*3*kappa(ixI^S)*w(ixI^S,rho_)&
-      ! *unit_velocity/const_c
       Local_gradE(ixI^S) = -(F_bound-F_adv)/w(nghostcells+1,i_diff_mg)
       gradE = Local_gradE(nghostcells)
-
-      ! print*, gradE
 
       do ix1 = ixBmax1,ixBmin1,-1
         w(ix1,r_e) = w(ix1+2,r_e) &
@@ -276,18 +281,6 @@ contains
       if (rhd_energy) then
         temp(ixB^S) = (w(ixB^S,r_e)*unit_pressure/const_rad_a)**0.25d0/unit_temperature
         w(ixB^S,e_) = w(ixB^S,rho_)*temp(ixB^S)/(rhd_gamma-1.d0) + half*w(ixB^S,mom(1))**2/w(ixB^S,rho_)
-
-        ! do ix1 = ixBmax1,ixBmin1,-1
-        !   w(ix1,e_) = dexp(2*dlog(w(ix1+1,e_)) - dlog(w(ix1+2,e_)))
-        ! enddo
-        !
-        ! do ix1 = ixBmax1,ixBmin1,-1
-        !   w(ix1,e_) = 2*w(ix1+1,e_) - w(ix1+2,e_)
-        ! enddo
-        !
-        ! do ix1 = ixBmax1,ixBmin1,-1
-        !   w(ix1,e_) = w(ix1+1,e_)
-        ! enddo
       endif
 
       ! print*, it
@@ -507,7 +500,7 @@ contains
   subroutine OPAL_and_CAK(ixI^L,ixO^L,w,x,kappa)
     use mod_physics, only: phys_get_trad
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -539,7 +532,7 @@ contains
   subroutine get_kappa_OPAL(ixI^L,ixO^L,w,x,kappa)
     use mod_physics, only: phys_get_trad, phys_get_tgas
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -576,7 +569,7 @@ contains
 
   subroutine get_kappa_CAK(ixI^L,ixO^L,w,x,kappa)
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -612,7 +605,7 @@ contains
     *(gradv(ixO^S)*unit_velocity/(w(ixO^S,rho_)*const_c*cak_Q*kappa_e))**alpha(ixO^S)
 
     if (x(ixImax1,1) .ge. xprobmax1) then
-      kappa(ixOmin1) = kappa(ixOmin1-1)
+      kappa(ixOmax1) = kappa(ixOmax1-1)
     endif
 
     ! if (it .le. it_start_cak) then
@@ -660,21 +653,11 @@ contains
   end subroutine refine_base
 
 
-  subroutine specialvar_output(ixI^L,ixO^L,w,x,normconv)
-    ! this subroutine can be used in convert, to add auxiliary variables to the
-    ! converted output file, for further analysis using tecplot, paraview, ....
-    ! these auxiliary values need to be stored in the nw+1:nw+nwauxio slots
-    !
-    ! the array normconv can be filled in the (nw+1:nw+nwauxio) range with
-    ! corresponding normalization values (default value 1)
+  subroutine update_extravars(igrid,level,ixI^L,ixO^L,qt,w,x)
     use mod_global_parameters
-    use mod_physics
-    use mod_fld
-
-    integer, intent(in)                :: ixI^L,ixO^L
-    double precision, intent(in)       :: x(ixI^S,1:ndim)
-    double precision                   :: w(ixI^S,nw+nwauxio)
-    double precision                   :: normconv(0:nw+nwauxio)
+    integer, intent(in)             :: igrid,level,ixI^L,ixO^L
+    double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
+    double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision                   :: g_rad(ixI^S), big_gamma(ixI^S)
     double precision                   :: g_grav(ixI^S)
@@ -712,35 +695,20 @@ contains
 
     Lum(ixO^S) = 4*dpi*rad_flux(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux/L_sun
 
-    ! w(ixO^S,nw+1) = Trad(ixO^S)*unit_temperature
-    ! w(ixO^S,nw+2) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
-    ! *unit_density*unit_velocity/M_sun*year
-    ! w(ixO^S,nw+3) = OPAL(ixO^S)/kappa_e
-    ! w(ixO^S,nw+4) = CAK(ixO^S)/kappa_e
-    ! w(ixO^S,nw+5) = lambda(ixO^S)
-    ! w(ixO^S,nw+6) = big_gamma(ixO^S)
-    ! w(ixO^S,nw+7) = Lum(ixO^S)
+    w(ixO^S,i_v1) = w(ixO^S,mom(1))/w(ixO^S,rho_)
+    w(ixO^S,i_p) = (w(ixO^S,e_) - 0.5d0 * sum(w(ixO^S, mom(:))**2, dim=ndim+1) / w(ixO^S, rho_)) &
+          *(rhd_gamma - 1)
 
-    ! w(ixO^S,nw+1) = OPAL(ixO^S)/kappa_e
-    ! w(ixO^S,nw+2) = CAK(ixO^S)/kappa_e
-    w(ixO^S,nw+1) = big_gamma(ixO^S)
-    w(ixO^S,nw+2) = Lum(ixO^S)
-    w(ixO^S,nw+3) = Trad(ixO^S)*unit_temperature
-    w(ixO^S,nw+4) = Tgas(ixO^S)*unit_temperature
-    ! w(ixO^S,nw+4) = lambda(ixO^S)
+    w(ixO^S,i_Trad) = Trad(ixO^S)*unit_temperature
+    w(ixO^S,i_Tgas) = Tgas(ixO^S)*unit_temperature
+    w(ixO^S,i_Mdot) = 4*dpi*w(ixO^S,mom(1))*radius(ixO^S)**2 &
+    *unit_density*unit_velocity/M_sun*year
+    w(ixO^S,i_Opal) = OPAL(ixO^S)/kappa_e
+    w(ixO^S,i_CAK) = CAK(ixO^S)/kappa_e
+    w(ixO^S,i_lambda) = lambda(ixO^S)
+    w(ixO^S,i_Gamma) = big_gamma(ixO^S)
+    w(ixO^S,i_Lum) = Lum(ixO^S)
+    w(ixO^S,i_F1) = rad_flux(ixO^S,1)/F_bound
 
-
-
-  end subroutine specialvar_output
-
-  subroutine specialvarnames_output(varnames)
-    ! newly added variables need to be concatenated with the w_names/primnames string
-    use mod_global_parameters
-    character(len=*) :: varnames
-
-    ! varnames = 'OPAL CAK Gamma Lum'
-    varnames = 'Gamma Lum Trad Tgas'
-    ! varnames = 'Trad Mdot OPAL CAK lambda Gamma Lum'
-  end subroutine specialvarnames_output
-
+  end subroutine update_extravars
 end module mod_usr

@@ -11,12 +11,12 @@ year = 365*24*60*60
 
 
 
-ind = 5
+ind = 2
 # file = 'unstable/2test'
 # file = 'stable/Cak_in_diff'
 # file = 'unstable/2Cak_in_diff'
 # file = 'unstable/2Cak_notin_diff'
-file = 'test/w_e'
+# file = 'test/w_e'
 file = 'test/u_w_e'
 
 unit_time = 695.9
@@ -27,7 +27,7 @@ r_axis = np.transpose(A)[0]
 x_axis = 1. - 1./r_axis
 
 
-for i in range(1,3000):
+for i in range(100,3000):
     t = str(i).zfill(4)
     try:
         A = np.loadtxt(file + t + '.blk',skiprows=3)
@@ -55,15 +55,15 @@ try:
     Relldiff_E = copy.copy(All_E)
     for x in range(nx):
         # Logdiff_E[x] = np.log10(All_E[x]/mean_E[x])
-        Logdiff_E[x] = np.log10(All_E[x]/first_E[x])
+        # Logdiff_E[x] = np.log10(All_E[x]/first_E[x])
         # Relldiff_E[x] = (All_E[x]-mean_E[x])/mean_E[x]
         Relldiff_E[x] = (All_E[x]-first_E[x])/first_E[x]
 except:
     print("Logdiff or Relldiff not defined")
 
 plt.figure()
-# plt.pcolor(t_mesh,x_mesh,Logdiff_E,cmap='seismic',vmin=-0.01,vmax=0.01)
-plt.pcolor(t_mesh,x_mesh,np.log10(All_E),cmap='viridis',vmin=0,vmax=0.6)
+plt.pcolor(t_mesh,x_mesh,Relldiff_E,cmap='seismic',vmin=-0.01,vmax=0.01)
+# plt.pcolor(t_mesh,x_mesh,np.log10(All_E),cmap='viridis',vmin=0,vmax=0.6)
 
 cbar = plt.colorbar()
 cbar.set_label('$Log(\\rho/<\\rho>)$')
@@ -73,7 +73,7 @@ plt.ylabel('x = 1-R/r')
 plt.xlabel('t [s]')
 
 plt.figure()
-plt.semilogy(x_axis,mean_E)
+plt.plot(r_axis,mean_E)
 
 
 plt.show()

@@ -7,7 +7,7 @@
   autoconvert      = T
   convert_type     = 'oneblock'
   level_io         = 1
-  saveprim         = T
+  saveprim         = F
   !nwauxio = 4
 /
 

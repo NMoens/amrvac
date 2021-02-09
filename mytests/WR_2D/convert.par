@@ -1,0 +1,6 @@
+ &filelist
+        base_filename='test/2D_amr_stable'
+        convert_type='vtuBCC'
+        convert=.true.
+        restart_from_file='vaclogo0000.dat'
+ /

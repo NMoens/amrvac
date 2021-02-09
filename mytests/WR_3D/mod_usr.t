@@ -100,7 +100,7 @@ contains
 
   subroutine initglobaldata_usr
     use mod_global_parameters
-    use mod_opal_opacity, only: init_opal
+    use mod_opacity, only: init_opal
 
     use mod_fld
 
@@ -301,7 +301,7 @@ contains
   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
     use mod_physics, only: phys_get_trad
     use mod_global_parameters
-    use mod_opal_opacity
+    use mod_opacity
     use mod_fld
 
     integer, intent(in)             :: ixI^L, ixB^L, iB
@@ -623,7 +623,7 @@ contains
   subroutine OPAL_and_CAK(ixI^L,ixO^L,w,x,kappa)
     use mod_physics, only: phys_get_trad
     use mod_global_parameters
-    use mod_opal_opacity
+    use mod_opacity
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -655,7 +655,7 @@ contains
   subroutine get_kappa_OPAL(ixI^L,ixO^L,w,x,kappa)
     use mod_physics, only: phys_get_trad, phys_get_tgas
     use mod_global_parameters
-    use mod_opal_opacity
+    use mod_opacity
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -698,7 +698,7 @@ contains
 
   subroutine get_kappa_CAK(ixI^L,ixO^L,w,x,kappa)
     use mod_global_parameters
-    use mod_opal_opacity
+    use mod_opacity
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L

@@ -3,26 +3,27 @@
 /
 
 &filelist
-  base_filename='./with_e/2D_stable'
+  base_filename='./no_e/2D_unstable'
   autoconvert      = T
-  convert_type = 'vtuBCCmpi'
+  convert_type ='vtuBCCmpi'
   saveprim         = F
+  !nwauxio         = 4
 /
 
  &savelist
    itsave(1,1)     = 0
    itsave(1,2)     = 0
    !ditsave_dat     = 1
-   !ditsave_log     = 1
-   dtsave_dat     = 5.d-1 !1.d0
-   dtsave_log     = 5.d-1 !1.d0 
+   !ditsave_log     = 100
+   dtsave_dat     = 1.d0
+   dtsave_log     = 1.d0
    itsave(1,5)     = 0
    ditsave_custom  = 100
 /
 
  &stoplist
-   time_max = 30.d0
-   dtmin = 1.0d-20
+   time_max = 200.d0
+   dtmin = 1.0d-10
    !it_max = 20
 /
 
@@ -35,22 +36,21 @@
    typesourcesplit = 'sfs'
    check_small_values = .true.
    small_values_method = 'replace'
-   small_pressure = 1.d-13 !1.d-10
-   small_density = 1.d-8 !1.d-5
+   small_pressure = 1.d-8
+   small_density = 1.d-8
 /
 
 &boundlist
-  typeboundary_min1 = 5*'special'
-  typeboundary_max1 = 4*'noinflow','special'
-  typeboundary_min2 = 5*'periodic' !'symm','symm','asymm','symm','symm'
-  typeboundary_max2 = 5*'periodic' !'symm','symm','asymm','symm','symm'
+  typeboundary_min1 = 4*'special'
+  typeboundary_max1 = 3*'cont', 'special' !3*'noinflow','special'
+  typeboundary_min2 = 4*'periodic'
+  typeboundary_max2 = 4*'periodic'
   internalboundary = F
 /
 
  &meshlist
-   refine_max_level   = 3
+   refine_max_level   = 3 
    refine_criterion   = 3
-   !w_refine_weight(3) = 1.d0
    domain_nx1         = 1024
    domain_nx2         = 128
    block_nx1          = 16
@@ -65,39 +65,38 @@
 
  &paramlist
   courantpar       = 0.6d0
-  ! dtpar           = 8.d-5
+  !dtpar           = 1.d-4
   slowsteps = 500
  /
 
  &rhd_list
   He_abundance = 0.7d0
   rhd_gravity = .true.
-  rhd_energy = .true.
-  rhd_gamma = 1.6667d0 !1.4d0
+  rhd_pressure = 'Trad'
+  rhd_energy = .false.
+  rhd_gamma = 1.6667d0
   rhd_radiation_force = .true.
-  rhd_energy_interact = .true.
+  rhd_energy_interact = .false.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
-  !ignore_radf_dt = .true. 
-/
+ /
 
  &fld_list
   fld_Radforce_split = .false.
   fld_opacity_law = 'special'
   fld_fluxlimiter = 'Pomraning'
-  fld_interaction_method = 'Halley'
-  fld_diff_tol = 1.d-5 !1.d-5
-  fld_bisect_tol = 1.d-13! 1.d-12
- /
+  fld_diff_tol = 1.d-5
+  fld_bisect_tol = 1.d-12
+  /
 
   &wind_list
    cak_Q = 2.30d3
-   cak_a = 0.5d0
+   cak_a = 0.60d0
    cak_base = 0.66d0
    cak_x0 = 0.4d0
    cak_x1 = 0.65d0
    !it_start_cak = 10
-   rho_bound = 5.d-7 !3.d-7 !5.d-8 !3.d-7
+   rho_bound = 3.d-7 !5.d-8 !3.d-7
    T_bound = 3.2d5
    Gamma_e_bound = 0.4d0 !0.40d0
    kappa_e = 0.2d0

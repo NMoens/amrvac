@@ -3,7 +3,7 @@
 /
 
 &filelist
-  base_filename='./with_e/2D_stable'
+  base_filename='./with_e/3D_unstable'
   autoconvert      = T
   convert_type = 'vtuBCCmpi'
   saveprim         = F
@@ -14,15 +14,15 @@
    itsave(1,2)     = 0
    !ditsave_dat     = 1
    !ditsave_log     = 1
-   dtsave_dat     = 5.d-1 !1.d0
-   dtsave_log     = 5.d-1 !1.d0 
+   dtsave_dat     = 1.d-1 !1.d0
+   dtsave_log     = 1.d-1 !1.d0
    itsave(1,5)     = 0
    ditsave_custom  = 100
 /
 
  &stoplist
    time_max = 30.d0
-   dtmin = 1.0d-20
+   dtmin = 1.0d-10
    !it_max = 20
 /
 
@@ -35,37 +35,44 @@
    typesourcesplit = 'sfs'
    check_small_values = .true.
    small_values_method = 'replace'
-   small_pressure = 1.d-13 !1.d-10
+   small_pressure = 1.d-13 !1.d-8
    small_density = 1.d-8 !1.d-5
 /
 
 &boundlist
-  typeboundary_min1 = 5*'special'
-  typeboundary_max1 = 4*'noinflow','special'
-  typeboundary_min2 = 5*'periodic' !'symm','symm','asymm','symm','symm'
-  typeboundary_max2 = 5*'periodic' !'symm','symm','asymm','symm','symm'
-  internalboundary = F
+  typeboundary_min1 = 6*'special'
+  typeboundary_max1 = 5*'noinflow','special'
+  typeboundary_min2 = 6*'periodic'
+  typeboundary_max2 = 6*'periodic'
+  typeboundary_min3 = 6*'periodic'
+  typeboundary_max3 = 6*'periodic'
+  internalboundary = T
 /
 
  &meshlist
-   refine_max_level   = 3
+   refine_max_level   = 1
    refine_criterion   = 3
-   !w_refine_weight(3) = 1.d0
-   domain_nx1         = 1024
-   domain_nx2         = 128
-   block_nx1          = 16
-   block_nx2          = 16
+   !w_refine_weight(4) = 1.d0
+   max_blocks         = 4000000
+   domain_nx1         = 256
+   domain_nx2         = 32
+   domain_nx3         = 32
+   block_nx1          = 8
+   block_nx2          = 8
+   block_nx3          = 8
    xprobmin1      = 1.d0
-   xprobmax1       = 9.d0
-   xprobmin2      = -0.5d0
-   xprobmax2       = 0.5d0
+   xprobmax1       = 5.d0
+   xprobmin2      = -0.25d0
+   xprobmax2       = 0.25d0
+   xprobmin3      = -0.25d0
+   xprobmax3       = 0.25d0
    refine_threshold   = 20*0.5d0
    derefine_ratio     = 20*1.d0/2.d0
  /
 
  &paramlist
-  courantpar       = 0.6d0
-  ! dtpar           = 8.d-5
+  courantpar       = 0.9d0
+  !dtpar           = 1.d-5
   slowsteps = 500
  /
 
@@ -78,8 +85,7 @@
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
-  !ignore_radf_dt = .true. 
-/
+ /
 
  &fld_list
   fld_Radforce_split = .false.
@@ -104,7 +110,7 @@
    R_star = 1.d0
    M_star = 10.d0
    v_inf = 1.d8
-   Mdot = 1.d-5
+   Mdot = 1.d-4
    fixed_lum = .false.
    Cak_in_D = .true.
  /

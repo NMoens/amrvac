@@ -34,7 +34,7 @@ subroutine init_cak()
   call read_table(Log_D_list, Log_T_list, Q0_vals, "Q0g_TD")
   call read_table(Log_D_list, Log_T_list, kappa_e_vals, "K_TD")
 
-  print*, "Read Luka's tables"
+  ! print*, "Read Luka's tables"
 
 end subroutine init_cak
 

@@ -15,7 +15,7 @@
    !ditsave_dat     = 1
    !ditsave_log     = 1
    dtsave_dat     = 5.d-1 !1.d0
-   dtsave_log     = 5.d-1 !1.d0 
+   dtsave_log     = 5.d-1 !1.d0
    itsave(1,5)     = 0
    ditsave_custom  = 100
 /
@@ -78,7 +78,7 @@
   rhd_energy_interact = .true.
   rhd_radiation_diffusion = .true.
   rhd_radiation_advection = .true.
-  !ignore_radf_dt = .true. 
+  !ignore_radf_dt = .true.
 /
 
  &fld_list
@@ -107,4 +107,5 @@
    Mdot = 1.d-5
    fixed_lum = .false.
    Cak_in_D = .true.
+   read_cak_table = .false.
  /

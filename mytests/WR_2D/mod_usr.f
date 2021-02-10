@@ -21,13 +21,15 @@ module mod_usr
 
   double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
   logical :: fixed_lum, Cak_in_D
+  logical :: read_cak_table = .false.
 
   integer :: i_v1, i_v2, i_p
-  integer :: i_Trad, i_Tgas, i_Mdot, i_Opal, i_CAK, i_lambda
+  integer :: i_Trad, i_Tgas, i_Mdot, i_Opal, i_CAK, i_CAK2, i_lambda
   integer :: i_Gamma, i_Lum, i_F1, i_F2
 
   double precision :: sum_time
-  double precision, allocatable :: vr_sumt(:), rho_sumt(:), sumt(:)
+  double precision, allocatable :: vr_sumt(:), rho_sumt(:), rho2_sumt(:),&
+      sumt(:)
 
 contains
 
@@ -81,12 +83,13 @@ contains
 
     i_v1 = var_set_extravar("v1", "v1")
     i_v2 = var_set_extravar("v2", "v2")
-    i_p = var_set_extravar("p","p")
+    if (rhd_energy) i_p = var_set_extravar("p","p")
     i_Trad = var_set_extravar("Trad", "Trad")
-    i_Tgas = var_set_extravar("Tgas", "Tgas")
+    if (rhd_energy) i_Tgas = var_set_extravar("Tgas", "Tgas")
     i_Mdot = var_set_extravar("Mdot", "Mdot")
     i_Opal = var_set_extravar("OPAL", "OPAL")
     i_CAK = var_set_extravar("CAK", "CAK")
+    i_CAK2 = var_set_extravar("CAK2", "CAK2")
     i_lambda = var_set_extravar("lambda", "lambda")
     i_Gamma = var_set_extravar("Gamma", "Gamma")
     i_Lum = var_set_extravar("Lum", "Lum")
@@ -98,7 +101,8 @@ contains
 
   subroutine initglobaldata_usr
     use mod_global_parameters
-    use mod_opacity, only: init_opal
+    use mod_opal_opacity, only: init_opal
+    use mod_cak_opacity, only: init_cak
 
     use mod_fld
 
@@ -106,6 +110,8 @@ contains
 
     !> Initialise Opal
     call init_opal(He_abundance)
+
+    call init_cak()
 
     !> read usr par
     call params_read(par_files)
@@ -156,7 +162,8 @@ contains
     vr_sumt = 0.d0
     allocate(rho_sumt(domain_nx1))
     rho_sumt = 0.d0
-
+    allocate(rho2_sumt(domain_nx1))
+    rho2_sumt = 0.d0
 
   end subroutine initglobaldata_usr
 
@@ -168,7 +175,7 @@ contains
 
     namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound,&
         kappa_e, T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound,&
-        it_start_cak, fixed_lum, Cak_in_D
+        it_start_cak, fixed_lum, Cak_in_D, read_cak_table
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -259,8 +266,8 @@ contains
     do ii = ixOmin1,ixOmax1
       w(ii,:,rho_) = read_initial_conditions(x(ii,3,1),2)
       w(ii,:,mom(1)) = read_initial_conditions(x(ii,3,1),3)
-      w(ii,:,mom(2)) = 0.d0
-      w(ii,:,e_) = read_initial_conditions(x(ii,3,1),4)
+      w(ii,:,mom(2)) = 0.d0 !1.d-2*dsin(x(ii,:,1)-1.d0)
+      if (rhd_energy) w(ii,:,e_) = read_initial_conditions(x(ii,3,1),4)
       w(ii,:,r_e) = read_initial_conditions(x(ii,3,1),5)
       w(ii,:,i_diff_mg) = read_initial_conditions(x(ii,3,1),6)
     enddo
@@ -290,7 +297,7 @@ contains
     do ll = 1,1024
       w_mo = w
       read(1,*) w
-        if (w(1) .gt. r_in) then
+        if (w(1) .gt. min(9.d0,r_in)) then
           w_po = w
           goto 8765
         endif
@@ -308,7 +315,7 @@ contains
      ixBmin2,ixBmax1,ixBmax2,iB,w,x)
     use mod_physics, only: phys_get_trad
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)             :: ixImin1,ixImin2,ixImax1,ixImax2,&
@@ -392,7 +399,7 @@ contains
 
       if (kappa_out .ne. kappa_out) kappa_out = kappa_e
       kappa_out = max(kappa_out,kappa_e)
-      kappa_out = min(kappa_out,20*kappa_e)
+      kappa_out = min(kappa_out,2*kappa_e)
 
       Local_tauout(ixBmin1:ixBmax1,ixBmin2:ixBmax2) = &
          kappa_out*w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,&
@@ -403,7 +410,10 @@ contains
 
       T_out = sum(Local_Tout(ixBmin1,ixBmin2:ixBmax2))/(ixBmax2-ixBmin2)
 
-      T_out = max(1.5d4/unit_temperature, T_out)
+!      T_out = max(1.5d4/unit_temperature, T_out)
+!      T_out = max(4.2d4/unit_temperature, T_out)
+
+
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
       w(ixBmin1:ixBmax1,ixBmin2:ixBmax2,r_e) = &
@@ -478,10 +488,19 @@ contains
 
     double precision :: pth(ixImin1:ixImax1,ixImin2:ixImax2), mean_p
 
+    !> fix density as well
+    where ((w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       rho_) .lt. 1.d-5) .and. (x(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       1) .lt. 4.d0))
+      w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_) = 1.d-5
+    endwhere
+
+    if (.not. rhd_energy) call mpistop("no energy equation, no pressure fix")
+
     call phys_get_pthermal(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
        ixOmax1,ixOmax2,pth)
 
-    ! if (any(press(ixO^S)) .lt. 0.d0) then
+    !if (any(press(ixO^S) .lt. 0.d0)) then
       mean_p = sum(pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2))/(block_nx1*block_nx2)
       where (pth(ixOmin1:ixOmax1,ixOmin2:ixOmax2) .le. small_pressure + &
          smalldouble)
@@ -490,7 +509,14 @@ contains
            ixOmin2:ixOmax2, mom(:))**2, dim=ndim+1)/w(ixOmin1:ixOmax1,&
            ixOmin2:ixOmax2,rho_)
       end where
-    ! endif
+    !endif
+
+    !> fix density as well
+!    where (pth(ixO^S)/w(ixO^S,rho_) .gt. 3.d-5)
+!      w(ixO^S,rho_) = pth(ixO^S)/
+!    endwhere
+
+
 
   end subroutine Fix_pressure
 
@@ -556,8 +582,13 @@ contains
        r_e) + qdt*ppsource(ixOmin1:ixOmax1,ixOmin2:ixOmax2,r_e) !> TROUBLEMAKER
 
     if (.not. Cak_in_D) then
-      call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-         ixOmax1,ixOmax2,wCT,x,k_cak)
+      if (read_cak_table) then
+        call get_kappa_CAK2(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+           ixOmax1,ixOmax2,wCT,x,k_cak)
+      else
+        call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+           ixOmax1,ixOmax2,wCT,x,k_cak)
+      endif
 
       if (fixed_lum) then
         !> Fixed L = L_bound
@@ -609,8 +640,13 @@ contains
     double precision :: k_cak(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
         rad_flux(ixOmin1:ixOmax1,ixOmin2:ixOmax2,1:ndim)
 
-    call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
-       ixOmax2,w,x,k_cak)
+    if (read_cak_table) then
+      call get_kappa_CAK2(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+         ixOmax1,ixOmax2,w,x,k_cak)
+    else
+      call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+         ixOmax1,ixOmax2,w,x,k_cak)
+    endif
 
     if (fixed_lum) then
       !> Fixed L = L_bound
@@ -727,7 +763,7 @@ contains
      ixOmax1,ixOmax2,w,x,kappa)
     use mod_physics, only: phys_get_trad
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)          :: ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
@@ -745,8 +781,13 @@ contains
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     if (Cak_in_D) then
-      call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
-         ixOmax1,ixOmax2,w,x,CAK)
+      if (read_cak_table) then
+        call get_kappa_CAK2(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+           ixOmax1,ixOmax2,w,x,CAK)
+      else
+        call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+           ixOmax1,ixOmax2,w,x,CAK)
+      endif
     else
       CAK(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = 0.d0
     endif
@@ -767,7 +808,7 @@ contains
      ixOmax1,ixOmax2,w,x,kappa)
     use mod_physics, only: phys_get_trad, phys_get_tgas
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)          :: ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
@@ -820,7 +861,7 @@ contains
   subroutine get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
      ixOmax1,ixOmax2,w,x,kappa)
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)          :: ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
@@ -829,6 +870,7 @@ contains
         x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
     double precision, intent(out):: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
 
+    integer :: ix1,ix2
     double precision :: vel(ixImin1:ixImax1,ixImin2:ixImax2),&
         gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2), gradvI(ixImin1:ixImax1,&
        ixImin2:ixImax2)
@@ -839,12 +881,11 @@ contains
     !> Need diffusion coefficient depending on direction?
     vel(ixImin1:ixImax1,ixImin2:ixImax2) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
        mom(1))/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
-    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
+    call gradientO(vel,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+       ixOmax1,ixOmax2,1,gradv,nghostcells)
 
-    call gradient(vel,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
-       ixOmax2,1,gradvI)
-    gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = gradvI(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)
+    ! call gradient(vel,ixI^L,ixO^L,1,gradvI)
+    ! gradv(ixO^S) = gradvI(ixO^S)
 
     !> Absolute value of gradient:
     gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = abs(gradv(ixOmin1:ixOmax1,&
@@ -877,10 +918,93 @@ contains
     !   kappa(ixO^S) = kappa(ixO^S)*dexp(-w(ixO^S,rho_)*kappa_e)
     ! endif
 
+    do ix1=ixOmin1,ixOmax1
+     do ix2=ixOmin2,ixOmax2
+    
+        if (xx(ix1,ix2) .lt. cak_x0) then
+          kappa(ix1,ix2) = min(2*kappa_e,kappa(ix1,ix2))
+        else if (xx(ix1,ix2) .lt. cak_x1) then
+          kappa(ix1,ix2) = min( (2 + (10.d0 - 2.d0)/(cak_x1 - cak_x0)*(xx(ix1,&
+             ix2)-cak_x0) )*kappa_e, kappa(ix1,ix2))
+        else
+          kappa(ix1,ix2) = min(10*kappa_e,kappa(ix1,ix2))
+        endif
+
+      ! if (kappa(ix^D) .gt. 3*kappa_e) &
+      !   kappa(ix^D) = 3*kappa_e + half*(kappa(ix^D)-3*kappa_e)
+    enddo
+     enddo
+    
+
     !> test with no cak
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
 
+  subroutine get_kappa_CAK2(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+     ixOmax1,ixOmax2,w,x,kappa)
+    use mod_physics, only: phys_get_trad, phys_get_tgas
+    use mod_global_parameters
+    use mod_cak_opacity
+    use mod_fld
+
+    integer, intent(in)          :: ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
+       ixOmin2,ixOmax1,ixOmax2
+    double precision, intent(in) :: w(ixImin1:ixImax1,ixImin2:ixImax2,1:nw),&
+        x(ixImin1:ixImax1,ixImin2:ixImax2,1:ndim)
+    double precision, intent(out):: kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+
+    double precision :: Temp(ixImin1:ixImax1,ixImin2:ixImax2), rho0, temp0,&
+        gradv0, kap0
+    integer :: ix1,ix2
+
+    double precision :: vel(ixImin1:ixImax1,ixImin2:ixImax2),&
+        gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2), gradvI(ixImin1:ixImax1,&
+       ixImin2:ixImax2)
+    double precision :: xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
+        alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+
+    !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
+    !> Need diffusion coefficient depending on direction?
+    vel(ixImin1:ixImax1,ixImin2:ixImax2) = w(ixImin1:ixImax1,ixImin2:ixImax2,&
+       mom(1))/w(ixImin1:ixImax1,ixImin2:ixImax2,rho_)
+    call gradientO(vel,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+       ixOmax1,ixOmax2,1,gradv,nghostcells)
+
+    ! call gradient(vel,ixI^L,ixO^L,1,gradvI)
+    ! gradv(ixO^S) = gradvI(ixO^S)
+
+    !> Absolute value of gradient:
+    gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = abs(gradv(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2))
+
+    !> Get CAK opacities by reading from table
+    if (rhd_energy) then
+      call phys_get_tgas(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+         ixOmax1,ixOmax2,Temp)
+    else
+      call phys_get_trad(w,x,ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+         ixOmax1,ixOmax2,Temp)
+    endif
+
+    do ix1=ixOmin1,ixOmax1
+     do ix2=ixOmin2,ixOmax2
+    
+        rho0 = w(ix1,ix2,rho_)*unit_density
+        Temp0 = Temp(ix1,ix2)*unit_temperature
+        Temp0 = max(Temp0,1.d4)
+        gradv0 = gradv(ix1,ix2)*(unit_velocity/unit_length)
+        call set_cak_opacity(rho0,Temp0,gradv0,kap0)
+        kappa(ix1,ix2) = kap0/unit_opacity
+    enddo
+     enddo
+    
+
+    if (x(ixImax1,nghostcells,1) .ge. xprobmax1) then
+      kappa(ixOmax1,:) = kappa(ixOmax1-1,:)
+    endif
+
+
+  end subroutine get_kappa_CAK2
 
   subroutine collapse_to_1D()
     use mod_global_parameters
@@ -901,6 +1025,8 @@ contains
     double precision :: mdot(1:domain_nx1)
     double precision :: rho(1:domain_nx1), rho_S(1:domain_nx1),&
         rho_R(1:domain_nx1)
+    double precision :: rho2(1:domain_nx1), rho2_S(1:domain_nx1),&
+        rho2_R(1:domain_nx1)
 
     integer :: lvl_h(1:domain_nx1), lvl_h_S(1:domain_nx1),&
         lvl_h_R(1:domain_nx1)
@@ -923,6 +1049,7 @@ contains
     rp_mdot = 0.d0
     vr = 0.0d0
     rho = 0.d0
+    rho2 = 0.d0
     mdot = 0.d0
     p_mdot = 0.d0
     lvl_h = 0.d0
@@ -980,6 +1107,10 @@ contains
         rho(jj) = rho(jj) + sum(block%w(il:ih,ixMlo2:ixMhi2,&
            rho_))/domain_nx2/nc**2 !> average value on lvl 1
 
+        !> Density squared
+        rho2(jj) = rho2(jj) + sum(block%w(il:ih,ixMlo2:ixMhi2,&
+           rho_)**2)/domain_nx2/nc**2 !> average value on lvl 1
+
         !> Mass loss rate
         mdot(jj) = mdot(jj) + 4*dpi*sum(block%x(il:ih,ixMlo2:ixMhi2,&
            1)**2*block%w(il:ih,ixMlo2:ixMhi2,mom(1)))/domain_nx2/nc**2 !> average value on lvl 1
@@ -1003,6 +1134,12 @@ contains
        icomm,ierrmpi)
     rho=rho_R
 
+    !> communicate density squared
+    rho2_S=rho2
+    call mpi_allreduce(rho2_S,rho2_R,domain_nx1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+       icomm,ierrmpi)
+    rho2=rho2_R
+
     !> Only keep mdot in interested radii
     do ii = 1,np_mdot
       jj = jp_mdot(ii)
@@ -1025,11 +1162,11 @@ contains
        ierrmpi)
     lvl_l = lvl_l_R
 
-
     !> integrate over time
     sum_time = sum_time + dt
     vr_sumt(1:domain_nx1) = vr_sumt(1:domain_nx1) + vr(1:domain_nx1)*dt
     rho_sumt(1:domain_nx1) = rho_sumt(1:domain_nx1) + rho(1:domain_nx1)*dt
+    rho2_sumt(1:domain_nx1) = rho2_sumt(1:domain_nx1) + rho2(1:domain_nx1)*dt
 
     !> Write out average velocity profile
     if (mype==0) then
@@ -1038,7 +1175,7 @@ contains
       write(unitanalysis,*)&
           'r | vr_int_theta | vr_int_theta_int_t | lvl_h lvl_l'
       do i=1,domain_nx1
-        write(unitanalysis,'(3f10.7,3i4)') rr(i), vr(i), vr_sumt(i)/sum_time,&
+        write(unitanalysis,'(3f11.7,3i4)') rr(i), vr(i), vr_sumt(i)/sum_time,&
             lvl_h(i), lvl_l(i)
       enddo
     close(unitanalysis)
@@ -1051,7 +1188,9 @@ contains
          status='replace')
       write(unitanalysis,*) 'r | rho_int_theta | rho_int_theta_int_t'
       do i=1,domain_nx1
-        write(unitanalysis,'(3f10.7)') rr(i), rho(i), rho_sumt(i)/sum_time
+        write(unitanalysis,'(6f11.7)') rr(i), rho(i), rho_sumt(i)/sum_time,&
+            rho2(i), rho2_sumt(i)/sum_time,&
+            sum_time*rho2_sumt(i)/rho_sumt(i)**2
       enddo
     close(unitanalysis)
     endif
@@ -1091,7 +1230,8 @@ contains
        ixImin2:ixImax2),Trad(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision                   :: kappa(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2), OPAL(ixOmin1:ixOmax1,ixOmin2:ixOmax2),&
-        CAK(ixOmin1:ixOmax1,ixOmin2:ixOmax2)
+        CAK(ixOmin1:ixOmax1,ixOmin2:ixOmax2), CAK2(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)
     double precision                   :: vel(ixImin1:ixImax1,ixImin2:ixImax2),&
         gradv(ixImin1:ixImax1,ixImin2:ixImax2)
     double precision                   :: rad_flux(ixOmin1:ixOmax1,&
@@ -1112,8 +1252,8 @@ contains
     call fld_get_radflux(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,&
        ixOmin2,ixOmax1,ixOmax2, rad_flux)
 
-    call rhd_get_tgas(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
-       ixOmax1,ixOmax2, Tgas)
+    if (rhd_energy)    call rhd_get_tgas(w, x, ixImin1,ixImin2,ixImax1,ixImax2,&
+        ixOmin1,ixOmin2,ixOmax1,ixOmax2, Tgas)
     call rhd_get_trad(w, x, ixImin1,ixImin2,ixImax1,ixImax2, ixOmin1,ixOmin2,&
        ixOmax1,ixOmax2, Trad)
 
@@ -1121,6 +1261,8 @@ contains
        ixOmax1,ixOmax2,w,x,OPAL)
     call get_kappa_CAK(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,ixOmax1,&
        ixOmax2,w,x,CAK)
+    call get_kappa_CAK2(ixImin1,ixImin2,ixImax1,ixImax2,ixOmin1,ixOmin2,&
+       ixOmax1,ixOmax2,w,x,CAK2)
 
     g_rad(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = (OPAL(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)+CAK(ixOmin1:ixOmax1,&
@@ -1151,21 +1293,24 @@ contains
        ixOmin2:ixOmax2,mom(1))/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_v2) = w(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,mom(2))/w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,rho_)
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_p) = (w(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2,e_) - 0.5d0 * sum(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
-        mom(:))**2, dim=ndim+1) / w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+    if (rhd_energy) w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       i_p) = (w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       e_) - 0.5d0 * sum(w(ixOmin1:ixOmax1,ixOmin2:ixOmax2, mom(:))**2,&
+        dim=ndim+1) / w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
         rho_)) *(rhd_gamma - 1)
 
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_Trad) = Trad(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)*unit_temperature
-    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_Tgas) = Tgas(ixOmin1:ixOmax1,&
-       ixOmin2:ixOmax2)*unit_temperature
+    if (rhd_energy) w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+       i_Tgas) = Tgas(ixOmin1:ixOmax1,ixOmin2:ixOmax2)*unit_temperature
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_Mdot) = 4*dpi*w(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2,mom(1))*radius(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)**2 *unit_density*unit_velocity/M_sun*year
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_Opal) = OPAL(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)/kappa_e
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_CAK) = CAK(ixOmin1:ixOmax1,&
+       ixOmin2:ixOmax2)/kappa_e
+    w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_CAK2) = CAK2(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)/kappa_e
     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_lambda) = lambda(ixOmin1:ixOmax1,&
        ixOmin2:ixOmax2)

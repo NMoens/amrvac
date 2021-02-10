@@ -49,7 +49,7 @@
 /
 
  &meshlist
-   refine_max_level   = 3 
+   refine_max_level   = 3
    refine_criterion   = 3
    domain_nx1         = 1024
    domain_nx2         = 128
@@ -106,4 +106,5 @@
    Mdot = 1.d-5
    fixed_lum = .false.
    Cak_in_D = .true.
+   read_cak_table = .false.
  /

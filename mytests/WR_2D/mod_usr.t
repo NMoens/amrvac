@@ -21,9 +21,10 @@ module mod_usr
 
   double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
   logical :: fixed_lum, Cak_in_D
+  logical :: read_cak_table = .false.
 
   integer :: i_v1, i_v2, i_p
-  integer :: i_Trad, i_Tgas, i_Mdot, i_Opal, i_CAK, i_lambda
+  integer :: i_Trad, i_Tgas, i_Mdot, i_Opal, i_CAK, i_CAK2, i_lambda
   integer :: i_Gamma, i_Lum, i_F1, i_F2
 
   double precision :: sum_time
@@ -87,6 +88,7 @@ contains
     i_Mdot = var_set_extravar("Mdot", "Mdot")
     i_Opal = var_set_extravar("OPAL", "OPAL")
     i_CAK = var_set_extravar("CAK", "CAK")
+    i_CAK2 = var_set_extravar("CAK2", "CAK2")
     i_lambda = var_set_extravar("lambda", "lambda")
     i_Gamma = var_set_extravar("Gamma", "Gamma")
     i_Lum = var_set_extravar("Lum", "Lum")
@@ -98,7 +100,8 @@ contains
 
   subroutine initglobaldata_usr
     use mod_global_parameters
-    use mod_opacity, only: init_opal
+    use mod_opal_opacity, only: init_opal
+    use mod_cak_opacity, only: init_cak
 
     use mod_fld
 
@@ -106,6 +109,8 @@ contains
 
     !> Initialise Opal
     call init_opal(He_abundance)
+
+    call init_cak()
 
     !> read usr par
     call params_read(par_files)
@@ -166,7 +171,7 @@ contains
     integer                      :: n
 
     namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound, kappa_e, &
-    T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound, it_start_cak, fixed_lum, Cak_in_D
+    T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound, it_start_cak, fixed_lum, Cak_in_D, read_cak_table
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -198,7 +203,7 @@ contains
     double precision :: vel(ixI^S)
     double precision :: T_out, E_out, E_gauge
     double precision :: T_in, E_in, rr(ixI^S), bb, temp(ixI^S)
-    
+
     integer :: ii
 
 !    w(ixI^S,rho_)   = rho_bound
@@ -297,7 +302,7 @@ contains
   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
     use mod_physics, only: phys_get_trad
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)             :: ixI^L, ixB^L, iB
@@ -354,7 +359,7 @@ contains
         w(ixB^S,e_) = w(ixB^S,rho_)*temp(ixB^S)/(rhd_gamma-1.d0) + half*w(ixB^S,mom(1))**2/w(ixB^S,rho_)
       endif
 
-    
+
    case(2)
 
       !> Compute mean kappa in outer blocks
@@ -435,7 +440,7 @@ contains
 
   subroutine Fix_pressure(level,qt,ixI^L,ixO^L,w,x)
     use mod_global_parameters
-    use mod_physics, only: phys_get_pthermal    
+    use mod_physics, only: phys_get_pthermal
 
     integer, intent(in)             :: ixI^L,ixO^L,level
     double precision, intent(in)    :: qt
@@ -511,7 +516,11 @@ contains
     w(ixO^S,r_e) = w(ixO^S,r_e) + qdt*ppsource(ixO^S,r_e) !> TROUBLEMAKER
 
     if (.not. Cak_in_D) then
-      call get_kappa_CAK(ixI^L,ixO^L,wCT,x,k_cak)
+      if (read_cak_table) then
+        call get_kappa_CAK2(ixI^L,ixO^L,wCT,x,k_cak)
+      else
+        call get_kappa_CAK(ixI^L,ixO^L,wCT,x,k_cak)
+      endif
 
       if (fixed_lum) then
         !> Fixed L = L_bound
@@ -549,7 +558,11 @@ contains
     double precision :: dt_cak
     double precision :: k_cak(ixO^S), rad_flux(ixO^S,1:ndim)
 
-    call get_kappa_CAK(ixI^L,ixO^L,w,x,k_cak)
+    if (read_cak_table) then
+      call get_kappa_CAK2(ixI^L,ixO^L,w,x,k_cak)
+    else
+      call get_kappa_CAK(ixI^L,ixO^L,w,x,k_cak)
+    endif
 
     if (fixed_lum) then
       !> Fixed L = L_bound
@@ -630,7 +643,7 @@ contains
   subroutine OPAL_and_CAK(ixI^L,ixO^L,w,x,kappa)
     use mod_physics, only: phys_get_trad
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -644,7 +657,11 @@ contains
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     if (Cak_in_D) then
-      call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
+      if (read_cak_table) then
+        call get_kappa_CAK2(ixI^L,ixO^L,w,x,CAK)
+      else
+        call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
+      endif
     else
       CAK(ixO^S) = 0.d0
     endif
@@ -662,7 +679,7 @@ contains
   subroutine get_kappa_OPAL(ixI^L,ixO^L,w,x,kappa)
     use mod_physics, only: phys_get_trad, phys_get_tgas
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -705,7 +722,7 @@ contains
 
   subroutine get_kappa_CAK(ixI^L,ixO^L,w,x,kappa)
     use mod_global_parameters
-    use mod_opacity
+    use mod_opal_opacity
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -719,10 +736,10 @@ contains
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
-    ! call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
+    call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
 
-    call gradient(vel,ixI^L,ixO^L,1,gradvI)
-    gradv(ixO^S) = gradvI(ixO^S)
+    ! call gradient(vel,ixI^L,ixO^L,1,gradvI)
+    ! gradv(ixO^S) = gradvI(ixO^S)
 
     !> Absolute value of gradient:
     gradv(ixO^S) = abs(gradv(ixO^S))
@@ -754,7 +771,7 @@ contains
           kappa(ix^D) = min(2*kappa_e,kappa(ix^D))
         else if (xx(ix^D) .lt. cak_x1) then
           kappa(ix^D) = min( (2 + (10.d0 - 2.d0)/(cak_x1 - cak_x0)*(xx(ix^D)-cak_x0) )*kappa_e, kappa(ix^D))
-        else 
+        else
           kappa(ix^D) = min(10*kappa_e,kappa(ix^D))
         endif
 
@@ -762,11 +779,59 @@ contains
       !   kappa(ix^D) = 3*kappa_e + half*(kappa(ix^D)-3*kappa_e)
     {enddo\ }
 
-
     !> test with no cak
     ! kappa(ixO^S) = 0.d0
   end subroutine get_kappa_CAK
 
+  subroutine get_kappa_CAK2(ixI^L,ixO^L,w,x,kappa)
+    use mod_physics, only: phys_get_trad, phys_get_tgas
+    use mod_global_parameters
+    use mod_cak_opacity
+    use mod_fld
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
+    double precision, intent(out):: kappa(ixO^S)
+
+    double precision :: Temp(ixI^S), rho0, temp0, gradv0, kap0
+    integer :: ix^D
+
+    double precision :: vel(ixI^S), gradv(ixO^S), gradvI(ixI^S)
+    double precision :: xx(ixO^S), alpha(ixO^S)
+
+    !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
+    !> Need diffusion coefficient depending on direction?
+    vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
+    call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
+
+    ! call gradient(vel,ixI^L,ixO^L,1,gradvI)
+    ! gradv(ixO^S) = gradvI(ixO^S)
+
+    !> Absolute value of gradient:
+    gradv(ixO^S) = abs(gradv(ixO^S))
+
+    !> Get CAK opacities by reading from table
+    if (rhd_energy) then
+      call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
+    else
+      call phys_get_trad(w,x,ixI^L,ixO^L,Temp)
+    endif
+
+    {do ix^D=ixOmin^D,ixOmax^D\ }
+        rho0 = w(ix^D,rho_)*unit_density
+        Temp0 = Temp(ix^D)*unit_temperature
+        Temp0 = max(Temp0,1.d4)
+        gradv0 = gradv(ix^D)*(unit_velocity/unit_length)
+        call set_cak_opacity(rho0,Temp0,gradv0,kap0)
+        kappa(ix^D) = kap0/unit_opacity
+    {enddo\ }
+
+    if (x(ixImax1,nghostcells,1) .ge. xprobmax1) then
+      kappa(ixOmax1,:) = kappa(ixOmax1-1,:)
+    endif
+
+
+  end subroutine get_kappa_CAK2
 
   subroutine collapse_to_1D()
     use mod_global_parameters
@@ -940,7 +1005,7 @@ contains
     if (mype==0) then
       !> Always update file to give the last mean snapshot
       open(unit=unitanalysis,file=trim(base_filename)//'_rho',status='replace')
-      write(unitanalysis,*) 'r | rho_int_theta | rho_int_theta_int_t' 
+      write(unitanalysis,*) 'r | rho_int_theta | rho_int_theta_int_t'
       do i=1,domain_nx1
         write(unitanalysis,'(6f11.7)') rr(i), rho(i), rho_sumt(i)/sum_time, rho2(i), rho2_sumt(i)/sum_time, sum_time*rho2_sumt(i)/rho_sumt(i)**2
       enddo
@@ -972,7 +1037,7 @@ contains
     double precision                   :: g_rad(ixI^S), big_gamma(ixI^S)
     double precision                   :: g_grav(ixI^S)
     double precision                   :: Tgas(ixI^S),Trad(ixI^S)
-    double precision                   :: kappa(ixO^S), OPAL(ixO^S), CAK(ixO^S)
+    double precision                   :: kappa(ixO^S), OPAL(ixO^S), CAK(ixO^S), CAK2(ixO^S)
     double precision                   :: vel(ixI^S), gradv(ixI^S)
     double precision                   :: rad_flux(ixO^S,1:ndim), Lum(ixO^S)
     double precision                   :: pp_rf(ixO^S), lambda(ixO^S), fld_R(ixO^S)
@@ -991,6 +1056,7 @@ contains
 
     call get_kappa_OPAL(ixI^L,ixO^L,w,x,OPAL)
     call get_kappa_CAK(ixI^L,ixO^L,w,x,CAK)
+    call get_kappa_CAK2(ixI^L,ixO^L,w,x,CAK2)
 
     g_rad(ixO^S) = (OPAL(ixO^S)+CAK(ixO^S))*rad_flux(ixO^S,1)/(const_c/unit_velocity)
     g_grav(ixO^S) = const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
@@ -1016,6 +1082,7 @@ contains
     *unit_density*unit_velocity/M_sun*year
     w(ixO^S,i_Opal) = OPAL(ixO^S)/kappa_e
     w(ixO^S,i_CAK) = CAK(ixO^S)/kappa_e
+    w(ixO^S,i_CAK2) = CAK2(ixO^S)/kappa_e
     w(ixO^S,i_lambda) = lambda(ixO^S)
     w(ixO^S,i_Gamma) = big_gamma(ixO^S)
     w(ixO^S,i_Lum) = Lum(ixO^S)

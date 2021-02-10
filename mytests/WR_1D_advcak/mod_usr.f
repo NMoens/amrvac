@@ -737,6 +737,8 @@ contains
       kappa(ixOmax1) = kappa(ixOmax1-1)
     endif
 
+    print*, kappa
+
   end subroutine get_kappa_CAK2
 
   subroutine refine_base(igrid,level,ixGmin1,ixGmax1,ixmin1,ixmax1,qt,w,x,&

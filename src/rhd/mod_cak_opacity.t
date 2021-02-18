@@ -112,7 +112,6 @@ subroutine read_table(D, T, K, filename)
 
     !> Read logT
     READ(1,*) dum,T(Tmin:Tmax)
-    print*, T(Tmin:Tmax)
 
     !> Read T and K
     do row = Dmin,Dmax !> NOT READING ENTIRE TABLE

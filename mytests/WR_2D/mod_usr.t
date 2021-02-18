@@ -24,11 +24,11 @@ module mod_usr
   logical :: read_cak_table = .false.
 
   integer :: i_v1, i_v2, i_p
-  integer :: i_Trad, i_Tgas, i_Mdot, i_Opal, i_CAK, i_CAK2, i_lambda
+  integer :: i_Trad, i_Tgas, i_Mdot, i_Opal, i_CAK, i_CAK2, i_lambda, i_edd
   integer :: i_Gamma, i_Lum, i_F1, i_F2
 
   double precision :: sum_time
-  double precision, allocatable :: vr_sumt(:), rho_sumt(:), rho2_sumt(:), sumt(:)
+  double precision, allocatable :: vr_sumt(:), rho_sumt(:), rho2_sumt(:), vr2_sumt(:), sumt(:)
 
 contains
 
@@ -61,6 +61,9 @@ contains
     ! Special Opacity
     usr_special_opacity => OPAL_and_CAK
 
+    !> Set maximum value for diffusion coefficient
+    usr_special_diffcoef => ceil_diffcoef
+
     ! Write out energy levels and temperature
     usr_write_analysis => collapse_to_1D
 
@@ -90,6 +93,7 @@ contains
     i_CAK = var_set_extravar("CAK", "CAK")
     i_CAK2 = var_set_extravar("CAK2", "CAK2")
     i_lambda = var_set_extravar("lambda", "lambda")
+    i_Edd = var_set_extravar("Edd", "Edd")    
     i_Gamma = var_set_extravar("Gamma", "Gamma")
     i_Lum = var_set_extravar("Lum", "Lum")
     i_F1 = var_set_extravar("F1", "F1")
@@ -161,6 +165,9 @@ contains
     rho_sumt = 0.d0
     allocate(rho2_sumt(domain_nx1))
     rho2_sumt = 0.d0
+    allocate(vr2_sumt(domain_nx1))
+    vr2_sumt = 0.d0
+ 
 
   end subroutine initglobaldata_usr
 
@@ -256,7 +263,7 @@ contains
     do ii = ixOmin1,ixOmax1
       w(ii,:,rho_) = read_initial_conditions(x(ii,3,1),2)
       w(ii,:,mom(1)) = read_initial_conditions(x(ii,3,1),3)
-      w(ii,:,mom(2)) = 0.d0 !1.d-2*dsin(x(ii,:,1)-1.d0)
+      w(ii,:,mom(2)) = 1.d-1*dsin(x(ii,:,1)-1.d0)*dcos(6*x(ii,:,2))* w(ii,:,rho_)
       if (rhd_energy) w(ii,:,e_) = read_initial_conditions(x(ii,3,1),4)
       w(ii,:,r_e) = read_initial_conditions(x(ii,3,1),5)
       w(ii,:,i_diff_mg) = read_initial_conditions(x(ii,3,1),6)
@@ -824,7 +831,12 @@ contains
         gradv0 = gradv(ix^D)*(unit_velocity/unit_length)
         call set_cak_opacity(rho0,Temp0,gradv0,kap0)
         kappa(ix^D) = kap0/unit_opacity
+        
+        if (kappa(ix^D) .ne. kappa(ix^D)) kappa(ix^D) = 0.d0
+
+        kappa(ix^D) = min(10*kappa_e,kappa(ix^D))
     {enddo\ }
+
 
     if (x(ixImax1,nghostcells,1) .ge. xprobmax1) then
       kappa(ixOmax1,:) = kappa(ixOmax1-1,:)
@@ -832,6 +844,21 @@ contains
 
 
   end subroutine get_kappa_CAK2
+
+
+  subroutine ceil_diffcoef(w, wCT, x, ixI^L, ixO^L)
+    use mod_global_parameters
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(inout) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: wCT(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+
+
+    where (w(ixO^S,i_diff_mg) .gt. 1.5d3) &
+      w(ixO^S,i_diff_mg) = 1.5d3
+
+  end subroutine ceil_diffcoef
+
 
   subroutine collapse_to_1D()
     use mod_global_parameters
@@ -850,6 +877,7 @@ contains
     double precision :: mdot(1:domain_nx1)
     double precision :: rho(1:domain_nx1), rho_S(1:domain_nx1), rho_R(1:domain_nx1)
     double precision :: rho2(1:domain_nx1), rho2_S(1:domain_nx1), rho2_R(1:domain_nx1)
+    double precision :: vr2(1:domain_nx1), vr2_S(1:domain_nx1), vr2_R(1:domain_nx1)
 
     integer :: lvl_h(1:domain_nx1), lvl_h_S(1:domain_nx1), lvl_h_R(1:domain_nx1)
     integer :: lvl_l(1:domain_nx1), lvl_l_S(1:domain_nx1), lvl_l_R(1:domain_nx1)
@@ -871,6 +899,7 @@ contains
     vr = 0.0d0
     rho = 0.d0
     rho2 = 0.d0
+    vr2 = 0.d0
     mdot = 0.d0
     p_mdot = 0.d0
     lvl_h = 0.d0
@@ -933,6 +962,10 @@ contains
         rho2(jj) = rho2(jj) &
         + sum(block%w(il:ih,ixMlo2:ixMhi2,rho_)**2)/domain_nx2/nc**2 !> average value on lvl 1
 
+        !> radial velocity squared
+        vr2(jj) = vr2(jj) &
+        + sum((block%w(il:ih,ixMlo2:ixMhi2,mom(1))/block%w(il:ih,ixMlo2:ixMhi2,rho_))**2)/domain_nx2/nc**2
+
         !> Mass loss rate
         mdot(jj) = mdot(jj) &
         + 4*dpi*sum(block%x(il:ih,ixMlo2:ixMhi2,1)**2*block%w(il:ih,ixMlo2:ixMhi2,mom(1)))/domain_nx2/nc**2 !> average value on lvl 1
@@ -962,6 +995,13 @@ contains
     MPI_DOUBLE_PRECISION,MPI_SUM,icomm,ierrmpi)
     rho2=rho2_R
 
+    !> communicate vr squared
+    vr2_S=vr2
+    call mpi_allreduce(vr2_S,vr2_R,domain_nx1,&
+    MPI_DOUBLE_PRECISION,MPI_SUM,icomm,ierrmpi)
+    vr2=vr2_R
+
+
     !> Only keep mdot in interested radii
     do ii = 1,np_mdot
       jj = jp_mdot(ii)
@@ -989,6 +1029,7 @@ contains
     vr_sumt(1:domain_nx1) = vr_sumt(1:domain_nx1) + vr(1:domain_nx1)*dt
     rho_sumt(1:domain_nx1) = rho_sumt(1:domain_nx1) + rho(1:domain_nx1)*dt
     rho2_sumt(1:domain_nx1) = rho2_sumt(1:domain_nx1) + rho2(1:domain_nx1)*dt
+    vr2_sumt(1:domain_nx1) = vr2_sumt(1:domain_nx1) + vr2(1:domain_nx1)*dt
 
     !> Write out average velocity profile
     if (mype==0) then
@@ -996,7 +1037,7 @@ contains
       open(unit=unitanalysis,file=trim(base_filename)//'_vr',status='replace')
       write(unitanalysis,*) 'r | vr_int_theta | vr_int_theta_int_t | lvl_h lvl_l'
       do i=1,domain_nx1
-        write(unitanalysis,'(3f11.7,3i4)') rr(i), vr(i), vr_sumt(i)/sum_time, lvl_h(i), lvl_l(i)
+        write(unitanalysis,'(6f11.7,3i4)') rr(i), vr(i), vr_sumt(i)/sum_time, vr2(i), vr2_sumt(i)/sum_time,dsqrt( vr2_sumt(i)/sum_time - (vr_sumt(i)/sum_time)**2 ) ,lvl_h(i), lvl_l(i)
       enddo
     close(unitanalysis)
     endif
@@ -1084,6 +1125,7 @@ contains
     w(ixO^S,i_CAK) = CAK(ixO^S)/kappa_e
     w(ixO^S,i_CAK2) = CAK2(ixO^S)/kappa_e
     w(ixO^S,i_lambda) = lambda(ixO^S)
+    w(ixO^S,i_Edd) = lambda(ixO^S) + lambda(ixO^S)**2 * fld_R(ixO^S)**2
     w(ixO^S,i_Gamma) = big_gamma(ixO^S)
     w(ixO^S,i_Lum) = Lum(ixO^S)
     w(ixO^S,i_F1) = rad_flux(ixO^S,1)/F_bound

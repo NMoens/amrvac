@@ -460,8 +460,8 @@ contains
     call phys_get_pthermal(w,x,ixI^L,ixO^L,pth)
 
     !if (any(press(ixO^S) .lt. 0.d0)) then
-      mean_p = sum(pth(ixO^S))/(block_nx1*block_nx2)
-      where (pth(ixO^S) .le. small_pressure + smalldouble)
+      mean_p = max(sum(pth(ixO^S))/(block_nx1*block_nx2),small_pressure)
+      where (pth(ixO^S) .le. small_pressure)
         w(ixO^S,e_) = mean_p/(rhd_gamma - 1) +  0.5d0 * sum(w(ixO^S, mom(:))**2, dim=ndim+1)/w(ixO^S,rho_)
       end where
     !endif

@@ -17,10 +17,12 @@ module mod_opal_opacity
     double precision, public :: Log_R_list(2:20)
     double precision, public :: Log_T_list(7:76)
 
-    character(*), parameter, public :: AMRVAC_DIR = "/lhome/nicolasm/amrvac/" ! use call getenv("AMRVAC_DIR", AMRVAC_DIR)
-    character(*), parameter, public :: fileplace = AMRVAC_DIR//"src/rhd/Opacity_tables/"
+    character(255), public :: AMRVAC_DIR
+    character(255), public :: fileplace
+    ! character(*), parameter, public :: AMRVAC_DIR = "/STER/luka/codes/Nico_amrvac/" ! use call getenv("AMRVAC_DIR", AMRVAC_DIR)
+    ! character(*), parameter, public :: fileplace = AMRVAC_DIR//"src/rhd/Opacity_tables/"
 
-    ! character(len=:), allocatable :: AMRVAC_DIR != "/lhome/nicolasm/amrvac/" ! use call getenv("AMRVAC_DIR", AMRVAC_DIR)
+    ! character(len=:), allocatable :: AMRVAC_DIR != "/STER/luka/codes/Nico_amrvac" ! use call getenv("AMRVAC_DIR", AMRVAC_DIR)
     ! character, allocatable :: fileplace != AMRVAC_DIR//"src/rhd/Opacity_tables/"
 
 
@@ -38,6 +40,10 @@ subroutine init_opal(He_abundance)
   !> Y1 actually 1.0, NOT 0.1???
   double precision :: Y1 = 0.1000
   double precision :: Y2 = 0.0999
+
+
+  CALL get_environment_variable("AMRVAC_DIR", AMRVAC_DIR)
+  fileplace = TRIM(AMRVAC_DIR)//"/src/rhd/Opacity_tables/"
 
   ! character(len=std_len) :: DIR_tmp
   ! character(len=std_len) :: FILE_tmp
@@ -134,7 +140,7 @@ subroutine read_table(R, T, K, filename)
     character :: dum
     integer :: row, col
 
-    OPEN(1,status = 'old', FILE=fileplace//filename)
+    OPEN(1,status = 'old', FILE=TRIM(fileplace)//filename)
 
     !> Skip first 4 lines
     do row = 1,4

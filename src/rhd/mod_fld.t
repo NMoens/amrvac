@@ -527,6 +527,73 @@ module mod_fld
         fld_lambda(ixO^S) = 1.d0/3.d0
       endwhere
 
+    case('Thin_Pomraning')
+      !> Calculate R everywhere
+      !> |grad E|/(rho kappa E)
+      normgrad2(ixO^S) = 0.d0 !smalldouble
+
+      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      do idir = 1,ndim
+        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+
+        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+      end do
+
+      call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+
+      !> Calculate the flux limiter, lambda
+      !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
+      fld_lambda(ixO^S) = (2.d0)/(6.d0+3*fld_R(ixO^S))
+
+    case('Thick_Pomraning')
+      !> Calculate R everywhere
+      !> |grad E|/(rho kappa E)
+      normgrad2(ixO^S) = 0.d0 !smalldouble
+
+      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      do idir = 1,ndim
+        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+
+        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+      end do
+
+      call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+
+      !> Calculate the flux limiter, lambda
+      !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
+      fld_lambda(ixO^S) = (6.d0 + 3.d0*fld_R(ixO^S) + fld_R(ixO^S)**2)/(18.d0+9.d0*fld_R(ixO^S)+3.d0*fld_R(ixO^S)**2+fld_R(ixO^S)**3)
+
+    case('SThick_Pomraning')
+      !> Calculate R everywhere
+      !> |grad E|/(rho kappa E)
+      normgrad2(ixO^S) = 0.d0 !smalldouble
+
+      rad_e(ixI^S) = w(ixI^S, iw_r_e)
+      do idir = 1,ndim
+        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
+        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
+
+        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
+        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
+      end do
+
+      call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
+
+      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
+
+      !> Calculate the flux limiter, lambda
+      !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
+      fld_lambda(ixO^S) = (6.d0 + 3.d0*fld_R(ixO^S) + fld_R(ixO^S)**2)/(18.d0+9.d0*fld_R(ixO^S)+3.d0*fld_R(ixO^S)**2+fld_R(ixO^S)**3)
+
+
     case('Minerbo')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
@@ -853,6 +920,7 @@ module mod_fld
       if (diffcrash_resume) then
         if (mg%my_rank == 0) &
         write(*,*) it, ' resiudal high ', res
+        if (res .lt. 1.d3*max_residual) goto 0887
         goto 0888
       endif
        if (mg%my_rank == 0) then
@@ -865,7 +933,7 @@ module mod_fld
     end if
 
     !> Reset dt_diff when diffusion worked out
-    dt_diff = 0.d0
+0887 dt_diff = 0.d0
 
     ! !This is mg_copy_from_tree_gc for psa state
     call mg_copy_from_tree_gc(mg_iphi, iw_r_e, state_to=psa)

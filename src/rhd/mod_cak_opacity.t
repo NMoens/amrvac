@@ -2,22 +2,22 @@ module mod_cak_opacity
     implicit NONE
 
     !> min and max indices for R,T-range in opacity table
-    integer, parameter :: rmin = 2
-    integer, parameter :: rmax = 21
-    integer, parameter :: tmin = 2
-    integer, parameter :: tmax = 21
+    integer, parameter :: Dmin = 2
+    integer, parameter :: Dmax = 16
+    integer, parameter :: Tmin = 2
+    integer, parameter :: Tmax = 19
 
     !> The opacity tables are read once and stored globally in Kappa_vals
-    double precision, public :: alpha_vals(2:21,2:21)
-    double precision, public :: Qbar_vals(2:21,2:21)
-    double precision, public :: Q0_vals(2:21,2:21)
-    double precision, public :: kappa_e_vals(2:21,2:21)
+    double precision, public :: alpha_vals(Dmin:Dmax,Tmin:Tmax)
+    double precision, public :: Qbar_vals(Dmin:Dmax,Tmin:Tmax)
+    double precision, public :: Q0_vals(Dmin:Dmax,Tmin:Tmax)
+    double precision, public :: kappa_e_vals(Dmin:Dmax,Tmin:Tmax)
 
-    double precision, public :: Log_D_list(2:21)
-    double precision, public :: Log_T_list(2:21)
+    double precision, public :: Log_D_list(Dmin:Dmax)
+    double precision, public :: Log_T_list(Tmin:Tmax)
 
-    character(*), parameter, public :: AMRVAC_DIR = "/lhome/nicolasm/amrvac/" ! use call getenv("AMRVAC_DIR", AMRVAC_DIR)
-    character(*), parameter, public :: fileplace = AMRVAC_DIR//"src/rhd/CAK_tables/"
+    character(255), public :: AMRVAC_DIR
+    character(255), public :: fileplace
 
     public :: init_cak
     public :: set_cak_opacity
@@ -28,6 +28,9 @@ module mod_cak_opacity
 !> Here, the tables for different He Abndcs are read and interpolated
 subroutine init_cak()
   ! use mod_global_parameters
+
+  CALL get_environment_variable("AMRVAC_DIR", AMRVAC_DIR)
+  fileplace = TRIM(AMRVAC_DIR)//"/src/rhd/CAK_tables/"
 
   call read_table(Log_D_list, Log_T_list, alpha_vals, "alg_TD")
   call read_table(Log_D_list, Log_T_list, Qbar_vals, "Q_TD")
@@ -45,7 +48,7 @@ subroutine set_cak_opacity(rho,temp, gradv,kappa_cak)
   double precision, intent(in) :: rho, temp, gradv
   double precision, intent(out) :: kappa_cak
 
-  double precision, PARAMETER :: const_c     = 2.99792458d10   ! cm s^-1           ; Speed of light
+  double precision, PARAMETER :: const_c     = 2.99792458d10   ! cm S^-1           ; Speed of light
 
   double precision :: D_input, T_input
   double precision :: alpha_output, Qbar_output, Q0_output, kappa_e_output
@@ -56,18 +59,17 @@ subroutine set_cak_opacity(rho,temp, gradv,kappa_cak)
   D_input = dlog10(rho)
   T_input = dlog10(temp)
 
-  ! print*, 'input D and T'
-  ! print*, D_input, T_input
-
   D_input = min(-10.d0-1.d-5, D_input)
   D_input = max(-20.d0+1.d-5, D_input)
   T_input = min(4.7d0-1.d-5, T_input)
   T_input = max(3.7d0+1.d-5, T_input)
 
-  call get_val(alpha_vals, Log_D_list, Log_T_list, D_input, T_input, alpha_output)
-  call get_val(Qbar_vals, Log_D_list, Log_T_list, D_input, T_input, Qbar_output)
-  call get_val(Q0_vals, Log_D_list, Log_T_list, D_input, T_input, Q0_output)
-  call get_val(kappa_e_vals, Log_D_list, Log_T_list, D_input, T_input, kappa_e_output)
+  call get_val_comb(alpha_vals,Qbar_vals,Q0_vals,kappa_e_vals, &
+                    Log_D_list, Log_T_list, D_input, T_input, &
+                    alpha_output, Qbar_output, Q0_output, kappa_e_output)
+!   call get_val(Qbar_vals, Log_D_list, Log_T_list, D_input, T_input, Qbar_output)
+!   call get_val(Q0_vals, Log_D_list, Log_T_list, D_input, T_input, Q0_output)
+!   call get_val(kappa_e_vals, Log_D_list, Log_T_list, D_input, T_input, kappa_e_output)
 
   ! !> If the outcome is 9.999, look right in the table
   ! do while (K_output .gt. 9.0d0)
@@ -100,21 +102,21 @@ end subroutine set_cak_opacity
 subroutine read_table(D, T, K, filename)
     !> This routine reads in the the values for log kappa, and the values for log T and log R on the x and y axis
 
-    double precision, intent(out) :: K(2:21,2:21), D(2:21), T(2:21)
+    double precision, intent(out) :: K(Dmin:Dmax,Tmin:Tmax), D(Dmin:Dmax), T(Tmin:Tmax)
     character(*), intent(in) :: filename
 
     character :: dum
     integer :: row, col
 
-    OPEN(1,status = 'old', FILE=fileplace//filename)
+    OPEN(1,status = 'old', FILE=TRIM(fileplace)//filename)
 
     !> Read logT
-    READ(1,*) dum,T(2:20)
+    READ(1,*) dum,T(Tmin:Tmax)
+    print*, T(Tmin:Tmax)
 
     !> Read T and K
-    do row = 2,21 !> NOT READING ENTIRE TABLE
-      ! READ(1,'(f4.2,19f7.3)') D(row), K(row,2:20)
-      READ(1,*) D(row), K(row,2:20)
+    do row = Dmin,Dmax !> NOT READING ENTIRE TABLE
+      READ(1,*) D(row), K(row,Tmin:Tmax)
     enddo
 
     CLOSE(1)
@@ -123,45 +125,63 @@ end subroutine read_table
 
 !>This subroutine looks in the table for the four couples (T,R)
 !surrounding a given input for T and R
-subroutine get_val(Kappa_vals, Log_D_list, Log_T_list, D, T, K)
+subroutine get_val_comb(K1_vals,K2_vals,K3_vals,K4_vals, &
+                   Log_D_list, Log_T_list, D, T, &
+                   K1, K2, K3, K4)
 
-    double precision, intent(in) :: Kappa_vals(2:21,2:21)
-    double precision, intent(in) :: Log_D_list(2:21)
-    double precision, intent(in) :: Log_T_list(2:21)
+    double precision, intent(in) :: K1_vals(Dmin:Dmax,Tmin:Tmax)
+    double precision, intent(in) :: K2_vals(Dmin:Dmax,Tmin:Tmax)
+    double precision, intent(in) :: K3_vals(Dmin:Dmax,Tmin:Tmax)
+    double precision, intent(in) :: K4_vals(Dmin:Dmax,Tmin:Tmax)
 
+    double precision, intent(in) :: Log_D_list(Dmin:Dmax)
+    double precision, intent(in) :: Log_T_list(Tmin:Tmax)
     double precision, intent(in) :: D, T
-    double precision, intent(out) :: K
+
+    double precision, intent(out) :: K1
+    double precision, intent(out) :: K2
+    double precision, intent(out) :: K3
+    double precision, intent(out) :: K4
 
     integer :: low_r_index, up_r_index
     integer :: low_t_index, up_t_index
 
     if (D .gt. maxval(Log_D_list)) then
         ! print*, 'Extrapolating in logR'
-        low_r_index = 20
-        up_r_index = 21
+        low_r_index = Dmax-1
+        up_r_index = Dmax
     elseif (D .lt. minval(Log_D_list)) then
         ! print*, 'Extrapolating in logR'
-        low_r_index = 2
-        up_r_index = 3
+        low_r_index = Dmin
+        up_r_index = Dmin+1
     else
-        call get_low_up_index(D, Log_D_list, 2, 21, low_r_index, up_r_index)
+        call get_low_up_index(D, Log_D_list, Dmin, Dmax, low_r_index, up_r_index)
     endif
 
     if (T .gt. maxval(Log_T_list)) then
         ! print*, 'Extrapolating in logT'
-        low_t_index = 20
-        up_t_index = 21
+        low_t_index = Tmax-1
+        up_t_index = Tmax
     elseif ( T .lt. minval(Log_T_list)) then
         ! print*, 'Extrapolating in logT'
-        low_t_index = 2
-        up_t_index = 3
+        low_t_index = Tmin
+        up_t_index = Tmin+1
     else
-        call get_low_up_index(T, Log_T_list, 2, 21, low_t_index, up_t_index)
+        call get_low_up_index(T, Log_T_list, Tmin, Tmax, low_t_index, up_t_index)
     endif
 
-    call interpolate_KRT(low_r_index, up_r_index, low_t_index, up_t_index, Log_D_list, Log_T_list, Kappa_vals, D, T, K)
+    call interpolate_KRT(low_r_index, up_r_index, low_t_index, up_t_index, &
+                       Log_D_list, Log_T_list, K1_vals, D, T, K1)
 
-end subroutine get_val
+    call interpolate_KRT(low_r_index, up_r_index, low_t_index, up_t_index, &
+                       Log_D_list, Log_T_list, K2_vals, D, T, K2)
+
+    call interpolate_KRT(low_r_index, up_r_index, low_t_index, up_t_index, &
+                       Log_D_list, Log_T_list, K3_vals, D, T, K3)
+
+    call interpolate_KRT(low_r_index, up_r_index, low_t_index, up_t_index, &
+                       Log_D_list, Log_T_list, K4_vals, D, T, K4)
+end subroutine get_val_comb
 
 
 !> this subroutine finds the indexes in R and T arrays of the two values surrounding the input R and T
@@ -193,9 +213,9 @@ end subroutine get_low_up_index
 subroutine interpolate_KRT(low_r, up_r, low_t, up_t, Log_D_list, Log_T_list, Kappa_vals, D, T, k_interp)
 
     integer, intent(in) :: low_r, up_r, low_t, up_t
-    double precision, intent(in) :: Kappa_vals(2:21,2:21)
-    double precision, intent(in) :: Log_D_list(2:21)
-    double precision, intent(in) :: Log_T_list(2:21)
+    double precision, intent(in) :: Kappa_vals(Dmin:Dmax,Tmin:Tmax)
+    double precision, intent(in) :: Log_D_list(Dmin:Dmax)
+    double precision, intent(in) :: Log_T_list(Tmin:Tmax)
     double precision, intent(in) :: D,T
     double precision, intent(out) :: k_interp
 

@@ -35,7 +35,7 @@
    typesourcesplit = 'sfs'
    check_small_values = .true.
    small_values_method = 'replace'
-   small_pressure = 1.d-13 !1.d-10
+   small_pressure = 1.d-10 !1.d-13
    small_density = 1.d-8 !1.d-5
 /
 

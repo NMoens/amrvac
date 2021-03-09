@@ -3,7 +3,7 @@ $(error AMRVAC_DIR is not set)
 endif
 
 ARCH ?= default
-NDIM := 1
+NDIM := 3
 
 # By exporting these can be used when building libamrvac
 export ARCH NDIM

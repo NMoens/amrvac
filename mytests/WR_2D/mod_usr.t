@@ -153,9 +153,9 @@ contains
     ! print*, 'log10(L_bound)', log10(L_bound*(unit_radflux*unit_length**2)/L_sun)
     ! print*, 'L_bound', L_bound*(unit_radflux*unit_length**2)/L_sun
     ! ! stop
-    ! print*, 'unit_density', unit_density
-    ! print*, 'unit_time', unit_time
-    ! print*, 'unit_pressure', unit_pressure
+    print*, 'unit_density', unit_density
+    print*, 'unit_time', unit_time
+    print*, 'unit_pressure', unit_pressure
 
     sum_time = 0.d0
 
@@ -376,7 +376,7 @@ contains
 
       if (kappa_out .ne. kappa_out) kappa_out = kappa_e
       kappa_out = max(kappa_out,kappa_e)
-      kappa_out = min(kappa_out,2*kappa_e)
+      kappa_out = min(kappa_out,20*kappa_e)
 
       Local_tauout(ixB^S) = kappa_out*w(ixB^S,rho_)*R_star**2/(3*x(ixB^S,1))
       Local_Tout(ixB^S) = F_bound/StefBoltz*(3.d0/4.d0*Local_tauout(ixB^S))**0.25d0
@@ -385,7 +385,6 @@ contains
 
 !      T_out = max(1.5d4/unit_temperature, T_out)
 !      T_out = max(4.2d4/unit_temperature, T_out)
-
 
       E_out = const_rad_a*(T_out*unit_temperature)**4.d0/unit_pressure
 
@@ -809,6 +808,7 @@ contains
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
+    
     call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
 
     ! call gradient(vel,ixI^L,ixO^L,1,gradvI)
@@ -818,11 +818,11 @@ contains
     gradv(ixO^S) = abs(gradv(ixO^S))
 
     !> Get CAK opacities by reading from table
-    if (rhd_energy) then
-      call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
-    else
+    !if (rhd_energy) then
+    !  call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
+    !else
       call phys_get_trad(w,x,ixI^L,ixO^L,Temp)
-    endif
+    !endif
 
     {do ix^D=ixOmin^D,ixOmax^D\ }
         rho0 = w(ix^D,rho_)*unit_density
@@ -834,7 +834,7 @@ contains
         
         if (kappa(ix^D) .ne. kappa(ix^D)) kappa(ix^D) = 0.d0
 
-        kappa(ix^D) = min(10*kappa_e,kappa(ix^D))
+        kappa(ix^D) = min(15*kappa_e,kappa(ix^D))
     {enddo\ }
 
 
@@ -1037,7 +1037,7 @@ contains
       open(unit=unitanalysis,file=trim(base_filename)//'_vr',status='replace')
       write(unitanalysis,*) 'r | vr_int_theta | vr_int_theta_int_t | lvl_h lvl_l'
       do i=1,domain_nx1
-        write(unitanalysis,'(6f11.7,3i4)') rr(i), vr(i), vr_sumt(i)/sum_time, vr2(i), vr2_sumt(i)/sum_time,dsqrt( vr2_sumt(i)/sum_time - (vr_sumt(i)/sum_time)**2 ) ,lvl_h(i), lvl_l(i)
+        write(unitanalysis,'(6f11.7,3i4)') rr(i), vr(i), vr_sumt(i)/sum_time, vr2(i), vr2_sumt(i)/sum_time,dsqrt( abs(vr2_sumt(i)/sum_time - (vr_sumt(i)/sum_time)**2 )) ,lvl_h(i), lvl_l(i)
       enddo
     close(unitanalysis)
     endif

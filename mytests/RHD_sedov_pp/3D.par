@@ -8,16 +8,16 @@
 &savelist
        itsave(1,1)     = 0
        itsave(1,2)     = 0
-       dtsave_log      = 1.d-1
-       dtsave_dat      = 1.d-1
-       !ditsave_dat    = 1
+       !dtsave_log      = 1.d-1
+       !dtsave_dat      = 1.d-1
+       ditsave_dat    = 1
 /
 
 &stoplist
-       time_init = 1.d-2
+       !time_init = 1.d-2
        time_max        = 1.d-1
        dtmin = 1.d-20
-       !it_max = 50
+       it_max = 50
 /
 
 &methodlist
@@ -30,8 +30,8 @@
        flux_scheme=    20*'tvdlf'
        limiter= 20*'minmod'
        small_values_method = 'replace'
-       small_pressure = 1.d0 !1.d-7
-       small_density = 1.d-7
+       small_pressure = 1.d-2 !1.d-7
+       small_density = 1.d-20
        typesourcesplit = 'sfs'
 /
 
@@ -47,13 +47,16 @@
 &meshlist
        max_blocks = 100000
        refine_criterion = 3
-       refine_max_level = 1 !2
-       domain_nx1= 32 !64
-       domain_nx2= 32 !64
-       domain_nx3= 32 !64
-       block_nx1=8
-       block_nx2=8
-       block_nx3=8
+       refine_max_level = 3
+       w_refine_weight(5) = 1.d0
+       !w_refine_weight(3) = 0.33d0
+       !w_refine_weight(4) = 0.33d0
+       domain_nx1= 32
+       domain_nx2= 32
+       domain_nx3= 32
+       block_nx1= 8
+       block_nx2= 8
+       block_nx3= 8
        iprob=1
        xprobmin1=-1.0d0
        xprobmin2=-1.0d0
@@ -71,7 +74,7 @@
        rhd_energy = .true.
        rhd_gamma = 1.4d0
        rhd_radiation_formalism = 'fld'
-       rhd_radiation_advection = .true.
+       rhd_radiation_advection = .false.
        rhd_radiation_force = .false.
        rhd_energy_interact = .true.
        rhd_radiation_diffusion = .true.
@@ -83,6 +86,7 @@
       fld_fluxlimiter = 'Diffusion'
       fld_interaction_method = 'Halley'
       !diff_coef_filter = .true.
+      fld_bisect_tol = 1.d-15
 /
 
  &sedov_list
@@ -90,7 +94,7 @@
       g0 = 1.d0
       E0 = 135.d0
       Xi0 = 1.d0
-      delta_type = 'Wigner'
-      delta_r = 0.1d0
+      delta_type = 'Corner'
+      delta_r = 0.05d0
       use_pseudoplanar = .false.
   /

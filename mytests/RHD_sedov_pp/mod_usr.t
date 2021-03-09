@@ -11,7 +11,7 @@ module mod_usr
   double precision :: kap0
   double precision :: a
   double precision :: b
-  double precision :: m
+  double precision :: m, n
   double precision :: kp
   double precision :: alpha
   double precision :: Xi0
@@ -23,7 +23,7 @@ module mod_usr
 
   integer :: i_r, i_delta
   integer :: i_Tg, i_Tr
-  integer :: i_kap, i_mom, i_v, i_chi, i_F, i_S
+  integer :: i_kap, i_mom, i_v, i_chi, i_F, i_S, i_p
   logical :: use_pseudoplanar
 
 contains
@@ -54,8 +54,8 @@ contains
     ! PseudoPlanar correction
     usr_source => PseudoPlanar
 
-    ! unit_velocity = 1.d0
-    ! unit_numberdensity = 1.d0/2.3432130399999995E-024
+    unit_velocity = 1.d0
+    unit_numberdensity = 1.d0/2.3432130399999995E-024
 
     ! Active the physics module
     call rhd_activate()
@@ -70,6 +70,7 @@ contains
     i_kap = var_set_extravar("kappa","kappa")
     i_mom = var_set_extravar("m_r","m_r")
     i_v = var_set_extravar("v_r","v_r")
+    i_p = var_set_extravar("p","p")
     i_chi = var_set_extravar("chi","chi")
     i_F = var_set_extravar("F_r","F_r")
     i_S = var_set_extravar("S_r","S_r")
@@ -94,23 +95,18 @@ contains
 
     !> dimensionless parameters
     m = -a
-    b = ndim + 3
-    kp = ((2*b-1)*ndim + 2)/(2*b - 2*a + 1)
-    alpha = (2*b - 2*a + 1)/(2*b - (ndim+2)*a + ndim)
+    n = 3
+    b = n + 3
+    kp = ((2*b-1)*n + 2)/(2*b - 2*a + 1)
+    alpha = (2*b - 2*a + 1)/(2*b - (n+2)*a + n)
 
-    ! g0 = g0/unit_density
-    Gam = 1.d0 !/(unit_pressure/(unit_density*unit_temperature))
+    ! p = <Gam> rho T in cgs
+    Gam = 1.d0 !(const_kB/(const_mp*fld_mu))
 
-    E0 = E0!/unit_pressure
-    ! E0 = (1.04d12/2)**(1.d0/(b - 0.5d0))
-
-    Xi0 = Xi0!/(unit_velocity*unit_pressure/(unit_temperature**4*unit_opacity*unit_density))
-
-    !> Calculate kap0
+    !> kap0 in cgs units (NOT cm2/g !!!)
     kap0 = 4.d0*const_c*const_rad_a/(3.d0*Xi0)
-    ! kap0 = 4.d0*const_c*const_rad_a/(3.d0*Xi0)/(unit_velocity*unit_pressure/unit_temperature**4)
 
-    !> shock strength (dimensionless)
+    !> shock strength (dimensionless), calculated from all cgs quantities
     Omega = 2*Xi0/(Gam**(b+1) * g0**(1-a))*(E0/g0)**(b-1.d0/2.d0)
 
     if (mype ==0) then
@@ -121,7 +117,7 @@ contains
       print*, 'alpha', alpha
       print*, 'Gamma', Gam
       print*, 'kappa0', kap0
-      print*, 'Omega', Omega, 2*E0**(b-1.d0/2.d0)
+      print*, 'Omega', Omega
     endif
 
     if (mype ==0) then
@@ -134,8 +130,9 @@ contains
       print*, 'unit_pressure', unit_pressure
       print*, 'unit_temperature', unit_temperature
       print*, 'unit_opacity', unit_opacity
+      print*, '------------------------------'
+      print*, 'kb/(mp mu)', const_kB/(const_mp*fld_mu)
     endif
-
   end subroutine usr_params_read
 
   !> A routine for specifying initial conditions
@@ -157,7 +154,7 @@ contains
     integer :: ix^D
 
     ! >>>>>>>>>>>> USE DIRAC
-    radius(ixI^S) = abs(x(ixI^S,1)) !dsqrt(sum(x(ixI^S,:)**2,dim=ndim+1))
+    radius(ixI^S) = dsqrt(sum(x(ixI^S,:)**2,dim=ndim+1))
     w(ixI^S,i_r) = radius(ixI^S)
     dirac(ixI^S) = 0.d0
 
@@ -185,6 +182,14 @@ contains
       where( radius(ixI^S) .le. xprobmin1+dxlevel(1)) &
         dirac(ixI^S) = 1.d0
 
+    {^IFTHREED
+    case('Corner')
+        dirac(ixI^S) = 0.d0
+        !> 1,1,1
+        if ((x(ixImin^D,1) .lt. 0.d0) .and. (x(ixImin^D,2) .lt. 0.d0) .and. (x(ixImin^D,3) .lt. 0.d0)) &
+        dirac(ixOmin1,ixOmin2,ixOmin3) = 1.d0/8.d0
+    }
+
     case('Triangle')
     !> Use a triangle function to approximate dirac delta
     where (radius(ixI^S) .lt. delta_r) &
@@ -198,49 +203,55 @@ contains
     !> Set density
     w(ixI^S,rho_) = g0*radius(ixI^S)**(-kp)
     w(ixI^S,mom(:)) = zero
-    w(ixI^S,e_) = small_pressure/(rhd_gamma-1.d0) + E0*dirac(ixI^S)
-    ! w(ixI^S,e_) = w(ixI^S,rho_)*0.5d0/(rhd_gamma-1)
+    w(ixI^S,e_) = small_pressure/(rhd_gamma-1.d0)
     call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
     w(ixI^S,r_e) = const_rad_a*(Tgas(ixI^S)*unit_temperature)**4/unit_pressure
+    w(ixI^S,e_) = w(ixI^S,e_) + E0*dirac(ixI^S)
 
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
     w(ixO^S,i_diff_mg) = (const_c/unit_velocity)*lambda(ixO^S)/(kappa(ixO^S)*w(ixO^S,rho_))
 
     ! !>>>>>>>>>>>> USE FILE
-
-    ! radius(ixI^S) = abs(x(ixI^S,1)) !dsqrt(sum(x(ixI^S,:)**2,dim=ndim+1))
+    !
+    ! radius(ixI^S) = dsqrt(sum(x(ixI^S,:)**2,dim=ndim+1))
+    ! {^IFONED radius(ixI^S) = x(ixI^S,1)}
+    !
     ! w(ixI^S,i_r) = radius(ixI^S)
     ! dirac(ixI^S) = 0.d0
     !
     ! !> Set density
     ! w(ixI^S,rho_) = g0*radius(ixI^S)**(-kp)
     ! w(ixI^S,mom(:)) = zero
-    ! w(ixI^S,e_) = small_pressure/(rhd_gamma-1.d0)*unit_pressure
+    ! w(ixI^S,e_) = small_pressure/(rhd_gamma-1.d0)!*unit_pressure
     ! ! w(ixI^S,e_) = w(ixI^S,rho_)*0.5d0/(rhd_gamma-1)
     ! call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
-    ! w(ixI^S,r_e) = const_rad_a*(Tgas(ixI^S)*unit_temperature)**4 !/unit_pressure
+    ! w(ixI^S,r_e) = const_rad_a*(Tgas(ixI^S)*unit_temperature)**4/unit_pressure
     !
+    !
+    ! !> Here I read in everything in CGS (?)
     ! {do ix^D=ixOmin^D,ixOmax^D\ }
     !   if (radius(ix^D) .lt. 0.27724) then
+    !   ! if (radius(ix^D) .lt. 0.937) then
     !     rho_a = read_initial_conditions(radius(ix^D),2)
     !     v_a = read_initial_conditions(radius(ix^D),3)
-    !     p_a = read_initial_conditions(radius(ix^D),4)*const_kB/(const_mp*fld_mu)
+    !     p_a = read_initial_conditions(radius(ix^D),4) !*const_kB/(const_mp*fld_mu) !? the pressure column in the file is actually just rho*T
     !     T_a = read_initial_conditions(radius(ix^D),5)
     !     ! chi_a = read_initial_conditions(radius(ix^D),6)
     !
     !     w(ix^D,rho_) = rho_a
     !     w(ix^D,mom(:)) = rho_a*v_a !*x(ix^D,:)/radius(ix^D)
     !     w(ix^D,e_) = p_a/(rhd_gamma - 1) + rho_a*v_a**2/2
-    !     w(ix^D,r_e) = const_rad_a*T_a**4 !* (unit_temperature**4/unit_pressure)
+    !     w(ix^D,r_e) = const_rad_a*T_a**4 * (unit_temperature**4/unit_pressure)
     !     ! w(ix^D,i_chi) = chi_a
     !   endif
     ! {enddo\ }
     !
-    ! w(ixO^S,rho_) = w(ixO^S,rho_)/unit_density
-    ! w(ixO^S,mom(:)) = w(ixO^S,mom(:))/(unit_density*unit_velocity)
-    ! w(ixO^S,e_) = w(ixO^S,e_)/unit_pressure
-    ! w(ixO^S,r_e) = w(ixO^S,r_e)/unit_pressure
+    ! !> Convert all to code units
+    ! w(ixO^S,rho_) = w(ixO^S,rho_) !/unit_density
+    ! w(ixO^S,mom(:)) = w(ixO^S,mom(:)) !/(unit_density*unit_velocity)
+    ! w(ixO^S,e_) = w(ixO^S,e_) !/unit_pressure
+    ! w(ixO^S,r_e) = w(ixO^S,r_e) !/unit_pressure
     !
     ! call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     ! call fld_get_fluxlimiter(w, x, ixI^L, ixO^L, lambda, fld_R)
@@ -259,6 +270,7 @@ contains
     w(:) = 0.d0
 
     open(unit=1, file='1D_sedov_in')
+    ! open(unit=1, file='1D_prof_sedov_t0.06')
     ! read(1,*) !> header
     read(1,*) w !> first line of data
     do ll = 1,526
@@ -371,7 +383,7 @@ contains
 
   subroutine kramers_opacity(ixI^L,ixO^L,w,x,kappa)
     use mod_global_parameters
-    use mod_physics, only: phys_get_tgas
+    use mod_physics, only: phys_get_trad,phys_get_tgas
     use mod_fld
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -385,8 +397,9 @@ contains
     ! where (Temp(ixO^S) .lt. 1.d0) &
     !   Temp(ixO^S) = 1.d0
 
-    kappa(ixO^S) = kap0 * w(ixO^S,rho_)**m * Temp(ixO^S)**(-ndim)
+    kappa(ixO^S) = kap0 * w(ixO^S,rho_)**m * (Temp(ixO^S))**(-n)
     kappa(ixO^S) = abs(kappa(ixO^S)/w(ixO^S,rho_)) !> KRUMHOLZ DEF OF KAPPA is muy kappa*rho
+
 
   end subroutine kramers_opacity
 
@@ -399,7 +412,7 @@ contains
     double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
     double precision, intent(out):: kappa(ixO^S)
 
-    kappa(ixO^S) = 1.d10/unit_opacity
+    kappa(ixO^S) = 1.d5
 
   end subroutine planck_opacity
 
@@ -412,8 +425,10 @@ contains
     double precision, intent(in) :: x(ixI^S, 1:ndim)
 
 
-    where (w(ixO^S,i_diff_mg) .lt. 1.d-3) &
-      w(ixO^S,i_diff_mg) = 1.d-3
+    where (w(ixO^S,i_diff_mg) .lt. 1.d11) &
+      w(ixO^S,i_diff_mg) = 1.d11
+
+    ! print*, 'fixing the diffcoeff'
 
   end subroutine floor_diffcoef
 
@@ -436,13 +451,14 @@ contains
     call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
 
 
-    w(ixO^S,i_kap) = kappa(ixO^S)
-    w(ixO^S,i_Tg) = Tgas(ixO^S)*unit_temperature
-    w(ixO^S,i_Tr) = Trad(ixO^S)*unit_temperature
+    w(ixO^S,i_kap) = kappa(ixO^S)!*unit_opacity
+    w(ixO^S,i_Tg) = Tgas(ixO^S)!*unit_temperature
+    w(ixO^S,i_Tr) = Trad(ixO^S)!*unit_temperature
     w(ixO^S,i_chi) = w(ixO^S,rho_)**a * Tgas(ixO^S)**b
-    w(ixO^S,i_mom) = dsqrt(sum(w(ixI^S,mom(:))**2,dim=ndim+1))
-    w(ixO^S,i_v) = w(ixO^S,i_mom)/w(ixO^S,rho_)*unit_velocity
-    w(ixO^S,i_F) = dsqrt(sum(rad_flux(ixI^S,:)**2,dim=ndim+1))*unit_radflux
+    w(ixO^S,i_mom) = dsqrt(sum(w(ixO^S,mom(:))**2,dim=ndim+1))
+    w(ixO^S,i_v) = w(ixO^S,i_mom)/w(ixO^S,rho_) !*unit_velocity
+    w(ixO^S,i_p) = (w(ixO^S,e_)-half*w(ixO^S,i_mom)**2/w(ixO^S,rho_))*(rhd_gamma-1) !*unit_velocity
+    w(ixO^S,i_F) = dsqrt(sum(rad_flux(ixI^S,:)**2,dim=ndim+1)) !*unit_radflux
 
   end subroutine update_extravars
 

@@ -270,7 +270,9 @@ contains
 
     select case (rhd_radiation_formalism)
     case('fld')
-      call fld_init(He_abundance, rhd_radiation_diffusion, rhd_gamma)
+      call fld_init(He_abundance, rhd_radiation_diffusion, rhd_gamma, .false.)
+    case('afld')
+      call fld_init(He_abundance, rhd_radiation_diffusion, rhd_gamma, .true.)
     case default
       call mpistop('Radiation formalism unknown')
     end select
@@ -377,8 +379,9 @@ contains
           mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
        case ('cont')
           ! d/dx u = 0
-          mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
-          ! mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
+          ! mg%bc(iB, mg_iphi)%bc_type = mg_bc_continuous
+          mg%bc(iB, mg_iphi)%bc_type = mg_bc_neumann
+          mg%bc(iB, mg_iphi)%bc_value = 0.0_dp
        case ('periodic')
           ! Nothing to do here
        case ('noinflow')
@@ -727,6 +730,8 @@ contains
     select case (rhd_radiation_formalism)
     case('fld')
       call fld_get_radpress(w, x, ixI^L, ixO^L, prad)
+    case('afld')
+      call afld_get_radpress(w, x, ixI^L, ixO^L, prad)
     case default
       call mpistop('Radiation formalism unknown')
     end select
@@ -1123,19 +1128,37 @@ contains
 
     select case(rhd_radiation_formalism)
     case('fld')
+
+      !> radiation force
+      if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
+        rhd_energy,qsourcesplit,active)
+
+      if (check_small_values .and. small_values_use_primitive) then
+        call rhd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'fld_e_interact')
+      end if
+
       !> photon tiring, heating and cooling
       if (rhd_energy) then
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
       endif
 
+    case('afld')
+
+      !> radiation force
+      if (rhd_radiation_force) call get_afld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
+        rhd_energy,qsourcesplit,active)
+
       if (check_small_values .and. small_values_use_primitive) then
         call rhd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'fld_e_interact')
       end if
 
-      !> radiation force
-      if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
+      !> photon tiring, heating and cooling
+      if (rhd_energy) then
+      if (rhd_energy_interact) call get_afld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
+      endif
+
     case default
       call mpistop('Radiation formalism unknown')
     end select

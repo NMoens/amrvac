@@ -673,7 +673,7 @@ contains
       kappa(ixOmax1) = kappa(ixOmax1-1)
     endif
 
-    print*, kappa
+    ! print*, kappa
 
   end subroutine get_kappa_CAK2
 
@@ -745,7 +745,12 @@ contains
 
     call get_kappa_CAK2(ixI^L,ixO^L,w,x,CAK2)
 
-    g_rad(ixO^S) = (OPAL(ixO^S)+CAK(ixO^S))*rad_flux(ixO^S,1)/(const_c/unit_velocity)
+    if (read_cak_table) then
+       g_rad(ixO^S) = (OPAL(ixO^S)+CAK2(ixO^S))*rad_flux(ixO^S,1)/(const_c/unit_velocity)
+    else
+       g_rad(ixO^S) = (OPAL(ixO^S)+CAK(ixO^S))*rad_flux(ixO^S,1)/(const_c/unit_velocity)
+    endif
+
     g_grav(ixO^S) = const_G*mass/radius(ixO^S)**2*(unit_time**2/unit_length)
     big_gamma(ixO^S) = g_rad(ixO^S)/g_grav(ixO^S)
 

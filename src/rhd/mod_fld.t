@@ -149,7 +149,7 @@ module mod_fld
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!! DELETE WHEN DONE
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! i_test = var_set_extravar('test','test')
+    i_test = var_set_extravar('test','test')
 
     if (rhd_radiation_diffusion) then
       if (fld_diff_scheme .eq. 'mg') then
@@ -527,73 +527,6 @@ module mod_fld
         fld_lambda(ixO^S) = 1.d0/3.d0
       endwhere
 
-    case('Thin_Pomraning')
-      !> Calculate R everywhere
-      !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = 0.d0 !smalldouble
-
-      rad_e(ixI^S) = w(ixI^S, iw_r_e)
-      do idir = 1,ndim
-        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
-
-        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
-      end do
-
-      call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-
-      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
-
-      !> Calculate the flux limiter, lambda
-      !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
-      fld_lambda(ixO^S) = (2.d0)/(6.d0+3*fld_R(ixO^S))
-
-    case('Thick_Pomraning')
-      !> Calculate R everywhere
-      !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = 0.d0 !smalldouble
-
-      rad_e(ixI^S) = w(ixI^S, iw_r_e)
-      do idir = 1,ndim
-        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
-
-        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
-      end do
-
-      call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-
-      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
-
-      !> Calculate the flux limiter, lambda
-      !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
-      fld_lambda(ixO^S) = (6.d0 + 3.d0*fld_R(ixO^S) + fld_R(ixO^S)**2)/(18.d0+9.d0*fld_R(ixO^S)+3.d0*fld_R(ixO^S)**2+fld_R(ixO^S)**3)
-
-    case('SThick_Pomraning')
-      !> Calculate R everywhere
-      !> |grad E|/(rho kappa E)
-      normgrad2(ixO^S) = 0.d0 !smalldouble
-
-      rad_e(ixI^S) = w(ixI^S, iw_r_e)
-      do idir = 1,ndim
-        call gradientO(rad_e,x,ixI^L,ixO^L,idir,grad_r_eO,nghostcells)
-        normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_eO(ixO^S)**2
-
-        ! call gradient(rad_e,ixI^L,ixO^L,idir,grad_r_e)
-        ! normgrad2(ixO^S) = normgrad2(ixO^S) + grad_r_e(ixO^S)**2
-      end do
-
-      call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
-
-      fld_R(ixO^S) = dsqrt(normgrad2(ixO^S))/(kappa(ixO^S)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e))
-
-      !> Calculate the flux limiter, lambda
-      !> Levermore and Pomraning: lambda = 1/R(coth(R)-1/R)
-      fld_lambda(ixO^S) = (6.d0 + 3.d0*fld_R(ixO^S) + fld_R(ixO^S)**2)/(18.d0+9.d0*fld_R(ixO^S)+3.d0*fld_R(ixO^S)**2+fld_R(ixO^S)**3)
-
-
     case('Minerbo')
       !> Calculate R everywhere
       !> |grad E|/(rho kappa E)
@@ -841,7 +774,7 @@ module mod_fld
 
     integer                      :: n
     double precision             :: res, max_residual, lambda
-    integer, parameter           :: max_its = 5000
+    integer, parameter           :: max_its = 100
 
     integer                        :: iw_to,iw_from
     integer                        :: iigrid, igrid, id
@@ -920,7 +853,7 @@ module mod_fld
       if (diffcrash_resume) then
         if (mg%my_rank == 0) &
         write(*,*) it, ' resiudal high ', res
-        if (res .lt. 1.d3*max_residual) goto 0887
+        ! if (res .lt. 1.d1* max_residual) goto 0887
         goto 0888
       endif
        if (mg%my_rank == 0) then
@@ -933,7 +866,8 @@ module mod_fld
     end if
 
     !> Reset dt_diff when diffusion worked out
-0887 dt_diff = 0.d0
+!0887 dt_diff = 0.d0
+    dt_diff = 0.d0
 
     ! !This is mg_copy_from_tree_gc for psa state
     call mg_copy_from_tree_gc(mg_iphi, iw_r_e, state_to=psa)
@@ -1221,6 +1155,9 @@ module mod_fld
     !   e_gas(ix^D) = max(e_gas(ix^D),small_pressure/(fld_gamma-1.d0))
     ! {enddo\}
 
+    !{do ix^D=ixOmin^D,ixOmax^D\ }
+    !  w(ix^D,iw_e) = max(e_gas(ix^D),small_pressure/(fld_gamma - 1))
+    !{enddo\}
     w(ixO^S,iw_e) = e_gas(ixO^S)
 
     !> Beginning of module substracted wCT Ekin
@@ -1253,7 +1190,7 @@ module mod_fld
     max_its = 1d7
 
     bisect_a = zero
-    bisect_b = 1.2d0*max(abs(c0/c1),abs(c0)**(1.d0/4.d0))
+    bisect_b = min(abs(c0/c1),abs(c0)**(1.d0/4.d0))+smalldouble
 
     ! do while (abs(Polynomial_Bisection(bisect_b, c0, c1)-Polynomial_Bisection(bisect_a, c0, c1))&
     !    .ge. fld_bisect_tol*min(e_gas,E_rad))
@@ -1340,6 +1277,7 @@ module mod_fld
       xval = xval + deltax
       ii = ii + 1
       if (ii .gt. 1d3) then
+        print*, 'skip to bisection algorithm'
         call Bisection_method(e_gas, E_rad, c0, c1)
         return
       endif

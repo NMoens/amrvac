@@ -1123,26 +1123,27 @@ contains
 
     select case(rhd_radiation_formalism)
     case('fld')
+      !> radiation force
+      if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
+        rhd_energy,qsourcesplit,active)
+
+      if (check_small_values .and. small_values_use_primitive) then
+        call rhd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'fld_e_interact')
+      end if
+
       !> photon tiring, heating and cooling
       if (rhd_energy) then
       if (rhd_energy_interact) call get_fld_energy_interact(qdt,ixI^L,ixO^L,wCT,w,x,&
         rhd_energy,qsourcesplit,active)
       endif
 
-      if (check_small_values .and. small_values_use_primitive) then
-        call rhd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'fld_e_interact')
-      end if
-
-      !> radiation force
-      if (rhd_radiation_force) call get_fld_rad_force(qdt,ixI^L,ixO^L,wCT,w,x,&
-        rhd_energy,qsourcesplit,active)
     case default
       call mpistop('Radiation formalism unknown')
     end select
 
     ! !>  NOT necessary for calculation, just want to know the grid-dependent-timestep
-    ! call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
-    ! w(ixI^S,i_test) = cmax(ixI^S)
+    call rhd_get_cmax(w, x, ixI^L, ixO^L, 2, cmax)
+    w(ixI^S,i_test) = cmax(ixI^S)
 
   end subroutine rhd_add_radiation_source
 

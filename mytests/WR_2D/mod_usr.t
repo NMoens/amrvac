@@ -93,7 +93,7 @@ contains
     i_CAK = var_set_extravar("CAK", "CAK")
     i_CAK2 = var_set_extravar("CAK2", "CAK2")
     i_lambda = var_set_extravar("lambda", "lambda")
-    i_Edd = var_set_extravar("Edd", "Edd")    
+    i_Edd = var_set_extravar("Edd", "Edd")
     i_Gamma = var_set_extravar("Gamma", "Gamma")
     i_Lum = var_set_extravar("Lum", "Lum")
     i_F1 = var_set_extravar("F1", "F1")
@@ -167,7 +167,7 @@ contains
     rho2_sumt = 0.d0
     allocate(vr2_sumt(domain_nx1))
     vr2_sumt = 0.d0
- 
+
 
   end subroutine initglobaldata_usr
 
@@ -831,7 +831,7 @@ contains
         gradv0 = gradv(ix^D)*(unit_velocity/unit_length)
         call set_cak_opacity(rho0,Temp0,gradv0,kap0)
         kappa(ix^D) = kap0/unit_opacity
-        
+
         if (kappa(ix^D) .ne. kappa(ix^D)) kappa(ix^D) = 0.d0
 
         kappa(ix^D) = min(10*kappa_e,kappa(ix^D))
@@ -1092,7 +1092,7 @@ contains
     call fld_get_opacity(w, x, ixI^L, ixO^L, kappa)
     call fld_get_radflux(w, x, ixI^L, ixO^L, rad_flux)
 
-    if (rhd_energy)    call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
+    if (rhd_energy) call rhd_get_tgas(w, x, ixI^L, ixO^L, Tgas)
     call rhd_get_trad(w, x, ixI^L, ixO^L, Trad)
 
     call get_kappa_OPAL(ixI^L,ixO^L,w,x,OPAL)

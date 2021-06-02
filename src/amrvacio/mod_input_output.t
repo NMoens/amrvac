@@ -1671,7 +1671,7 @@ contains
     if (version > 4) then
       call MPI_FILE_READ(fh, periodic, ndim, MPI_LOGICAL, st, er)
       if (any(periodic .neqv. periodB)) &
-           call mpistop("change in periodicity in par file")
+           ! call mpistop("change in periodicity in par file")
 
       call MPI_FILE_READ(fh, geom_name, name_len, MPI_CHARACTER, st, er)
 

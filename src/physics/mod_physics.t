@@ -492,6 +492,7 @@ contains
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out):: tgas(ixI^S)
 
+    tgas(ixI^S) = 0.d0
     call mpistop("No get_tgas method specified")
   end subroutine dummy_get_tgas
 
@@ -503,6 +504,7 @@ contains
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out):: trad(ixI^S)
 
+    trad(ixI^S) = 0.d0
     call mpistop("No get_tgas method specified")
   end subroutine dummy_get_trad
 

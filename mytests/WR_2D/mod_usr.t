@@ -803,8 +803,9 @@ contains
     double precision :: Temp(ixI^S), rho0, temp0, gradv0, kap0
     integer :: ix^D
 
+    double precision :: alpha, Qbar, Q0, kappa_e_t
+    double precision :: tau, M_t
     double precision :: vel(ixI^S), gradv(ixO^S), gradvI(ixI^S)
-    double precision :: xx(ixO^S), alpha(ixO^S)
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
@@ -829,12 +830,17 @@ contains
         Temp0 = Temp(ix^D)*unit_temperature
         Temp0 = max(Temp0,1.d4)
         gradv0 = gradv(ix^D)*(unit_velocity/unit_length)
-        call set_cak_opacity(rho0,Temp0,gradv0,kap0)
+        call set_cak_opacity(rho0,Temp0,gradv0,alpha, Qbar, Q0, kappa_e_t)
+
+        tau = (kappa_e*unit_opacity)*rho0*const_c/gradv0
+        M_t = Qbar/(1-alpha)*((1+Q0*tau)**(1-alpha) - 1)/(Q0*tau)
+        kap0 = (kappa_e*unit_opacity)*M_t
+
         kappa(ix^D) = kap0/unit_opacity
 
         if (kappa(ix^D) .ne. kappa(ix^D)) kappa(ix^D) = 0.d0
 
-        kappa(ix^D) = min(10*kappa_e,kappa(ix^D))
+        kappa(ix^D) = min(50*kappa_e,kappa(ix^D))
     {enddo\ }
 
 
@@ -858,6 +864,45 @@ contains
       w(ixO^S,i_diff_mg) = 1.5d3
 
   end subroutine ceil_diffcoef
+
+
+  subroutine refine_base(igrid,level,ixG^L,ix^L,qt,w,x,refine,coarsen)
+    ! Enforce additional refinement or coarsening
+    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+    ! you must set consistent values for integers refine/coarsen:
+    ! refine = -1 enforce to not refine
+    ! refine =  0 doesn't enforce anything
+    ! refine =  1 enforce refinement
+    ! coarsen = -1 enforce to not coarsen
+    ! coarsen =  0 doesn't enforce anything
+    ! coarsen =  1 enforce coarsen
+    use mod_global_parameters
+
+    integer, intent(in) :: igrid, level, ixG^L, ix^L
+    double precision, intent(in) :: qt, w(ixG^S,1:nw), x(ixG^S,1:ndim)
+    integer, intent(inout) :: refine, coarsen
+
+    double precision :: lim_1, lim_2, lim_3, lim_4
+
+    lim_3 = 1.5d0
+    lim_2 = 2.5d0
+    lim_1 = 4.d0
+
+    !refine= -1
+    !coarsen= -1
+
+    if (all(x(ixG^S,1) < lim_3)) then
+      if (level > 4) coarsen=1
+      if (level < 4) refine=1
+    elseif (all(x(ixG^S,1) < lim_2)) then
+      if (level > 3) coarsen=1
+      if (level < 3) refine=1
+    elseif (all(x(ixG^S,1) < lim_1)) then
+      if (level > 2) coarsen=1
+      if (level < 2) refine=1
+    endif
+
+  end subroutine refine_base
 
 
   subroutine collapse_to_1D()

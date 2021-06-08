@@ -700,9 +700,10 @@ contains
     double precision :: Temp(ixImin1:ixImax1), rho0, temp0, gradv0, kap0
     integer :: ix1
 
+    double precision :: alpha, Qbar, Q0, kappa_e_t
+    double precision :: tau, M_t
     double precision :: vel(ixImin1:ixImax1), gradv(ixOmin1:ixOmax1),&
         gradvI(ixImin1:ixImax1)
-    double precision :: xx(ixOmin1:ixOmax1), alpha(ixOmin1:ixOmax1)
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
@@ -728,18 +729,40 @@ contains
         Temp0 = Temp(ix1)*unit_temperature
         Temp0 = max(Temp0,1.d4)
         gradv0 = gradv(ix1)*(unit_velocity/unit_length)
-        call set_cak_opacity(rho0,Temp0,gradv0,kap0)
+        call set_cak_opacity(rho0,Temp0,gradv0,alpha, Qbar, Q0, kappa_e_t)
+
+        tau = (kappa_e*unit_opacity)*rho0*const_c/gradv0
+        M_t = Qbar/(1-alpha)*((1+Q0*tau)**(1-alpha) - 1)/(Q0*tau)
+        kap0 = (kappa_e*unit_opacity)*M_t
+
         kappa(ix1) = kap0/unit_opacity
+
+        if (kappa(ix1) .ne. kappa(ix1)) kappa(ix1) = 0.d0
+
+        kappa(ix1) = min(50*kappa_e,kappa(ix1))
     enddo
     
+
 
     if (x(ixImax1,1) .ge. xprobmax1) then
       kappa(ixOmax1) = kappa(ixOmax1-1)
     endif
 
-    print*, kappa
-
   end subroutine get_kappa_CAK2
+
+
+  subroutine ceil_diffcoef(w, wCT, x, ixImin1,ixImax1, ixOmin1,ixOmax1)
+    use mod_global_parameters
+    integer, intent(in)          :: ixImin1,ixImax1, ixOmin1,ixOmax1
+    double precision, intent(inout) :: w(ixImin1:ixImax1, 1:nw)
+    double precision, intent(in) :: wCT(ixImin1:ixImax1, 1:nw)
+    double precision, intent(in) :: x(ixImin1:ixImax1, 1:ndim)
+
+
+    where (w(ixOmin1:ixOmax1,i_diff_mg) .gt. 1.5d3) w(ixOmin1:ixOmax1,&
+       i_diff_mg) = 1.5d3
+
+  end subroutine ceil_diffcoef
 
   subroutine refine_base(igrid,level,ixGmin1,ixGmax1,ixmin1,ixmax1,qt,w,x,&
      refine,coarsen)
@@ -759,25 +782,28 @@ contains
         x(ixGmin1:ixGmax1,1:ndim)
     integer, intent(inout) :: refine, coarsen
 
-    refine=0
-    coarsen=0
+    double precision :: lim_1, lim_2, lim_3, lim_4
 
-    !> Refine close to base
-    refine = -1
+    lim_3 = 1.5d0
+    lim_2 = 2.5d0
+    lim_1 = 4.d0
 
-    if (qt .gt. 1.d0) then
-      if (any(x(ixGmin1:ixGmax1,1) < 1.d0)) refine=1
-    endif
+    !refine= -1
+    !coarsen= -1
 
-    if (qt .gt. 2.d0) then
-      if (any(x(ixGmin1:ixGmax1,1) < 1.d0)) refine=1
-    endif
-
-    if (qt .gt. 4.d0) then
-      if (any(x(ixGmin1:ixGmax1,1) < 1.d0)) refine=1
+    if (all(x(ixGmin1:ixGmax1,1) < lim_3)) then
+      if (level > 4) coarsen=1
+      if (level < 4) refine=1
+    elseif (all(x(ixGmin1:ixGmax1,1) < lim_2)) then
+      if (level > 3) coarsen=1
+      if (level < 3) refine=1
+    elseif (all(x(ixGmin1:ixGmax1,1) < lim_1)) then
+      if (level > 2) coarsen=1
+      if (level < 2) refine=1
     endif
 
   end subroutine refine_base
+
 
 
   subroutine update_extravars(igrid,level,ixImin1,ixImax1,ixOmin1,ixOmax1,qt,w,&

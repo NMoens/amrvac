@@ -859,16 +859,13 @@ contains
     double precision :: Temp(ixI^S), rho0, temp0, gradv0, kap0
     integer :: ix^D
 
+    double precision :: alpha, Qbar, Q0, kappa_e_t
+    double precision :: tau, M_t
     double precision :: vel(ixI^S), gradv(ixO^S), gradvI(ixI^S)
-    double precision :: xx(ixO^S), alpha(ixO^S)
-
-
-    if (.not. CAK_zero) then
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
-
     call gradientO(vel,x,ixI^L,ixO^L,1,gradv,nghostcells)
 
     ! call gradient(vel,ixI^L,ixO^L,1,gradvI)
@@ -878,18 +875,23 @@ contains
     gradv(ixO^S) = abs(gradv(ixO^S))
 
     !> Get CAK opacities by reading from table
-    !if (rhd_energy) then
-    !  call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
-    !else
+    if (rhd_energy) then
+      call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
+    else
       call phys_get_trad(w,x,ixI^L,ixO^L,Temp)
-    !endif
+    endif
 
     {do ix^D=ixOmin^D,ixOmax^D\ }
         rho0 = w(ix^D,rho_)*unit_density
         Temp0 = Temp(ix^D)*unit_temperature
         Temp0 = max(Temp0,1.d4)
         gradv0 = gradv(ix^D)*(unit_velocity/unit_length)
-        call set_cak_opacity(rho0,Temp0,gradv0,kap0)
+        call set_cak_opacity(rho0,Temp0,gradv0,alpha, Qbar, Q0, kappa_e_t)
+
+        tau = (kappa_e*unit_opacity)*rho0*const_c/gradv0
+        M_t = Qbar/(1-alpha)*((1+Q0*tau)**(1-alpha) - 1)/(Q0*tau)
+        kap0 = (kappa_e*unit_opacity)*M_t
+
         kappa(ix^D) = kap0/unit_opacity
 
         if (kappa(ix^D) .ne. kappa(ix^D)) kappa(ix^D) = 0.d0
@@ -898,16 +900,10 @@ contains
     {enddo\ }
 
 
-    if (x(ixImax1,nghostcells,nghostcells,1) .ge. xprobmax1) then
-      kappa(ixOmax1,:,:) = kappa(ixOmax1-1,:,:)
+    if (x(ixImax1,nghostcells,1) .ge. xprobmax1) then
+      kappa(ixOmax1,:) = kappa(ixOmax1-1,:)
     endif
 
-    else
-
-    !> test with no cak
-    kappa(ixO^S) = 0.d0
-
-    endif
 
   end subroutine get_kappa_CAK2
 
@@ -996,7 +992,7 @@ contains
     integer :: lvl_h(1:domain_nx1), lvl_h_S(1:domain_nx1), lvl_h_R(1:domain_nx1)
     integer :: lvl_l(1:domain_nx1), lvl_l_S(1:domain_nx1), lvl_l_R(1:domain_nx1)
 
-    ! if (refine_max_level .ne. 1) 
+    ! if (refine_max_level .ne. 1)
     ! call mpistop("collapse_to_1D doesnt work YET with mpi")
 
     !> #R_star -1 in simulation

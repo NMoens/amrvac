@@ -3,9 +3,9 @@ module mod_cak_opacity
 
     !> min and max indices for R,T-range in opacity table
     integer, parameter :: Dmin = 2
-    integer, parameter :: Dmax = 16
+    integer, parameter :: Dmax = 21
     integer, parameter :: Tmin = 2
-    integer, parameter :: Tmax = 19
+    integer, parameter :: Tmax = 21
 
     !> The opacity tables are read once and stored globally in Kappa_vals
     double precision, public :: alpha_vals(Dmin:Dmax,Tmin:Tmax)
@@ -32,10 +32,10 @@ subroutine init_cak()
   CALL get_environment_variable("AMRVAC_DIR", AMRVAC_DIR)
   fileplace = TRIM(AMRVAC_DIR)//"/src/rhd/CAK_tables/"
 
-  call read_table(Log_D_list, Log_T_list, alpha_vals, "alg_TD")
-  call read_table(Log_D_list, Log_T_list, Qbar_vals, "Q_TD")
-  call read_table(Log_D_list, Log_T_list, Q0_vals, "Q0g_TD")
-  call read_table(Log_D_list, Log_T_list, kappa_e_vals, "K_TD")
+  call read_table(Log_D_list, Log_T_list, alpha_vals, "al_TD")
+  call read_table(Log_D_list, Log_T_list, Qbar_vals, "Qb_TD")
+  call read_table(Log_D_list, Log_T_list, Q0_vals, "Q0_TD")
+  call read_table(Log_D_list, Log_T_list, kappa_e_vals, "Ke_TD")
 
   ! print*, "Read Luka's tables"
 
@@ -44,57 +44,33 @@ end subroutine init_cak
 !> This subroutine calculates the opacity for
 !> a given temperature-density structure.
 !> The opacities are read from a table that has the initialised metalicity
-subroutine set_cak_opacity(rho,temp, gradv,kappa_cak)
+subroutine set_cak_opacity(rho,temp, gradv,alpha_output, Qbar_output, Q0_output, kappa_e_output)
   double precision, intent(in) :: rho, temp, gradv
-  double precision, intent(out) :: kappa_cak
+  double precision, intent(out) :: alpha_output, Qbar_output, Q0_output, kappa_e_output
 
   double precision, PARAMETER :: const_c     = 2.99792458d10   ! cm S^-1           ; Speed of light
 
   double precision :: D_input, T_input
-  double precision :: alpha_output, Qbar_output, Q0_output, kappa_e_output
-  double precision :: alpha, Qbar, Q0, kappa_e
 
+  double precision :: kappa_cak
   double precision :: tau, M_t
 
   D_input = dlog10(rho)
   T_input = dlog10(temp)
 
-  D_input = min(-10.d0-1.d-5, D_input)
-  D_input = max(-20.d0+1.d-5, D_input)
-  T_input = min(4.7d0-1.d-5, T_input)
-  T_input = max(3.7d0+1.d-5, T_input)
+  D_input = min(-7.d0-1.d-5, D_input)
+  D_input = max(-16.d0+1.d-5, D_input)
+  T_input = min(5d0-1.d-5, T_input)
+  T_input = max(4d0+1.d-5, T_input)
 
   call get_val_comb(alpha_vals,Qbar_vals,Q0_vals,kappa_e_vals, &
                     Log_D_list, Log_T_list, D_input, T_input, &
                     alpha_output, Qbar_output, Q0_output, kappa_e_output)
-!   call get_val(Qbar_vals, Log_D_list, Log_T_list, D_input, T_input, Qbar_output)
-!   call get_val(Q0_vals, Log_D_list, Log_T_list, D_input, T_input, Q0_output)
-!   call get_val(kappa_e_vals, Log_D_list, Log_T_list, D_input, T_input, kappa_e_output)
 
-  ! !> If the outcome is 9.999, look right in the table
-  ! do while (K_output .gt. 9.0d0)
-  !     ! print*, 'R,T datapoint out of opal table'
-  !     D_input = D_input + 0.5
-  !     call get_val(Kappa_vals, Log_D_list, Log_T_list, D_input, T_input, K_output)
-  ! enddo
-  !
-  ! !> If the outcome is NaN, look left in the table
-  ! do while (K_output .eq. 0.0d0)
-  !     ! print*, 'R,T datapoint out of opal table'
-  !     D_input = D_input - 0.5d0
-  !     call get_val(Kappa_vals, Log_D_list, Log_T_list, D_input, T_input, K_output)
-  ! enddo
-
-  alpha = alpha_output
-  Qbar = Qbar_output
-  Q0 = Q0_output
-  kappa_e = kappa_e_output
-
-  ! print*, alpha, Qbar, Q0, kappa_e
-
-  tau = Q0*kappa_e*rho*const_c/gradv
-  M_t = Qbar/(1-alpha)*((1+tau)**(1-alpha) - 1)/tau
-  kappa_cak = kappa_e*M_t
+  ! alpha = alpha_output
+  ! Qbar = Qbar_output
+  ! Q0 = Q0_output
+  ! kappa_e = kappa_e_output
 
 end subroutine set_cak_opacity
 

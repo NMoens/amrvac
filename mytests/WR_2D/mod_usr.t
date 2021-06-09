@@ -827,7 +827,7 @@ contains
 
 
 
-ubroutine get_kappa_CAK2(ixI^L,ixO^L,w,x,kappa)
+subroutine get_kappa_CAK2(ixI^L,ixO^L,w,x,kappa)
     use mod_physics, only: phys_get_trad, phys_get_tgas
     use mod_global_parameters
     use mod_cak_opacity

@@ -787,8 +787,9 @@ contains
     double precision :: Temp(ixI^S), rho0, temp0, gradv0, kap0
     integer :: ix^D
 
+    double precision :: alpha, Qbar, Q0, kappa_e_t
+    double precision :: tau, M_t
     double precision :: vel(ixI^S), gradv(ixO^S), gradvI(ixI^S)
-    double precision :: xx(ixO^S), alpha(ixO^S)
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
@@ -810,16 +811,21 @@ contains
     !endif
 
     {do ix^D=ixOmin^D,ixOmax^D\ }
-        rho0 = w(ix^D,rho_)*unit_density
-        Temp0 = Temp(ix^D)*unit_temperature
-        Temp0 = max(Temp0,1.d4)
-        gradv0 = gradv(ix^D)*(unit_velocity/unit_length)
-        call set_cak_opacity(rho0,Temp0,gradv0,kap0)
-        kappa(ix^D) = kap0/unit_opacity
+      rho0 = w(ix^D,rho_)*unit_density
+      Temp0 = Temp(ix^D)*unit_temperature
+      Temp0 = max(Temp0,1.d4)
+      gradv0 = gradv(ix^D)*(unit_velocity/unit_length)
+      call set_cak_opacity(rho0,Temp0,gradv0,alpha, Qbar, Q0, kappa_e_t)
 
-        if (kappa(ix^D) .ne. kappa(ix^D)) kappa(ix^D) = 0.d0
+      tau = (kappa_e*unit_opacity)*rho0*const_c/gradv0
+      M_t = Qbar/(1-alpha)*((1+Q0*tau)**(1-alpha) - 1)/(Q0*tau)
+      kap0 = (kappa_e*unit_opacity)*M_t
 
-        kappa(ix^D) = min(15*kappa_e,kappa(ix^D))
+      kappa(ix^D) = kap0/unit_opacity
+
+      if (kappa(ix^D) .ne. kappa(ix^D)) kappa(ix^D) = 0.d0
+
+      kappa(ix^D) = min(50*kappa_e,kappa(ix^D))
     {enddo\ }
 
 

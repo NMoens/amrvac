@@ -74,6 +74,7 @@ module mod_usr_methods
 
   ! Radiation quantity related
   procedure(special_opacity), pointer   :: usr_special_opacity => null()
+  procedure(special_aniso_opacity), pointer   :: usr_special_aniso_opacity => null()
   procedure(special_opacity_qdot), pointer   :: usr_special_opacity_qdot => null()
   procedure(special_fluxlimiter), pointer   :: usr_special_fluxlimiter => null()
   procedure(special_diffcoef), pointer   :: usr_special_diffcoef => null()
@@ -483,6 +484,13 @@ module mod_usr_methods
       double precision, intent(out):: kappa(ixO^S)
     end subroutine special_opacity
 
+    subroutine special_aniso_opacity(ixI^L,ixO^L,w,x,kappa,idir)
+      use mod_global_parameters
+      integer, intent(in)          :: ixI^L, ixO^L, idir
+      double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
+      double precision, intent(out):: kappa(ixO^S)
+    end subroutine special_aniso_opacity
+
     subroutine special_opacity_qdot(ixI^L,ixO^L,w,x,kappa)
       use mod_global_parameters
       integer, intent(in)          :: ixI^L, ixO^L
@@ -496,6 +504,13 @@ module mod_usr_methods
       double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
       double precision, intent(out):: fld_lambda(ixI^S),fld_R(ixI^S)
     end subroutine special_fluxlimiter
+    !
+    ! subroutine special_fluxlimiter_aniso(ixI^L,ixO^L,w,x,fld_lambda,fld_R)
+    !   use mod_global_parameters
+    !   integer, intent(in)          :: ixI^L, ixO^L
+    !   double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
+    !   double precision, intent(out):: fld_lambda(ixI^S,1:ndim),fld_R(ixI^S,1:ndim)
+    ! end subroutine special_fluxlimiter_aniso
 
     subroutine special_diffcoef(w, wCT, x, ixI^L, ixO^L)
       use mod_global_parameters

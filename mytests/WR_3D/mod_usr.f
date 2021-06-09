@@ -22,6 +22,7 @@ module mod_usr
   double precision :: kappa_e, L_bound, Gamma_e_bound, F_bound, gradE, E_out
   logical :: fixed_lum, Cak_in_D
   logical :: read_cak_table = .false.
+  logical :: CAK_zero = .false.
 
   integer :: i_v1, i_v2, i_v3, i_p
   integer :: i_Trad, i_Tgas, i_Mdot, i_Opal, i_CAK, i_CAK2, i_lambda, i_edd
@@ -30,6 +31,7 @@ module mod_usr
   double precision :: sum_time
   double precision, allocatable :: vr_sumt(:), rho_sumt(:), rho2_sumt(:),&
       vr2_sumt(:), sumt(:)
+  double precision, allocatable :: rhovr_sumt(:), rho2vr_sumt(:)
 
 contains
 
@@ -37,7 +39,7 @@ contains
   subroutine usr_init()
 
     ! Choose coordinate system as 2D Cartesian with three components for vectors
-    call set_coordinate_system("Cartesian_2D")
+    call set_coordinate_system("Cartesian_3D")
 
     ! Initialize units
     usr_set_parameters => initglobaldata_usr
@@ -64,6 +66,9 @@ contains
 
     !> Set maximum value for diffusion coefficient
     usr_special_diffcoef => ceil_diffcoef
+
+    ! Refine mesh near base
+    usr_refine_grid => refine_base
 
     ! Write out energy levels and temperature
     usr_write_analysis => collapse_to_1D
@@ -173,7 +178,10 @@ contains
     rho2_sumt = 0.d0
     allocate(vr2_sumt(domain_nx1))
     vr2_sumt = 0.d0
-
+    allocate(rhovr_sumt(domain_nx1))
+    rhovr_sumt = 0.d0
+    allocate(rho2vr_sumt(domain_nx1))
+    rho2vr_sumt = 0.d0
 
   end subroutine initglobaldata_usr
 
@@ -185,7 +193,7 @@ contains
 
     namelist /wind_list/ cak_Q, cak_a, cak_base, cak_x0, cak_x1, rho_bound,&
         kappa_e, T_bound, R_star, M_star, v_inf, Mdot, Gamma_e_bound,&
-        it_start_cak, fixed_lum, Cak_in_D, read_cak_table
+        it_start_cak, fixed_lum, Cak_in_D, read_cak_table, CAK_zero
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -1015,6 +1023,8 @@ contains
     double precision :: xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3),&
         alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
 
+    if (.not. CAK_zero) then
+
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3) = w(ixImin1:ixImax1,&
@@ -1084,8 +1094,13 @@ contains
      enddo
     
 
+    else
+
     !> test with no cak
-    ! kappa(ixO^S) = 0.d0
+    kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3) = 0.d0
+
+    endif
+
   end subroutine get_kappa_CAK
 
   subroutine get_kappa_CAK2(ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
@@ -1107,18 +1122,17 @@ contains
         rho0, temp0, gradv0, kap0
     integer :: ix1,ix2,ix3
 
+    double precision :: alpha, Qbar, Q0, kappa_e_t
+    double precision :: tau, M_t
     double precision :: vel(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3),&
         gradv(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3),&
         gradvI(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3)
-    double precision :: xx(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3),&
-        alpha(ixOmin1:ixOmax1,ixOmin2:ixOmax2,ixOmin3:ixOmax3)
 
     !> Get CAK opacities from gradient in v_r (This is maybe a weird approximation)
     !> Need diffusion coefficient depending on direction?
     vel(ixImin1:ixImax1,ixImin2:ixImax2,ixImin3:ixImax3) = w(ixImin1:ixImax1,&
        ixImin2:ixImax2,ixImin3:ixImax3,mom(1))/w(ixImin1:ixImax1,&
        ixImin2:ixImax2,ixImin3:ixImax3,rho_)
-
     call gradientO(vel,x,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
        ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,1,gradv,nghostcells)
 
@@ -1131,12 +1145,13 @@ contains
        ixOmin3:ixOmax3))
 
     !> Get CAK opacities by reading from table
-    !if (rhd_energy) then
-    !  call phys_get_tgas(w,x,ixI^L,ixO^L,Temp)
-    !else
+    if (rhd_energy) then
+      call phys_get_tgas(w,x,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
+         ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,Temp)
+    else
       call phys_get_trad(w,x,ixImin1,ixImin2,ixImin3,ixImax1,ixImax2,ixImax3,&
          ixOmin1,ixOmin2,ixOmin3,ixOmax1,ixOmax2,ixOmax3,Temp)
-    !endif
+    endif
 
     do ix1=ixOmin1,ixOmax1
      do ix2=ixOmin2,ixOmax2
@@ -1146,7 +1161,12 @@ contains
         Temp0 = Temp(ix1,ix2,ix3)*unit_temperature
         Temp0 = max(Temp0,1.d4)
         gradv0 = gradv(ix1,ix2,ix3)*(unit_velocity/unit_length)
-        call set_cak_opacity(rho0,Temp0,gradv0,kap0)
+        call set_cak_opacity(rho0,Temp0,gradv0,alpha, Qbar, Q0, kappa_e_t)
+
+        tau = (kappa_e*unit_opacity)*rho0*const_c/gradv0
+        M_t = Qbar/(1-alpha)*((1+Q0*tau)**(1-alpha) - 1)/(Q0*tau)
+        kap0 = (kappa_e*unit_opacity)*M_t
+
         kappa(ix1,ix2,ix3) = kap0/unit_opacity
 
         if (kappa(ix1,ix2,ix3) .ne. kappa(ix1,ix2,ix3)) kappa(ix1,ix2,&
@@ -1191,6 +1211,51 @@ contains
 
   end subroutine ceil_diffcoef
 
+  subroutine refine_base(igrid,level,ixGmin1,ixGmin2,ixGmin3,ixGmax1,ixGmax2,&
+     ixGmax3,ixmin1,ixmin2,ixmin3,ixmax1,ixmax2,ixmax3,qt,w,x,refine,coarsen)
+    ! Enforce additional refinement or coarsening
+    ! One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+    ! you must set consistent values for integers refine/coarsen:
+    ! refine = -1 enforce to not refine
+    ! refine =  0 doesn't enforce anything
+    ! refine =  1 enforce refinement
+    ! coarsen = -1 enforce to not coarsen
+    ! coarsen =  0 doesn't enforce anything
+    ! coarsen =  1 enforce coarsen
+    use mod_global_parameters
+
+    integer, intent(in) :: igrid, level, ixGmin1,ixGmin2,ixGmin3,ixGmax1,&
+       ixGmax2,ixGmax3, ixmin1,ixmin2,ixmin3,ixmax1,ixmax2,ixmax3
+    double precision, intent(in) :: qt, w(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+       ixGmin3:ixGmax3,1:nw), x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,&
+       ixGmin3:ixGmax3,1:ndim)
+    integer, intent(inout) :: refine, coarsen
+
+    double precision :: lim_1, lim_2, lim_3, lim_4
+
+    lim_3 = 1.5d0
+    lim_2 = 2.5d0
+    lim_1 = 4.d0
+
+    !refine= -1
+    !coarsen= -1
+
+    if (all(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,&
+       1) < lim_3)) then
+      if (level > 4) coarsen=1
+      if (level < 4) refine=1
+    elseif (all(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,&
+       1) < lim_2)) then
+      if (level > 3) coarsen=1
+      if (level < 3) refine=1
+    elseif (all(x(ixGmin1:ixGmax1,ixGmin2:ixGmax2,ixGmin3:ixGmax3,&
+       1) < lim_1)) then
+      if (level > 2) coarsen=1
+      if (level < 2) refine=1
+    endif
+
+  end subroutine refine_base
+
 
   subroutine collapse_to_1D()
     use mod_global_parameters
@@ -1200,38 +1265,50 @@ contains
     integer          :: np_mdot, nc
     double precision :: ratio, sf_mdot, dx_l1
 
+    double precision :: radflux(ixMlo1:ixMhi1,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
+       ndim)
+
     double precision, allocatable :: rp_mdot(:), p_mdot(:)
+    double precision, allocatable :: rp_lum(:),p_lum(:)
     double precision, allocatable :: mdot_S(:), mdot_R(:)
+    double precision, allocatable :: lum_S(:), lum_R(:)
     integer, allocatable :: jp_mdot(:)
 
     double precision :: rr(1:domain_nx1), rr_S(1:domain_nx1),&
         rr_R(1:domain_nx1)
     double precision :: vr(1:domain_nx1), vr_S(1:domain_nx1),&
         vr_R(1:domain_nx1)
-    double precision :: mdot(1:domain_nx1)
+    double precision :: mdot(1:domain_nx1), lum(1:domain_nx1)
     double precision :: rho(1:domain_nx1), rho_S(1:domain_nx1),&
         rho_R(1:domain_nx1)
     double precision :: rho2(1:domain_nx1), rho2_S(1:domain_nx1),&
         rho2_R(1:domain_nx1)
     double precision :: vr2(1:domain_nx1), vr2_S(1:domain_nx1),&
         vr2_R(1:domain_nx1)
+    double precision :: rhovr(1:domain_nx1), rhovr_S(1:domain_nx1),&
+        rhovr_R(1:domain_nx1)
+    double precision :: rho2vr(1:domain_nx1), rho2vr_S(1:domain_nx1),&
+        rho2vr_R(1:domain_nx1)
 
     integer :: lvl_h(1:domain_nx1), lvl_h_S(1:domain_nx1),&
         lvl_h_R(1:domain_nx1)
     integer :: lvl_l(1:domain_nx1), lvl_l_S(1:domain_nx1),&
         lvl_l_R(1:domain_nx1)
 
-      ! if (refine_max_level .ne. 1) &
-      ! call mpistop("collapse_to_1D doesnt work YET with mpi")
+    ! if (refine_max_level .ne. 1)
+    ! call mpistop("collapse_to_1D doesnt work YET with mpi")
 
     !> #R_star -1 in simulation
     np_mdot = floor((xprobmax1-xprobmin1)/R_star)
 
     allocate(rp_mdot(1:np_mdot))
     allocate(p_mdot(1:np_mdot))
+    allocate(p_lum(1:np_mdot))
     allocate(jp_mdot(1:np_mdot))
     allocate(mdot_S(1:np_mdot))
     allocate(mdot_R(1:np_mdot))
+    allocate(lum_S(1:np_mdot))
+    allocate(lum_R(1:np_mdot))
 
     rr = 0.d0
     rp_mdot = 0.d0
@@ -1241,8 +1318,12 @@ contains
     vr2 = 0.d0
     mdot = 0.d0
     p_mdot = 0.d0
+    lum = 0.d0
+    p_lum = 0.d0
     lvl_h = 0.d0
     lvl_l = 2* refine_max_level
+    rhovr = 0.d0
+    rho2vr = 0.d0
 
     !> Reconstruct radius at level 1
     do jj = 1,domain_nx1
@@ -1280,6 +1361,10 @@ contains
       if (nc > block_nx1) call mpistop&
          ("collapse_to_1D doesnt work, reduce amr")
 
+      !> Calculate radflux in block for luminosity
+      call fld_get_radflux(block%w, block%x, ixGlo1,ixGlo2,ixGlo3,ixGhi1,&
+         ixGhi2,ixGhi3, ixMlo1,ixMlo2,ixMlo3,ixMhi1,ixMhi2,ixMhi3, radflux)
+
       !> For all cells in the current block, average velocity over lateral direction.
       !> Take into account possible amr
       do ii = 1,block_nx1/nc
@@ -1291,25 +1376,39 @@ contains
         !> Velocity
         vr(jj) = vr(jj) + sum(block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
            mom(1))/block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
-           rho_))/domain_nx2/nc**3 !> average value on lvl 1
+           rho_))/(domain_nx2*domain_nx3)/nc**3 !> average value on lvl 1
 
         !> Density
         rho(jj) = rho(jj) + sum(block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
-           rho_))/domain_nx2/nc**3 !> average value on lvl 1
+           rho_))/(domain_nx2*domain_nx3)/nc**3 !> average value on lvl 1
 
         !> Density squared
         rho2(jj) = rho2(jj) + sum(block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
-           rho_)**2)/domain_nx2/nc**3 !> average value on lvl 1
+           rho_)**2)/(domain_nx2*domain_nx3)/nc**3 !> average value on lvl 1
 
         !> radial velocity squared
         vr2(jj) = vr2(jj) + sum((block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
            mom(1))/block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
-           rho_))**2)/domain_nx2/nc**3
+           rho_))**2)/(domain_nx2*domain_nx3)/nc**3
+
+       !> Density weighted velocity
+        rhovr(jj) = rhovr(jj) + sum(block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
+           mom(1)))/(domain_nx2*domain_nx3)/nc**3
+
+        !> Density squared weighted velocity
+        rho2vr(jj) = rho2vr(jj) + sum(block%w(il:ih,ixMlo2:ixMhi2,&
+           ixMlo3:ixMhi3,mom(1))*block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
+           rho_))/(domain_nx2*domain_nx3)/nc**3
 
         !> Mass loss rate
         mdot(jj) = mdot(jj) + 4*dpi*sum(block%x(il:ih,ixMlo2:ixMhi2,&
            ixMlo3:ixMhi3,1)**2*block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
-           mom(1)))/domain_nx2/nc**3 !> average value on lvl 1
+           mom(1)))/(domain_nx2*domain_nx3)/nc**3 !> average value on lvl 1
+
+        !> Luminosity
+        lum(jj) = lum(jj) + 4*dpi*sum(block%x(il:ih,ixMlo2:ixMhi2,&
+           ixMlo3:ixMhi3,1)**2*radflux(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,&
+           1))/(domain_nx2*domain_nx3)/nc**3 !> average value on lvl 1
 
         !> Highest/Lowest amr level
         lvl_h(jj) = node(plevel_,igrid)
@@ -1342,11 +1441,23 @@ contains
        icomm,ierrmpi)
     vr2=vr2_R
 
+    !> communicate rho*vr
+    rhovr_S=rhovr
+    call mpi_allreduce(rhovr_S,rhovr_R,domain_nx1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+       icomm,ierrmpi)
+    rhovr=rhovr_R
+
+    !> communicate rho*vr
+    rho2vr_S=rho2vr
+    call mpi_allreduce(rho2vr_S,rho2vr_R,domain_nx1,MPI_DOUBLE_PRECISION,&
+       MPI_SUM,icomm,ierrmpi)
+    rho2vr=rho2vr_R
 
     !> Only keep mdot in interested radii
     do ii = 1,np_mdot
       jj = jp_mdot(ii)
       p_mdot(ii) = mdot(jj)
+      p_lum(ii) = lum(ii)
     enddo
 
     !> communicate mdot array
@@ -1354,6 +1465,12 @@ contains
     call mpi_reduce(mdot_S,mdot_R,np_mdot,MPI_DOUBLE_PRECISION,MPI_SUM,0,icomm,&
        ierrmpi)
     p_mdot=mdot_R*unit_density*unit_velocity*unit_length**2/M_sun*year
+
+    !> communicate lum array
+    lum_S=p_lum
+    call mpi_reduce(lum_S,lum_R,np_mdot,MPI_DOUBLE_PRECISION,MPI_SUM,0,icomm,&
+       ierrmpi)
+    p_lum=lum_R*unit_radflux*unit_length**2/L_sun
 
     !> communicate highest amr level
     lvl_h_S=lvl_h
@@ -1371,6 +1488,10 @@ contains
     rho_sumt(1:domain_nx1) = rho_sumt(1:domain_nx1) + rho(1:domain_nx1)*dt
     rho2_sumt(1:domain_nx1) = rho2_sumt(1:domain_nx1) + rho2(1:domain_nx1)*dt
     vr2_sumt(1:domain_nx1) = vr2_sumt(1:domain_nx1) + vr2(1:domain_nx1)*dt
+    rhovr_sumt(1:domain_nx1) = rhovr_sumt(1:domain_nx1) + &
+       rhovr(1:domain_nx1)*dt
+    rho2vr_sumt(1:domain_nx1) = rho2vr_sumt(1:domain_nx1) + &
+       rho2vr(1:domain_nx1)*dt
 
     !> Write out average velocity profile
     if (mype==0) then
@@ -1379,11 +1500,12 @@ contains
       write(unitanalysis,*)&
           'r | vr_int_theta | vr_int_theta_int_t | lvl_h lvl_l'
       do i=1,domain_nx1
-        write(unitanalysis,'(6f11.7,3i4)') rr(i), vr(i), vr_sumt(i)/sum_time,&
+        write(unitanalysis,'(8f11.7,2i4)') rr(i), vr(i), vr_sumt(i)/sum_time,&
             vr2(i), vr2_sumt(i)/sum_time,&
-           dsqrt( abs(vr2_sumt(i)/sum_time - (vr_sumt(i)/sum_time)**2 )) ,&
-           lvl_h(i), lvl_l(i)
-      enddo
+           dsqrt( abs(vr2_sumt(i)/sum_time - (vr_sumt(i)/sum_time)**2 )),&
+            rhovr_sumt(i)/rho_sumt(i), rho2vr_sumt(i)/rho2_sumt(i) ,lvl_h(i),&
+            lvl_l(i)
+enddo
     close(unitanalysis)
     endif
 
@@ -1412,6 +1534,21 @@ contains
          open(unit=unitanalysis,file=trim(base_filename)//'_mdot',&
             access='append')
          write(unitanalysis,'(f10.3,*(E15.6))') global_time, p_mdot
+       endif
+       close(unitanalysis)
+     endif
+
+    !> Write out average lum at different radii
+    if (mype==0) then
+       if (global_time<smalldouble) then ! if very 1st iteration
+         open(unit=unitanalysis,file=trim(base_filename)//'_lum',&
+            status='replace')
+         write(unitanalysis,'(a16,*(f7.2))') 'Lum at t | r= ', rp_mdot
+         write(unitanalysis,'(f10.3,*(E15.6))') global_time, p_lum
+       else
+         open(unit=unitanalysis,file=trim(base_filename)//'_lum',&
+            access='append')
+         write(unitanalysis,'(f10.3,*(E15.6))') global_time, p_lum
        endif
        close(unitanalysis)
      endif

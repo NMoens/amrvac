@@ -900,8 +900,8 @@ contains
     {enddo\ }
 
 
-    if (x(ixImax1,nghostcells,1) .ge. xprobmax1) then
-      kappa(ixOmax1,:) = kappa(ixOmax1-1,:)
+    if (x(ixImax1,nghostcells,nghostcells,1) .ge. xprobmax1) then
+      kappa(ixOmax1,:,:) = kappa(ixOmax1-1,:,:)
     endif
 
 

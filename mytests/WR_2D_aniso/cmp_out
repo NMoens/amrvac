@@ -1,0 +1,159 @@
+/lhome/nicolasm/amrvac/src/vacpp.pl  -d=2 /lhome/nicolasm/amrvac/src/amrvac.t > amrvac.f
+make -C /lhome/nicolasm/amrvac/lib/2d_default -f /lhome/nicolasm/amrvac/arch/lib.make
+make[1]: Entering directory '/lhome/nicolasm/amrvac/lib/2d_default'
+/lhome/nicolasm/amrvac/src/vacpp.pl  -d=2 /lhome/nicolasm/amrvac/src/rhd/mod_afld.t > mod_afld.f
+mpif90 -ffree-form -O2 -g -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -Wno-zerotrip -c mod_afld.f -o mod_afld.o 
+mod_afld.f:66:45:
+
+     integer, allocatable, public :: i_diff_mg(:)
+                                             1
+Error: Symbol ‘i_diff_mg’ at (1) already has basic type of INTEGER
+mod_afld.f:145:15:
+
+       allocate(i_opf(ndim))
+               1
+Error: Allocate-object at (1) is neither a data pointer nor an allocatable variable
+mod_afld.f:176:13:
+
+     allocate(i_diff_mg(ndim))
+             1
+Error: Allocate-object at (1) is neither a data pointer nor an allocatable variable
+mod_afld.f:180:6:
+
+       i_diff_mg(idir) = var_set_extravar(cmp_f,cmp_f)
+      1
+Error: Unclassifiable statement at (1)
+mod_afld.f:971:34:
+
+     call mg_copy_to_tree(i_diff_mg(1), mg_iveps1, factor=facD, state_from=psb)
+                                  1
+Error: Syntax error in argument list at (1)
+mod_afld.f:972:34:
+
+     call mg_copy_to_tree(i_diff_mg(2), mg_iveps2, factor=facD, state_from=psb)
+                                  1
+Error: Syntax error in argument list at (1)
+mod_afld.f:1096:34:
+
+          ixOmin2:ixOmax2,i_diff_mg(idir))*w(hxOmin1:hxOmax1,hxOmin2:hxOmax2,&
+                                  1
+Error: Invalid form of array reference at (1)
+mod_afld.f:1102:34:
+
+          ixOmin2:ixOmax2,i_diff_mg(idir))*w(jxOmin1:jxOmax1,jxOmin2:jxOmax2,&
+                                  1
+Error: Invalid form of array reference at (1)
+mod_afld.f:1144:49:
+
+       w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg(:)) = 1.d0
+                                                 1
+Error: Invalid form of array reference at (1)
+mod_afld.f:1156:20:
+
+            i_diff_mg(idir)) = (const_c/unit_velocity)*lambda(ixOmin1:ixOmax1,&
+                    1
+Error: Invalid form of array reference at (1)
+mod_afld.f:1161:53:
+
+           w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg(idir)) = smalldouble
+                                                     1
+Error: Invalid form of array reference at (1)
+mod_afld.f:1220:16:
+
+        i_diff_mg(idir))
+                1
+Error: Invalid form of array reference at (1)
+mod_afld.f:1242:47:
+
+     w(ixOmin1:ixOmax1,ixOmin2:ixOmax2,i_diff_mg(idir)) = tmp_D(ixOmin1:ixOmax1,&
+                                               1
+Error: Invalid form of array reference at (1)
+mod_afld.f:421:17:
+
+         fld_kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = fld_kappa0/unit_opacity
+                 1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:423:17:
+
+         fld_kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = fld_kappa0/unit_opacity
+                 1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:426:17:
+
+         fld_kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
+                 1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:435:17:
+
+         fld_kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
+                 1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:448:17:
+
+         fld_kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
+                 1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:461:17:
+
+         fld_kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = fld_kappa0/unit_opacity * &
+                 1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:470:19:
+
+           fld_kappa(ix1,ix2) = min(fld_kappa(ix1,ix2),&
+                   1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:470:44:
+
+           fld_kappa(ix1,ix2) = min(fld_kappa(ix1,ix2),&
+                                            1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:490:21:
+
+             fld_kappa(ix1,ix2) = n/unit_opacity
+                     1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:560:13:
+
+         fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2) = &
+             1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:594:35:
+
+            ixOmin2:ixOmax2))/(kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+                                   1
+Error: Rank mismatch in array reference at (1) (3/2)
+mod_afld.f:603:33:
+
+            ixOmin2:ixOmax2)+fld_R(ixOmin1:ixOmax1,ixOmin2:ixOmax2)**2.d0)
+                                 1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:629:35:
+
+            ixOmin2:ixOmax2))/(kappa(ixOmin1:ixOmax1,ixOmin2:ixOmax2,&
+                                   1
+Error: Rank mismatch in array reference at (1) (3/2)
+mod_afld.f:638:17:
+
+         if (fld_R(ix1,ix2) .lt. 3.d0/2.d0) then
+                 1
+Error: Rank mismatch in array reference at (1) (2/3)
+mod_afld.f:149:8:
+
+         i_opf(idir) = var_set_extravar(cmp_f,cmp_f)
+        1
+Error: Function ‘i_opf’ at (1) has no IMPLICIT type
+mod_afld.f:190:12:
+
+     if (any(fld_opacity_law) .eq. 'opal') call init_opal(He_abundance)
+            1
+Error: ‘mask’ argument of ‘any’ intrinsic at (1) must be a logical array
+mod_afld.f:191:56:
+
+     if ((any(fld_opacity_law) .eq. 'thomson') .or. (any(fld_opacity_law) .eq. &
+                                                        1
+Error: ‘mask’ argument of ‘any’ intrinsic at (1) must be a logical array
+make[1]: *** [/lhome/nicolasm/amrvac/arch/rules.make:8: mod_afld.o] Error 1
+make[1]: Leaving directory '/lhome/nicolasm/amrvac/lib/2d_default'
+make: *** [makefile:44: /lhome/nicolasm/amrvac/lib/2d_default/libamrvac.a] Error 2
+rm amrvac.f

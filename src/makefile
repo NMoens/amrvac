@@ -111,6 +111,11 @@ mod_fld.o: mod_multigrid_coupling.mod
 mod_fld.o: mod_opal_opacity.mod
 mod_fld.o: mod_cak_opacity.mod
 mod_fld.o: mod_physics.mod
+mod_afld.o: mod_geometry.mod
+mod_afld.o: mod_multigrid_coupling.mod
+mod_afld.o: mod_opal_opacity.mod
+mod_afld.o: mod_cak_opacity.mod
+mod_afld.o: mod_physics.mod
 mod_geometry.o: mod_limiter.mod
 mod_geometry.o: mod_ppm.mod
 mod_ghostcells_update.o: mod_amr_fct.mod
@@ -249,6 +254,7 @@ mod_rhd_hllc.o: mod_physics_hllc.mod
 mod_rhd_hllc.o: mod_rhd_phys.mod
 mod_rhd_phys.o: mod_dust.mod
 mod_rhd_phys.o: mod_fld.mod
+mod_rhd_phys.o: mod_afld.mod
 mod_rhd_phys.o: mod_geometry.mod
 mod_rhd_phys.o: mod_gravity.mod
 mod_rhd_phys.o: mod_multigrid_coupling.mod
@@ -282,6 +288,7 @@ mod_slice.o: mod_basic_types.mod
 mod_slice.o: mod_calculate_xw.mod
 mod_solar_atmosphere.o: mod_interpolation.mod
 mod_source.o: mod_fld.mod
+mod_source.o: mod_afld.mod
 mod_source.o: mod_ghostcells_update.mod
 mod_source.o: mod_physics.mod
 mod_source.o: mod_thermal_conduction.mod

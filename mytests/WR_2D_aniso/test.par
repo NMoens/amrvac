@@ -1,0 +1,16 @@
+
+! &filelist
+!   restart_from_file = '/lhome/nicolasm/Documents/Paper/WR_winds/compare_alpha_3/WR_2D_alpha_0.66_0060.dat'
+!   base_filename = '_restart'
+! /
+
+ &savelist
+   itsave(1,1)     = 0
+   itsave(1,2)     = 0
+   ditsave_dat     = 100
+   ditsave_log     = 100
+   !dtsave_dat     = 5.d-1 !1.d0
+   !dtsave_log     = 5.d-1 !1.d0
+   itsave(1,5)     = 0
+   ditsave_custom  = 10
+/

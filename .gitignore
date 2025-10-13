@@ -12,6 +12,7 @@ doc/html/*
 !**/correct_output/**
 *.bak
 *.csv
+*.blk
 *.log.shfp.*
 /tests/hd/*/makefile
 /tests/mhd/*/makefile

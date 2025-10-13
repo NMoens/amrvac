@@ -53,7 +53,7 @@ program amrvac
      ! read in dat file
      call read_snapshot()
 
-     ! rewrite it=0 snapshot when restart from it=0 state 
+     ! rewrite it=0 snapshot when restart from it=0 state
      if(it==0.and.itsave(1,2)==0) snapshotnext=snapshotnext-1
 
      if (reset_time) then

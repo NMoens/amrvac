@@ -1,5 +1,5 @@
  &filelist
-   base_filename    ='kh_2d'
+   base_filename    ='output/kh_2d'
    typefilelog = 'regression_test'
    autoconvert      = .false.
    convert_type     = 'vtuBCCmpi'

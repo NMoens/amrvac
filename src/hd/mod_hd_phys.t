@@ -10,6 +10,7 @@ module mod_hd_phys
 
   !> Whether an energy equation is used
   logical, public, protected              :: hd_energy = .true.
+  logical, public, protected              :: hd_m1 = .true.
 
   !> Whether thermal conduction is added
   logical, public, protected              :: hd_thermal_conduction = .false.
@@ -44,6 +45,24 @@ module mod_hd_phys
   !> Whether plasma is partially ionized
   logical, public, protected              :: hd_partial_ionization = .false.
 
+  !> Compute m1 radiation force
+  logical, public, protected              :: m1_force = .true.
+
+  !> Compute m1 radiation heating and cooling
+  logical, public, protected              :: m1_heatcool = .true.
+
+  !> Force split m1 force
+  logical, public, protected              :: m1_force_split = .false.
+
+  !> Compute m1 pressure in diffusion limit
+  logical, public, protected              :: m1_diffusion = .false.
+
+  !> Reduced speed of light factor
+  double precision, public                :: m1_RSOL = 1.d0
+
+  !> Theta parameter for stiff sourceterms
+  double precision, public                :: m1_theta_stiff = 0.51d0
+
   !> Index of the density (in the w array)
   integer, public, protected              :: rho_
 
@@ -59,8 +78,24 @@ module mod_hd_phys
   !> Index of the gas pressure (-1 if not present) should equal e_
   integer, public, protected              :: p_
 
+  !> Index of the radiation energy density (-1 if not present)
+  integer, public, protected              :: Er_
+
+  !> Indices of the radiation flux (-1 if not present)
+  integer, allocatable, public, protected :: Fr(:)
+
+  !> (Reduced?) speed of light used in m1 subsystem
+  double precision, public, protected     :: m1_c
+  double precision, public, protected     :: m1_sb
+
+  !> Opacity prescription
+  character(len=8)                        :: m1_opacity_type = 'kappa_e'
+
+  !> Indices of opacities
+  integer, public, protected              :: kF_, kE_, kB_
+
   !> Indices of temperature
-  integer, public, protected :: Te_
+  integer, public, protected              :: Te_
 
   !> Index of the cutoff temperature for the TRAC method
   integer, public, protected              :: Tcoff_
@@ -70,6 +105,9 @@ module mod_hd_phys
 
   !> The adiabatic constant
   double precision, public                :: hd_adiab = 1.0d0
+
+  !> The mean molecular weight
+  double precision, public                :: hd_mu = 0.6d0
 
   !> The small_est allowed energy
   double precision, protected             :: small_e
@@ -82,24 +120,35 @@ module mod_hd_phys
   logical, public, protected              :: hd_force_diagonal = .false.
 
   !> Helium abundance over Hydrogen
-  double precision, public, protected  :: He_abundance=0.1d0
+  double precision, public, protected     :: He_abundance=0.1d0
   !> Ionization fraction of H
   !> H_ion_fr = H+/(H+ + H)
-  double precision, public, protected  :: H_ion_fr=1d0
+  double precision, public, protected     :: H_ion_fr=1d0
   !> Ionization fraction of He
   !> He_ion_fr = (He2+ + He+)/(He2+ + He+ + He)
-  double precision, public, protected  :: He_ion_fr=1d0
+  double precision, public, protected     :: He_ion_fr=1d0
   !> Ratio of number He2+ / number He+ + He2+
   !> He_ion_fr2 = He2+/(He2+ + He+)
-  double precision, public, protected  :: He_ion_fr2=1d0
+  double precision, public, protected     :: He_ion_fr2=1d0
   ! used for eq of state when it is not defined by units,
   ! the units do not contain terms related to ionization fraction
   ! and it is p = RR * rho * T
-  double precision, public, protected  :: RR=1d0
+  double precision, public, protected     :: RR=1d0
   ! remove the below flag  and assume default value = .false.
   ! when eq state properly implemented everywhere
   ! and not anymore through units
-  logical, public, protected :: eq_state_units = .true.
+  logical, public, protected              :: eq_state_units = .true.
+
+  !>temporal local defenition of line driving parameters:
+  double precision, public, protected :: a_F = 0.66d0
+  double precision, public, protected :: a_E = 0.66d0
+  double precision, public, protected :: a_B = 0.66d0
+  double precision, public, protected :: Qb_F = 2.d3
+  double precision, public, protected :: Qb_E = 2.d2
+  double precision, public, protected :: Qb_B = 2.d2
+  double precision, public, protected :: Q0_F = 2.d3
+  double precision, public, protected :: Q0_E = 2.d2
+  double precision, public, protected :: Q0_B = 2.d2
 
   procedure(sub_get_pthermal), pointer :: hd_get_Rfactor   => null()
   ! Public methods
@@ -111,6 +160,7 @@ module mod_hd_phys
   public :: hd_to_primitive
   public :: hd_check_params
   public :: hd_check_w
+  public :: m1_get_prad
 
 contains
 
@@ -120,11 +170,13 @@ contains
     character(len=*), intent(in) :: files(:)
     integer                      :: n
 
-    namelist /hd_list/ hd_energy, hd_n_tracer, hd_gamma, hd_adiab, &
+    namelist /hd_list/ hd_energy, hd_m1, m1_force, hd_n_tracer, hd_gamma, hd_adiab, &
     hd_dust, hd_thermal_conduction, hd_radiative_cooling, hd_viscosity, &
     hd_gravity, He_abundance,H_ion_fr, He_ion_fr, He_ion_fr2, eq_state_units, &
     SI_unit, hd_particles, hd_rotating_frame, hd_trac, &
-    hd_force_diagonal, hd_trac_type, hd_cak_force, hd_partial_ionization
+    hd_force_diagonal, hd_trac_type, hd_cak_force, hd_partial_ionization , &
+    m1_opacity_type, m1_diffusion, m1_RSOL, m1_force_split, m1_theta_stiff, &
+    m1_heatcool
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -231,6 +283,22 @@ contains
        p_ = -1
     end if
 
+    !> Set index of M1 radiation variables
+    if (hd_m1) then
+      er_ = var_set_radiation_energy()
+      allocate(Fr(ndir))
+      Fr(:) = var_set_radiation_flux(ndir)
+      kF_ = var_set_extravar("kappa_F", "kappa_F")
+      kE_ = var_set_extravar("kappa_E", "kappa_E")
+      kB_ = var_set_extravar("kappa_B", "kappa_B")
+    else
+      er_ = -1
+      Fr(:) = -1
+      kF_ = -1
+      kE_ = -1
+      kB_ = -1
+    end if
+
     phys_get_dt              => hd_get_dt
     phys_get_cmax            => hd_get_cmax
     phys_get_a2max           => hd_get_a2max
@@ -248,11 +316,23 @@ contains
     phys_write_info          => hd_write_info
     phys_handle_small_values => hd_handle_small_values
 
+    if (hd_m1) then
+      !> Heating and cooling sourceterms
+      phys_implicit_update => m1_heating_cooling
+      !> Setting opacities
+      phys_get_auxiliary => m1_set_opacities
+    end if
+
     ! Whether diagonal ghost cells are required for the physics
     phys_req_diagonal = .false.
 
     ! derive units from basic units
     call hd_physical_units()
+
+    if (hd_m1) then
+      m1_c = const_c/unit_velocity
+      m1_sb = const_sigma/unit_radflux*unit_temperature**4
+    end if
 
     if (hd_dust) then
         call dust_init(rho_, mom(:), e_)
@@ -414,7 +494,7 @@ contains
     !and                        T=p/rho
     use mod_global_parameters
     use mod_thermal_conduction, only: get_tc_dt_hd
- 
+
     integer, intent(in) :: ixI^L, ixO^L
     double precision, intent(in) :: dx^D, x(ixI^S,1:ndim)
     double precision, intent(in) :: w(ixI^S,1:nw)
@@ -498,25 +578,25 @@ contains
       ! list parameters
       integer :: ncool = 4000
       double precision :: cfrac=0.1d0
-    
+
       !> Name of cooling curve
       character(len=std_len)  :: coolcurve='JCcorona'
-    
+
       !> Name of cooling method
       character(len=std_len)  :: coolmethod='exact'
-    
+
       !> Fixed temperature not lower than tlow
       logical    :: Tfix=.false.
-    
+
       !> Lower limit of temperature
       double precision   :: tlow=bigdouble
-    
+
       !> Add cooling source in a split way (.true.) or un-split way (.false.)
       logical    :: rc_split=.false.
 
 
       namelist /rc_list/ coolcurve, coolmethod, ncool, cfrac, tlow, Tfix, rc_split
-  
+
       do n = 1, size(par_files)
         open(unitpar, file=trim(par_files(n)), status="old")
         read(unitpar, rc_list, end=111)
@@ -548,11 +628,11 @@ contains
     end if
 
     if (hd_dust) call dust_check_params()
-    if(use_imex_scheme) then
+    if(use_imex_scheme .and. hd_dust) then
         ! implicit dust update
         phys_implicit_update => dust_implicit_update
         phys_evaluate_implicit => dust_evaluate_implicit
-    endif  
+    endif
 
   end subroutine hd_check_params
 
@@ -560,6 +640,7 @@ contains
     use mod_global_parameters
     double precision :: mp,kB
     double precision :: a,b
+
     ! Derive scaling units
     if(SI_unit) then
       mp=mp_SI
@@ -604,7 +685,16 @@ contains
       ! unit of length is independent by default
       unit_time=unit_length/unit_velocity
     end if
+
     unit_mass = unit_density * unit_length**3
+    unit_energy = unit_pressure * unit_length**3
+
+    !> Radiation quantities
+    unit_opacity = unit_length**2/unit_mass
+    unit_radflux = unit_pressure*unit_velocity
+
+    !> Mean molecular weight
+    hd_mu = (1.0d0 + 4.0d0*He_abundance)/(2.0d0 + 3.0d0*He_abundance)
 
   end subroutine hd_physical_units
 
@@ -633,7 +723,9 @@ contains
 
     where(w(ixO^S, rho_) < small_density) flag(ixO^S,rho_) = .true.
 
-    if(hd_dust) call dust_check_w(ixI^L,ixO^L,w,flag)
+    if (hd_dust) call dust_check_w(ixI^L,ixO^L,w,flag)
+
+    if (hd_m1) call m1_check_w(ixI^L,ixO^L,w,flag)
 
   end subroutine hd_check_w
 
@@ -647,9 +739,9 @@ contains
     double precision                :: invgam
     integer                         :: idir, itr
 
-    !!if (fix_small_values) then
-    !!  call hd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'hd_to_conserved')
-    !!end if
+    if (fix_small_values) then
+     call hd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'hd_to_conserved')
+    end if
 
     if (hd_energy) then
        invgam = 1.d0/(hd_gamma - 1.0d0)
@@ -796,15 +888,23 @@ contains
     double precision                          :: csound(ixI^S)
     double precision                          :: v(ixI^S)
 
-    call hd_get_v_idim(w, x, ixI^L, ixO^L, idim, v)
-    call hd_get_csound2(w,x,ixI^L,ixO^L,csound)
-    csound(ixO^S) = dsqrt(csound(ixO^S))
+    if (hd_m1) then
+      ! TODO: Implement actual eigenvalues
+      cmax(ixO^S) = m1_c*m1_RSOL
 
-    cmax(ixO^S) = dabs(v(ixO^S))+csound(ixO^S)
+    else
+      call hd_get_v_idim(w, x, ixI^L, ixO^L, idim, v)
+      call hd_get_csound2(w,x,ixI^L,ixO^L,csound)
+      csound(ixO^S) = dsqrt(csound(ixO^S))
 
-    if (hd_dust) then
-      call dust_get_cmax(w, x, ixI^L, ixO^L, idim, cmax)
+      cmax(ixO^S) = dabs(v(ixO^S))+csound(ixO^S)
+
+      if (hd_dust) then
+        call dust_get_cmax(w, x, ixI^L, ixO^L, idim, cmax)
+      end if
+
     end if
+
   end subroutine hd_get_cmax
 
   subroutine hd_get_a2max(w,x,ixI^L,ixO^L,a2max)
@@ -902,96 +1002,106 @@ contains
     double precision, dimension(ixI^S) :: umean, dmean, csoundL, csoundR, tmp1,tmp2,tmp3
     integer :: ix^D
 
-    select case(boundspeed)
-    case (1)
-      ! This implements formula (10.52) from "Riemann Solvers and Numerical
-      ! Methods for Fluid Dynamics" by Toro.
+    if (hd_m1) then
 
-      tmp1(ixO^S)=dsqrt(wLp(ixO^S,rho_))
-      tmp2(ixO^S)=dsqrt(wRp(ixO^S,rho_))
-      tmp3(ixO^S)=1.d0/(dsqrt(wLp(ixO^S,rho_))+dsqrt(wRp(ixO^S,rho_)))
-      umean(ixO^S)=(wLp(ixO^S,mom(idim))*tmp1(ixO^S)+wRp(ixO^S,mom(idim))*tmp2(ixO^S))*tmp3(ixO^S)
+      ! TODO: Implement actual eigenvalues
+      cmax(ixO^S,1) = m1_c*m1_RSOL
+      ! cmin(ixO^S,1) = m1_c
 
-      if(hd_energy) then
-        csoundL(ixO^S)=hd_gamma*wLp(ixO^S,p_)/wLp(ixO^S,rho_)
-        csoundR(ixO^S)=hd_gamma*wRp(ixO^S,p_)/wRp(ixO^S,rho_)
-      else
-        call hd_get_csound2(wLC,x,ixI^L,ixO^L,csoundL)
-        call hd_get_csound2(wRC,x,ixI^L,ixO^L,csoundR)
-      end if
+    else
 
-      dmean(ixO^S) = (tmp1(ixO^S)*csoundL(ixO^S)+tmp2(ixO^S)*csoundR(ixO^S)) * &
-           tmp3(ixO^S) + 0.5d0*tmp1(ixO^S)*tmp2(ixO^S)*tmp3(ixO^S)**2 * &
-           (wRp(ixO^S,mom(idim))-wLp(ixO^S,mom(idim)))**2
+      select case(boundspeed)
+      case (1)
+        ! This implements formula (10.52) from "Riemann Solvers and Numerical
+        ! Methods for Fluid Dynamics" by Toro.
 
-      dmean(ixO^S)=dsqrt(dmean(ixO^S))
-      if(present(cmin)) then
-        cmin(ixO^S,1)=umean(ixO^S)-dmean(ixO^S)
-        cmax(ixO^S,1)=umean(ixO^S)+dmean(ixO^S)
-        if(H_correction) then
-          {do ix^DB=ixOmin^DB,ixOmax^DB\}
-            cmin(ix^D,1)=sign(one,cmin(ix^D,1))*max(abs(cmin(ix^D,1)),Hspeed(ix^D,1))
-            cmax(ix^D,1)=sign(one,cmax(ix^D,1))*max(abs(cmax(ix^D,1)),Hspeed(ix^D,1))
-          {end do\}
+        tmp1(ixO^S)=dsqrt(wLp(ixO^S,rho_))
+        tmp2(ixO^S)=dsqrt(wRp(ixO^S,rho_))
+        tmp3(ixO^S)=1.d0/(dsqrt(wLp(ixO^S,rho_))+dsqrt(wRp(ixO^S,rho_)))
+        umean(ixO^S)=(wLp(ixO^S,mom(idim))*tmp1(ixO^S)+wRp(ixO^S,mom(idim))*tmp2(ixO^S))*tmp3(ixO^S)
+
+        if(hd_energy) then
+          csoundL(ixO^S)=hd_gamma*wLp(ixO^S,p_)/wLp(ixO^S,rho_)
+          csoundR(ixO^S)=hd_gamma*wRp(ixO^S,p_)/wRp(ixO^S,rho_)
+        else
+          call hd_get_csound2(wLC,x,ixI^L,ixO^L,csoundL)
+          call hd_get_csound2(wRC,x,ixI^L,ixO^L,csoundR)
         end if
-      else
-        cmax(ixO^S,1)=dabs(umean(ixO^S))+dmean(ixO^S)
-      end if
 
-      if (hd_dust) then
+        dmean(ixO^S) = (tmp1(ixO^S)*csoundL(ixO^S)+tmp2(ixO^S)*csoundR(ixO^S)) * &
+             tmp3(ixO^S) + 0.5d0*tmp1(ixO^S)*tmp2(ixO^S)*tmp3(ixO^S)**2 * &
+             (wRp(ixO^S,mom(idim))-wLp(ixO^S,mom(idim)))**2
+
+        dmean(ixO^S)=dsqrt(dmean(ixO^S))
+        if(present(cmin)) then
+          cmin(ixO^S,1)=umean(ixO^S)-dmean(ixO^S)
+          cmax(ixO^S,1)=umean(ixO^S)+dmean(ixO^S)
+          if(H_correction) then
+            {do ix^DB=ixOmin^DB,ixOmax^DB\}
+              cmin(ix^D,1)=sign(one,cmin(ix^D,1))*max(abs(cmin(ix^D,1)),Hspeed(ix^D,1))
+              cmax(ix^D,1)=sign(one,cmax(ix^D,1))*max(abs(cmax(ix^D,1)),Hspeed(ix^D,1))
+            {end do\}
+          end if
+        else
+          cmax(ixO^S,1)=dabs(umean(ixO^S))+dmean(ixO^S)
+        end if
+
+        if (hd_dust) then
+          wmean(ixO^S,1:nwflux)=0.5d0*(wLC(ixO^S,1:nwflux)+wRC(ixO^S,1:nwflux))
+          call dust_get_cmax(wmean, x, ixI^L, ixO^L, idim, cmax, cmin)
+        end if
+
+      case (2)
         wmean(ixO^S,1:nwflux)=0.5d0*(wLC(ixO^S,1:nwflux)+wRC(ixO^S,1:nwflux))
-        call dust_get_cmax(wmean, x, ixI^L, ixO^L, idim, cmax, cmin)
-      end if
+        tmp1(ixO^S)=wmean(ixO^S,mom(idim))/wmean(ixO^S,rho_)
+        call hd_get_csound2(wmean,x,ixI^L,ixO^L,csoundR)
+        csoundR(ixO^S) = dsqrt(csoundR(ixO^S))
 
-    case (2)
-      wmean(ixO^S,1:nwflux)=0.5d0*(wLC(ixO^S,1:nwflux)+wRC(ixO^S,1:nwflux))
-      tmp1(ixO^S)=wmean(ixO^S,mom(idim))/wmean(ixO^S,rho_)
-      call hd_get_csound2(wmean,x,ixI^L,ixO^L,csoundR)
-      csoundR(ixO^S) = dsqrt(csoundR(ixO^S))
-
-      if(present(cmin)) then
-        cmax(ixO^S,1)=max(tmp1(ixO^S)+csoundR(ixO^S),zero)
-        cmin(ixO^S,1)=min(tmp1(ixO^S)-csoundR(ixO^S),zero)
-        if(H_correction) then
-          {do ix^DB=ixOmin^DB,ixOmax^DB\}
-            cmin(ix^D,1)=sign(one,cmin(ix^D,1))*max(abs(cmin(ix^D,1)),Hspeed(ix^D,1))
-            cmax(ix^D,1)=sign(one,cmax(ix^D,1))*max(abs(cmax(ix^D,1)),Hspeed(ix^D,1))
-          {end do\}
+        if(present(cmin)) then
+          cmax(ixO^S,1)=max(tmp1(ixO^S)+csoundR(ixO^S),zero)
+          cmin(ixO^S,1)=min(tmp1(ixO^S)-csoundR(ixO^S),zero)
+          if(H_correction) then
+            {do ix^DB=ixOmin^DB,ixOmax^DB\}
+              cmin(ix^D,1)=sign(one,cmin(ix^D,1))*max(abs(cmin(ix^D,1)),Hspeed(ix^D,1))
+              cmax(ix^D,1)=sign(one,cmax(ix^D,1))*max(abs(cmax(ix^D,1)),Hspeed(ix^D,1))
+            {end do\}
+          end if
+        else
+          cmax(ixO^S,1)=dabs(tmp1(ixO^S))+csoundR(ixO^S)
         end if
-      else
-        cmax(ixO^S,1)=dabs(tmp1(ixO^S))+csoundR(ixO^S)
-      end if
 
-      if (hd_dust) then
-        call dust_get_cmax(wmean, x, ixI^L, ixO^L, idim, cmax, cmin)
-      end if
-    case (3)
-      ! Miyoshi 2005 JCP 208, 315 equation (67)
-      if(hd_energy) then
-        csoundL(ixO^S)=hd_gamma*wLp(ixO^S,p_)/wLp(ixO^S,rho_)
-        csoundR(ixO^S)=hd_gamma*wRp(ixO^S,p_)/wRp(ixO^S,rho_)
-      else
-        call hd_get_csound2(wLC,x,ixI^L,ixO^L,csoundL)
-        call hd_get_csound2(wRC,x,ixI^L,ixO^L,csoundR)
-      end if
-      csoundL(ixO^S)=max(dsqrt(csoundL(ixO^S)),dsqrt(csoundR(ixO^S)))
-      if(present(cmin)) then
-        cmin(ixO^S,1)=min(wLp(ixO^S,mom(idim)),wRp(ixO^S,mom(idim)))-csoundL(ixO^S)
-        cmax(ixO^S,1)=max(wLp(ixO^S,mom(idim)),wRp(ixO^S,mom(idim)))+csoundL(ixO^S)
-        if(H_correction) then
-          {do ix^DB=ixOmin^DB,ixOmax^DB\}
-            cmin(ix^D,1)=sign(one,cmin(ix^D,1))*max(abs(cmin(ix^D,1)),Hspeed(ix^D,1))
-            cmax(ix^D,1)=sign(one,cmax(ix^D,1))*max(abs(cmax(ix^D,1)),Hspeed(ix^D,1))
-          {end do\}
+        if (hd_dust) then
+          call dust_get_cmax(wmean, x, ixI^L, ixO^L, idim, cmax, cmin)
         end if
-      else
-        cmax(ixO^S,1)=max(wLp(ixO^S,mom(idim)),wRp(ixO^S,mom(idim)))+csoundL(ixO^S)
-      end if
-      if (hd_dust) then
-        wmean(ixO^S,1:nwflux)=0.5d0*(wLC(ixO^S,1:nwflux)+wRC(ixO^S,1:nwflux))
-        call dust_get_cmax(wmean, x, ixI^L, ixO^L, idim, cmax, cmin)
-      end if
-    end select
+      case (3)
+        ! Miyoshi 2005 JCP 208, 315 equation (67)
+        if(hd_energy) then
+          csoundL(ixO^S)=hd_gamma*wLp(ixO^S,p_)/wLp(ixO^S,rho_)
+          csoundR(ixO^S)=hd_gamma*wRp(ixO^S,p_)/wRp(ixO^S,rho_)
+        else
+          call hd_get_csound2(wLC,x,ixI^L,ixO^L,csoundL)
+          call hd_get_csound2(wRC,x,ixI^L,ixO^L,csoundR)
+        end if
+        csoundL(ixO^S)=max(dsqrt(csoundL(ixO^S)),dsqrt(csoundR(ixO^S)))
+        if(present(cmin)) then
+          cmin(ixO^S,1)=min(wLp(ixO^S,mom(idim)),wRp(ixO^S,mom(idim)))-csoundL(ixO^S)
+          cmax(ixO^S,1)=max(wLp(ixO^S,mom(idim)),wRp(ixO^S,mom(idim)))+csoundL(ixO^S)
+          if(H_correction) then
+            {do ix^DB=ixOmin^DB,ixOmax^DB\}
+              cmin(ix^D,1)=sign(one,cmin(ix^D,1))*max(abs(cmin(ix^D,1)),Hspeed(ix^D,1))
+              cmax(ix^D,1)=sign(one,cmax(ix^D,1))*max(abs(cmax(ix^D,1)),Hspeed(ix^D,1))
+            {end do\}
+          end if
+        else
+          cmax(ixO^S,1)=max(wLp(ixO^S,mom(idim)),wRp(ixO^S,mom(idim)))+csoundL(ixO^S)
+        end if
+        if (hd_dust) then
+          wmean(ixO^S,1:nwflux)=0.5d0*(wLC(ixO^S,1:nwflux)+wRC(ixO^S,1:nwflux))
+          call dust_get_cmax(wmean, x, ixI^L, ixO^L, idim, cmax, cmin)
+        end if
+      end select
+
+    end if
 
   end subroutine hd_get_cbounds
 
@@ -1059,6 +1169,96 @@ contains
 
   end subroutine hd_get_pthermal
 
+  !> Calculate the radiation pressure tensor components
+  !> using the M1 closure
+  !> https://www.sciencedirect.com/science/article/pii/S0022407314001691
+  subroutine m1_get_prad(w, x, ixI^L, ixO^L, idir, jdir, prad)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+    double precision, intent(out):: prad(ixI^S)
+    integer, intent(in)          :: idir, jdir
+
+    integer                      :: iw, ix^D
+    double precision :: fi(ixI^S), fj(ixI^S), ff(ixI^S), chi(ixI^S)
+
+    if (m1_diffusion) then
+
+      if (idir == jdir) then
+        prad(ixI^S) = 1.d0/3.d0
+      else
+        prad(ixI^S) = 0.d0
+      end if
+
+    else
+
+      !> Eddington scalars
+      fi(ixI^S) = (w(ixI^S,Fr(idir))/(m1_c*w(ixI^S,Er_)))
+      fj(ixI^S) = (w(ixI^S,Fr(jdir))/(m1_c*w(ixI^S,Er_)))
+
+      !TODO: Check this sum, it does not produce what is expected
+      ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
+
+      !> Cap ff, this should not be necessary, but the sum above does not behave properly
+      ! fi(ixI^S) = max(fi(ixI^S),1.d0)
+      ! fj(ixI^S) = max(fj(ixI^S),1.d0)
+      ff(ixI^S) = max(ff(ixI^S),1.d0)
+
+      !> Eddington factor
+      chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
+
+      !> Temporary (??) fix
+      where (chi(ixI^S) .ne. chi(ixI^S))
+        chi(ixI^S) = 5.d0/3.d0
+      end where
+
+      !> Eddington tensor
+      prad(ixI^S) = (3.d0*chi(ixI^S)-1)/2.d0 * fi(ixI^S)*fj(ixI^S)/ff(ixI^S)
+
+      !> Nan when F == 0 as fi*fj / ff = 0/0
+      !> Tensor term should be 0
+      where (prad(ixI^S) .ne. prad(ixI^S))
+        prad(ixI^S) = 0.d0
+      end where
+
+      if (idir == jdir) then
+        prad(ixI^S) = prad(ixI^S) + (1.d0-chi(ixI^S))/2.d0
+      end if
+
+    end if
+
+    !> Radiation pressure tensor
+    prad(ixI^S) = prad(ixI^S) * w(ixI^S,Er_)
+
+    {do ix^D = ixOmin^D,ixOmax^D\}
+     if (w(ix^D,Er_) .lt. 0.d0) then
+       print*, 'c', unit_velocity, m1_c, m1_c*unit_velocity, const_c
+       print*, 'Er', w(ix^D,Er_)
+       print*, 'x', x(ix^D,:)
+       print*, 'i,j, ndim', idir, jdir, ndim
+       print*, 'fi, fj, f**2, fi**2 + fj**2',fi(ix^D), fj(ix^D), ff(ix^D), fi(ix^D)**2 + fj(ix^D)**2
+       print*, w(ix^D,Fr(idir)),w(ix^D,Fr(jdir)),sum(w(ix^D,Fr(:))**2), &
+       w(ix^D,Fr(idir))**2 + w(ix^D,Fr(jdir))**2
+       print*, chi(ix^D)
+     end if
+    {enddo\}
+
+    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+      stop "Er zero in Prad"
+    end if
+
+    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+      stop "Er NaN in Prad"
+    end if
+
+    if (any(prad(ixO^S) .ne. prad(ixO^S))) then
+      stop "Pr NaN in Prad"
+    end if
+
+  end subroutine m1_get_prad
+
   !> Calculate temperature=p/rho when in e_ the  total energy is stored
   subroutine hd_get_temperature_from_etot(w, x, ixI^L, ixO^L, res)
     use mod_global_parameters
@@ -1088,44 +1288,55 @@ contains
     res(ixO^S) = (hd_gamma - 1.0d0) * w(ixO^S, e_)/(w(ixO^S,rho_)*R(ixO^S))
   end subroutine hd_get_temperature_from_eint
 
-  ! Calculate flux f_idim[iw]
-  subroutine hd_get_flux_cons(w, x, ixI^L, ixO^L, idim, f)
-    use mod_global_parameters
-    use mod_dust, only: dust_get_flux
-
-    integer, intent(in)             :: ixI^L, ixO^L, idim
-    double precision, intent(in)    :: w(ixI^S, 1:nw), x(ixI^S, 1:ndim)
-    double precision, intent(out)   :: f(ixI^S, nwflux)
-    double precision                :: pth(ixI^S), v(ixI^S),frame_vel(ixI^S)
-    integer                         :: idir, itr
-
-    call hd_get_pthermal(w, x, ixI^L, ixO^L, pth)
-    call hd_get_v_idim(w, x, ixI^L, ixO^L, idim, v)
-
-    f(ixO^S, rho_) = v(ixO^S) * w(ixO^S, rho_)
-
-    ! Momentum flux is v_i*m_i, +p in direction idim
-    do idir = 1, ndir
-       f(ixO^S, mom(idir)) = v(ixO^S) * w(ixO^S, mom(idir))
-    end do
-
-    f(ixO^S, mom(idim)) = f(ixO^S, mom(idim)) + pth(ixO^S)
-
-    if(hd_energy) then
-      ! Energy flux is v_i*(e + p)
-      f(ixO^S, e_) = v(ixO^S) * (w(ixO^S, e_) + pth(ixO^S))
-    end if
-
-    do itr = 1, hd_n_tracer
-       f(ixO^S, tracer(itr)) = v(ixO^S) * w(ixO^S, tracer(itr))
-    end do
-
-    ! Dust fluxes
-    if (hd_dust) then
-      call dust_get_flux(w, x, ixI^L, ixO^L, idim, f)
-    end if
-
-  end subroutine hd_get_flux_cons
+  ! ! Calculate flux f_idim[iw]
+  ! subroutine hd_get_flux_cons(w, x, ixI^L, ixO^L, idim, f)
+  !   use mod_global_parameters
+  !   use mod_dust, only: dust_get_flux
+  !
+  !   integer, intent(in)             :: ixI^L, ixO^L, idim
+  !   double precision, intent(in)    :: w(ixI^S, 1:nw), x(ixI^S, 1:ndim)
+  !   double precision, intent(out)   :: f(ixI^S, nwflux)
+  !   double precision                :: prad_ii(ixI^S), pth(ixI^S), v(ixI^S),frame_vel(ixI^S)
+  !   integer                         :: idir, itr
+  !
+  !   call hd_get_pthermal(w, x, ixI^L, ixO^L, pth)
+  !   call hd_get_v_idim(w, x, ixI^L, ixO^L, idim, v)
+  !
+  !   f(ixO^S, rho_) = v(ixO^S) * w(ixO^S, rho_)
+  !
+  !   ! Momentum flux is v_i*m_i, +p in direction idim
+  !   do idir = 1, ndir
+  !      f(ixO^S, mom(idir)) = v(ixO^S) * w(ixO^S, mom(idir))
+  !   end do
+  !
+  !   f(ixO^S, mom(idim)) = f(ixO^S, mom(idim)) + pth(ixO^S)
+  !
+  !   if(hd_energy) then
+  !     ! Energy flux is v_i*(e + p)
+  !     f(ixO^S, e_) = v(ixO^S) * (w(ixO^S, e_) + pth(ixO^S))
+  !   end if
+  !
+  !   if (hd_m1) then
+  !     !> Radiation energy flux is v_i E + F_i
+  !     f(ixO^S, Er_) = v(ixO^S) * w(ixO^S, Er_) + w(ixO^S, Fr(idim))
+  !
+  !     !> Radiation flux flux is v_i F_i + c^2 P_ii
+  !     do idir = 1,ndir
+  !       call m1_get_prad(w, x, ixI^L, ixO^L, idir, idim, prad_ii)
+  !       f(ixO^S, Fr(idir)) = v(ixO^S) * w(ixO^S,Fr(idir)) + m1_RSOL * m1_c**2 * prad_ii(ixO^S)
+  !     end do
+  !   end if
+  !
+  !   do itr = 1, hd_n_tracer
+  !      f(ixO^S, tracer(itr)) = v(ixO^S) * w(ixO^S, tracer(itr))
+  !   end do
+  !
+  !   ! Dust fluxes
+  !   if (hd_dust) then
+  !     call dust_get_flux(w, x, ixI^L, ixO^L, idim, f)
+  !   end if
+  !
+  ! end subroutine hd_get_flux_cons
 
   ! Calculate flux f_idim[iw]
   subroutine hd_get_flux(wC, w, x, ixI^L, ixO^L, idim, f)
@@ -1140,7 +1351,7 @@ contains
     double precision, intent(in)    :: w(ixI^S, 1:nw)
     double precision, intent(in)    :: x(ixI^S, 1:ndim)
     double precision, intent(out)   :: f(ixI^S, nwflux)
-    double precision                :: pth(ixI^S),frame_vel(ixI^S)
+    double precision                :: prad_ii(ixI^S), pth(ixI^S),frame_vel(ixI^S)
     integer                         :: idir, itr
 
     if (hd_energy) then
@@ -1161,6 +1372,17 @@ contains
     if(hd_energy) then
       ! Energy flux is v_i*(e + p)
       f(ixO^S, e_) = w(ixO^S,mom(idim)) * (wC(ixO^S, e_) + w(ixO^S,p_))
+    end if
+
+    if (hd_m1) then
+      !> Radiation energy flux is v_i E + F
+      f(ixO^S,Er_) = m1_RSOL * w(ixO^S,mom(idim)) * w(ixO^S, Er_) + m1_RSOL * w(ixO^S, Fr(idim))
+
+      !> Radiation flux flux is v_i F_i + c^2 P_ii
+      do idir = 1,ndir
+        call m1_get_prad(w, x, ixI^L, ixO^L, idir, idim, prad_ii)
+        f(ixO^S,Fr(idir)) = m1_RSOL * (w(ixO^S,mom(idim)) * w(ixO^S,Fr(idir)) + m1_c**2 * prad_ii(ixO^S))
+      end do
     end if
 
     do itr = 1, hd_n_tracer
@@ -1199,9 +1421,9 @@ contains
     ! to change and to set as a parameter in the parfile once the possibility to
     ! solve the equations in an angular momentum conserving form has been
     ! implemented (change tvdlf.t eg)
-    double precision :: pth(ixI^S), source(ixI^S), minrho
+    double precision :: pth(ixI^S), source(ixI^S), minrho, prad(ixI^S)
     integer                         :: iw,idir, h1x^L{^NOONED, h2x^L}
-    integer :: mr_,mphi_ ! Polar var. names
+    integer :: mr_,mphi_,Fr_,Fphi_ ! Polar var. names
     integer :: irho, ifluid, n_fluids
     double precision :: exp_factor(ixI^S), del_exp_factor(ixI^S), exp_factor_primitive(ixI^S)
 
@@ -1221,6 +1443,9 @@ contains
       w(ixO^S,mom(1)) = w(ixO^S,mom(1)) + qdt*source(ixO^S)
 
     case (cylindrical)
+      if (hd_m1) then
+         call mpistop("m1 geom source terms not implemented yet with cylindrical geometries")
+      end if
        do ifluid = 0, n_fluids-1
           ! s[mr]=(pthermal+mphi**2/rho)/radius
           if (ifluid == 0) then
@@ -1257,6 +1482,7 @@ contains
        if (hd_dust) then
           call mpistop("Dust geom source terms not implemented yet with spherical geometries")
        end if
+       !> momentum
        mr_   = mom(r_)
        if(phi_>0) mphi_ = mom(phi_)
        h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
@@ -1290,6 +1516,32 @@ contains
          w(ixO^S, mom(3)) = w(ixO^S, mom(3)) + qdt * source(ixO^S) / x(ixO^S, 1)
        end if
        }
+
+       !> Radiation flux
+       !TODO: Fix geometric sourceterms for non-Cartesian multi-D
+       if (hd_m1) then
+         Fr_   = Fr(r_)
+         if(phi_>0) Fphi_ = Fr(phi_)
+         h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
+         ! s[mr]=((Ftheta**2+Fphi**2)/rho+2*prr)/r
+         call m1_get_prad(wCT, x, ixI^L, ixO^L,r_,r_, prad)
+         source(ixO^S) = m1_RSOL * m1_c**2 * prad(ixO^S) * x(ixO^S, 1) &
+              *(block%surfaceC(ixO^S, 1) - block%surfaceC(h1x^S, 1)) &
+              /block%dvolume(ixO^S)
+         ! if (ndir > 1) then
+         !   call mpistop("m1 source terms not implemented yet with ND spherical geometries")
+         !   do idir = 2, ndir
+         !     source(ixO^S) = source(ixO^S) + wCT(ixO^S, mom(idir))*wCT(ixO^S, Fr(idir))/ wCT(ixO^S, rho_)
+         !   end do
+         ! end if
+
+         w(ixO^S, Fr_) = w(ixO^S, Fr_) !+ qdt * m1_RSOL * source(ixO^S) / x(ixO^S, 1)
+
+         ! {^NOONED
+         ! call mpistop("m1 source terms not implemented yet with ND spherical geometries")
+         ! }
+       end if
+
     end select
 
     if (hd_viscosity) call visc_add_source_geom(qdt,ixI^L,ixO^L,wCT,w,x)
@@ -1366,6 +1618,11 @@ contains
       end if
     end if
 
+    if (hd_m1 .and. m1_force) then
+      call m1_hydro_source(qdt,ixI^L,ixO^L,wCT,w,x,hd_energy,qsourcesplit,active)
+      call m1_rad_source(qdt,ixI^L,ixO^L,wCT,w,x,hd_energy,qsourcesplit,active)
+    end if
+
   end subroutine hd_add_source
 
   subroutine hd_get_dt(w, ixI^L, ixO^L, dtnew, dx^D, x)
@@ -1401,6 +1658,10 @@ contains
 
    if (hd_cak_force) then
      call cak_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+   end if
+
+   if (hd_m1) then
+     call m1_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
    end if
 
   end subroutine hd_get_dt
@@ -1441,6 +1702,8 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     character(len=*), intent(in)    :: subname
+
+    double precision :: Fmag(ixI^S)
 
     integer :: n,idir
     logical :: flag(ixI^S,1:nw)
@@ -1485,6 +1748,20 @@ contains
               enddo
            enddo
         endif
+
+        if (hd_m1) then
+
+          !> Radiation flux
+          if (hd_m1) then
+            if (any(flag(ixO^S,Fr(:)))) &
+              Fmag(ixI^S) = dsqrt(sum(w(ixI^S,Fr(:))**2, dim=ndim+1))
+
+              do idir = 1,ndir
+                where(flag(ixO^S,Fr(idir))) w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir))*m1_c*w(ixO^S,Er_)/Fmag(ixI^S)
+              end do
+            end if
+          end if
+
       case ("average")
         if(primitive)then
            ! averaging for all primitive fields, including dust
@@ -1509,6 +1786,7 @@ contains
               enddo
           endif
         endif
+
       case default
         if(.not.primitive) then
           !convert w to primitive
@@ -1525,6 +1803,7 @@ contains
         call small_values_error(w, x, ixI^L, ixO^L, flag, subname)
       end select
     end if
+
   end subroutine hd_handle_small_values
 
   subroutine Rfactor_from_temperature_ionization(w,x,ixI^L,ixO^L,Rfactor)
@@ -1572,5 +1851,519 @@ contains
      He_abundance*(iz_He(ixO^S)*(iz_He(ixO^S)+1.d0)+1.d0)))
 
   end subroutine hd_update_temperature
+
+  subroutine m1_rad_source(qdt,ixI^L,ixO^L,wCT,w,x,energy,qsourcesplit,active)
+    use mod_global_parameters
+    use mod_geometry
+    use mod_comm_lib, only: mpistop
+
+    integer, intent(in)    :: ixI^L, ixO^L
+    real(8), intent(in)    :: qdt, x(ixI^S,1:ndim), wCT(ixI^S,1:nw)
+    real(8), intent(inout) :: w(ixI^S,1:nw)
+    logical, intent(in)    :: energy, qsourcesplit
+    logical, intent(inout) :: active
+
+    integer :: idir, idim
+    integer                         :: jxO^L, hxO^L
+
+    double precision :: rad_acc(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S)
+    double precision :: Fp(ixO^S), Fm(ixO^S), sm(ixO^S), sp(ixO^S)
+
+    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+      stop "Er zero before radforce"
+    end if
+
+    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+      stop "Er NaN before radforce"
+    end if
+
+    if(qsourcesplit .eqv. m1_force_split) then
+      active = .true.
+
+      do idir = 1,ndir
+        !> MOVED TO IMPLICIT SCHEME
+        !> Force in radiation flux
+        ! w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))*m1_RSOL*m1_c
+        !> Skinner & Ostriker 2013 Eq. 43
+        ! w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) &
+        ! *(1.d0 - (1-m1_theta_stiff)*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) &
+        ! /(1.d0 + m1_theta_stiff*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt)
+
+        !> Well-balanced formulation, Bloch+ 2020
+        hxO^L=ixO^L-kr(idir,^D);
+        jxO^L=ixO^L+kr(idir,^D);
+
+        !> Flux face averages
+        sm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,rho_)*wCT(hxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
+        sp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,rho_)*wCT(jxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
+        Fm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
+        Fp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
+
+        !> Update flux
+        w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*1.d0/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))*m1_RSOL*m1_c
+
+        !> Photon tiring + Radflux CMF correction
+        do idim = 1,ndim
+          v(ixI^S) = wCT(ixI^S,mom(idim))/wCT(ixI^S,rho_)
+          call m1_get_prad(wCT, x, ixI^L, ixO^L, idir, idim, prad)
+          call gradient_str(v, x, ixI^L, ixO^L, idir, gradv)
+
+          !TODO: Well balanced source-terms here? Requires gradient in GC
+          w(ixO^S,Er_) = w(ixO^S,Er_) - qdt*m1_RSOL*gradv(ixO^S)*prad(ixO^S)
+          w(ixO^S,Fr(idim)) = w(ixO^S,Fr(idim)) - qdt*m1_RSOL*wCT(ixO^S,Fr(idir))*gradv(ixO^S)
+        end do
+
+      end do
+    end if
+
+    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+      stop "Er zero in radforce"
+    end if
+
+    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+      stop "Er NaN in radforce"
+    end if
+
+  end subroutine m1_rad_source
+
+  subroutine m1_hydro_source(qdt,ixI^L,ixO^L,wCT,w,x,energy,qsourcesplit,active)
+    use mod_global_parameters
+    use mod_geometry
+    use mod_comm_lib, only: mpistop
+
+    integer, intent(in)    :: ixI^L, ixO^L
+    real(8), intent(in)    :: qdt, x(ixI^S,1:ndim), wCT(ixI^S,1:nw)
+    real(8), intent(inout) :: w(ixI^S,1:nw)
+    logical, intent(in)    :: energy, qsourcesplit
+    logical, intent(inout) :: active
+
+    integer :: idir
+    integer                         :: jxO^L, hxO^L
+    double precision :: Fp(ixO^S), Fm(ixO^S), sm(ixO^S), sp(ixO^S)
+
+
+    if (any(w(ixO^S,e_) .lt. 0.d0)) then
+      stop "e zero before m1_hydro_source 1"
+    end if
+
+    if (any(w(ixO^S,e_) .ne. w(ixO^S,e_))) then
+      stop "e NaN before m1_hydro_source 1"
+    end if
+
+    if(qsourcesplit .eqv. m1_force_split) then
+      active = .true.
+
+      do idir = 1,ndir
+        !> Force in momentum
+        ! TODO: Well-balanced scheme?!
+        ! w(ixO^S,mom(idir)) = w(ixO^S,mom(idir)) + qdt*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
+        !> Well-balanced formulation, Bloch+ 2020
+        hxO^L=ixO^L-kr(idir,^D);
+        jxO^L=ixO^L+kr(idir,^D);
+
+        !> Flux face averages
+        sm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,rho_)*wCT(hxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
+        sp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,rho_)*wCT(jxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
+        Fm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
+        Fp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
+
+        !> Update momentum
+        w(ixO^S,mom(idir)) = w(ixO^S,mom(idir)) + qdt*1.d0/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/m1_c
+
+        !> Force work term
+        ! if (energy) &
+        !   w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
+        if (energy) &
+          w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)*1.d0/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/m1_c
+
+      end do
+    end if
+
+    if (any(w(ixO^S,e_) .lt. 0.d0)) then
+      stop "e zero after m1_hydro_source 1"
+    end if
+
+    if (any(w(ixO^S,e_) .ne. w(ixO^S,e_))) then
+      stop "e NaN after m1_hydro_source 1"
+    end if
+
+  end subroutine m1_hydro_source
+
+  subroutine m1_heating_cooling(dtfactor,qdt,qtC,psa,psb)
+   use mod_global_parameters
+   type(state), target :: psa(max_blocks)
+   type(state), target :: psb(max_blocks)
+   double precision, intent(in) :: qdt
+   double precision, intent(in) :: qtC
+   double precision, intent(in) :: dtfactor
+
+   integer :: ixO^L,iigrid,igrid
+
+   ixO^L=ixG^LL^LSUBnghostcells;
+
+   if (m1_heatcool .and. hd_energy) then
+     !$OMP PARALLEL DO PRIVATE(igrid)
+     do iigrid=1,igridstail; igrid=igrids(iigrid);
+        call Energy_interaction(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
+     end do
+     !$OMP END PARALLEL DO
+   end if
+
+   ! !$OMP PARALLEL DO PRIVATE(igrid)
+   ! do iigrid=1,igridstail; igrid=igrids(iigrid);
+   !    call m1_flux_momentum(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
+   ! end do
+   ! !$OMP END PARALLEL DO
+
+ end subroutine m1_heating_cooling
+
+ ! subroutine Energy_interaction(w, x, ixI^L, ixO^L, dtfactor, qdt)
+ !   use mod_global_parameters
+ !
+ !   integer, intent(in)             :: ixI^L,ixO^L
+ !   double precision, intent(in)    :: x(ixI^S,1:ndim)
+ !   double precision, intent(in)    :: dtfactor, qdt
+ !   double precision, intent(inout) :: w(ixI^S,1:nw)
+ !
+ !   double precision :: a1(ixO^S), a2(ixO^S)
+ !   double precision :: c0(ixO^S), c1(ixO^S)
+ !
+ !   integer :: ix^D
+ !
+ !   !> Get gas internal energy
+ !   call hd_e_to_ei(ixI^L,ixO^L,w,x)
+ !
+ !   !> Set polynomial coefficients
+ !   a1(ixO^S) = 4.d0*w(ixO^S,kB_)*m1_sb*(hd_gamma-1.d0)**4/w(ixO^S,rho_)**3*dtfactor*qdt
+ !   a2(ixO^S) = m1_c*w(ixO^S,kE_)*w(ixO^S,rho_)*dtfactor*qdt
+ !
+ !   c0(ixO^S) = ((1.d0+a2(ixO^S))*w(ixO^S,e_)+a2(ixO^S)*w(ixO^S,Er_))/a1(ixO^S)
+ !   c1(ixO^S) = (1.d0+a2(ixO^S))/a1(ixO^S)
+ !
+ !   !> Solve polynomial
+ !   {do ix^D = ixOmin^D,ixOmax^D\}
+ !    call Bisection_method(w(ix^D,e_),w(ix^D,Er_),c0(ix^D),c1(ix^D))
+ !   {enddo\}
+ !
+ !   !> Set radiation energy density
+ !   w(ixO^S,Er_) = (a1(ixO^S)*w(ixO^S,e_)**4.d0+w(ixO^S,Er_))/(1.d0+a2(ixO^S))
+ !
+ !   !> Get gas total energy
+ !   call hd_ei_to_e(ixI^L,ixO^L,w,x)
+ !
+ ! end subroutine Energy_interaction
+
+ subroutine Energy_interaction(w, x, ixI^L, ixO^L, dtfactor, qdt)
+   use mod_global_parameters
+   use mod_constants
+
+   integer, intent(in)             :: ixI^L,ixO^L
+   double precision, intent(in)    :: x(ixI^S,1:ndim)
+   double precision, intent(in)    :: dtfactor, qdt
+   double precision, intent(inout) :: w(ixI^S,1:nw)
+
+   double precision :: a4(ixO^S), a0(ixO^S), alpha
+   double precision :: c0(ixO^S), c1(ixO^S)
+
+   integer :: ix^D, idir
+
+   !> Get gas internal energy
+   call hd_e_to_ei(ixI^L,ixO^L,w,x)
+
+   if (fix_small_values) then
+     call hd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'Energy_interaction')
+   end if
+
+   !> Set polynomial coefficients
+   alpha = const_rad_a*m1_c*(unit_temperature**4/unit_pressure) !> mu, mp, kb hidden in units
+
+   a4(ixO^S) = alpha*w(ixO^S,kB_)*(hd_gamma-1.d0)**4/w(ixO^S,rho_)**3*dtfactor*dt
+   a0(ixO^S) = m1_c*w(ixO^S,kE_)*w(ixO^S,rho_)*dtfactor*qdt
+
+   c1(ixO^S) = 1.d0/(a4(ixO^S) - m1_RSOL*a4(ixO^S)*a0(ixO^S)/(1.d0 + m1_RSOL*a0(ixO^S)))
+   c0(ixO^S) = (a0(ixO^S)*w(ixO^S,Er_)/(1.d0 + m1_RSOL*a0(ixO^S)) + w(ixO^S,e_))*c1(ixO^S)
+
+   !> Solve polynomial
+   {do ix^D = ixOmin^D,ixOmax^D\}
+    call Bisection_method(w(ix^D,e_),w(ix^D,Er_),c0(ix^D),c1(ix^D))
+   {enddo\}
+
+   !> Set radiation energy density
+   w(ixO^S,Er_) = (w(ixO^S,Er_) + m1_RSOL*a4(ixO^S)*w(ixO^S,e_)**4.d0)/(1.d0 + m1_RSOL*a0(ixO^S))
+
+   !> Get gas total energy
+   call hd_ei_to_e(ixI^L,ixO^L,w,x)
+
+ end subroutine Energy_interaction
+
+ ! subroutine m1_flux_momentum(w, x, ixI^L, ixO^L, dtfactor, qdt)
+ !   use mod_global_parameters
+ !   use mod_constants
+ !
+ !   integer, intent(in)             :: ixI^L,ixO^L
+ !   double precision, intent(in)    :: x(ixI^S,1:ndim)
+ !   double precision, intent(in)    :: dtfactor, qdt
+ !   double precision, intent(inout) :: w(ixI^S,1:nw)
+ !
+ !   integer :: idir
+ !
+ !   !> Skinner & Ostriker 2013 Eq. 43
+ !   do idir = 1,ndir
+ !     w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) &
+ !     *(1.d0 - (1-m1_theta_stiff)*m1_RSOL*m1_c*w(ixO^S,rho_)*w(ixO^S,kF_)*dtfactor*qdt) &
+ !     /(1.d0 + m1_theta_stiff*m1_RSOL*m1_c*w(ixO^S,rho_)*w(ixO^S,kF_)*dtfactor*qdt)
+ !   end do
+ !
+ ! end subroutine m1_flux_momentum
+
+  subroutine m1_set_opacities(ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+    use mod_geometry
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(inout) :: w(ixI^S,nw)
+    double precision, intent(in) :: x(ixI^S,1:ndim)
+
+    double precision :: tau_sob(ixI^S), vr(ixI^S)
+    double precision :: m1_kappa_e
+
+    select case (m1_opacity_type)
+
+    case('zero')
+      w(ixI^S,kF_) = 0.d0
+      w(ixI^S,kE_) = 0.d0
+      w(ixI^S,kB_) = 0.d0
+
+    case('kappa_e')
+      m1_kappa_e = 0.4d0
+
+      w(ixI^S,kF_) = m1_kappa_e/unit_opacity
+      w(ixI^S,kE_) = m1_kappa_e/unit_opacity
+      w(ixI^S,kB_) = m1_kappa_e/unit_opacity
+
+    case('Gayley')
+
+      m1_kappa_e = 0.34d0/unit_opacity
+
+      !> Calculate velocity gradient
+      vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
+      call gradient_str(vr,x,ixI^L,ixO^L,1,tau_sob)
+
+      !> Calculate sobolev optical depth parameter
+      tau_sob(ixI^S) = dabs(m1_c*m1_kappa_e*w(ixI^S,rho_)/(tau_sob(ixI^S)+smalldouble))
+
+      w(ixI^S,kF_) = m1_kappa_e * Qb_F/(1-a_F) * ((1.d0+Q0_F*tau_sob(ixI^S))**(1.d0-a_F) - 1.d0)/(Q0_F*tau_sob(ixI^S))
+      w(ixI^S,kF_) = w(ixI^S,kF_) + m1_kappa_e
+
+      ! w(ixI^S,kE_) = m1_kappa_e * Qb_E/(1-a_E)*((1+Q0_E*tau_sob(ixI^S))**(1-a_E) - 1)/(Q0_E*tau_sob(ixI^S))
+      ! w(ixI^S,kB_) = m1_kappa_e * Qb_B/(1-a_B)*((1+Q0_B*tau_sob(ixI^S))**(1-a_B) - 1)/(Q0_B*tau_sob(ixI^S))
+      w(ixI^S,kE_) = m1_kappa_e*Qb_E
+      w(ixI^S,kB_) = m1_kappa_e*Qb_B
+
+      where (w(ixI^S,kF_) .gt. 5*m1_kappa_e) w(ixI^S,kF_) = 5*m1_kappa_e
+      ! where (w(ixI^S,kE_) .gt. 20*m1_kappa_e) w(ixI^S,kE_) = 20*m1_kappa_e
+      ! where (w(ixI^S,kB_) .gt. 20*m1_kappa_e) w(ixI^S,kB_) = 20*m1_kappa_e
+
+      !> ghostcells on opacity for force-balancing
+      {^IFONED
+      w(ixOmin1-1,kF_) = w(ixOmin1,kF_)
+      w(ixOmax1+1,kF_) = w(ixOmax1,kF_)
+      }
+      {^IFTWOD
+      w(ixOmin1-1,:,kF_) = w(ixOmin1,:,kF_)
+      w(ixOmax1+1,:,kF_) = w(ixOmax1,:,kF_)
+      }
+      {^IFTHREED
+      w(ixOmin1-1,:,:,kF_) = w(ixOmin1,:,:,kF_)
+      w(ixOmax1+1,:,:,kF_) = w(ixOmax1,:,:,kF_)
+      }
+
+    ! case('Hybrid')
+    !
+    ! case('special')
+    !
+    ! case default
+
+    end select
+
+  end subroutine m1_set_opacities
+
+  !> Check time step for total radiation contribution
+  subroutine m1_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
+    use mod_global_parameters
+
+    integer, intent(in)    :: ixI^L, ixO^L
+    double precision, intent(in)    :: dx^D, x(ixI^S,1:ndim)
+    double precision, intent(in)    :: w(ixI^S,1:nw)
+    double precision, intent(inout) :: dtnew
+
+    dtnew = courantpar*minval(block%dx(ixO^S,:)/(m1_c*m1_RSOL))
+
+  end subroutine m1_get_dt
+
+  !> Returns logical argument flag where values are ok
+  subroutine m1_check_w(ixI^L, ixO^L, w, flag)
+    use mod_global_parameters
+    use mod_dust, only: dust_check_w
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, nw)
+    logical, intent(inout)       :: flag(ixI^S,1:nw)
+    double precision             :: Fmag2(ixI^S)
+
+    integer :: idir
+
+    !> Compute radflux magnitude
+    Fmag2(ixI^S) = sum(w(ixI^S,Fr(:))**2, dim=ndim+1)
+
+    !> Flag negative values of Erad
+    where (w(ixO^S, Er_) < small_e) flag(ixO^S, Er_) = .true.
+
+    !> Flag flux values where |F| > cE
+    !> Flag all dirs
+    ! do idir =1,ndir
+      where (Fmag2(ixO^S) > (m1_c*w(ixO^S, Er_))**2) flag(ixO^S,Fr(1)) = .true.
+    ! end do
+
+  end subroutine m1_check_w
+
+  !> Find the root of the 4th degree polynomial using the bisection method
+   subroutine Bisection_method(e_gas, E_rad, c0, c1)
+     use mod_global_parameters
+     double precision, intent(in)    :: c0, c1
+     double precision, intent(in)    :: E_rad
+     double precision, intent(inout) :: e_gas
+     double precision :: e_a, e_b, e_c !> x-axis values (energy) to evaluat in bisection
+     double precision :: p_a, p_b, p_c !> polynomial values
+     integer :: n, max_its
+
+     !> initialise counters and bisection limits
+     n = 0
+     max_its = 50
+     e_a = zero
+     e_b = min(abs(c0/c1),abs(c0)**(1.d0/4.d0))+smalldouble
+
+     !> Start bisection algorithm
+     do while((abs(e_b-e_a) .ge. 1.d-7*min(e_gas,E_rad)) .and. n < max_its)
+       !> Bisection point
+       e_c = (e_a + e_b)/two
+
+       !> Evaluate polynomial
+       p_a = Polynomial_Bisection(e_a, c0, c1)
+       p_b = Polynomial_Bisection(e_b, c0, c1)
+       p_c = Polynomial_Bisection(e_c, c0, c1)
+
+       !> Sanity check NEEDS TO BE REMOVED AFTER TESTING
+       if (p_a*p_b .gt. 0) then
+         print*, 'p_a, p_b, n_hc',p_a, p_b, n
+         print*, 'e, E', e_gas, E_rad
+         print*, 'x**4 +',c1,'x -',c0
+         print*, 'between x=', e_a, 'and', e_b
+         call mpistop("Problems with bisection scheme")
+       end if
+
+       !> Bisection
+       if (p_a*p_c .le. 0) then
+         e_b = e_c
+       else if (p_b*p_c .le. 0) then
+         e_a = e_c
+       else
+
+         print*, 'e_g, E_r:',e_gas, E_rad
+         print*, 'c0, c1', c0, c1
+         print*, n, 'a, c, b'
+         print*, e_a, e_c, e_b
+         print*, p_a, p_c, p_b
+
+         call mpistop('mehhh')
+
+         e_a = e_c
+         e_b = e_c
+
+         print*, 'heatcool:', e_c
+
+       end if
+
+       !> counter
+       n = n + 1
+
+     end do
+
+     ! print*, n, abs(e_b-e_a)/min(e_gas,E_rad)
+
+     !> Final bisection
+     e_gas = (e_a + e_b)/two
+
+   end subroutine Bisection_method
+
+  ! !> Find the root of the 4th degree polynomial using the bisection method
+  !  subroutine Bisection_method(e_gas, E_rad, c0, c1)
+  !    use mod_global_parameters
+  !    double precision, intent(in)    :: c0, c1
+  !    double precision, intent(in)    :: E_rad
+  !    double precision, intent(inout) :: e_gas
+  !    double precision :: bisect_a, bisect_b, bisect_c
+  !    integer :: n, max_its
+  !
+  !    n = 0
+  !    max_its = 15
+  !    bisect_a = zero
+  !    bisect_b = min(abs(c0/c1),abs(c0)**(1.d0/4.d0))+smalldouble
+  !    do while(abs(bisect_b-bisect_a) .ge. 1.d-5*min(e_gas,E_rad))
+  !      bisect_c = (bisect_a + bisect_b)/two
+  !      n = n +1
+  !      if(n .gt. max_its) then
+  !        goto 2435
+  !        call mpistop('No convergece in bisection scheme')
+  !      endif
+  !      if(Polynomial_Bisection(bisect_a, c0, c1)*&
+  !      Polynomial_Bisection(bisect_b, c0, c1) .lt. zero) then
+  !        if(Polynomial_Bisection(bisect_a, c0, c1)*&
+  !        Polynomial_Bisection(bisect_c, c0, c1) .lt. zero) then
+  !          bisect_b = bisect_c
+  !        elseif(Polynomial_Bisection(bisect_b, c0, c1)*&
+  !        Polynomial_Bisection(bisect_c, c0, c1) .lt. zero) then
+  !          bisect_a = bisect_c
+  !        elseif(Polynomial_Bisection(bisect_a, c0, c1) .eq. zero) then
+  !          bisect_b = bisect_a
+  !          bisect_c = bisect_a
+  !          goto 2435
+  !        elseif(Polynomial_Bisection(bisect_b, c0, c1) .eq. zero) then
+  !          bisect_a = bisect_b
+  !          bisect_c = bisect_b
+  !          goto 2435
+  !        elseif(Polynomial_Bisection(bisect_c, c0, c1) .eq. zero) then
+  !          bisect_a = bisect_c
+  !          bisect_b = bisect_c
+  !          goto 2435
+  !        else
+  !          call mpistop("Problem with fld bisection method")
+  !        endif
+  !      elseif(Polynomial_Bisection(bisect_a, c0, c1) &
+  !        - Polynomial_Bisection(bisect_b, c0, c1) .lt. 1.d-5*Polynomial_Bisection(bisect_a, c0, c1)) then
+  !        goto 2435
+  !      else
+  !        bisect_a = e_gas
+  !        bisect_b = e_gas
+  !        write(*,*) 'mype', mype,  "IGNORING GAS-RAD ENERGY EXCHANGE ", c0, c1
+  !        write(*,*) 'mype', mype,  Polynomial_Bisection(bisect_a, c0, c1), Polynomial_Bisection(bisect_b, c0, c1)
+  !        if(Polynomial_Bisection(bisect_a, c0, c1) .le. smalldouble) then
+  !          bisect_b = bisect_a
+  !        elseif(Polynomial_Bisection(bisect_a, c0, c1) .le. smalldouble) then
+  !          bisect_a = bisect_b
+  !        endif
+  !        goto 2435
+  !      endif
+  !    enddo
+  !      2435 e_gas = (bisect_a + bisect_b)/two
+  !  end subroutine Bisection_method
+
+   function Polynomial_Bisection(e_gas, c0, c1) result(p)
+      use mod_global_parameters
+      double precision, intent(in) :: e_gas
+      double precision, intent(in) :: c0, c1
+      double precision :: p
+
+      p = e_gas**4.d0 + c1*e_gas - c0
+    end function Polynomial_Bisection
 
 end module mod_hd_phys

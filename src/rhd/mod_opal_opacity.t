@@ -3,7 +3,7 @@
 !> and temperature (T), which are also both given in base 10 logarithm.
 
 module mod_opal_opacity
-  
+
   implicit none
 
   !> min and max indices for R,T-range in opacity table
@@ -22,17 +22,18 @@ contains
   !> This subroutine is called when the FLD radiation module is initialised.
   !> The OPAL tables for different helium abundances are read and interpolated.
   subroutine init_opal_table(tablename)
-    
+
     character(len=*), intent(in) :: tablename
 
     ! Local variables
     character(len=:), allocatable :: AMRVAC_DIR, path_table_dir
-    
-    call get_environment_variable("AMRVAC_DIR", AMRVAC_DIR)
-        
+
+    call get_environment_variable("$AMRVAC_DIR", AMRVAC_DIR)
+
     ! Absolute path to OPAL table location
-    path_table_dir = trim(AMRVAC_DIR)//"/src/rhd/OPAL_tables/"//trim(tablename)
-    
+    ! path_table_dir = trim(AMRVAC_DIR)//"/src/rhd/OPAL_tables/"//trim(tablename)
+    path_table_dir = "/home/nicolasm/Codes/amrvac3/amrvac/src/rhd/OPAL_tables/"//trim(tablename)
+
     ! Read in the OPAL table
     call read_table(logR_list, logT_list, Kappa_vals, path_table_dir)
 
@@ -41,7 +42,7 @@ contains
   !> This subroutine calculates the opacity for a given temperature-density
   !> structure. Opacities are read from a table with given metalicity.
   subroutine set_opal_opacity(rho, temp, kappa)
-        
+
     double precision, intent(in)  :: rho, temp
     double precision, intent(out) :: kappa
 
@@ -74,7 +75,7 @@ contains
   !> This routine reads in 1-D (rho,T) values from an opacity table and gives
   !> back as output the 1-D (rho,T) values and 2-D opacity
   subroutine read_table(R, T, K, filename)
-        
+
     character(*), intent(in)      :: filename
     double precision, intent(out) :: K(iTmin:iTmax,iRmin:iRmax), R(iRmin:iRmax), T(iTmin:iTmax)
 
@@ -105,7 +106,7 @@ contains
   !> This subroutine looks in the table for the four couples (T,rho) surrounding
   !> a given input T and rho
   subroutine get_kappa(Kappa_vals, logR_list, logT_list, R, T, K)
-    
+
     double precision, intent(in)  :: Kappa_vals(iTmin:iTmax,iRmin:iRmax)
     double precision, intent(in)  :: logR_list(iRmin:iRmax), logT_list(iTmin:iTmax)
     double precision, intent(in)  :: R, T
@@ -146,7 +147,7 @@ contains
   !> This subroutine finds the indices in rho and T arrays of the two values
   !> surrounding the input rho and T
   subroutine get_low_up_index(var_in, var_list, imin, imax, low_i, up_i)
-    
+
     integer, intent(in)          :: imin, imax
     double precision, intent(in) :: var_in, var_list(imin:imax)
     integer, intent(out)         :: low_i, up_i
@@ -155,7 +156,7 @@ contains
     double precision :: low_val, up_val, res(imin:imax)
 
     res = var_list - var_in
-    
+
     ! Find all bounding values for given input
     up_val = minval(res, MASK = res .ge. 0) + var_in
     low_val = maxval(res, MASK = res .le. 0) + var_in
@@ -170,7 +171,7 @@ contains
 
   !> This subroutine does a bilinear interpolation in the R,T-plane
   subroutine interpolate_KRT(low_r, up_r, low_t, up_t, logR_list, logT_list, Kappa_vals, R, T, kappa_interp)
-    
+
     integer, intent(in)           :: low_r, up_r, low_t, up_t
     double precision, intent(in)  :: Kappa_vals(iTmin:iTmax,iRmin:iRmax)
     double precision, intent(in)  :: logR_list(iRmin:iRmax), logT_list(iTmin:iTmax)
@@ -215,7 +216,7 @@ contains
 
   !> Interpolation in one dimension
   subroutine interpolate1D(x1, x2, x, y1, y2, y)
-        
+
     double precision, intent(in)  :: x, x1, x2, y1, y2
     double precision, intent(out) :: y
 

@@ -1,0 +1,70 @@
+&filelist
+  base_filename = 'output/cak1d'
+  typefilelog   = 'default'
+  convert_type  = 'oneblock'
+  level_io      = 1
+  saveprim      = .true.
+/
+
+&savelist
+  itsave(1,1)=0
+  itsave(1,2)=0
+  dtsave_dat = 1.d-2
+  ! dtsave_log = 1.d-2
+  ! ditsave_dat = 10
+  ! ditsave_log = 1000
+/
+
+&stoplist
+  time_max = 1.d0
+  !it_max = 1000
+/
+
+&methodlist
+  time_stepper = 'onestep'
+  time_integrator = 'IMEX_Euler'
+  flux_scheme  = 'hll'
+  limiter      = 'weno3'
+  check_small_values = .True.
+  fix_small_values = .True.
+  small_values_method = 'replace'
+  small_pressure = 1.d-8
+/
+
+&boundlist
+  typeboundary_min1 = 5*'special'
+  typeboundary_max1 = 5*'cont'
+/
+
+&meshlist
+  domain_nx1         = 320
+  block_nx1          = 80
+  xprobmin1          = 1.0d0
+  xprobmax1          = 10.0d0
+  stretch_dim(1)     = 'uni'
+  qstretch_baselevel = 1.015
+/
+
+&paramlist
+  courantpar = 0.6d0
+/
+
+&hd_list
+  hd_gravity = .true.
+  hd_energy  = .true.
+  hd_gamma   = 1.667d0
+  hd_m1 = .true.
+  m1_opacity_type = 'Gayley'
+  m1_force = .true.
+  m1_force_split = .false.
+  m1_RSOL = 1.d0
+  m1_theta_stiff = 0.99d0
+/
+
+&star_list
+  mstar    = 50.0d0
+  rstar    = 20.0d0
+  teff     = 4.0d4
+  rhobound = 2.0d-11
+  beta     = 0.5d0
+/

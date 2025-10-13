@@ -344,6 +344,9 @@ module mod_global_parameters
   !> Physical scaling factor for mass
   double precision :: unit_mass=1.d0
 
+  !> Physical scaling factor for energy
+  double precision :: unit_energy=1.d0
+
   !> Normalised speed of light
   double precision :: c_norm=1.d0
 
@@ -367,7 +370,7 @@ module mod_global_parameters
   logical :: fix_small_values=.false.
 
   !> split magnetic field as background B0 field
-  ! TODO these should be moved in a different file  
+  ! TODO these should be moved in a different file
   logical :: B0field=.false.
   logical :: B0fieldAllocCoarse=.false.
 
@@ -718,7 +721,7 @@ module mod_global_parameters
   character(len=std_len) :: filename_whitelight
   !> white light observation instrument
   character(len=std_len) :: whitelight_instrument
-  !> the white light emission below it (unit=Rsun) is not visible 
+  !> the white light emission below it (unit=Rsun) is not visible
   double precision :: R_occultor
   !> direction of the line of sight (LOS)
   double precision :: LOS_theta,LOS_phi

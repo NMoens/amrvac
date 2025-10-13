@@ -358,6 +358,180 @@ contains
 
   end subroutine gradient
 
+  !> Compute velocity gradient in direction 'idir' on a non-uniform grid in spherical coordinates
+  subroutine gradient_str(q,x,ixI^L,ixO^L,idir,gradq)
+    use mod_global_parameters
+
+    integer, intent(in)  :: ixI^L, ixO^L, idir
+    real(8), intent(in)  :: q(ixI^S), x(ixI^S,1:ndim)
+    real(8), intent(out) :: gradq(ixI^S)
+
+    ! Local variables
+    real(8) :: forw(ixO^S), backw(ixO^S), cent(ixO^S)
+    integer :: jrx^L, hrx^L{^NOONED,jtx^L, htx^L}{^IFTHREED,jpx^L, hpx^L}
+    integer :: jxO^L, hxO^L
+
+    select case(coordinate)
+    case(Cartesian)
+      jxO^L=ixO^L+kr(idir,^D);
+      hxO^L=ixO^L-kr(idir,^D);
+
+      gradq(ixO^S)=half*(q(jxO^S)-q(hxO^S))/dxlevel(idir)
+    case(Cartesian_stretched)
+      ! Index +1 (j) and index -1 (h) in direction idir; kr(dir,dim)=1, dir=dim
+      jrx^L=ixO^L+kr(idir,^D);
+      hrx^L=ixO^L-kr(idir,^D);
+
+      forw(ixO^S)  = (x(ixO^S,idir) - x(hrx^S,idir)) * q(jrx^S) &
+                      / ((x(jrx^S,idir) - x(ixO^S,idir)) * (x(jrx^S,idir) - x(hrx^S,idir)))
+
+      backw(ixO^S) = -(x(jrx^S,idir) - x(ixO^S,idir)) * q(hrx^S) &
+                      / ((x(ixO^S,idir) - x(hrx^S,idir)) * (x(jrx^S,idir) - x(hrx^S,idir)))
+
+      cent(ixO^S)  = (x(jrx^S,idir) + x(hrx^S,idir) - 2.0d0*x(ixO^S,idir)) * q(ixO^S) &
+                      / ((x(ixO^S,idir) - x(hrx^S,idir)) * (x(jrx^S,idir) - x(ixO^S,idir)))
+
+      ! Total gradient for given velocity field
+      gradq(ixO^S) = backw(ixO^S) + cent(ixO^S) + forw(ixO^S)
+
+    case(cylindrical)
+      call mpistop("stretched gradient not implemented for cylindrical coords")
+
+    case(spherical)
+      ! Index +1 (j) and index -1 (h) in radial direction; kr(dir,dim)=1, dir=dim
+      jrx^L=ixO^L+kr(1,^D);
+      hrx^L=ixO^L-kr(1,^D);
+
+      {^NOONED
+      ! Index +1 (j) and index -1 (h) in polar direction
+      jtx^L=ixO^L+kr(2,^D);
+      htx^L=ixO^L-kr(2,^D);
+      }
+
+      {^IFTHREED
+      ! Index +1 (j) and index -1 (h) in azimuthal direction
+      jpx^L=ixO^L+kr(3,^D);
+      hpx^L=ixO^L-kr(3,^D);
+      }
+
+      ! grad(v.n) on non-uniform grid according to Sundqvist & Veronis (1970)
+      select case (idir)
+      case(1) ! Radial forward, backward, and central derivatives
+        forw(ixO^S)  = (x(ixO^S,1) - x(hrx^S,1)) * q(jrx^S) &
+                        / ((x(jrx^S,1) - x(ixO^S,1)) * (x(jrx^S,1) - x(hrx^S,1)))
+
+        backw(ixO^S) = -(x(jrx^S,1) - x(ixO^S,1)) * q(hrx^S) &
+                        / ((x(ixO^S,1) - x(hrx^S,1)) * (x(jrx^S,1) - x(hrx^S,1)))
+
+        cent(ixO^S)  = (x(jrx^S,1) + x(hrx^S,1) - 2.0d0*x(ixO^S,1)) * q(ixO^S) &
+                        / ((x(ixO^S,1) - x(hrx^S,1)) * (x(jrx^S,1) - x(ixO^S,1)))
+      {^NOONED
+      case(2) ! Polar forward, backward, and central derivatives
+        forw(ixO^S)  = (x(ixO^S,2) - x(htx^S,2)) * q(jtx^S) &
+                        / (x(ixO^S,1) * (x(jtx^S,2) - x(ixO^S,2)) * (x(jtx^S,2) - x(htx^S,2)))
+
+        backw(ixO^S) = -(x(jtx^S,2) - x(ixO^S,2)) * q(htx^S) &
+                        / ( x(ixO^S,1) * (x(ixO^S,2) - x(htx^S,2)) * (x(jtx^S,2) - x(htx^S,2)))
+
+        cent(ixO^S)  = (x(jtx^S,2) + x(htx^S,2) - 2.0d0*x(ixO^S,2)) * q(ixO^S) &
+                        / ( x(ixO^S,1) * (x(ixO^S,2) - x(htx^S,2)) * (x(jtx^S,2) - x(ixO^S,2)))
+      }
+      {^IFTHREED
+      case(3) ! Azimuthal forward, backward, and central derivatives
+        forw(ixO^S)  = (x(ixO^S,3) - x(hpx^S,3)) *  q(jpx^S) &
+                        / ( x(ixO^S,1)*sin(x(ixO^S,2)) * (x(jpx^S,3) - x(ixO^S,3)) * (x(jpx^S,3) - x(hpx^S,3)))
+
+        backw(ixO^S) = -(x(jpx^S,3) - x(ixO^S,3)) *  q(hpx^S) &
+                        / ( x(ixO^S,1)*sin(x(ixO^S,2)) * (x(ixO^S,3) - x(hpx^S,3)) * (x(jpx^S,3) - x(hpx^S,3)))
+
+        cent(ixO^S)  = (x(jpx^S,3) + x(hpx^S,3) - 2.0d0*x(ixO^S,3)) *  q(ixO^S) &
+                        / ( x(ixO^S,1)*sin(x(ixO^S,2)) * (x(ixO^S,3) - x(hpx^S,3)) * (x(jpx^S,3) - x(ixO^S,3)))
+      }
+
+      ! Total gradient for given velocity field
+      gradq(ixO^S) = backw(ixO^S) + cent(ixO^S) + forw(ixO^S)
+
+      end select
+
+    case default
+      call mpistop('Unknown geometry for stretched coord gradient')
+    end select
+
+  end subroutine gradient_str
+
+  ! !> Calculate vectorgradient of component idim of a vector q within ixL in direction idir
+  ! subroutine vector_gradient(q,ixI^L,ixO^L,idim,idir,gradq)
+  !   use mod_global_parameters
+  !
+  !   integer, intent(in)             :: ixI^L, ixO^L, idim, idir
+  !   double precision, intent(in)    :: q(ixI^S,1:ndim)
+  !   double precision, intent(inout) :: gradq(ixI^S)
+  !
+  !   integer                         :: jxO^L, hxO^L
+  !
+  !   hxO^L=ixO^L-kr(idir,^D);
+  !   jxO^L=ixO^L+kr(idir,^D);
+  !   select case(coordinate)
+  !   case(Cartesian)
+  !     gradq(ixO^S)=half*(q(jxO^S,idim)-q(hxO^S,idim))/dxlevel(idir)
+  !   case(Cartesian_stretched,Cartesian_expansion)
+  !     gradq(ixO^S)=(q(jxO^S,idim)-q(hxO^S,idim))/(block%x(jxO^S,idir)-block%x(hxO^S,idir))
+  !   case(spherical)
+  !     select case(idim)
+  !     case(1)
+  !       select case(idir)
+  !       case(1)
+  !         gradq(ixO^S)=(q(jxO^S,idim)-q(hxO^S,idim))/((block%x(jxO^S,1)-block%x(hxO^S,1)))
+  !         {^NOONED
+  !       case(2)
+  !         gradq(ixO^S)=(q(jxO^S,idim)-q(hxO^S,idim))/((block%x(jxO^S,2)-block%x(hxO^S,2))*block%x(ixO^S,1)) &
+  !                     -q(jxO^S,2)/block%x(ixO^S,1)
+  !         }
+  !         {^IFTHREED
+  !       case(3)
+  !         gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/((block%x(jxO^S,3)-block%x(hxO^S,3))*block%x(ixO^S,1)*dsin(block%x(ixO^S,2))) &
+  !                     -q(jxO^S,3)/block%x(ixO^S,1)
+  !         }
+  !       end select
+  !     case(2)
+  !       select case(idir)
+  !       case(1)
+  !         gradq(ixO^S)=(q(jxO^S,idim)-q(hxO^S,idim))/((block%x(jxO^S,1)-block%x(hxO^S,1)))
+  !         {^NOONED
+  !       case(2)
+  !         gradq(ixO^S)=(q(jxO^S,idim)-q(hxO^S,idim))/((block%x(jxO^S,2)-block%x(hxO^S,2))*block%x(ixO^S,1)) &
+  !                     +q(jxO^S,1)/block%x(ixO^S,1)
+  !         }
+  !         {^IFTHREED
+  !       case(3)
+  !         gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/((block%x(jxO^S,3)-block%x(hxO^S,3))*block%x(ixO^S,1)*dsin(block%x(ixO^S,2))) &
+  !                     -dcotan(block%x(ixO^S,2))*q(jxO^S,3)/block%x(ixO^S,1)
+  !         }
+  !       end select
+  !     case(3)
+  !       select case(idir)
+  !       case(1)
+  !         gradq(ixO^S)=(q(jxO^S,idim)-q(hxO^S,idim))/((block%x(jxO^S,1)-block%x(hxO^S,1)))
+  !         {^NOONED
+  !       case(2)
+  !         gradq(ixO^S)=(q(jxO^S,idim)-q(hxO^S,idim))/((block%x(jxO^S,2)-block%x(hxO^S,2))*block%x(ixO^S,1))
+  !         }
+  !         {^IFTHREED
+  !       case(3)
+  !         gradq(ixO^S)=(q(jxO^S)-q(hxO^S))/((block%x(jxO^S,3)-block%x(hxO^S,3))*block%x(ixO^S,1)*dsin(block%x(ixO^S,2))) &
+  !                     +dcotan(block%x(ixO^S,2))*q(jxO^S,2)/block%x(ixO^S,1) + q(jxO^S,1)/block%x(ixO^S,1)
+  !         }
+  !       end select
+  !     end select
+  !   case(cylindrical)
+  !     call mpistop('Unknown vector gradient')
+  !   case default
+  !     call mpistop('Unknown geometry')
+  !   end select
+  !
+  ! end subroutine vector_gradient
+
+
   !> Calculate gradient of a scalar q in direction idir at cell interfaces
   subroutine gradientx(q,x,ixI^L,ixO^L,idir,gradq,fourth_order)
     use mod_global_parameters

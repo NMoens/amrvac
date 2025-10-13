@@ -60,6 +60,9 @@ module mod_variables
   !> Index of the radiation energy density
   integer :: iw_r_e = -1
 
+  !> Indices of the radiation flux
+  integer, allocatable :: iw_Fr(:)
+
   !> Indices of the magnetic field components
   integer, allocatable, protected :: iw_mag(:)
 
@@ -183,14 +186,15 @@ contains
   ! mpistop replaced by errormsg, should it exit?
   !> Exit MPI-AMRVAC with an error message
   subroutine errormsg(message)
-  
+
     character(len=*), intent(in) :: message !< The error message
-  
+
     write(*, *) "ERROR for processor"
     write(*, *) trim(message)
-  
-  
+
+
   end subroutine errormsg
+
   !> Set momentum variables
   function var_set_momentum(ndir) result(iw)
     integer, intent(in) :: ndir
@@ -232,9 +236,29 @@ contains
     nw                  = nw + 1
     iw_r_e              = nwflux
     iw                  = nwflux
-    cons_wnames(nwflux) = 'r_e'
-    prim_wnames(nwflux) = 'r_e'
+    cons_wnames(nwflux) = 'Er'
+    prim_wnames(nwflux) = 'Er'
   end function var_set_radiation_energy
+
+  !> Set radflux variables
+  function var_set_radiation_flux(ndir) result(iw)
+    integer, intent(in) :: ndir
+    integer             :: iw(ndir), idir
+
+    if (allocated(iw_Fr)) &
+         call errormsg("Error: set_radflux was already called")
+    allocate(iw_Fr(ndir))
+
+    do idir = 1, ndir
+      nwflux       = nwflux + 1
+      nwfluxbc     = nwfluxbc + 1
+      nw           = nw + 1
+      iw_Fr(idir) = nwflux
+      iw(idir)     = nwflux
+      write(cons_wnames(nwflux),"(A1,I1)") "F", idir
+      write(prim_wnames(nwflux),"(A1,I1)") "F", idir
+    end do
+  end function var_set_radiation_flux
 
   !> Set magnetic field variables
   function var_set_bfield(ndir) result(iw)

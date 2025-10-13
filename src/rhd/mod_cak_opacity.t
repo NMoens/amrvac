@@ -31,9 +31,10 @@ contains
 
     ! Local variables
     character(len=:), allocatable :: AMRVAC_DIR, path_table_dir
-    
+
     call get_environment_variable("AMRVAC_DIR", AMRVAC_DIR)
-    path_table_dir = trim(AMRVAC_DIR)//"/src/rhd/CAK_tables/"//trim(tabledir)
+    ! path_table_dir = trim(AMRVAC_DIR)//"/src/rhd/CAK_tables/"//trim(tabledir)
+    path_table_dir = "/home/nicolasm/Codes/amrvac3/amrvac/src/rhd/CAK_tables/"//trim(tabledir)
 
     call read_table(logD_list, logT_list, alpha_vals, path_table_dir//"/al_TD")
     call read_table(logD_list, logT_list, Qbar_vals, path_table_dir//"/Qb_TD")
@@ -45,7 +46,7 @@ contains
   !> This subroutine calculates the opacity for a given temperature-density
   !> structure. Opacities are read from a table with given metalicity.
   subroutine set_cak_opacity(rho, temp, alpha_output, Qbar_output, Q0_output, kappae_output)
-        
+
     double precision, intent(in)  :: rho, temp
     double precision, intent(out) :: alpha_output, Qbar_output, Q0_output, kappae_output
 
@@ -143,13 +144,13 @@ contains
 
     call interpolate_KRT(low_D_index, up_D_index, low_T_index, up_T_index, &
                        logD_list, logT_list, K4_vals, D, T, K4)
-                       
+
   end subroutine get_val_comb
 
   !> This subroutine finds the indices in rho and T arrays of the two values
   !> surrounding the input rho and T
   subroutine get_low_up_index(var_in, var_list, imin, imax, low_i, up_i)
-    
+
     integer, intent(in)          :: imin, imax
     double precision, intent(in) :: var_in, var_list(imin:imax)
     integer, intent(out)         :: low_i, up_i
@@ -158,7 +159,7 @@ contains
     double precision :: low_val, up_val, res(imin:imax)
 
     res = var_list - var_in
-    
+
     ! Find all bounding values for given input
     up_val = minval(res, MASK = res .ge. 0) + var_in
     low_val = maxval(res, MASK = res .le. 0) + var_in
@@ -218,7 +219,7 @@ contains
 
   !> Interpolation in one dimension
   subroutine interpolate1D(x1, x2, x, y1, y2, y)
-        
+
     double precision, intent(in)  :: x, x1, x2, y1, y2
     double precision, intent(out) :: y
 

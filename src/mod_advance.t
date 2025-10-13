@@ -18,10 +18,23 @@ contains
     use mod_global_parameters
     use mod_particles, only: handle_particles
     use mod_source, only: add_split_source
+    use mod_physics, only: phys_get_auxiliary
 
     integer, intent(in) :: iit
 
     integer :: iigrid, igrid, idimsplit
+    integer :: ixO^L
+
+
+    !> Update auxilary variables before sources/advection
+    if (associated(phys_get_auxiliary)) then
+      ixO^L=ixG^LL^LSUBnghostcells;
+      !$OMP PARALLEL DO PRIVATE(igrid)
+      do iigrid=1,igridstail; igrid=igrids(iigrid);
+         call phys_get_auxiliary(ixG^LL, ixO^L, ps(igrid)%w, ps(igrid)%x);
+      end do
+      !$OMP END PARALLEL DO
+    end if
 
     ! split source addition
     call add_split_source(prior=.true.)

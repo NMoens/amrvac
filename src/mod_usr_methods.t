@@ -79,6 +79,7 @@ module mod_usr_methods
 
   ! Radiation quantity related
   procedure(special_opacity), pointer   :: usr_special_opacity => null()
+  procedure(special_opacity_m1), pointer   :: usr_special_opacity_m1 => null()
   procedure(special_aniso_opacity), pointer   :: usr_special_aniso_opacity => null()
   procedure(special_opacity_qdot), pointer   :: usr_special_opacity_qdot => null()
   procedure(special_fluxlimiter), pointer   :: usr_special_fluxlimiter => null()
@@ -315,6 +316,14 @@ module mod_usr_methods
       double precision, intent(in) :: w(ixI^S,1:nw), x(ixI^S,1:ndim)
       double precision, intent(out):: kappa(ixO^S)
     end subroutine special_opacity
+
+    !> Set user defined opacity for use in m1 module
+    subroutine special_opacity_m1(ixI^L,ixO^L,w,x)
+      use mod_global_parameters
+      integer, intent(in)          :: ixI^L, ixO^L
+      double precision, intent(in) :: x(ixI^S,1:ndim)
+      double precision, intent(inout):: w(ixI^S,1:nw)
+    end subroutine special_opacity_m1
 
     !> Set user defined, anisotropic opacity for use in diffusion coeff, heating and cooling, and radiation force
     subroutine special_aniso_opacity(ixI^L,ixO^L,w,x,kappa,idir)

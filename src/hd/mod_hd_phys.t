@@ -63,6 +63,9 @@ module mod_hd_phys
   !> Theta parameter for stiff sourceterms
   double precision, public                :: m1_theta_stiff = 0.51d0
 
+  !> Use well-balanced scheme for flux force term
+  logical, public                         :: m1_well_balanced = .false.
+
   !> Index of the density (in the w array)
   integer, public, protected              :: rho_
 
@@ -176,7 +179,7 @@ contains
     SI_unit, hd_particles, hd_rotating_frame, hd_trac, &
     hd_force_diagonal, hd_trac_type, hd_cak_force, hd_partial_ionization , &
     m1_opacity_type, m1_diffusion, m1_RSOL, m1_force_split, m1_theta_stiff, &
-    m1_heatcool
+    m1_heatcool, m1_well_balanced
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -205,6 +208,7 @@ contains
   end subroutine hd_write_info
 
   !> Initialize the module
+  !TODO: Clean up m1 initialisation to seperate subroutine
   subroutine hd_phys_init()
     use mod_global_parameters
     use mod_thermal_conduction
@@ -438,6 +442,9 @@ contains
        call particles_init()
        phys_req_diagonal = .true.
     end if
+
+    !> Source-splitting for m1 forces
+    if(m1_force_split) any_source_split=.true.
 
     ! Check whether custom flux types have been defined
     if (.not. allocated(flux_type)) then
@@ -888,9 +895,25 @@ contains
     double precision                          :: csound(ixI^S)
     double precision                          :: v(ixI^S)
 
+    double precision                          :: fi(ixI^S), fj(ixI^S)
+    double precision                          :: ff(ixI^S), xi(ixI^S)
+
     if (hd_m1) then
       ! TODO: Implement actual eigenvalues
-      cmax(ixO^S) = m1_c*m1_RSOL
+      !> e.g. Gonzalez+ 2007
+      ! cmax(ixO^S) = m1_c*m1_RSOL
+
+      !TODO: Check this sum, it does not produce what is expected
+      ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
+      !> Eddington scalars
+      fi(ixI^S) = (w(ixI^S,Fr(idim))/(m1_c*w(ixI^S,Er_)))
+      fj(ixI^S) = dsqrt(ff(ixI^S) - fi(ixI^S)**2)
+
+      xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
+
+      cmax(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+                  + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+                  /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
 
     else
       call hd_get_v_idim(w, x, ixI^L, ixO^L, idim, v)
@@ -1000,13 +1023,33 @@ contains
 
     double precision :: wmean(ixI^S,nw)
     double precision, dimension(ixI^S) :: umean, dmean, csoundL, csoundR, tmp1,tmp2,tmp3
+
+    double precision                          :: fi(ixI^S), fj(ixI^S)
+    double precision                          :: ff(ixI^S), xi(ixI^S)
+
     integer :: ix^D
 
     if (hd_m1) then
 
       ! TODO: Implement actual eigenvalues
+      !> e.g. Gonzalez+ 2007
       cmax(ixO^S,1) = m1_c*m1_RSOL
-      ! cmin(ixO^S,1) = m1_c
+
+      ! !TODO: Check this sum, it does not produce what is expected
+      ! ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
+      !
+      ! !> Eddington scalars
+      ! fi(ixI^S) = (w(ixI^S,Fr(idim))/(m1_c*w(ixI^S,Er_)))
+      ! fj(ixI^S) = dsqrt(ff(ixI^S) - fi(ixI^S)**2)
+      ! xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
+      !
+      ! cmax(ixI^S,1) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+      !             + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+      !             /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+      !
+      ! cmin(ixI^S,1) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+      !             - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+      !             /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
 
     else
 
@@ -1195,8 +1238,8 @@ contains
     else
 
       !> Eddington scalars
-      fi(ixI^S) = (w(ixI^S,Fr(idir))/(m1_c*w(ixI^S,Er_)))
-      fj(ixI^S) = (w(ixI^S,Fr(jdir))/(m1_c*w(ixI^S,Er_)))
+      fi(ixI^S) = w(ixI^S,Fr(idir))/(m1_c*w(ixI^S,Er_))
+      fj(ixI^S) = w(ixI^S,Fr(jdir))/(m1_c*w(ixI^S,Er_))
 
       !TODO: Check this sum, it does not produce what is expected
       ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
@@ -1204,7 +1247,7 @@ contains
       !> Cap ff, this should not be necessary, but the sum above does not behave properly
       ! fi(ixI^S) = max(fi(ixI^S),1.d0)
       ! fj(ixI^S) = max(fj(ixI^S),1.d0)
-      ff(ixI^S) = max(ff(ixI^S),1.d0)
+      ! ff(ixI^S) = min(ff(ixI^S),1.d0)
 
       !> Eddington factor
       chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
@@ -1517,32 +1560,9 @@ contains
        end if
        }
 
-       !> Radiation flux
-       !TODO: Fix geometric sourceterms for non-Cartesian multi-D
-       if (hd_m1) then
-         Fr_   = Fr(r_)
-         if(phi_>0) Fphi_ = Fr(phi_)
-         h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
-         ! s[mr]=((Ftheta**2+Fphi**2)/rho+2*prr)/r
-         call m1_get_prad(wCT, x, ixI^L, ixO^L,r_,r_, prad)
-         source(ixO^S) = m1_RSOL * m1_c**2 * prad(ixO^S) * x(ixO^S, 1) &
-              *(block%surfaceC(ixO^S, 1) - block%surfaceC(h1x^S, 1)) &
-              /block%dvolume(ixO^S)
-         ! if (ndir > 1) then
-         !   call mpistop("m1 source terms not implemented yet with ND spherical geometries")
-         !   do idir = 2, ndir
-         !     source(ixO^S) = source(ixO^S) + wCT(ixO^S, mom(idir))*wCT(ixO^S, Fr(idir))/ wCT(ixO^S, rho_)
-         !   end do
-         ! end if
-
-         w(ixO^S, Fr_) = w(ixO^S, Fr_) !+ qdt * m1_RSOL * source(ixO^S) / x(ixO^S, 1)
-
-         ! {^NOONED
-         ! call mpistop("m1 source terms not implemented yet with ND spherical geometries")
-         ! }
-       end if
-
     end select
+
+    if (hd_m1) call m1_add_source_geom(qdt,ixI^L,ixO^L,wCT,w,x)
 
     if (hd_viscosity) call visc_add_source_geom(qdt,ixI^L,ixO^L,wCT,w,x)
 
@@ -1555,6 +1575,96 @@ contains
     end if
 
   end subroutine hd_add_source_geom
+
+  subroutine m1_add_source_geom(qdt, ixI^L, ixO^L, wCT, w, x)
+    use mod_global_parameters
+    use mod_geometry
+    integer, intent(in)             :: ixI^L, ixO^L
+    double precision, intent(in)    :: qdt, x(ixI^S, 1:ndim)
+    double precision, intent(inout) :: wCT(ixI^S, 1:nw), w(ixI^S, 1:nw)
+
+    double precision                :: chi(ixI^S), ff(ixI^S)
+    double precision                :: source(ixI^S), prad(ixI^S)
+
+    !> Radiation flux
+    !TODO: Fix geometric sourceterms for non-Cartesian multi-D
+    !SEE APPENDIX B IN GONZALEZ 2007 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+      stop "Er zero before m1_geom_source"
+    end if
+
+    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+      stop "Er NaN before m1_geom_source"
+    end if
+
+    select case (coordinate)
+    case (cylindrical,Cartesian_expansion)
+      call mpistop("m1 geom source terms not implemented yet with cylindrical geometries")
+    case(spherical)
+      if (ndir == 1) then
+        !> Get radiation pressure
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prad)
+
+        !> If only 1D, F = (F,0,0)
+        ff(ixI^S) = wCT(ixI^S, Fr(1))**2/(m1_c*wCT(ixI^S,Er_))**2
+        ff(ixI^S) = max(ff(ixI^S),1.d0)
+
+        !> Eddington factor
+        chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
+
+        !> radial contribution
+        source(ixO^S) = 2*(prad(ixO^S) + wCT(ixO^S,mom(1))*wCT(ixO^S,Fr(1)))/x(ixO^S,r_)
+
+        !> phi and theta contribution (EVEN IN 1D)
+        source(ixO^S) = source(ixO^S) - (1-chi(ixO^S))*wCT(ixO^S,Er_)/x(ixO^S,r_)
+
+      else
+        !> radial
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prad)
+        source(ixO^S) = 2*(prad(ixO^S) + wCT(ixO^S,mom(1))*wCT(ixO^S,Fr(1))/wCT(ixO^S,rho_))/x(ixO^S,r_)
+
+        !> Theta
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, prad)
+        source(ixO^S) = source(ixO^S) - (prad(ixO^S) + wCT(ixO^S,mom(2))*wCT(ixO^S,Fr(2))/wCT(ixO^S,rho_))/x(ixO^S,r_)
+
+        !> phi
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, prad)
+        source(ixO^S) = source(ixO^S) - (prad(ixO^S) + wCT(ixO^S,mom(3))*wCT(ixO^S,Fr(3))/wCT(ixO^S,rho_))/x(ixO^S,r_)
+
+      end if
+
+      !> Add sourceterms
+      w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * source(ixO^S)
+
+      {^NOONED
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, prad)
+        source(ixO^S) = (prad(ixO^S) + wCT(ixO^S,mom(2))*wCT(ixO^S,Fr(2))/wCT(ixO^S,rho_))/(dtan(x(ixO^S,2))*x(ixO^S,1))
+        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * source(ixO^S)
+
+        if (ndir .ne. 3) then
+          prad(ixO^S) = (1-chi(ixO^S))*wCT(ixO^S,Er_)/2.d0
+          source(ixO^S) = (prad(ixO^S))/(dtan(x(ixO^S,2))*x(ixO^S,1))
+        else
+          call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, prad)
+          source(ixO^S) = (prad(ixO^S) +  wCT(ixO^S,mom(3))*wCT(ixO^S,Fr(3))/wCT(ixO^S,rho_))/(dtan(x(ixO^S,2))*x(ixO^S,1))
+        end if
+
+        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * source(ixO^S)
+      }
+
+    end select
+
+    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+      stop "Er zero after m1_geom_source"
+    end if
+
+    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+      stop "Er NaN after m1_geom_source"
+    end if
+
+  end subroutine m1_add_source_geom
 
   ! w[iw]= w[iw]+qdt*S[wCT, qtC, x] where S is the source based on wCT within ixO
   subroutine hd_add_source(qdt,dtfactor, ixI^L,ixO^L,wCT,wCTprim,w,x,qsourcesplit,active)
@@ -1618,8 +1728,8 @@ contains
       end if
     end if
 
-    if (hd_m1 .and. m1_force) then
-      call m1_hydro_source(qdt,ixI^L,ixO^L,wCT,w,x,hd_energy,qsourcesplit,active)
+    if (hd_m1) then
+      if (m1_force) call m1_hydro_source(qdt,ixI^L,ixO^L,wCT,w,x,hd_energy,qsourcesplit,active)
       call m1_rad_source(qdt,ixI^L,ixO^L,wCT,w,x,hd_energy,qsourcesplit,active)
     end if
 
@@ -1870,37 +1980,44 @@ contains
     double precision :: Fp(ixO^S), Fm(ixO^S), sm(ixO^S), sp(ixO^S)
 
     if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-      stop "Er zero before radforce"
+      print*, w(ixO^S,Er_)
+      print*, w(ixO^S,rho_)
+      print*, x(ixO^S,1)
+      stop "Er zero before m1_rad_source"
     end if
 
     if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-      stop "Er NaN before radforce"
+      stop "Er NaN before m1_rad_source"
     end if
 
     if(qsourcesplit .eqv. m1_force_split) then
       active = .true.
 
       do idir = 1,ndir
-        !> MOVED TO IMPLICIT SCHEME
         !> Force in radiation flux
         ! w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))*m1_RSOL*m1_c
-        !> Skinner & Ostriker 2013 Eq. 43
-        ! w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) &
-        ! *(1.d0 - (1-m1_theta_stiff)*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) &
-        ! /(1.d0 + m1_theta_stiff*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt)
 
-        !> Well-balanced formulation, Bloch+ 2020
-        hxO^L=ixO^L-kr(idir,^D);
-        jxO^L=ixO^L+kr(idir,^D);
+        if (m1_well_balanced) then
+          !> Well-balanced formulation, Bloch+ 2020
+          hxO^L=ixO^L-kr(idir,^D);
+          jxO^L=ixO^L+kr(idir,^D);
 
-        !> Flux face averages
-        sm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,rho_)*wCT(hxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
-        sp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,rho_)*wCT(jxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
-        Fm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
-        Fp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
+          !> Flux face averages
+          sm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,rho_)*wCT(hxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
+          sp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,rho_)*wCT(jxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
+          Fm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
+          Fp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
 
-        !> Update flux
-        w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*1.d0/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))*m1_RSOL*m1_c
+          !> Update flux
+          w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*1.d0/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))*m1_RSOL*m1_c
+
+        else
+          !> Skinner & Ostriker 2013 Eq. 43
+          !> MOVE TO IMPLICIT PART?
+          w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) &
+          *(1.d0 - (1-m1_theta_stiff)*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) &
+          /(1.d0 + m1_theta_stiff*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt)
+        end if
 
         !> Photon tiring + Radflux CMF correction
         do idim = 1,ndim
@@ -1917,11 +2034,11 @@ contains
     end if
 
     if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-      stop "Er zero in radforce"
+      stop "Er zero in m1_rad_source"
     end if
 
     if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-      stop "Er NaN in radforce"
+      stop "Er NaN in m1_rad_source"
     end if
 
   end subroutine m1_rad_source
@@ -1968,24 +2085,37 @@ contains
         Fp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
 
         !> Update momentum
-        w(ixO^S,mom(idir)) = w(ixO^S,mom(idir)) + qdt*1.d0/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/m1_c
+        w(ixO^S,mom(idir)) = w(ixO^S,mom(idir)) + qdt/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/m1_c
 
         !> Force work term
         ! if (energy) &
         !   w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
         if (energy) &
-          w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)*1.d0/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/m1_c
+          w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/m1_c
+
+          if (any(w(ixO^S,e_) .lt. 0.d0)) then
+            stop "e zero after m1_hydro_source 1"
+          end if
+
+          if (any(w(ixO^S,e_) .ne. w(ixO^S,e_))) then
+            ! print*, 'e'
+            ! print*, wCT(ixO^S,e_)
+            ! print*, 'A', qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)/2
+            ! print*, 'B',(sm(ixO^S)*Fm(ixO^S)+ sp(ixO^S)*Fp(ixO^S))/m1_c
+            ! print*, 'B1', sm(ixO^S)*Fm(ixO^S)
+            ! print*, 'B2', sp(ixO^S)*Fp(ixO^S)
+            ! print*, 'F', wCT(ixO^S,Fr(idir))
+            ! print*, 'k', wCT(ixO^S,kF_)
+            ! print*, 'Se'
+            ! print*,  qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)/2*(sm(ixO^S)*Fm(ixO^S) &
+            ! + sp(ixO^S)*Fp(ixO^S))/m1_c
+
+            stop "e NaN after m1_hydro_source 1"
+          end if
 
       end do
     end if
 
-    if (any(w(ixO^S,e_) .lt. 0.d0)) then
-      stop "e zero after m1_hydro_source 1"
-    end if
-
-    if (any(w(ixO^S,e_) .ne. w(ixO^S,e_))) then
-      stop "e NaN after m1_hydro_source 1"
-    end if
 
   end subroutine m1_hydro_source
 
@@ -2119,6 +2249,8 @@ contains
   subroutine m1_set_opacities(ixI^L,ixO^L,w,x)
     use mod_global_parameters
     use mod_geometry
+    use mod_usr_methods
+
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S,nw)
     double precision, intent(in) :: x(ixI^S,1:ndim)
@@ -2179,8 +2311,12 @@ contains
 
     ! case('Hybrid')
     !
-    ! case('special')
-    !
+    case('special')
+      if (.not. associated(usr_special_opacity_m1)) then
+        call mpistop("special opacity not defined")
+      endif
+      call usr_special_opacity_m1(ixI^L, ixO^L, w, x)
+
     ! case default
 
     end select

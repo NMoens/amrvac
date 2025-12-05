@@ -4,6 +4,7 @@
   convert_type  = 'oneblock'
   level_io      = 1
   saveprim      = .true.
+  nwauxio       = 2
 /
 
 &savelist
@@ -11,7 +12,7 @@
   itsave(1,2)=0
   !dtsave_dat = 1d-2
   !dtsave_log = 1d-2
-  ditsave_dat = 1
+  ditsave_dat = 1000
   ditsave_log = 1
 /
 
@@ -23,24 +24,24 @@
 &methodlist
   time_stepper = 'twostep'
   time_integrator = 'IMEX_Midpoint'
-  flux_scheme  = 'hll'
-  limiter      = 'weno3'
+  flux_scheme  = 'tvdlf'
+  limiter      = 'minmod'
   fix_small_values = .true.
   small_values_method = 'replace'
   small_pressure = 1.d-6
 /
 
 &boundlist
-  typeboundary_min1 = 5*'special'
-  typeboundary_max1 = 5*'special'
+  typeboundary_min1 = 'symm','asymm','symm','symm','asymm'
+  typeboundary_max1 = 5*'cont'
 /
 
 &meshlist
   refine_max_level   = 1
   refine_criterion   = 3
-  domain_nx1         = 256
+  domain_nx1         = 512
   block_nx1          = 16
-  xprobmin1          = -1.d0
+  xprobmin1          = 0.d0
   xprobmax1          = 1.d0
 /
 
@@ -52,19 +53,17 @@
 &hd_list
   He_abundance    = 0.d0
   hd_energy       = .true.
-  hd_gamma        = 1.667d0
+  hd_gamma        = 1.4d0
   hd_m1           = .true.
   m1_opacity_type = 'kappa_e'
-  m1_diffusion    = .true.
-  m1_force        = .false.
+  m1_diffusion    = .false.
+  m1_force        = .true.
   m1_RSOL         = 1.d0
+  m1_theta_stiff  = 0.61d0
 /
 
 &shock_list
-  rho1    = 1.d-2
-  rho2    = 3.06495d-2
-  v1      = 5.19271d7
-  v2      = 1.69422d7
-  T1      = 1.08899d6
-  T2      = 3.838449d6
+  rho1    = 7.78d-10
+  v1      = 6.d5
+  T1      = 10.d0
 /

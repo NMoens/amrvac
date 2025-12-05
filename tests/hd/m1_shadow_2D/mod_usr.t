@@ -6,7 +6,7 @@ module mod_usr
 
   implicit none
 
-  double precision :: L, rho, T_bg, T_beam, rho_clump, r_clump
+  double precision :: L, rho, T_bg, T_beam, rho_clump
 
 contains
 
@@ -21,6 +21,7 @@ contains
     ! usr_set_parameters => initglobaldata_usr
     usr_init_one_grid => initial_conditions
     usr_special_bc => boundary_conditions
+    usr_special_opacity_m1 => opacity_law
 
     ! Choose independent normalization units if using dimensionless variables.
     ! unit_length      = 1.d0 ! cm
@@ -42,7 +43,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer :: n
 
-    namelist /stream_list/ L, rho, T_bg, T_beam, rho_clump, r_clump
+    namelist /stream_list/ L, rho, T_bg, T_beam, rho_clump
 
     do n = 1,size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -60,39 +61,69 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-      w(ixI^S,rho_) = rho/unit_density
+    double precision :: Delta(ixI^S)
+
+      !> clump structure
+      Delta(ixI^S) = 10.d0*( (x(ixI^S,1)/0.1d0)**2.d0 + (x(ixI^S,2)/0.06d0)**2.d0 - 1.d0)
+      Delta = min(Delta,1.d2)
+
+      !> densities
+      w(ixI^S,rho_) = rho + (rho_clump - rho) /(1.d0 + dexp(Delta(ixI^S)))
       w(ixI^S,mom(:)) = 0.d0
-      w(ixI^S,Er_) = const_rad_a*T_bg**4/unit_pressure
+      w(ixI^S,e_) = const_kB*T_bg*w(ixI^S,rho_)/(const_mp*hd_mu)/(hd_gamma - 1.d0)
+      w(ixI^S,Er_) = const_rad_a*T_bg**4
       w(ixI^S,Fr(:)) = 0.d0
 
-      where (x(ixI^S,1)**2 + x(ixI^S,2)**2 .gt. r_clump**2)
-        w(ixI^S, rho_) = rho_clump*w(ixI^S,rho_)
-      end where
+      !> Units
+      w(ixI^S,rho_) = w(ixI^S,rho_)/unit_density
+      w(ixI^S,e_) = w(ixI^S,e_)/unit_pressure
+      w(ixI^S,Er_) = w(ixI^S,Er_)/unit_pressure
 
   end subroutine initial_conditions
 
   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
+    use mod_global_parameters
+    use mod_hd
+
+    integer, intent(in)             :: ixI^L, ixB^L, iB
+    double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+
+    integer :: ii
+
+    select case (iB)
+
+    case(1)
+
+      where (x(ixB^S,2) .gt. -0.5d0 .and. x(ixB^S,2) .lt. 0.5d0 )
+        w(ixB^S,Er_) = const_rad_a*T_beam**4/unit_pressure
+        w(ixB^S,Fr(1)) = const_rad_a*T_beam**4/unit_pressure*m1_c
+      end where
+
+    case default
+      call mpistop('boundary not known')
+    end select
+  end subroutine boundary_conditions
+
+subroutine opacity_law(ixI^L,ixO^L,w,x)
   use mod_global_parameters
   use mod_hd
 
-  integer, intent(in)             :: ixI^L, ixB^L, iB
-  double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
+  integer, intent(in)             :: ixI^L, ixO^L
+  double precision, intent(in)    :: x(ixI^S,1:ndim)
   double precision, intent(inout) :: w(ixI^S,1:nw)
 
-  integer :: ii
+  double precision :: Tgas(ixI^S), kappa(ixI^S)
 
-  select case (iB)
+  Tgas(ixI^S) = w(ixI^S, e_)*(hd_gamma - 1)*unit_pressure
+  Tgas(ixI^S) = Tgas(ixI^S)*const_mp*hd_mu/(w(ixI^S,rho_)*unit_density*const_kb)
 
-  case(1)
+  kappa(ixI^S) = 1.d2*(Tgas(ixI^S)/T_bg)**(-3.5d0)*w(ixI^S,rho_)
 
-    where (x(ixB^S,2) .gt. -0.25d0 .and. x(ixB^S,2) .lt. 0.25d0 )
-      w(ixB^S,Er_) = const_rad_a*T_beam**4/unit_pressure
-      w(ixB^S,Fr(1)) = const_rad_a*T_beam**4/unit_pressure*m1_c
-    end where
+  w(ixI^S,kF_) = kappa(ixI^S)/unit_opacity
+  w(ixI^S,kE_) = kappa(ixI^S)/unit_opacity
+  w(ixI^S,kB_) = kappa(ixI^S)/unit_opacity
 
-  case default
-    call mpistop('boundary not known')
-  end select
-end subroutine boundary_conditions
+end subroutine opacity_law
 
 end module mod_usr

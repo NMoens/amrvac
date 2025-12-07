@@ -6,7 +6,7 @@ module mod_usr
 
   implicit none
 
-  double precision :: L, rho, Er, F_red
+  double precision :: L, rho, Er, F_red, Bg_E
 
 contains
 
@@ -42,7 +42,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer :: n
 
-    namelist /stream_list/ L, rho, Er, F_red
+    namelist /stream_list/ L, rho, Er, F_red, Bg_E
 
     do n = 1,size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -62,7 +62,7 @@ contains
 
       w(ixI^S,rho_) = rho/unit_density
       w(ixI^S,mom(1)) = 0.d0
-      w(ixI^S,Er_) = Er/unit_pressure
+      w(ixI^S,Er_) = Bg_E/unit_pressure
       w(ixI^S,Fr(1)) = 0.d0
 
   end subroutine initial_conditions
@@ -84,6 +84,8 @@ contains
     w(ixB^S,mom(1)) = 0.d0
     w(ixB^S,Er_) = Er/unit_pressure
     w(ixB^S,Fr(1)) = Er/unit_pressure*m1_c*F_red
+
+    print*, w(1:5,Fr(1))
 
   case default
     call mpistop('boundary not known')

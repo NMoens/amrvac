@@ -14,7 +14,7 @@ module mod_usr
   double precision :: lstar, mumol, vesc, gammae, logg, logge, heff
   double precision :: cak_alpha, gayley_qbar
 
-  integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf
+  integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf, i_Tgas, i_Trad
 
 contains
 
@@ -50,6 +50,8 @@ contains
     i_Prad = var_set_extravar('P_rr','P_rr')
     i_pht = var_set_extravar('pht','pht')
     i_fcmf = var_set_extravar('Fcmf','Fcmf')
+    i_Tgas = var_set_extravar('Tgas','Tgas')
+    i_Trad = var_set_extravar('Trad','Trad')
 
   end subroutine usr_init
 
@@ -217,7 +219,7 @@ contains
 
       ! Avoid supersonic ghost cells, also avoid overloading too much
       w(ixB^S,mom(1)) = min(w(ixB^S,mom(1)), asound)
-      w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), -asound)
+      w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), 0.d0)
 
       ! Gas pressure
       if (hd_energy) then
@@ -274,7 +276,7 @@ contains
     double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    double precision :: grav(ixI^S), grad(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S)
+    double precision :: grav(ixI^S), grad(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S), pth(ixI^S)
 
     grav(ixI^S) = w(ixI^S,rho_) * Ggrav * mstar/x(ixO^S,1)**2.0d0
     grad(ixI^S) = w(ixI^S,rho_) * w(ixI^S,kF_) * w(ixI^S,Fr(1)) / m1_c
@@ -290,6 +292,12 @@ contains
     w(ixO^S,i_Prad) = prad(ixO^S)
     w(ixO^S,i_pht) = - m1_RSOL*gradv(ixO^S)*prad(ixO^S)
     w(ixO^S,i_fcmf) = - m1_RSOL*w(ixO^S,Fr(1))*gradv(ixO^S)
+
+    call hd_get_pthermal(w,x,ixI^L,ixO^L,pth)
+    w(ixO^S,i_Tgas) = (pth(ixO^S)*unit_pressure*const_mp*hd_mu) &
+                   /(w(ixO^S,rho_)*unit_density*const_kB)
+
+    w(ixO^S,i_Trad) = (w(ixO^S,Er_)*unit_pressure/const_rad_a)**0.25d0
 
   end subroutine update_extravars
 

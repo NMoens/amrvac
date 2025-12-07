@@ -425,6 +425,7 @@ contains
 
         cent(ixO^S)  = (x(jrx^S,1) + x(hrx^S,1) - 2.0d0*x(ixO^S,1)) * q(ixO^S) &
                         / ((x(ixO^S,1) - x(hrx^S,1)) * (x(jrx^S,1) - x(ixO^S,1)))
+
       {^NOONED
       case(2) ! Polar forward, backward, and central derivatives
         forw(ixO^S)  = (x(ixO^S,2) - x(htx^S,2)) * q(jtx^S) &
@@ -448,10 +449,10 @@ contains
                         / ( x(ixO^S,1)*sin(x(ixO^S,2)) * (x(ixO^S,3) - x(hpx^S,3)) * (x(jpx^S,3) - x(ixO^S,3)))
       }
 
+      end select
+
       ! Total gradient for given velocity field
       gradq(ixO^S) = backw(ixO^S) + cent(ixO^S) + forw(ixO^S)
-
-      end select
 
     case default
       call mpistop('Unknown geometry for stretched coord gradient')

@@ -62,7 +62,7 @@ contains
 
       w(ixI^S,rho_) = rho/unit_density
       w(ixI^S,mom(:)) = 0.d0
-      w(ixI^S,Er_) = Bg_E*Er/unit_pressure
+      w(ixI^S,Er_) = Bg_E/unit_pressure
       w(ixI^S,Fr(:)) = 0.d0
 
   end subroutine initial_conditions
@@ -84,7 +84,9 @@ contains
     select case (iprob)
 
     case(1)
-      where (x(ixB^S,2) .gt. 0.225d0 .and. x(ixB^S,2) .lt. 0.275d0 )
+      w(ixB^S,Er_) = Bg_E/unit_pressure
+      w(ixB^S,Fr(:)) = 0.d0
+      where (x(ixB^S,2) .gt. 0.05d0*2*dpi .and. x(ixB^S,2) .lt. 0.2d0*2*dpi )
         w(ixB^S,Er_) = Er/unit_pressure
         w(ixB^S,Fr(1)) = Er/unit_pressure*m1_c*F_red
       end where

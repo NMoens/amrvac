@@ -1272,6 +1272,14 @@ contains
 
     end if
 
+    ! if (x(ixImin1,1) .lt. xprobmin1) then
+    !   print*, ')', w(1:6,Er_)
+    !   print*, ']', w(1:6,Fr(1))
+    !   print*, '}', ff(1:6)
+    !   print*, '>', chi(1:6)
+    !   print*, '|', prad(1:6)
+    ! end if
+
     !> Radiation pressure tensor
     prad(ixI^S) = prad(ixI^S) * w(ixI^S,Er_)
 
@@ -1601,6 +1609,11 @@ contains
       stop "Er NaN before m1_geom_source"
     end if
 
+    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
+      stop "Fr(1) NaN before m1_geom_source"
+    end if
+
+
     select case (coordinate)
     case (cylindrical,Cartesian_expansion)
       call mpistop("m1 geom source terms not implemented yet with cylindrical geometries")
@@ -1612,6 +1625,7 @@ contains
 
         !> If only 1D, F = (F,0,0)
         ff(ixI^S) = wCT(ixI^S, Fr(1))**2/(m1_c*wCT(ixI^S,Er_))**2
+        ff(ixI^S) = min(ff(ixI^S), 1.d0)
 
         !> Eddington factor
         chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
@@ -1620,6 +1634,13 @@ contains
         source(ixO^S) = ((1-chi(ixO^S))*wCT(ixO^S,Er_)/2) &
              * x(ixO^S,1) * (block%surfaceC(ixO^S,1) - block%surfaceC(h1x^S,1)) &
              / block%dvolume(ixO^S)
+
+       if (any(chi(ixI^S).ne.chi(ixI^S))) then
+         print*, ff(ixI^S)
+         print*, chi(ixI^S)
+         stop "Chi NaN in m1_geom_source"
+       end if
+
 
       else
         ! !> radial
@@ -1664,6 +1685,12 @@ contains
     if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
       stop "Er NaN after m1_geom_source"
     end if
+
+    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
+      print*, source(ixO^S)
+      stop "Fr(1) NaN after m1_geom_source"
+    end if
+
 
   end subroutine m1_add_source_geom
 
@@ -2078,6 +2105,11 @@ contains
       stop "Er NaN before m1_rad_source"
     end if
 
+    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
+      stop "Fr(1) NaN before m1_rad_source"
+    end if
+
+
     if(qsourcesplit .eqv. m1_force_split) then
       active = .true.
 
@@ -2129,37 +2161,11 @@ contains
     end if
 
     if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-      print*, w(ixO^S,Er_)
-
-      call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prad)
-      print*, prad(ixO^S)
-
-      call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 2, prad)
-      print*, prad(ixO^S)
-
-      call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, prad)
-      print*, prad(ixO^S)
-
-      call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, prad)
-      print*, prad(ixO^S)
-
-      v(ixI^S) = wCT(ixI^S,mom(1))/wCT(ixI^S,rho_)
-      call gradient_str(v, x, ixI^L, ixO^L, 1, gradv)
-      print*, gradv(ixO^S)
-
-      v(ixI^S) = wCT(ixI^S,mom(1))/wCT(ixI^S,rho_)
-      call gradient_str(v, x, ixI^L, ixO^L, 2, gradv)
-      print*, gradv(ixO^S)
-
-      v(ixI^S) = wCT(ixI^S,mom(2))/wCT(ixI^S,rho_)
-      call gradient_str(v, x, ixI^L, ixO^L, 1, gradv)
-      print*, gradv(ixO^S)
-
-      v(ixI^S) = wCT(ixI^S,mom(2))/wCT(ixI^S,rho_)
-      call gradient_str(v, x, ixI^L, ixO^L, 2, gradv)
-      print*, gradv(ixO^S)
-
       stop "Er NaN in m1_rad_source"
+    end if
+
+    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
+      stop "Fr(1) NaN after m1_rad_source"
     end if
 
   end subroutine m1_rad_source
@@ -2206,15 +2212,23 @@ contains
         Fp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
 
         !> Update momentum
-        w(ixO^S,mom(idir)) = w(ixO^S,mom(idir)) + qdt/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/m1_c
+        w(ixO^S,mom(idir)) = w(ixO^S,mom(idir)) + qdt*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
+        ! w(ixO^S,mom(idir)) = w(ixO^S,mom(idir)) + qdt/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/m1_c
 
         !> Force work term
-        ! if (energy) &
-        !   w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
         if (energy) &
-          w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/m1_c
+          w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
+        !> Well balanced scheme
+        ! if (energy) &
+        !   w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/(2*m1_c)
 
           if (any(w(ixO^S,e_) .lt. 0.d0)) then
+            print*, 'e', w(ixO^S,e_)
+            print*, 'p', w(ixO^S,e_) - w(ixO^S,mom(idir))**2/(2*w(ixO^S,rho_))
+            print*, 'S', qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
+            print*, 'kappa', wCT(ixO^S,kF_)
+            print*, 'F', wCT(ixO^S,Fr(idir))
+            print*, 'mom', wCT(ixO^S,mom(idir))
             stop "e zero after m1_hydro_source 1"
           end if
 
@@ -2412,7 +2426,7 @@ contains
       w(ixI^S,kE_) = m1_kappa_e*Qb_E
       w(ixI^S,kB_) = m1_kappa_e*Qb_B
 
-      where (w(ixI^S,kF_) .gt. 20*m1_kappa_e) w(ixI^S,kF_) = 20*m1_kappa_e
+      ! where (w(ixI^S,kF_) .gt. 20*m1_kappa_e) w(ixI^S,kF_) = 20*m1_kappa_e
       ! where (w(ixI^S,kE_) .gt. 20*m1_kappa_e) w(ixI^S,kE_) = 20*m1_kappa_e
       ! where (w(ixI^S,kB_) .gt. 20*m1_kappa_e) w(ixI^S,kB_) = 20*m1_kappa_e
 

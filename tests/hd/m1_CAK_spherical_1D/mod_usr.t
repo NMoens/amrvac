@@ -33,6 +33,9 @@ contains
     usr_special_bc     => special_bound
     usr_gravity        => stellar_gravity
 
+    ! Fix negative radiation flux
+    usr_internal_bc => Fix_radflux
+
     !> Additional variables
     usr_process_grid => update_extravars
 
@@ -192,6 +195,8 @@ contains
     ! Local variable
     integer :: ir, ix1
     double precision :: prad(ixI^S)
+    double precision :: gradE(ixI^S)
+    double precision :: ff(ixI^S)
 
     select case (iB)
     case(1)
@@ -203,15 +208,6 @@ contains
         w(ix1,rho_) = 10.d0**max(2 * dlog10(w(ix1+1,rho_)) - dlog10(w(ix1+2,rho_)), dlog10(w(ix1+1,rho_)))
       end do
 
-      ! Radial velocity field (constant slope extrapolation)
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   if (ix1 == ixBmax1) then
-      !     w(ix1,mom(1)) = w(ix1+1,mom(1)) - (w(ix1+2,mom(1)) - w(ix1+1,mom(1))) &
-      !                       * (x(ix1+1,1) - x(ix1,1))/(x(ix1+2,1) - x(ix1+1,1))
-      !   else
-      !     w(ix1,mom(1)) = w(ix1+1,mom(1))
-      !   endif
-      ! enddo
       do ix1 = ixBmax1,ixBmin1,-1
         ! w(ix1,mom(1)) = max(2 * w(ix1+1,mom(1)) - w(ix1+2,mom(1)), w(ix1+1,mom(1)))
         w(ix1,mom(1)) = 2 * w(ix1+1,mom(1)) - w(ix1+2,mom(1))
@@ -219,32 +215,61 @@ contains
 
       ! Avoid supersonic ghost cells, also avoid overloading too much
       w(ixB^S,mom(1)) = min(w(ixB^S,mom(1)), asound)
-      w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), 0.d0)
+      w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), -asound)
 
       ! Gas pressure
       if (hd_energy) then
-        w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
-        ! do ix1 = ixBmax1,ixBmin1,-1
-        !   w(ix1,p_) = max(2 * w(ix1+1,p_) - w(ix1+2,p_), w(ix1+1,p_))
-        !   ! w(ix1,p_) = 10.d0**max(2 * dlog10(w(ix1+1,p_)) - dlog10(w(ix1+2,p_)), dlog10(w(ix1+1,p_)))
-        !   w(ix1,p_) = max(0.8d0 * asound**2.0 * rhobound * (w(ix1,rho_)/rhobound)**hd_gamma, w(ix1+1,p_))
-        ! end do
+        ! w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
+        do ix1 = ixBmax1,ixBmin1,-1
+          w(ix1,p_) = 2 * w(ix1+1,p_) - w(ix1+2,p_)
+          ! w(ix1,p_) = max(w(ix1,p_), w(ix1+1,p_))
+        end do
       end if
 
       ! Radiation flux
       w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux
+      !> Correct for CMF?
+      w(ixB^S,Fr(1)) = w(ixB^S,Fr(1)) - w(ixB^S,mom(1))*w(ixB^S,Er_)
+
       ! do ix1 = ixBmax1,ixBmin1,-1
       !   w(ix1,Fr(1)) = w(ix1+1,Fr(1))*(x(ix1+1,1)/x(ix1,1))**2
       ! end do
 
+      ! print*, 'F',w(1:6,Fr(1))
+
       ! Radiation energy density
-      ! w(ixB^S,Er_) = const_rad_a*teff**4/unit_pressure
-      w(ixB^S,Er_) = w(ixB^S,Fr(1))/const_c*unit_velocity
+      !> Diffusion approx
+      ! gradE(ixI^S) = -3*w(ixI^S,Fr(1))*w(ixI^S,rho_)*w(ixI^S,kF_)/m1_c
       ! do ix1 = ixBmax1,ixBmin1,-1
-        ! w(ix1,Er_) = w(ix1+1,Er_)
-        ! w(ix1,Er_) = max(2 * w(ix1+1,Er_) - w(ix1+2,Er_), w(ix1+1,Er_))
-        ! w(ix1,Er_) = w(ix1,Fr(1))*w(ix1+1,Er_)/w(ix1+1,Fr(1))
+      !   w(ix1,Er_) = w(ix1+1,Er_) - (x(ix1+1,1) - x(ix1,1))*(gradE(ix1) + gradE(ix1+1))/2
       ! end do
+
+      !> Freestream approx
+      ! w(ixB^S,Er_) = const_rad_a*teff**4/unit_pressure
+      ! w(ixB^S,Er_) = w(ixB^S,Fr(1))/const_c*unit_velocity
+      ! do ix1 = ixBmax1,ixBmin1,-1
+      !   w(ix1,Er_) = w(ix1+1,Er_)
+      !   w(ix1,Er_) = max(2 * w(ix1+1,Er_) - w(ix1+2,Er_), w(ix1+1,Er_))
+      !   ! w(ix1,Er_) = w(ix1,Fr(1))*w(ix1+1,Er_)/w(ix1+1,Fr(1))
+      ! end do
+
+      !> Const chi
+      ! w(ixB^S,Er_) = w(ixB^S,Fr(1)) * w(ixBmax1+1,Er_)/w(ixBmax1+1,Fr(1))
+
+      !> Extrapolate ff (chi looks quite linear in ff)
+      ff(ixI^S) = (w(ixI^S,Fr(1))/w(ixI^S,Er_))**2
+      do ix1 = ixBmax1,ixBmin1,-1
+        ! ff(ix1) = 2 * ff(ix1+1) - ff(ix1+2)
+        ff(ix1) = ff(ix1+1)
+        ! ff(ix1) = min(m1_c**2,abs(ff(ix1)))
+        w(ix1,Er_) = w(ix1,Fr(1))/dsqrt(ff(ix1))
+        w(ix1,Er_) = max(w(ix1,Er_), w(ix1+1,Er_))
+        ! w(ix1,Er_) = min(w(ix1,Er_), 1000.d0)
+      end do
+
+      ! print*, 'ff', ff(1:6)/m1_c**2
+      ! print*, 'E', w(1:6,Er_)
+
 
       call hd_to_conserved(ixI^L,ixI^L,w,x)
 
@@ -253,6 +278,20 @@ contains
     end select
 
   end subroutine special_bound
+
+  subroutine Fix_radflux(level,qt,ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+    use mod_physics, only: phys_get_pthermal
+
+    integer, intent(in)             :: ixI^L,ixO^L,level
+    double precision, intent(in)    :: qt
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision, intent(in)    :: x(ixI^S,1:ndim)
+
+    where(w(ixI^S,mom(1)) .lt. 0.d0) w(ixI^S,mom(1)) = 0.d0
+    where(w(ixI^S,Fr(1)) .lt. 0.d0) w(ixI^S,Fr(1)) = 0.d0
+
+  end subroutine Fix_radflux
 
   subroutine stellar_gravity(ixI^L,ixO^L,wCT,x,gravity_field)
 

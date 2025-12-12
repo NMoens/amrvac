@@ -9,14 +9,14 @@
 &savelist
   itsave(1,1)=0
   itsave(1,2)=0
-  dtsave_dat = 1.d-3
+  dtsave_dat = 1.d-2
   ! dtsave_log = 1.d-2
   ! ditsave_dat = 1
   ! ditsave_log = 1000
 /
 
 &stoplist
-  time_max = 1.d0
+  time_max = 3.d0
   ! it_max = 10
 /
 
@@ -33,8 +33,8 @@
 
 &boundlist
   typeboundary_min1 = 5*'special'
-  typeboundary_max1 = 5*'noinflow'
-  internalboundary = .true.
+  typeboundary_max1 = 'noinflow','special','noinflow','noinflow','special'
+  internalboundary = .false.
 /
 
 &meshlist
@@ -58,15 +58,15 @@
   m1_opacity_type = 'Gayley'
   m1_heatcool = .true.
   m1_force = .true.
-  m1_force_split = .false.
-  m1_RSOL = 1.d0
-  m1_theta_stiff = 0.6d0
+  m1_RSOL = 1.d-2
+  m1_theta_stiff = 0.96d0
 /
 
 &star_list
   mstar    = 50.0d0
   rstar    = 20.0d0
   teff     = 4.0d4
-  rhobound = 2.0d-11
+  rhobound = 2.0d-12
+  fred_bound = 0.2d0
   beta     = 0.5d0
 /

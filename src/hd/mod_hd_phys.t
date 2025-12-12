@@ -143,7 +143,7 @@ module mod_hd_phys
   logical, public, protected              :: eq_state_units = .true.
 
   !>temporal local defenition of line driving parameters:
-  double precision, public, protected :: a_F = 0.66d0
+  double precision, public, protected :: a_F = 0.7d0
   double precision, public, protected :: a_E = 0.66d0
   double precision, public, protected :: a_B = 0.66d0
   double precision, public, protected :: Qb_F = 2.d3
@@ -2223,12 +2223,12 @@ contains
         !   w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/(2*m1_c)
 
           if (any(w(ixO^S,e_) .lt. 0.d0)) then
-            print*, 'e', w(ixO^S,e_)
-            print*, 'p', w(ixO^S,e_) - w(ixO^S,mom(idir))**2/(2*w(ixO^S,rho_))
-            print*, 'S', qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
-            print*, 'kappa', wCT(ixO^S,kF_)
-            print*, 'F', wCT(ixO^S,Fr(idir))
-            print*, 'mom', wCT(ixO^S,mom(idir))
+            ! print*, 'e', w(ixO^S,e_)
+            ! print*, 'p', w(ixO^S,e_) - w(ixO^S,mom(idir))**2/(2*w(ixO^S,rho_))
+            ! print*, 'S', qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
+            ! print*, 'kappa', wCT(ixO^S,kF_)
+            ! print*, 'F', wCT(ixO^S,Fr(idir))
+            ! print*, 'mom', wCT(ixO^S,mom(idir))
             stop "e zero after m1_hydro_source 1"
           end if
 
@@ -2390,7 +2390,8 @@ contains
     double precision, intent(inout) :: w(ixI^S,nw)
     double precision, intent(in) :: x(ixI^S,1:ndim)
 
-    double precision :: tau_sob(ixI^S), vr(ixI^S)
+    double precision :: tau_sob(ixI^S), vr(ixI^S), dvrdr(ixI^S)
+    double precision :: fdfac(ixO^S), beta_fd(ixO^S)
     double precision :: m1_kappa_e
 
     select case (m1_opacity_type)
@@ -2413,20 +2414,38 @@ contains
 
       !> Calculate velocity gradient
       vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
-      call gradient_str(vr,x,ixI^L,ixO^L,1,tau_sob)
+      call gradient_str(vr,x,ixI^L,ixO^L,1,dvrdr)
 
       !> Calculate sobolev optical depth parameter
-      tau_sob(ixI^S) = dabs(m1_c*m1_kappa_e*w(ixI^S,rho_)/(tau_sob(ixI^S)+smalldouble))
+      tau_sob(ixI^S) = dabs(m1_c*m1_kappa_e*w(ixI^S,rho_)/(dvrdr(ixI^S)+smalldouble))
 
       w(ixI^S,kF_) = m1_kappa_e * Qb_F/(1-a_F) * ((1.d0+Q0_F*tau_sob(ixI^S))**(1.d0-a_F) - 1.d0)/(Q0_F*tau_sob(ixI^S))
       w(ixI^S,kF_) = w(ixI^S,kF_) + m1_kappa_e
 
       ! w(ixI^S,kE_) = m1_kappa_e * Qb_E/(1-a_E)*((1+Q0_E*tau_sob(ixI^S))**(1-a_E) - 1)/(Q0_E*tau_sob(ixI^S))
       ! w(ixI^S,kB_) = m1_kappa_e * Qb_B/(1-a_B)*((1+Q0_B*tau_sob(ixI^S))**(1-a_B) - 1)/(Q0_B*tau_sob(ixI^S))
-      w(ixI^S,kE_) = m1_kappa_e*Qb_E
-      w(ixI^S,kB_) = m1_kappa_e*Qb_B
+      w(ixI^S,kE_) = m1_kappa_e!*Qb_E
+      w(ixI^S,kB_) = m1_kappa_e!*Qb_B
 
-      ! where (w(ixI^S,kF_) .gt. 20*m1_kappa_e) w(ixI^S,kF_) = 20*m1_kappa_e
+      !> Finite disc correction factor
+      beta_fd(ixO^S) = ( 1.0d0 - vr(ixO^S)/(x(ixO^S,1) * dvrdr(ixO^S)) ) &
+                        * (xprobmin1/x(ixO^S,1))**2.0d0
+
+      where (beta_fd(ixO^S) >= 1.0d0)
+        fdfac(ixO^S) = 1.0d0/(1.0d0 + a_F)
+      elsewhere (beta_fd(ixO^S) < -1.0d10)
+        fdfac(ixO^S) = abs(beta_fd(ixO^S))**a_F / (1.0d0 + a_F)
+      elsewhere (abs(beta_fd(ixO^S)) > 1.0d-3)
+        fdfac(ixO^S) = (1.0d0 - (1.0d0 - beta_fd(ixO^S))**(1.0d0 + a_F)) &
+                       / (beta_fd(ixO^S)*(1.0d0 + a_F))
+      elsewhere
+        fdfac(ixO^S) = 1.0d0 - 0.5d0*a_F*beta_fd(ixO^S) &
+                       * (1.0d0 + 1.0d0/3.0d0 * (1.0d0 - a_F)*beta_fd(ixO^S))
+      end where
+
+      w(ixO^S,kF_) = w(ixO^S,kF_)*fdfac(ixO^S)
+
+      where (w(ixI^S,kF_) .gt. 15*m1_kappa_e) w(ixI^S,kF_) = 15*m1_kappa_e
       ! where (w(ixI^S,kE_) .gt. 20*m1_kappa_e) w(ixI^S,kE_) = 20*m1_kappa_e
       ! where (w(ixI^S,kB_) .gt. 20*m1_kappa_e) w(ixI^S,kB_) = 20*m1_kappa_e
 

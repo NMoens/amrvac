@@ -14,7 +14,8 @@ module mod_usr
   double precision :: lstar, mumol, vesc, gammae, logg, logge, heff
   double precision :: cak_alpha, gayley_qbar, fred_bound
 
-  integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff
+  integer :: i_Gamma, i_Mf, i_prad11, i_prad12, i_prad22
+  integer :: i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff
 
 contains
 
@@ -50,7 +51,9 @@ contains
     !> Extra variables
     i_Gamma = var_set_extravar('Gamma','Gamma')
     i_Mf = var_set_extravar('M_F','M_F')
-    i_Prad = var_set_extravar('P_rr','P_rr')
+    i_Prad11 = var_set_extravar('P_rr','P_rr')
+    i_Prad12 = var_set_extravar('P_rt','P_rt')
+    i_Prad22 = var_set_extravar('P_tt','P_tt')
     i_pht = var_set_extravar('pht','pht')
     i_fcmf = var_set_extravar('Fcmf','Fcmf')
     i_Tgas = var_set_extravar('Tgas','Tgas')
@@ -172,6 +175,7 @@ contains
     sfac = 1.d0
 
     !> Gas subsystem
+    w(ixI^S,mom(:)) = 0.d0
     w(ixI^S,mom(1)) = vinf * ( 1.0d0 - sfac * rstar / x(ixI^S,1) )**beta
     w(ixI^S,rho_)   = mdot / (4.0d0*dpi * x(ixI^S,1)**2.0d0 * w(ixI^S,mom(1)))
 
@@ -180,6 +184,7 @@ contains
 
     !> Radiation subsystem
     ! w(ixO^S,Fr(1)) = w(ixO^S,Er_)*const_c/unit_velocity
+    w(ixI^S,Fr(:)) = 0.d0
     w(ixI^S,Fr(1)) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux
     w(ixI^S,Er_) = w(ixI^S,Fr(1))/m1_c
     ! w(ixI^S,Er_) = const_rad_a*teff**4/unit_pressure
@@ -206,14 +211,15 @@ contains
       call hd_to_primitive(ixI^L,ixI^L,w,x)
 
       ! Mass density fixed at boundary mass density
-      w(ixBmax1,rho_) = rhobound
+      w(ixBmax1,:,rho_) = rhobound
       do ix1 = ixBmax1-1, ixBmin1, -1
-        w(ix1,rho_) = 10.d0**max(2 * dlog10(w(ix1+1,rho_)) - dlog10(w(ix1+2,rho_)), dlog10(w(ix1+1,rho_)))
+        w(ix1,:,rho_) = 10.d0**max(2 * dlog10(w(ix1+1,:,rho_)) - dlog10(w(ix1+2,:,rho_)), dlog10(w(ix1+1,:,rho_)))
       end do
 
+      w(ixB^S,mom(:)) = 0.d0
       do ix1 = ixBmax1,ixBmin1,-1
         ! w(ix1,mom(1)) = max(2 * w(ix1+1,mom(1)) - w(ix1+2,mom(1)), w(ix1+1,mom(1)))
-        w(ix1,mom(1)) = 2 * w(ix1+1,mom(1)) - w(ix1+2,mom(1))
+        w(ix1,:,mom(1)) = 2 * w(ix1+1,:,mom(1)) - w(ix1+2,:,mom(1))
       end do
 
       ! Avoid supersonic ghost cells, also avoid overloading too much
@@ -222,84 +228,29 @@ contains
 
       ! Gas pressure
       if (hd_energy) then
-        ! w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
         do ix1 = ixBmax1,ixBmin1,-1
-          w(ix1,p_) = 2 * w(ix1+1,p_) - w(ix1+2,p_)
-          ! w(ix1,p_) = max(w(ix1,p_), w(ix1+1,p_))
+          w(ix1,:,p_) = 2 * w(ix1+1,:,p_) - w(ix1+2,:,p_)
         end do
       end if
 
       ! Radiation flux
+      w(ixB^S,Fr(:)) = 0.d0
       w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux
-      !> Correct for CMF?
-      ! w(ixB^S,Fr(1)) = w(ixB^S,Fr(1)) - w(ixB^S,mom(1))*w(ixB^S,Er_)
-
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   w(ix1,Fr(1)) = w(ix1+1,Fr(1))*(x(ix1+1,1)/x(ix1,1))**2
-      !   w(ix1,Fr(1)) = max(0.1d0*lstar/(4*dpi*(x(ix1,1)*unit_length)**2)/unit_radflux,w(ix1,Fr(1)))
-      ! end do
-
-      ! print*, 'F',w(1:6,Fr(1))
-
-      ! Radiation energy density
-      !> Diffusion approx
-      ! gradE(ixI^S) = -3*w(ixI^S,Fr(1))*w(ixI^S,rho_)*w(ixI^S,kF_)/m1_c
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   w(ix1,Er_) = w(ix1+1,Er_) - (x(ix1+1,1) - x(ix1,1))*(gradE(ix1) + gradE(ix1+1))/2
-      ! end do
-
-      !> Freestream approx
-      ! w(ixB^S,Er_) = const_rad_a*teff**4/unit_pressure
-      ! w(ixB^S,Er_) = w(ixB^S,Fr(1))/const_c*unit_velocity
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   w(ix1,Er_) = w(ix1+1,Er_)
-      !   w(ix1,Er_) = max(2 * w(ix1+1,Er_) - w(ix1+2,Er_), w(ix1+1,Er_))
-      !   ! w(ix1,Er_) = w(ix1,Fr(1))*w(ix1+1,Er_)/w(ix1+1,Fr(1))
-      ! end do
-
-      !> Const chi
-      ! w(ixB^S,Er_) = w(ixB^S,Fr(1)) * w(ixBmax1+1,Er_)/w(ixBmax1+1,Fr(1))
-
-      !> Extrapolate ff (chi looks quite linear in ff)
-      ! ff(ixI^S) = (w(ixI^S,Fr(1))/w(ixI^S,Er_))**2
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   ! ff(ix1) = 2 * ff(ix1+1) - ff(ix1+2)
-      !   ff(ix1) = ff(ix1+1)
-      !   ! ff(ix1) = min(m1_c**2,abs(ff(ix1)))
-      !   w(ix1,Er_) = w(ix1,Fr(1))/dsqrt(ff(ix1))
-      !   w(ix1,Er_) = max(w(ix1,Er_), w(ix1+1,Er_))
-      !   w(ix1,Er_) = min(w(ix1,Er_), 5000.d0)
-      ! end do
-
-      !> Conservation law
-      ! ff(ixI^S) = (w(ixI^S,Fr(1))/(m1_c*w(ixI^S,Er_)))**2
-      ! chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
-      ! gradE(ixI^S) = ( (1 - chi(ixI^S))/chi(ixI^S) - 2.d0 )*w(ixI^S,Er_)/x(ixI^S,1) &
-      !              - (w(ixI^S,rho_)*w(ixI^S,kF_)*w(ixI^S,Fr(1)))/(m1_c*chi(ixI^S))
-      !
-      ! print*, chi(ixImax1+1), gradE(ixImax1+1), w(ixImax1+1,Fr(1))
-      !
-      !  do ix1 = ixBmax1,ixBmin1,-1
-      !    w(ix1,Er_) = w(ix1+1,Er_) - gradE(ixImax1+1) * (x(ix1+1,1) - x(ix1,1))
-      !  end do
-      ! print*, 'ff', ff(1:6)/m1_c**2
-      ! print*, 'E', w(1:6,Er_)
 
       !> Manual ff
       ff(ixB^S) = fred_bound**2
       w(ixB^S,Er_) = w(ixB^S,Fr(1))/(m1_c*dsqrt(ff(ixB^S) ))
 
-
       call hd_to_conserved(ixI^L,ixI^L,w,x)
 
     case (2)
 
-      do ix1 = ixBmax1,ixBmin1,-1
-        w(ix1,mom(1)) = w(ix1-1,mom(1))!*(x(ix1,1)/x(ix1-1,1))**2
-        w(ix1,Fr(1)) = w(ix1-1,Fr(1))*(x(ix1,1)/x(ix1-1,1))**2
+      do ix1 = ixBmin1,ixBmax1
+        w(ix1,:,mom(1)) = w(ix1-1,:,mom(1))!*(x(ix1,1)/x(ix1-1,1))**2
+        w(ix1,:,Fr(1)) = w(ix1-1,:,Fr(1))!*(x(ix1,:,1)/x(ix1-1,:,1))**2
 
-        w(ix1,mom(1)) = max(0.d0,w(ix1,mom(1)))
-        w(ix1,Fr(1)) = max(0.d0,w(ix1,Fr(1)))
+        w(ix1,:,mom(1)) = max(0.d0,w(ix1,:,mom(1)))
+        w(ix1,:,Fr(1)) = max(0.d0,w(ix1,:,Fr(1)))
       end do
 
     case default
@@ -339,6 +290,9 @@ contains
     ! where(w(ixI^S,mom(1)) .lt. 0.d0) w(ixI^S,mom(1)) = 0.d0
     ! where(w(ixI^S,Fr(1)) .lt. 0.d0) w(ixI^S,Fr(1)) = 0.d0
 
+    ! w(ixI^S,mom(2)) = 0.d0
+    ! w(ixI^S,Fr(2)) = 0.d0
+
   end subroutine Fix_radflux
 
   subroutine stellar_gravity(ixI^L,ixO^L,wCT,x,gravity_field)
@@ -373,12 +327,21 @@ contains
 
     !> Photon tiring + Radflux CMF correction
     v(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
+
+    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 2, prad)
+    w(ixO^S,i_Prad12) = prad(ixO^S)/w(ixO^S,Er_)
+    call m1_get_prad(w, x, ixI^L, ixO^L, 2, 2, prad)
+    w(ixO^S,i_Prad22) = prad(ixO^S)/w(ixO^S,Er_)
+
     call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, prad)
+    w(ixO^S,i_Prad11) = prad(ixO^S)
+
     call gradient_str(v, x, ixI^L, ixO^L, 1, gradv)
 
-    w(ixO^S,i_Prad) = prad(ixO^S)
     w(ixO^S,i_pht) = - m1_RSOL*gradv(ixO^S)*prad(ixO^S)
     w(ixO^S,i_fcmf) = - m1_RSOL*w(ixO^S,Fr(1))*gradv(ixO^S)
+
+    w(ixO^S,i_Prad11) = prad(ixO^S)/w(ixO^S,Er_)
 
     call hd_get_pthermal(w,x,ixI^L,ixO^L,pth)
     w(ixO^S,i_Tgas) = (pth(ixO^S)*unit_pressure*const_mp*hd_mu) &

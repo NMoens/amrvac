@@ -1591,8 +1591,11 @@ contains
     double precision, intent(in)    :: qdt, x(ixI^S, 1:ndim)
     double precision, intent(inout) :: wCT(ixI^S, 1:nw), w(ixI^S, 1:nw)
 
-    double precision                :: chi(ixI^S), ff(ixI^S)
-    double precision                :: source(ixI^S), prad(ixI^S)
+    double precision                :: chi(ixI^S), ff(ixI^S), fi(ixI^S)
+    double precision                :: source(ixI^S)
+    double precision                :: prr(ixI^S), ptt(ixI^S), ppp(ixI^S)
+    double precision                :: ptr(ixI^S)
+    double precision                :: ppr(ixI^S), ppt(ixI^S)
     integer                         :: h1x^L{^NOONED, h2x^L}
 
     !> Radiation flux
@@ -1619,18 +1622,14 @@ contains
       call mpistop("m1 geom source terms not implemented yet with cylindrical geometries")
     case(spherical)
       h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
-      if (ndir == 1) then
-        !> Get radiation pressure
-        call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prad)
-
+      select case (ndir)
+      case (1)
         !> If only 1D, F = (F,0,0)
         ff(ixI^S) = wCT(ixI^S, Fr(1))**2/(m1_c*wCT(ixI^S,Er_))**2
         ff(ixI^S) = min(ff(ixI^S), 1.d0)
 
         !> Eddington factor
         chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
-
-        ! source(ixO^S) = (prad(ixO^S) - (1-chi(ixO^S))*wCT(ixO^S,Er_)/2) &
         source(ixO^S) = ((1-chi(ixO^S))*wCT(ixO^S,Er_)/2) &
              * x(ixO^S,1) * (block%surfaceC(ixO^S,1) - block%surfaceC(h1x^S,1)) &
              / block%dvolume(ixO^S)
@@ -1641,40 +1640,53 @@ contains
          stop "Chi NaN in m1_geom_source"
        end if
 
+        !> Add sourceterms
+        w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * source(ixO^S) / x(ixO^S,1)
 
-      else
-        ! !> radial
-        ! call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prad)
-        ! source(ixO^S) = 2*(prad(ixO^S) + wCT(ixO^S,mom(1))*wCT(ixO^S,Fr(1))/wCT(ixO^S,rho_))/x(ixO^S,r_)
-        !
-        ! !> Theta
-        ! call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, prad)
-        ! source(ixO^S) = source(ixO^S) - (prad(ixO^S) + wCT(ixO^S,mom(2))*wCT(ixO^S,Fr(2))/wCT(ixO^S,rho_))/x(ixO^S,r_)
-        !
-        ! !> phi
-        ! call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, prad)
-        ! source(ixO^S) = source(ixO^S) - (prad(ixO^S) + wCT(ixO^S,mom(3))*wCT(ixO^S,Fr(3))/wCT(ixO^S,rho_))/x(ixO^S,r_)
+      case (2)
+        if (ndim .eq. 1) call mpistop("1.x D not implemented yet")
 
-      end if
+        !> Get relevant pressure tensors:
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt)
+        ppp = 1.d0 - prr - ptt !> trace is zero
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr)
 
-      !> Add sourceterms
-      w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * source(ixO^S) / x(ixO^S,1)
-      !
-      ! {^NOONED
-      !   call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, prad)
-      !   source(ixO^S) = (prad(ixO^S) + wCT(ixO^S,mom(2))*wCT(ixO^S,Fr(2))/wCT(ixO^S,rho_))/(dtan(x(ixO^S,2))*x(ixO^S,1))
-      !   w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * source(ixO^S)
-      !
-      !   if (ndir .ne. 3) then
-      !     prad(ixO^S) = (1-chi(ixO^S))*wCT(ixO^S,Er_)/2.d0
-      !     source(ixO^S) = (prad(ixO^S))/(dtan(x(ixO^S,2))*x(ixO^S,1))
-      !   else
-      !     call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, prad)
-      !     source(ixO^S) = (prad(ixO^S) +  wCT(ixO^S,mom(3))*wCT(ixO^S,Fr(3))/wCT(ixO^S,rho_))/(dtan(x(ixO^S,2))*x(ixO^S,1))
-      !   end if
-      !
-      !   w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * source(ixO^S)
-      ! }
+        !> Add advection part
+        prr = prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
+        ptt = ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
+        ptr = ptr + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+
+        !> Perform corrections
+        !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*nabla T
+        w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
+        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
+
+      case(3)
+        if (ndim .eq. 1) call mpistop("1.x D not implemented yet")
+        !> Get relevant pressure tensors:
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt)
+        ppp = 1.d0 - prr - ptt !> trace is zero
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr)
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 2, ppt)
+
+        !> Add advection part
+        prr = prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
+        ptt = ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
+        ppp = ppp + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(3))/wCT(ixI^S, rho_)
+
+        ptr = ptr + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        ppr = ppr + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        ppt = ppt + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+
+        !> Perform corrections
+        !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*nabla T
+        w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
+        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
+        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * (-ppr(ixO^S)/x(ixO^S, 1)  - ppt(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
+
+      end select
 
     end select
 
@@ -1693,96 +1705,6 @@ contains
 
 
   end subroutine m1_add_source_geom
-
-  ! subroutine m1_add_source_geom(qdt, ixI^L, ixO^L, wCT, w, x)
-  !   use mod_global_parameters
-  !   use mod_geometry
-  !   integer, intent(in)             :: ixI^L, ixO^L
-  !   double precision, intent(in)    :: qdt, x(ixI^S, 1:ndim)
-  !   double precision, intent(inout) :: wCT(ixI^S, 1:nw), w(ixI^S, 1:nw)
-  !
-  !   double precision                :: chi(ixI^S), ff(ixI^S)
-  !   double precision                :: source(ixI^S), prad(ixI^S)
-  !
-  !   !> Radiation flux
-  !   !TODO: Fix geometric sourceterms for non-Cartesian multi-D
-  !   !SEE APPENDIX B IN GONZALEZ 2007 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !   if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-  !     stop "Er zero before m1_geom_source"
-  !   end if
-  !
-  !   if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-  !     stop "Er NaN before m1_geom_source"
-  !   end if
-  !
-  !   select case (coordinate)
-  !   case (cylindrical,Cartesian_expansion)
-  !     call mpistop("m1 geom source terms not implemented yet with cylindrical geometries")
-  !   case(spherical)
-  !     if (ndir == 1) then
-  !       !> Get radiation pressure
-  !       call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prad)
-  !
-  !       !> If only 1D, F = (F,0,0)
-  !       ff(ixI^S) = wCT(ixI^S, Fr(1))**2/(m1_c*wCT(ixI^S,Er_))**2
-  !       ff(ixI^S) = max(ff(ixI^S),1.d0)
-  !
-  !       !> Eddington factor
-  !       chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
-  !
-  !       !> radial contribution
-  !       source(ixO^S) = 2*(prad(ixO^S) + wCT(ixO^S,mom(1))*wCT(ixO^S,Fr(1)))/x(ixO^S,r_)
-  !
-  !       !> phi and theta contribution (EVEN IN 1D)
-  !       source(ixO^S) = source(ixO^S) - (1-chi(ixO^S))*wCT(ixO^S,Er_)/x(ixO^S,r_)
-  !
-  !     else
-  !       !> radial
-  !       call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prad)
-  !       source(ixO^S) = 2*(prad(ixO^S) + wCT(ixO^S,mom(1))*wCT(ixO^S,Fr(1))/wCT(ixO^S,rho_))/x(ixO^S,r_)
-  !
-  !       !> Theta
-  !       call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, prad)
-  !       source(ixO^S) = source(ixO^S) - (prad(ixO^S) + wCT(ixO^S,mom(2))*wCT(ixO^S,Fr(2))/wCT(ixO^S,rho_))/x(ixO^S,r_)
-  !
-  !       !> phi
-  !       call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, prad)
-  !       source(ixO^S) = source(ixO^S) - (prad(ixO^S) + wCT(ixO^S,mom(3))*wCT(ixO^S,Fr(3))/wCT(ixO^S,rho_))/x(ixO^S,r_)
-  !
-  !     end if
-  !
-  !     !> Add sourceterms
-  !     w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * source(ixO^S)
-  !
-  !     {^NOONED
-  !       call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, prad)
-  !       source(ixO^S) = (prad(ixO^S) + wCT(ixO^S,mom(2))*wCT(ixO^S,Fr(2))/wCT(ixO^S,rho_))/(dtan(x(ixO^S,2))*x(ixO^S,1))
-  !       w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * source(ixO^S)
-  !
-  !       if (ndir .ne. 3) then
-  !         prad(ixO^S) = (1-chi(ixO^S))*wCT(ixO^S,Er_)/2.d0
-  !         source(ixO^S) = (prad(ixO^S))/(dtan(x(ixO^S,2))*x(ixO^S,1))
-  !       else
-  !         call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, prad)
-  !         source(ixO^S) = (prad(ixO^S) +  wCT(ixO^S,mom(3))*wCT(ixO^S,Fr(3))/wCT(ixO^S,rho_))/(dtan(x(ixO^S,2))*x(ixO^S,1))
-  !       end if
-  !
-  !       w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * source(ixO^S)
-  !     }
-  !
-  !   end select
-  !
-  !   if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-  !     stop "Er zero after m1_geom_source"
-  !   end if
-  !
-  !   if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-  !     stop "Er NaN after m1_geom_source"
-  !   end if
-  !
-  ! end subroutine m1_add_source_geom
 
   ! w[iw]= w[iw]+qdt*S[wCT, qtC, x] where S is the source based on wCT within ixO
   subroutine hd_add_source(qdt,dtfactor, ixI^L,ixO^L,wCT,wCTprim,w,x,qsourcesplit,active)
@@ -1985,7 +1907,7 @@ contains
               Fmag(ixI^S) = dsqrt(sum(w(ixI^S,Fr(:))**2, dim=ndim+1))
 
               do idir = 1,ndir
-                where(flag(ixO^S,Fr(idir))) w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir))*m1_c*w(ixO^S,Er_)/Fmag(ixI^S)
+                where(flag(ixO^S,Fr(idir))) w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir))*m1_c*w(ixO^S,Er_)/Fmag(ixO^S)
               end do
             end if
           end if
@@ -2094,8 +2016,9 @@ contains
     integer :: idir, idim
     integer                         :: jxO^L, hxO^L
 
-    double precision :: rad_acc(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S)
+    double precision :: prad(ixI^S), gradv(ixI^S)
     double precision :: Fp(ixO^S), Fm(ixO^S), sm(ixO^S), sp(ixO^S)
+    double precision :: geom_corr(ixO^S), vec_grad(ixO^S), vel(ixI^S,1:ndir)
 
     if (any(w(ixO^S,Er_) .lt. 0.d0)) then
       stop "Er zero before m1_rad_source"
@@ -2112,6 +2035,10 @@ contains
 
     if(qsourcesplit .eqv. m1_force_split) then
       active = .true.
+
+      do idir = 1,ndir
+        vel(ixI^S,idir) = wCT(ixI^S,mom(idir))/wCT(ixI^S,rho_)
+      end do
 
       do idir = 1,ndir
         !> Force in radiation flux
@@ -2142,18 +2069,79 @@ contains
 
         !> Photon tiring + Radflux CMF correction
         do idim = 1,ndim
-          v(ixI^S) = wCT(ixI^S,mom(idim))/wCT(ixI^S,rho_)
 
           !TODO: implement vector gradient corrections in spherical!
-          call gradient_str(v, x, ixI^L, ixO^L, idir, gradv)
+          !TODO: implement directional derivative in spherical!
+          !> Both are expressed at: https://en.wikipedia.org/wiki/Del_in_cylindrical_and_spherical_coordinates
+          call gradient_str(vel(ixI^S,idim), x, ixI^L, ixO^L, idir, gradv)
           call m1_get_prad(wCT, x, ixI^L, ixO^L, idir, idim, prad)
 
+          !> Geometric correction terms to vector gradient
+          vec_grad(ixO^S) = gradv(ixO^S)
+
+          select case(coordinate)
+          case(cylindrical)
+            call mpistop("directional derivative not implemented for cylindrical coords")
+          case(spherical)
+            {^NOONED
+            if (idim .eq. 1) then
+              if (idir .eq. 2) then
+                vec_grad(ixO^S) = vec_grad(ixO^S) - vel(ixO^S,2)/x(ixO^S,1)
+              else if (idir .eq. 3) then
+                vec_grad(ixO^S) = vec_grad(ixO^S) -  vel(ixO^S,3)/x(ixO^S,1)
+              end if
+            else if (idim .eq. 2) then
+              if (idir .eq. 2) then
+                vec_grad(ixO^S) = vec_grad(ixO^S) +  vel(ixO^S,1)/x(ixO^S,1)
+              else if (idir .eq. 3) then
+                vec_grad(ixO^S) = vec_grad(ixO^S) -  vel(ixO^S,3)/(x(ixO^S,1)*dtan(x(ixO^S,1)))
+              end if
+            else if (idim .eq. 3) then
+              if (idir .eq. 3) then
+                vec_grad(ixO^S) = vec_grad(ixO^S) +  vel(ixO^S,1)/x(ixO^S,1) +  vel(ixO^S,2)/(x(ixO^S,1)*dtan(x(ixO^S,1)))
+              end if
+            end if
+            }
+          end select
+
           !TODO: Well balanced source-terms here? Requires gradient in GC
-          w(ixO^S,Er_) = w(ixO^S,Er_) - qdt*m1_RSOL*gradv(ixO^S)*prad(ixO^S)
+          w(ixO^S,Er_) = w(ixO^S,Er_) - qdt*m1_RSOL*vec_grad(ixO^S)*prad(ixO^S)
           w(ixO^S,Fr(idim)) = w(ixO^S,Fr(idim)) - qdt*m1_RSOL*wCT(ixO^S,Fr(idir))*gradv(ixO^S)
         end do
 
+        !> Geometric correction terms to directional derivative
+        select case(coordinate)
+        case(cylindrical)
+          call mpistop("directional derivative not implemented for cylindrical coords")
+        case(spherical)
+          select case(idir)
+          {^NOONED
+          case(1)
+            geom_corr(ixO^S) = -(wCT(ixO^S,Fr(2)) * vel(ixO^S,2))/x(ixO^S,1)
+            if (ndir > 2) then
+              geom_corr(ixO^S) = geom_corr(ixO^S) - (wCT(ixO^S,Fr(3))* vel(ixO^S,3))/x(ixO^S,1)
+            end if
+          case(2)
+            geom_corr(ixO^S) = (wCT(ixO^S,Fr(2)) * vel(ixO^S,1))/x(ixO^S,1)
+            if (ndir > 2) then
+              geom_corr(ixO^S) = geom_corr(ixO^S) - (wCT(ixO^S,Fr(3))* vel(ixO^S,3))/(x(ixO^S,1)*dtan(x(ixO^S,2)))
+            end if
+          }
+          {^IFTHREED
+          case(3)
+            geom_corr(ixO^S) = (wCT(ixO^S,Fr(3)) * vel(ixO^S,1))/x(ixO^S,1)
+            geom_corr(ixO^S) = geom_corr(ixO^S) + (wCT(ixO^S,Fr(3)) * vel(ixO^S,2))/(x(ixO^S,1)*dtan(x(ixO^S,2)))
+          }
+          end select
+          {^NOONED
+          !> add correction
+          w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*m1_RSOL*geom_corr(ixO^S)
+          }
+        end select
+
+
       end do
+
     end if
 
     if (any(w(ixO^S,Er_) .lt. 0.d0)) then

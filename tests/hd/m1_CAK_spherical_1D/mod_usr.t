@@ -242,7 +242,7 @@ contains
 
     case (2)
 
-      do ix1 = ixBmax1,ixBmin1,-1
+      do ix1 = ixBmin1,ixBmax1
         w(ix1,mom(1)) = w(ix1-1,mom(1))!*(x(ix1,1)/x(ix1-1,1))**2
         w(ix1,Fr(1)) = w(ix1-1,Fr(1))*(x(ix1,1)/x(ix1-1,1))**2
 

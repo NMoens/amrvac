@@ -460,6 +460,95 @@ contains
 
   end subroutine gradient_str
 
+
+  ! !> Calculate the directional derivative (A nabla) B
+  ! subroutine directional_derivative(Avec,Bvec,x,ixI^L,ixO^L,Dvec)
+  !   use mod_global_parameters
+  !
+  !   integer, intent(in)  :: ixI^L, ixO^L
+  !   double precision, intent(in) :: x(ixI^S,1:ndim)
+  !   double precision, intent(in) :: Avec(ixI^S,1:ndir), Bvec(ixI^S,1:ndir)
+  !   double precision, intent(out) :: Dvec(ixI^S,1:ndir)
+  !   double precision :: gradA(ixI^S)
+  !
+  !   integer :: idir, idim
+  !
+  !   !> Loop over directions and dimensions
+  !   do idir = 1,ndir
+  !     do idim = 1, ndim
+  !       call gradient_str(Avec(ixI^S,idim), x, ixI^L, ixO^L, idir, gradA)
+  !       Dvec(ixI^S,idim) = Bvec(ixI^S,idir)*gradA
+  !     end do
+  !   end do
+  !
+  !   !> Geometric correction terms
+  !   select case(coordinate)
+  !   case(cylindrical)
+  !     call mpistop("directional derivative not implemented for cylindrical coords")
+  !   case(spherical)
+  !   {^NOONED
+  !     !> r
+  !     Dvec(ixI^S,1) = Dvec(ixI^S,1) - (Avec(ixI^S,2) * Bvec(ixI^S,2))/x(ixI^S,1)
+  !     if (ndir > 2) then
+  !       Dvec(ixI^S,1) = Dvec(ixI^S,1) - (Avec(ixI^S,3) * Bvec(ixI^S,3))/x(ixI^S,1)
+  !     end if
+  !
+  !     !> theta
+  !     Dvec(ixI^S,2) = Dvec(ixI^S,2) + (Avec(ixI^S,2) * Bvec(ixI^S,1))/x(ixI^S,1)
+  !     if (ndir > 2) then
+  !       Dvec(ixI^S,2) = Dvec(ixI^S,2) - (Avec(ixI^S,3) * Bvec(ixI^S,3))/(x(ixI^S,1)*dtan(x(ixI^S,2)))
+  !     end if
+  !   }
+  !   {^IFTHREED
+  !     !> phi
+  !     Dvec(ixI^S,2) = Dvec(ixI^S,2) + (Avec(ixI^S,3) * Bvec(ixI^S,1))/x(ixI^S,1)
+  !     Dvec(ixI^S,2) = Dvec(ixI^S,2) + (Avec(ixI^S,3) * Bvec(ixI^S,2))/(x(ixI^S,1)*dtan(x(ixI^S,2)))
+  !   }
+  !   end select
+  !
+  ! end subroutine directional_derivative
+
+  !> Calculate the vector gradient in direction idir
+  !> here, idir is the index of the nabla operator
+  ! subroutine vector_gradient(Avec,x,ixI^L,ixO^L,idim,Gvec)
+  !   use mod_global_parameters
+  !
+  !   integer, intent(in)  :: ixI^L, ixO^L, idim
+  !   double precision, intent(in) :: x(ixI^S,1:ndim)
+  !   double precision, intent(in) :: Avec(ixI^S,1:ndir), Bvec(ixI^S,1:ndir)
+  !   double precision, intent(out) :: Gvec(ixI^S,1:ndir)
+  !   double precision :: gradA(ixI^S)
+  !
+  !   integer :: idir
+  !
+  !   !> Loop over directions and dimensions
+  !   do idir = 1,ndir
+  !     call gradient_str(Avec(ixI^S,idir), x, ixI^L, ixO^L, idim, Gvec(ixI^S,idir))
+  !   end do
+  !
+  !   !> Geometric correction terms
+  !   select case(coordinate)
+  !   case(cylindrical)
+  !     call mpistop("directional derivative not implemented for cylindrical coords")
+  !   case(spherical)
+  !     select case(idim)
+  !     {^NOONED
+  !     case (2)
+  !       !> derivative wrt theta
+  !       Gvec(ixI^S,1) = Gvec(ixI^S,1) - Avec(ixI^S,2)/x(ixI^S,1)
+  !       Gvec(ixI^S,2) = Gvec(ixI^S,2) + Avec(ixI^S,1)/x(ixI^S,1)
+  !     }
+  !     {^IFTHREED}
+  !     case (3)
+  !       !> derivative wrt phi
+  !       Gvec(ixI^S,1) = Gvec(ixI^S,1) - Avec(ixI^S,3)/x(ixI^S,1)
+  !       Gvec(ixI^S,2) = Gvec(ixI^S,2) - Avec(ixI^S,3)/(x(ixI^S,1)*dtan(x(ixI^S,2)))
+  !       Gvec(ixI^S,3) = Gvec(ixI^S,3) + Avec(ixI^S,1)/x(ixI^S,1) + Avec(ixI^S,2)/(x(ixI^S,1)*dtan(x(ixI^S,2)))
+  !     }
+  !     end select
+  !   end select
+  ! end subroutine
+
   ! !> Calculate vectorgradient of component idim of a vector q within ixL in direction idir
   ! subroutine vector_gradient(q,ixI^L,ixO^L,idim,idir,gradq)
   !   use mod_global_parameters

@@ -1,5 +1,5 @@
 &filelist
-  base_filename = 'output/cak1d'
+  base_filename = 'output/cak2d'
   typefilelog   = 'default'
   convert_type  = 'vtuBCCmpi'
   autoconvert   = .true.

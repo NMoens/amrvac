@@ -77,11 +77,11 @@ contains
 
   integer :: ii
 
-  select case (iB)
+  select case (iprob)
 
   case(1)
 
-    select case (iprob)
+    select case (iB)
 
     case(1)
       w(ixB^S,Er_) = Bg_E/unit_pressure
@@ -90,10 +90,28 @@ contains
         w(ixB^S,Er_) = Er/unit_pressure
         w(ixB^S,Fr(1)) = Er/unit_pressure*m1_c*F_red
       end where
+
+    case default
+      call mpistop('boundary not known')
     end select
 
-  case default
-    call mpistop('boundary not known')
+  case(2)
+
+    select case (iB)
+
+    case(4)
+      w(ixB^S,Er_) = Bg_E/unit_pressure
+      w(ixB^S,Fr(:)) = 0.d0
+      where (x(ixB^S,1) .gt.2 .and. x(ixB^S,1) .lt. 3 )
+        w(ixB^S,Er_) = Er/unit_pressure
+        w(ixB^S,Fr(2)) = -Er/unit_pressure*m1_c*F_red
+      end where
+
+    case default
+      call mpistop('boundary not known')
+    end select
+
+
   end select
 end subroutine boundary_conditions
 

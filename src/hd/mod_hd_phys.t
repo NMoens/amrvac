@@ -1289,7 +1289,8 @@ contains
        print*, 'Er', w(ix^D,Er_)
        print*, 'x', x(ix^D,:)
        print*, 'i,j, ndim', idir, jdir, ndim
-       print*, 'fi, fj, f**2, fi**2 + fj**2',fi(ix^D), fj(ix^D), ff(ix^D), fi(ix^D)**2 + fj(ix^D)**2
+       print*, 'fi, fj, f**2, fi**2 + fj**2', &
+       fi(ix^D), fj(ix^D), ff(ix^D), fi(ix^D)**2 + fj(ix^D)**2
        print*, w(ix^D,Fr(idir)),w(ix^D,Fr(jdir)),sum(w(ix^D,Fr(:))**2), &
        w(ix^D,Fr(idir))**2 + w(ix^D,Fr(jdir))**2
        print*, chi(ix^D)
@@ -1630,7 +1631,7 @@ contains
 
         !> Eddington factor
         chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
-        source(ixO^S) = ((1-chi(ixO^S))*wCT(ixO^S,Er_)/2) &
+        source(ixO^S) = m1_c**2 * ((1-chi(ixO^S))*wCT(ixO^S,Er_)/2) &
              * x(ixO^S,1) * (block%surfaceC(ixO^S,1) - block%surfaceC(h1x^S,1)) &
              / block%dvolume(ixO^S)
 
@@ -1653,38 +1654,40 @@ contains
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr)
 
         !> Add advection part
-        prr = prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
-        ptt = ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
-        ptr = ptr + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        prr = m1_c**2 * prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
+        ptt = m1_c**2 * ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
+        ptr = m1_c**2 * ptr + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        ! ptr = m1_c**2 * ptr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
 
         !> Perform corrections
-        !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*nabla T
+        !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*(nabla T + S_corr)
         w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
         w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
 
       case(3)
-        if (ndim .eq. 1) call mpistop("1.x D not implemented yet")
+        if ((ndim .eq. 1) .or. (ndim .eq. 2)) call mpistop("1.x D not implemented yet")
+
         !> Get relevant pressure tensors:
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt)
-        ppp = 1.d0 - prr - ptt !> trace is zero
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 2, ppt)
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, ppp)
 
         !> Add advection part
-        prr = prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
-        ptt = ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
-        ppp = ppp + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(3))/wCT(ixI^S, rho_)
+        prr = m1_c**2 * prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
+        ptt = m1_c**2 * ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
+        ppp = m1_c**2 * ppp + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(3))/wCT(ixI^S, rho_)
 
-        ptr = ptr + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
-        ppr = ppr + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
-        ppt = ppt + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        ptr = m1_c**2 * ptr + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        ppr = m1_c**2 * ppr + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        ppt = m1_c**2 * ppt + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
 
         !> Perform corrections
         !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*nabla T
         w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
         w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
-        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * (-ppr(ixO^S)/x(ixO^S, 1)  - ppt(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
+        w(ixO^S, Fr(3)) = w(ixO^S, Fr(3)) + qdt * (-ppr(ixO^S)/x(ixO^S, 1)  - ppt(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
 
       end select
 
@@ -2094,14 +2097,17 @@ contains
               if (idir .eq. 2) then
                 vec_grad(ixO^S) = vec_grad(ixO^S) +  vel(ixO^S,1)/x(ixO^S,1)
               else if (idir .eq. 3) then
-                vec_grad(ixO^S) = vec_grad(ixO^S) -  vel(ixO^S,3)/(x(ixO^S,1)*dtan(x(ixO^S,1)))
+                vec_grad(ixO^S) = vec_grad(ixO^S) -  vel(ixO^S,3)/(x(ixO^S,1)*dtan(x(ixO^S,2)))
               end if
+            }
+            {^IFTHREED
             else if (idim .eq. 3) then
               if (idir .eq. 3) then
-                vec_grad(ixO^S) = vec_grad(ixO^S) +  vel(ixO^S,1)/x(ixO^S,1) +  vel(ixO^S,2)/(x(ixO^S,1)*dtan(x(ixO^S,1)))
+                vec_grad(ixO^S) = vec_grad(ixO^S) +  vel(ixO^S,1)/x(ixO^S,1)
+                vec_grad(ixO^S) = vec_grad(ixO^S) +  vel(ixO^S,2)/(x(ixO^S,1)*dtan(x(ixO^S,2)))
               end if
-            end if
             }
+            end if
           end select
 
           !TODO: Well balanced source-terms here? Requires gradient in GC
@@ -2135,10 +2141,9 @@ contains
           end select
           {^NOONED
           !> add correction
-          w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*m1_RSOL*geom_corr(ixO^S)
+          w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) + qdt*m1_RSOL*geom_corr(ixO^S)
           }
         end select
-
 
       end do
 

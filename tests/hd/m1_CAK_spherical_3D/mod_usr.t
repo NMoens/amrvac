@@ -12,7 +12,10 @@ module mod_usr
   double precision :: mdot, vinf, asound, Ggrav
 
   double precision :: lstar, mumol, vesc, gammae, logg, logge, heff
-  double precision :: cak_alpha, gayley_qbar
+  double precision :: cak_alpha, gayley_qbar, fred_bound
+
+  integer :: i_Gamma, i_Mf, i_prad11, i_prad12, i_prad22
+  integer :: i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff
 
 contains
 
@@ -31,6 +34,12 @@ contains
     usr_special_bc     => special_bound
     usr_gravity        => stellar_gravity
 
+    ! Fix negative radiation flux
+    usr_internal_bc => Fix_radflux
+
+    !> Additional variables
+    usr_process_grid => update_extravars
+
     ! Choose independent normalization units if using dimensionless variables.
     unit_length      = rstar    ! cm
     unit_temperature = teff    ! K
@@ -39,6 +48,19 @@ contains
     ! Active the physics module: rho_activate(), hd_activate(), mhd_activate()
     call hd_activate()
 
+    !> Extra variables
+    i_Gamma = var_set_extravar('Gamma','Gamma')
+    i_Mf = var_set_extravar('M_F','M_F')
+    i_Prad11 = var_set_extravar('P_rr','P_rr')
+    i_Prad12 = var_set_extravar('P_rt','P_rt')
+    i_Prad22 = var_set_extravar('P_tt','P_tt')
+    i_pht = var_set_extravar('pht','pht')
+    i_fcmf = var_set_extravar('Fcmf','Fcmf')
+    i_Tgas = var_set_extravar('Tgas','Tgas')
+    i_Trad = var_set_extravar('Trad','Trad')
+    i_ff = var_set_extravar('ff','ff')
+    i_chi = var_set_extravar('chi','chi')
+
   end subroutine usr_init
 
   subroutine usr_params_read(files)
@@ -46,7 +68,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer :: n
 
-    namelist /star_list/ mstar, rstar, teff, rhobound, beta
+    namelist /star_list/ mstar, rstar, teff, rhobound, beta, fred_bound
 
     do n = 1,size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -148,34 +170,26 @@ contains
     ! Local variables
     double precision :: sfac
 
-    !> Initiate non-radial comps
-    w(ixI^S,:) = 0.d0
-
     ! Small offset (~vtherm/vinf) to avoid starting at terminal wind speed
-    sfac = 1.0d0 - 1.0d-3**(1.0d0/beta)
+    ! sfac = 1.0d0 - 1.0d-3**(1.0d0/beta)
+    sfac = 1.d0
 
     !> Gas subsystem
+    w(ixI^S,mom(:)) = 0.d0
     w(ixI^S,mom(1)) = vinf * ( 1.0d0 - sfac * rstar / x(ixI^S,1) )**beta
     w(ixI^S,rho_)   = mdot / (4.0d0*dpi * x(ixI^S,1)**2.0d0 * w(ixI^S,mom(1)))
-    w(ixI^S,p_) = asound**2.0 * rhobound * (w(ixI^S,rho_)/rhobound)**hd_gamma
+
+    if (hd_energy) &
+      w(ixI^S,p_) = asound**2.0 * rhobound * (w(ixI^S,rho_)/rhobound)**hd_gamma
 
     !> Radiation subsystem
     ! w(ixO^S,Fr(1)) = w(ixO^S,Er_)*const_c/unit_velocity
+    w(ixI^S,Fr(:)) = 0.d0
     w(ixI^S,Fr(1)) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux
-    w(ixI^S,Er_) = w(ixI^S,Fr(1))/const_c*unit_velocity
+    w(ixI^S,Er_) = w(ixI^S,Fr(1))/m1_c
     ! w(ixI^S,Er_) = const_rad_a*teff**4/unit_pressure
 
-    ! if (mype .eq. 0) print*, 'F ic', w(1:5,Fr(1))
-    ! if (mype .eq. 0) print*, 'E ic', w(1:5,Er_)
-
     call hd_to_conserved(ixI^L,ixO^L,w,x)
-
-    ! if (any(w(ixO^S,:) .ne. w(ixO^S,:))) then
-    !   print*, 'after ic'
-    !   print*, w(ixImin1:5,5,5,:)
-    !   print*, x(ixImin1:5,5,5,:)
-    !   stop
-    ! end if
 
   end subroutine initial_conditions
 
@@ -188,81 +202,99 @@ contains
 
     ! Local variable
     integer :: ir, ix1
+    double precision :: prad(ixI^S)
+    double precision :: gradE(ixI^S)
+    double precision :: ff(ixI^S), chi(ixI^S)
 
     select case (iB)
     case(1)
-
       call hd_to_primitive(ixI^L,ixI^L,w,x)
 
       ! Mass density fixed at boundary mass density
-      w(ixB^S,rho_) = rhobound
+      w(ixBmax1,:,:,rho_) = rhobound
+      do ix1 = ixBmax1-1, ixBmin1, -1
+        w(ix1,:,:,rho_) = 10.d0**max(2 * dlog10(w(ix1+1,:,:,rho_)) - dlog10(w(ix1+2,:,:,rho_)), dlog10(w(ix1+1,:,:,rho_)))
+      end do
 
-      ! Radial velocity field (constant slope extrapolation)
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   if (ix1 == ixBmax1) then
-      !     w(ix1,:,:,mom(1)) = w(ix1+1,:,:,mom(1)) - (w(ix1+2,:,:,mom(1)) - w(ix1+1,:,:,mom(1))) &
-      !                       * (x(ix1+1,:,:,1) - x(ix1,:,:,1))/(x(ix1+2,:,:,1) - x(ix1+1,:,:,1))
-      !   else
-      !     w(ix1,:,:,mom(1)) = w(ix1+1,:,:,mom(1))
-      !   endif
-      ! enddo
+      w(ixB^S,mom(:)) = 0.d0
       do ix1 = ixBmax1,ixBmin1,-1
         ! w(ix1,mom(1)) = max(2 * w(ix1+1,mom(1)) - w(ix1+2,mom(1)), w(ix1+1,mom(1)))
         w(ix1,:,:,mom(1)) = 2 * w(ix1+1,:,:,mom(1)) - w(ix1+2,:,:,mom(1))
       end do
 
       ! Avoid supersonic ghost cells, also avoid overloading too much
-      w(ixB^S,mom(1)) = min(w(ixB^S,mom(1)), 0.5d0*asound)
-      w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), -asound)
-
-      w(ixB^S,mom(2)) = 0.d0
-      w(ixB^S,mom(3)) = 0.d0
+      w(ixB^S,mom(1)) = min(w(ixB^S,mom(1)), asound)
+      w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), 0.d0)
 
       ! Gas pressure
-      ! w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
-      do ix1 = ixBmax1,ixBmin1,-1
-        ! w(ix1,:,:,p_) = w(ix1+1,:,:,p_)
-        w(ix1,:,:,p_) = max(2 * w(ix1+1,:,:,p_) - w(ix1+2,:,:,p_), w(ix1+1,:,:,p_))
-      end do
+      if (hd_energy) then
+        do ix1 = ixBmax1,ixBmin1,-1
+          w(ix1,:,:,p_) = 2 * w(ix1+1,:,:,p_) - w(ix1+2,:,:,p_)
+        end do
+      end if
 
       ! Radiation flux
+      w(ixB^S,Fr(:)) = 0.d0
       w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux
 
-      w(ixB^S,Fr(2)) = 0.d0
-      w(ixB^S,Fr(3)) = 0.d0
-
-      ! Radiation energy density
-      ! w(ixB^S,Er_) = w(ixB^S,Fr(1))/const_c*unit_velocity
-      do ix1 = ixBmax1,ixBmin1,-1
-        ! w(ix1,Er_) = w(ix1+1,Er_)
-        w(ix1,:,:,Er_) = max(2 * w(ix1+1,:,:,Er_) - w(ix1+2,:,:,Er_), w(ix1+1,:,:,Er_))
-      end do
+      !> Manual ff
+      ff(ixB^S) = fred_bound**2
+      w(ixB^S,Er_) = w(ixB^S,Fr(1))/(m1_c*dsqrt(ff(ixB^S) ))
 
       call hd_to_conserved(ixI^L,ixI^L,w,x)
 
-      ! if (any(w(ixB^S,:) .ne. w(ixB^S,:))) then
-      !   print*, 'after bc'
-      !   print*, w(ixBmin1:5,5,5,rho_)
-      !   print*, w(ixBmin1:5,5,5,mom(1))
-      !   print*, w(ixBmin1:5,5,5,mom(2))
-      !   print*, w(ixBmin1:5,5,5,mom(3))
-      !   print*, w(ixBmin1:5,5,5,e_)
-      !   print*, w(ixBmin1:5,5,5,Er_)
-      !   print*, w(ixBmin1:5,5,5,Fr(1))
-      !   print*, w(ixBmin1:5,5,5,Fr(2))
-      !   print*, w(ixBmin1:5,5,5,Fr(3))
-      !   print*, x(ixBmin1:5,5,5,1)
-      !   print*, '================'
-      !   print*, w(ixB^S,:)
-      !   stop
-      ! end if
+    case (2)
 
+      do ix1 = ixBmin1,ixBmax1
+        w(ix1,:,:,mom(1)) = w(ix1-1,:,:,mom(1))!*(x(ix1,1)/x(ix1-1,1))**2
+        w(ix1,:,:,Fr(1)) = w(ix1-1,:,:,Fr(1))!*(x(ix1,:,:,1)/x(ix1-1,:,:,1))**2
+
+        w(ix1,:,:,mom(1)) = max(0.d0,w(ix1,:,:,mom(1)))
+        w(ix1,:,:,Fr(1)) = max(0.d0,w(ix1,:,:,Fr(1)))
+      end do
 
     case default
       call mpistop("BC not specified")
     end select
 
   end subroutine special_bound
+
+  subroutine Fix_radflux(level,qt,ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+    use mod_physics, only: phys_get_pthermal
+
+    integer, intent(in)             :: ixI^L,ixO^L,level
+    double precision, intent(in)    :: qt
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision, intent(in)    :: x(ixI^S,1:ndim)
+
+    ! Local variables
+    double precision :: sfac
+
+    ! ! Small offset (~vtherm/vinf) to avoid starting at terminal wind speed
+    ! ! sfac = 1.0d0 - 1.0d-3**(1.0d0/beta)
+    ! sfac = 1.d0
+    !
+    ! !> Gas subsystem
+    ! w(ixI^S,mom(1)) = vinf * ( 1.0d0 - sfac * rstar / x(ixI^S,1) )**beta
+    ! w(ixI^S,rho_)   = mdot / (4.0d0*dpi * x(ixI^S,1)**2.0d0 * w(ixI^S,mom(1)))
+    !
+    ! if (hd_energy) &
+    !   w(ixI^S,p_) = asound**2.0 * rhobound * (w(ixI^S,rho_)/rhobound)**hd_gamma
+    ! call hd_to_conserved(ixI^L,ixO^L,w,x)
+
+    !> Radiation subsystem
+    ! w(ixI^S,Fr(1)) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux
+    ! w(ixI^S,Er_) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux/m1_c
+
+    ! where(w(ixI^S,mom(1)) .lt. 0.d0) w(ixI^S,mom(1)) = 0.d0
+    ! where(w(ixI^S,Fr(1)) .lt. 0.d0) w(ixI^S,Fr(1)) = 0.d0
+
+    ! w(ixI^S,mom(2)) = 0.d0
+    ! w(ixI^S,Fr(2)) = 0.d0
+    ! w(ixI^S,Fr(3)) = 0.d0
+
+  end subroutine Fix_radflux
 
   subroutine stellar_gravity(ixI^L,ixO^L,wCT,x,gravity_field)
 
@@ -277,5 +309,50 @@ contains
     gravity_field(ixO^S,1) = -Ggrav * mstar/x(ixO^S,1)**2.0d0
 
   end subroutine stellar_gravity
+
+  subroutine update_extravars(igrid,level,ixI^L,ixO^L,qt,w,x)
+    use mod_global_parameters
+    use mod_hd
+
+    integer, intent(in)             :: igrid,level,ixI^L,ixO^L
+    double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+
+    double precision :: grav(ixI^S), grad(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S), pth(ixI^S)
+
+    grav(ixI^S) = w(ixI^S,rho_) * Ggrav * mstar/x(ixO^S,1)**2.0d0
+    grad(ixI^S) = w(ixI^S,rho_) * w(ixI^S,kF_) * w(ixI^S,Fr(1)) / m1_c
+
+    w(ixI^S,i_Gamma) = grad(ixI^S)/grav(ixI^S)
+    w(ixI^S,i_Mf) = w(ixI^S,kF_)/(0.34d0/unit_opacity)
+
+    !> Photon tiring + Radflux CMF correction
+    v(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
+
+    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 2, prad)
+    w(ixO^S,i_Prad12) = prad(ixO^S)/w(ixO^S,Er_)
+    call m1_get_prad(w, x, ixI^L, ixO^L, 2, 2, prad)
+    w(ixO^S,i_Prad22) = prad(ixO^S)/w(ixO^S,Er_)
+
+    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, prad)
+    w(ixO^S,i_Prad11) = prad(ixO^S)
+
+    call gradient_str(v, x, ixI^L, ixO^L, 1, gradv)
+
+    w(ixO^S,i_pht) = - m1_RSOL*gradv(ixO^S)*prad(ixO^S)
+    w(ixO^S,i_fcmf) = - m1_RSOL*w(ixO^S,Fr(1))*gradv(ixO^S)
+
+    w(ixO^S,i_Prad11) = prad(ixO^S)/w(ixO^S,Er_)
+
+    call hd_get_pthermal(w,x,ixI^L,ixO^L,pth)
+    w(ixO^S,i_Tgas) = (pth(ixO^S)*unit_pressure*const_mp*hd_mu) &
+                   /(w(ixO^S,rho_)*unit_density*const_kB)
+
+    w(ixO^S,i_Trad) = (w(ixO^S,Er_)*unit_pressure/const_rad_a)**0.25d0
+
+    w(ixO^S,i_ff) = sum(w(ixO^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixO^S,Er_))**2
+    w(ixO^S,i_chi) = (3.d0+4*w(ixO^S,i_ff))/(5.d0+2*dsqrt(4.d0-3*w(ixO^S,i_ff)))
+
+  end subroutine update_extravars
 
 end module mod_usr

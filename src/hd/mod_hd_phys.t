@@ -63,6 +63,9 @@ module mod_hd_phys
   !> Theta parameter for stiff sourceterms
   double precision, public                :: m1_theta_stiff = 0.51d0
 
+  !> Electron scattering opacity
+  double precision, public                :: m1_kappa_e = 0.34d0
+
   !> Use well-balanced scheme for flux force term
   logical, public                         :: m1_well_balanced = .false.
 
@@ -179,7 +182,7 @@ contains
     SI_unit, hd_particles, hd_rotating_frame, hd_trac, &
     hd_force_diagonal, hd_trac_type, hd_cak_force, hd_partial_ionization , &
     m1_opacity_type, m1_diffusion, m1_RSOL, m1_force_split, m1_theta_stiff, &
-    m1_heatcool, m1_well_balanced
+    m1_heatcool, m1_well_balanced, m1_kappa_e
 
     do n = 1, size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -219,6 +222,7 @@ contains
     use mod_particles, only: particles_init
     use mod_rotating_frame, only:rotating_frame_init
     use mod_cak_force, only: cak_init
+    use mod_opal_opacity, only: init_opal_table
     use mod_supertimestepping, only: sts_init, add_sts_method,&
             set_conversion_methods_to_head, set_error_handling_to_head
     use mod_ionization_degree
@@ -436,6 +440,9 @@ contains
 
     ! Initialize CAK radiation force module
     if (hd_cak_force) call cak_init(hd_gamma)
+
+    ! Initialise opal module if necessary
+    if (hd_m1 .and. (m1_opacity_type .eq. 'hybrid1')) call init_opal_table('Y02800')
 
     ! Initialize particles module
     if (hd_particles) then
@@ -702,6 +709,7 @@ contains
 
     !> Mean molecular weight
     hd_mu = (1.0d0 + 4.0d0*He_abundance)/(2.0d0 + 3.0d0*He_abundance)
+    m1_kappa_e = m1_kappa_e/unit_opacity
 
   end subroutine hd_physical_units
 
@@ -1245,8 +1253,8 @@ contains
       ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
 
       !> Cap ff, this should not be necessary, but the sum above does not behave properly
-      ! fi(ixI^S) = max(fi(ixI^S),1.d0)
-      ! fj(ixI^S) = max(fj(ixI^S),1.d0)
+      ! fi(ixI^S) = min(fi(ixI^S),1.d0)
+      ! fj(ixI^S) = min(fj(ixI^S),1.d0)
       ! ff(ixI^S) = min(ff(ixI^S),1.d0)
 
       !> Eddington factor
@@ -1272,19 +1280,13 @@ contains
 
     end if
 
-    ! if (x(ixImin1,1) .lt. xprobmin1) then
-    !   print*, ')', w(1:6,Er_)
-    !   print*, ']', w(1:6,Fr(1))
-    !   print*, '}', ff(1:6)
-    !   print*, '>', chi(1:6)
-    !   print*, '|', prad(1:6)
-    ! end if
-
     !> Radiation pressure tensor
     prad(ixI^S) = prad(ixI^S) * w(ixI^S,Er_)
 
     {do ix^D = ixOmin^D,ixOmax^D\}
      if (w(ix^D,Er_) .lt. 0.d0) then
+       print*, 'ix', ix^D
+       print*, 'x', x(ix^D,:)
        print*, 'c', unit_velocity, m1_c, m1_c*unit_velocity, const_c
        print*, 'Er', w(ix^D,Er_)
        print*, 'x', x(ix^D,:)
@@ -1428,7 +1430,7 @@ contains
 
     if (hd_m1) then
       !> Radiation energy flux is v_i E + F
-      f(ixO^S,Er_) = m1_RSOL * w(ixO^S,mom(idim)) * w(ixO^S, Er_) + m1_RSOL * w(ixO^S, Fr(idim))
+      f(ixO^S,Er_) = m1_RSOL * (w(ixO^S,mom(idim)) * w(ixO^S, Er_) + w(ixO^S, Fr(idim)))
 
       !> Radiation flux flux is v_i F_i + c^2 P_ii
       do idir = 1,ndir
@@ -1625,32 +1627,40 @@ contains
       h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
       select case (ndir)
       case (1)
-        !> If only 1D, F = (F,0,0)
-        ff(ixI^S) = wCT(ixI^S, Fr(1))**2/(m1_c*wCT(ixI^S,Er_))**2
-        ff(ixI^S) = min(ff(ixI^S), 1.d0)
+       !  !> If only 1D, F = (F,0,0)
+       !  ff(ixI^S) = wCT(ixI^S, Fr(1))**2/(m1_c*wCT(ixI^S,Er_))**2
+       !  ff(ixI^S) = min(ff(ixI^S), 1.d0)
+       !
+       !  !> Eddington factor
+       !  chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
+       !  source(ixO^S) = m1_c**2 * ((1-chi(ixO^S))*wCT(ixO^S,Er_)/2) &
+       !       * x(ixO^S,1) * (block%surfaceC(ixO^S,1) - block%surfaceC(h1x^S,1)) &
+       !       / block%dvolume(ixO^S)
+       !
+       ! if (any(chi(ixI^S).ne.chi(ixI^S))) then
+       !   print*, ff(ixI^S)
+       !   print*, chi(ixI^S)
+       !   stop "Chi NaN in m1_geom_source"
+       ! end if
+       !
+       !  !> Add sourceterms
+       !  w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * m1_RSOL * source(ixO^S) / x(ixO^S,1)
 
-        !> Eddington factor
-        chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
-        source(ixO^S) = m1_c**2 * ((1-chi(ixO^S))*wCT(ixO^S,Er_)/2) &
-             * x(ixO^S,1) * (block%surfaceC(ixO^S,1) - block%surfaceC(h1x^S,1)) &
-             / block%dvolume(ixO^S)
+       !> Get relevant pressure tensor
+       call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
+       ptt = m1_c**2 * (wCT(ixI^S, Er_) - prr) /2
+       ppp = ptt
 
-       if (any(chi(ixI^S).ne.chi(ixI^S))) then
-         print*, ff(ixI^S)
-         print*, chi(ixI^S)
-         stop "Chi NaN in m1_geom_source"
-       end if
+       w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * m1_RSOL * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
 
-        !> Add sourceterms
-        w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * source(ixO^S) / x(ixO^S,1)
-
+      {^NOONED
       case (2)
         if (ndim .eq. 1) call mpistop("1.x D not implemented yet")
 
         !> Get relevant pressure tensors:
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt)
-        ppp = 1.d0 - prr - ptt !> trace is zero
+        ppp = 1.d0 - prr - ptt !> trace is one
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr)
 
         !> Add advection part
@@ -1661,9 +1671,10 @@ contains
 
         !> Perform corrections
         !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*(nabla T + S_corr)
-        w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
-        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
-
+        w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * m1_RSOL * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
+        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * m1_RSOL * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
+      }
+      {^IFTHREED
       case(3)
         if ((ndim .eq. 1) .or. (ndim .eq. 2)) call mpistop("1.x D not implemented yet")
 
@@ -1685,10 +1696,10 @@ contains
 
         !> Perform corrections
         !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*nabla T
-        w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
-        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
-        w(ixO^S, Fr(3)) = w(ixO^S, Fr(3)) + qdt * (-ppr(ixO^S)/x(ixO^S, 1)  - ppt(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
-
+        w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * m1_RSOL * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
+        w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * m1_RSOL * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
+        w(ixO^S, Fr(3)) = w(ixO^S, Fr(3)) + qdt * m1_RSOL * (-ppr(ixO^S)/x(ixO^S, 1)  - ppt(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
+      }
       end select
 
     end select
@@ -2044,6 +2055,7 @@ contains
       end do
 
       do idir = 1,ndir
+        !> MOVED TO IMPLICIT PART?
         !> Force in radiation flux
         ! w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))*m1_RSOL*m1_c
 
@@ -2065,9 +2077,17 @@ contains
         else
           !> Skinner & Ostriker 2013 Eq. 43
           !> MOVE TO IMPLICIT PART?
-          w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) &
-          *(1.d0 - (1-m1_theta_stiff)*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) &
-          /(1.d0 + m1_theta_stiff*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt)
+          ! w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) &
+          ! *(1.d0 - (1-m1_theta_stiff)*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) &
+          ! /(1.d0 + m1_theta_stiff*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt)
+
+          ! w(ixO^S,Fr(idir)) = wCT(ixO^S,Fr(idir)) &
+          ! *(m1_theta_stiff/(1.d0 + m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) &
+          ! + (1.d0 - m1_theta_stiff)*(1.d0 - m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) )
+
+          !> Exponential solution
+          ! w(ixO^S,Fr(idir)) = wCT(ixO^S,Fr(idir)) * dexp(-m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt)
+
         end if
 
         !> Photon tiring + Radflux CMF correction
@@ -2084,10 +2104,10 @@ contains
 
           select case(coordinate)
           case(cylindrical)
-            call mpistop("directional derivative not implemented for cylindrical coords")
+            call mpistop("vector gradient not implemented for cylindrical coords")
           case(spherical)
-            {^NOONED
             if (idim .eq. 1) then
+            {^NOONED
               if (idir .eq. 2) then
                 vec_grad(ixO^S) = vec_grad(ixO^S) - vel(ixO^S,2)/x(ixO^S,1)
               else if (idir .eq. 3) then
@@ -2267,49 +2287,35 @@ contains
      !$OMP END PARALLEL DO
    end if
 
-   ! !$OMP PARALLEL DO PRIVATE(igrid)
-   ! do iigrid=1,igridstail; igrid=igrids(iigrid);
-   !    call m1_flux_momentum(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
-   ! end do
-   ! !$OMP END PARALLEL DO
+   !$OMP PARALLEL DO PRIVATE(igrid)
+   do iigrid=1,igridstail; igrid=igrids(iigrid);
+      call m1_flux_momentum_source(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
+   end do
+   !$OMP END PARALLEL DO
 
  end subroutine m1_heating_cooling
 
- ! subroutine Energy_interaction(w, x, ixI^L, ixO^L, dtfactor, qdt)
- !   use mod_global_parameters
- !
- !   integer, intent(in)             :: ixI^L,ixO^L
- !   double precision, intent(in)    :: x(ixI^S,1:ndim)
- !   double precision, intent(in)    :: dtfactor, qdt
- !   double precision, intent(inout) :: w(ixI^S,1:nw)
- !
- !   double precision :: a1(ixO^S), a2(ixO^S)
- !   double precision :: c0(ixO^S), c1(ixO^S)
- !
- !   integer :: ix^D
- !
- !   !> Get gas internal energy
- !   call hd_e_to_ei(ixI^L,ixO^L,w,x)
- !
- !   !> Set polynomial coefficients
- !   a1(ixO^S) = 4.d0*w(ixO^S,kB_)*m1_sb*(hd_gamma-1.d0)**4/w(ixO^S,rho_)**3*dtfactor*qdt
- !   a2(ixO^S) = m1_c*w(ixO^S,kE_)*w(ixO^S,rho_)*dtfactor*qdt
- !
- !   c0(ixO^S) = ((1.d0+a2(ixO^S))*w(ixO^S,e_)+a2(ixO^S)*w(ixO^S,Er_))/a1(ixO^S)
- !   c1(ixO^S) = (1.d0+a2(ixO^S))/a1(ixO^S)
- !
- !   !> Solve polynomial
- !   {do ix^D = ixOmin^D,ixOmax^D\}
- !    call Bisection_method(w(ix^D,e_),w(ix^D,Er_),c0(ix^D),c1(ix^D))
- !   {enddo\}
- !
- !   !> Set radiation energy density
- !   w(ixO^S,Er_) = (a1(ixO^S)*w(ixO^S,e_)**4.d0+w(ixO^S,Er_))/(1.d0+a2(ixO^S))
- !
- !   !> Get gas total energy
- !   call hd_ei_to_e(ixI^L,ixO^L,w,x)
- !
- ! end subroutine Energy_interaction
+ subroutine m1_flux_momentum_source(w, x, ixI^L, ixO^L, dtfactor, qdt)
+   use mod_global_parameters
+
+   integer, intent(in)             :: ixI^L,ixO^L
+   double precision, intent(in)    :: x(ixI^S,1:ndim)
+   double precision, intent(in)    :: dtfactor, qdt
+   double precision, intent(inout) :: w(ixI^S,1:nw)
+
+   integer :: idir
+
+   !> Fully implicit update
+   do idir = 1, ndir
+     !> Backward Euler
+     ! w(ixO^S,Fr(idir)) =  w(ixO^S,Fr(idir))/(1.d0 + m1_RSOL*m1_c*w(ixO^S,rho_)*w(ixO^S,kF_)*dtfactor*qdt)
+
+     !> Analytic solution
+     w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) * dexp(-m1_RSOL*m1_c*w(ixO^S,rho_)*w(ixO^S,kF_)*qdt)
+   end do
+
+ end subroutine m1_flux_momentum_source
+
 
  subroutine Energy_interaction(w, x, ixI^L, ixO^L, dtfactor, qdt)
    use mod_global_parameters
@@ -2385,7 +2391,6 @@ contains
 
     double precision :: tau_sob(ixI^S), vr(ixI^S), dvrdr(ixI^S)
     double precision :: fdfac(ixO^S), beta_fd(ixO^S)
-    double precision :: m1_kappa_e
 
     select case (m1_opacity_type)
 
@@ -2395,15 +2400,11 @@ contains
       w(ixI^S,kB_) = 0.d0
 
     case('kappa_e')
-      m1_kappa_e = 0.4d0
-
-      w(ixI^S,kF_) = m1_kappa_e/unit_opacity
-      w(ixI^S,kE_) = m1_kappa_e/unit_opacity
-      w(ixI^S,kB_) = m1_kappa_e/unit_opacity
+      w(ixI^S,kF_) = m1_kappa_e!/unit_opacity
+      w(ixI^S,kE_) = m1_kappa_e!/unit_opacity
+      w(ixI^S,kB_) = m1_kappa_e!/unit_opacity
 
     case('Gayley')
-
-      m1_kappa_e = 0.34d0/unit_opacity
 
       !> Calculate velocity gradient
       vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
@@ -2456,19 +2457,80 @@ contains
       w(ixOmax1+1,:,:,kF_) = w(ixOmax1,:,:,kF_)
       }
 
-    ! case('Hybrid')
-    !
+    case('hybrid1')
+
+      call hybrid_opacity(ixI^L,ixO^L,w,x)
+
     case('special')
       if (.not. associated(usr_special_opacity_m1)) then
         call mpistop("special opacity not defined")
       endif
       call usr_special_opacity_m1(ixI^L, ixO^L, w, x)
 
-    ! case default
+    case default
+      call mpistop("Opacity type not known...")
 
     end select
 
   end subroutine m1_set_opacities
+
+  subroutine hybrid_opacity(ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+    use mod_opal_opacity
+    use mod_geometry
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(inout) :: w(ixI^S,nw)
+    double precision, intent(in) :: x(ixI^S,1:ndim)
+
+    double precision :: tau_sob(ixI^S), vr(ixI^S), dvrdr(ixI^S)
+
+    double precision :: OPAL(ixO^S), rho, Trad, kappa
+    integer :: ix^D
+
+    !> Velocity stretched opacities
+    !> Calculate velocity gradient
+    vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
+    call gradient_str(vr,x,ixI^L,ixO^L,1,dvrdr)
+
+    !> Calculate sobolev optical depth parameter
+    tau_sob(ixO^S) = dabs(m1_c*m1_kappa_e*w(ixO^S,rho_)/(dvrdr(ixO^S)+smalldouble))
+
+    w(ixO^S,kF_) = m1_kappa_e * Qb_F/(1-a_F) * ((1.d0+Q0_F*tau_sob(ixO^S))**(1.d0-a_F) - 1.d0)/(Q0_F*tau_sob(ixO^S))
+    w(ixO^S,kE_) = m1_kappa_e * Qb_E/(1-a_E)*((1+Q0_E*tau_sob(ixO^S))**(1-a_E) - 1)/(Q0_E*tau_sob(ixO^S))
+    w(ixO^S,kB_) = m1_kappa_e * Qb_B/(1-a_B)*((1+Q0_B*tau_sob(ixO^S))**(1-a_B) - 1)/(Q0_B*tau_sob(ixO^S))
+
+    !> Opal Opacities
+    {do ix^D=ixOmin^D,ixOmax^D\ }
+        rho = w(ix^D,rho_)*unit_density
+        Trad = (w(ix^D,Er_)*unit_pressure/const_rad_a)**(0.25d0)
+        Trad = max(Trad,1.d4)
+        call set_opal_opacity(rho,Trad,kappa)
+        OPAL(ix^D) = kappa/unit_opacity
+    {enddo\ }
+
+    !> Combine OPAL and CAK-like
+    w(ixO^S,kF_) = min(w(ixO^S,kF_), 50.d0*m1_kappa_e) + OPAL(ixO^S)
+    w(ixO^S,kE_) = w(ixO^S,kE_) + OPAL(ixO^S) - m1_kappa_e
+    w(ixO^S,kB_) = w(ixO^S,kB_) + OPAL(ixO^S) - m1_kappa_e
+
+    w(ixO^S,kF_) = max(w(ixO^S,kF_), 0.1d0*m1_kappa_e)
+    w(ixO^S,kE_) = max(w(ixO^S,kE_), 1.d-5*m1_kappa_e)
+    w(ixO^S,kB_) = max(w(ixO^S,kB_), 1.d-5*m1_kappa_e)
+
+    if (any(w(ixO^S,kF_) .ne. w(ixO^S,kF_))) then
+      stop "kappa_F NaN in hybrid opacity"
+    end if
+
+    if (any(w(ixO^S,kE_) .ne. w(ixO^S,kE_))) then
+      stop "kappa_E NaN in hybrid opacity"
+    end if
+
+    if (any(w(ixO^S,kB_) .ne. w(ixO^S,kB_))) then
+      stop "kappa_B NaN in hybrid opacity"
+    end if
+
+  end subroutine hybrid_opacity
 
   !> Check time step for total radiation contribution
   subroutine m1_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)
@@ -2571,74 +2633,10 @@ contains
 
      end do
 
-     ! print*, n, abs(e_b-e_a)/min(e_gas,E_rad)
-
      !> Final bisection
      e_gas = (e_a + e_b)/two
 
    end subroutine Bisection_method
-
-  ! !> Find the root of the 4th degree polynomial using the bisection method
-  !  subroutine Bisection_method(e_gas, E_rad, c0, c1)
-  !    use mod_global_parameters
-  !    double precision, intent(in)    :: c0, c1
-  !    double precision, intent(in)    :: E_rad
-  !    double precision, intent(inout) :: e_gas
-  !    double precision :: bisect_a, bisect_b, bisect_c
-  !    integer :: n, max_its
-  !
-  !    n = 0
-  !    max_its = 15
-  !    bisect_a = zero
-  !    bisect_b = min(abs(c0/c1),abs(c0)**(1.d0/4.d0))+smalldouble
-  !    do while(abs(bisect_b-bisect_a) .ge. 1.d-5*min(e_gas,E_rad))
-  !      bisect_c = (bisect_a + bisect_b)/two
-  !      n = n +1
-  !      if(n .gt. max_its) then
-  !        goto 2435
-  !        call mpistop('No convergece in bisection scheme')
-  !      endif
-  !      if(Polynomial_Bisection(bisect_a, c0, c1)*&
-  !      Polynomial_Bisection(bisect_b, c0, c1) .lt. zero) then
-  !        if(Polynomial_Bisection(bisect_a, c0, c1)*&
-  !        Polynomial_Bisection(bisect_c, c0, c1) .lt. zero) then
-  !          bisect_b = bisect_c
-  !        elseif(Polynomial_Bisection(bisect_b, c0, c1)*&
-  !        Polynomial_Bisection(bisect_c, c0, c1) .lt. zero) then
-  !          bisect_a = bisect_c
-  !        elseif(Polynomial_Bisection(bisect_a, c0, c1) .eq. zero) then
-  !          bisect_b = bisect_a
-  !          bisect_c = bisect_a
-  !          goto 2435
-  !        elseif(Polynomial_Bisection(bisect_b, c0, c1) .eq. zero) then
-  !          bisect_a = bisect_b
-  !          bisect_c = bisect_b
-  !          goto 2435
-  !        elseif(Polynomial_Bisection(bisect_c, c0, c1) .eq. zero) then
-  !          bisect_a = bisect_c
-  !          bisect_b = bisect_c
-  !          goto 2435
-  !        else
-  !          call mpistop("Problem with fld bisection method")
-  !        endif
-  !      elseif(Polynomial_Bisection(bisect_a, c0, c1) &
-  !        - Polynomial_Bisection(bisect_b, c0, c1) .lt. 1.d-5*Polynomial_Bisection(bisect_a, c0, c1)) then
-  !        goto 2435
-  !      else
-  !        bisect_a = e_gas
-  !        bisect_b = e_gas
-  !        write(*,*) 'mype', mype,  "IGNORING GAS-RAD ENERGY EXCHANGE ", c0, c1
-  !        write(*,*) 'mype', mype,  Polynomial_Bisection(bisect_a, c0, c1), Polynomial_Bisection(bisect_b, c0, c1)
-  !        if(Polynomial_Bisection(bisect_a, c0, c1) .le. smalldouble) then
-  !          bisect_b = bisect_a
-  !        elseif(Polynomial_Bisection(bisect_a, c0, c1) .le. smalldouble) then
-  !          bisect_a = bisect_b
-  !        endif
-  !        goto 2435
-  !      endif
-  !    enddo
-  !      2435 e_gas = (bisect_a + bisect_b)/two
-  !  end subroutine Bisection_method
 
    function Polynomial_Bisection(e_gas, c0, c1) result(p)
       use mod_global_parameters

@@ -27,12 +27,19 @@ contains
 
     ! Local variables
     character(len=:), allocatable :: AMRVAC_DIR, path_table_dir
+    integer :: lenv
 
-    call get_environment_variable("$AMRVAC_DIR", AMRVAC_DIR)
+    ! call get_environment_variable("AMRVAC_DIR", AMRVAC_DIR)
+    call get_environment_variable(name="AMRVAC_DIR", length=lenv)
+
+    allocate(character(len=lenv) :: AMRVAC_DIR)
+    call get_environment_variable(name="AMRVAC_DIR", value=AMRVAC_DIR)
 
     ! Absolute path to OPAL table location
-    ! path_table_dir = trim(AMRVAC_DIR)//"/src/rhd/OPAL_tables/"//trim(tablename)
-    path_table_dir = "/home/nicolasm/Codes/amrvac3/amrvac/src/rhd/OPAL_tables/"//trim(tablename)
+    path_table_dir = trim(AMRVAC_DIR)//"/src/rhd/OPAL_tables/"//trim(tablename)
+    ! path_table_dir = "/home/nicolasm/Codes/amrvac3/amrvac/src/rhd/OPAL_tables/"//trim(tablename)
+
+    print*, path_table_dir
 
     ! Read in the OPAL table
     call read_table(logR_list, logT_list, Kappa_vals, path_table_dir)

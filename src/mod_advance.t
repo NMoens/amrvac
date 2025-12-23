@@ -595,7 +595,7 @@ contains
     integer                        :: iigrid, igrid
 
     !> First copy all variables from a to b, this is necessary to account for
-    ! quantities is w with no implicit sourceterm
+    ! quantities in w with no implicit sourceterm
     do iigrid=1,igridstail; igrid=igrids(iigrid);
        psa(igrid)%w = psb(igrid)%w
     end do

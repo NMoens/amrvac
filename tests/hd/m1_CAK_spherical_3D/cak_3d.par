@@ -11,14 +11,14 @@
   itsave(1,1)=0
   itsave(1,2)=0
   dtsave_dat = 1.d-2
-  ! dtsave_log = 1.d-2
-  ditsave_dat = 10
+  dtsave_log = 1.d-2
+  ! ditsave_dat = 10
   ! ditsave_log = 1000
 /
 
 &stoplist
-  time_max = 1.d0
-  it_max = 100
+  time_max = 0.5d0
+  ! it_max = 100
 /
 
 &methodlist

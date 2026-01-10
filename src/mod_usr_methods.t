@@ -84,6 +84,8 @@ module mod_usr_methods
   procedure(special_opacity_qdot), pointer   :: usr_special_opacity_qdot => null()
   procedure(special_fluxlimiter), pointer   :: usr_special_fluxlimiter => null()
   procedure(special_diffcoef), pointer   :: usr_special_diffcoef => null()
+  procedure(set_F0), pointer          :: usr_set_F0           => null()
+
 
   ! Called after the mesh has been adjuste
   procedure(after_refine), pointer      :: usr_after_refine => null()
@@ -394,6 +396,15 @@ module mod_usr_methods
       double precision, intent(in)    :: x(ixI^S,1:ndim)
       double precision, intent(inout) :: wB0(ixI^S,1:ndir)
     end subroutine set_B0
+
+    !> Here one can add a steady (time-independent) potential background field
+    subroutine set_F0(ixI^L,ixO^L,w,x,wF0)
+      use mod_global_parameters
+      integer, intent(in)             :: ixI^L,ixO^L
+      double precision, intent(in)    :: w(ixI^S,1:ndim)
+      double precision, intent(in)    :: x(ixI^S,1:ndim)
+      double precision, intent(out) :: wF0(ixI^S,1:ndir)
+    end subroutine set_F0
 
     !> Here one can add a time-independent background current density
     subroutine set_J0(ixI^L,ixO^L,x,wJ0)

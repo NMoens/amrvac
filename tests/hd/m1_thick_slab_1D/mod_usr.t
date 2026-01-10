@@ -34,7 +34,7 @@ contains
     usr_special_bc => special_bound
 
     ! Fix negative radiation flux
-    usr_internal_bc => Fix_radflux
+    usr_set_F0 => stellar_flux
 
     !> Additional variables
     usr_process_grid => update_extravars
@@ -158,9 +158,6 @@ contains
     w(ixI^S, Er_) = Ebound-(x(ixI^S,1)-xprobmin1)*3*w(ixI^S, rho_)*m1_kappa_e*Fbound/m1_c
     w(ixI^S, Fr(1)) = Fbound
 
-    print*, Ebound
-    print*, (x(ixI^S,1)-xprobmin1)*3*w(ixI^S, rho_)*m1_kappa_e*Fbound/m1_c
-
     call hd_to_conserved(ixI^L,ixO^L,w,x)
 
   end subroutine initial_conditions
@@ -194,23 +191,20 @@ contains
 
   end subroutine special_bound
 
-  subroutine Fix_radflux(level,qt,ixI^L,ixO^L,w,x)
+
+  subroutine stellar_flux(ixI^L,ixO^L,w,x,F0)
     use mod_global_parameters
-    use mod_physics, only: phys_get_pthermal
-
-    integer, intent(in)             :: ixI^L,ixO^L,level
-    double precision, intent(in)    :: qt
-    double precision, intent(inout) :: w(ixI^S,1:nw)
+    integer, intent(in)             :: ixI^L,ixO^L
+    double precision, intent(in)    :: w(ixI^S,1:ndim)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
+    double precision, intent(out) :: F0(ixI^S,1:ndir)
 
-    ! w(ixI^S, rho_) = rhobound
-    ! w(ixI^S, mom(:)) = 0.d0
-    ! w(ixI^S, p_) = asound**2*rhobound
-    ! call hd_to_conserved(ixI^L,ixO^L,w,x)
-    ! w(ixI^S, Er_) = const_rad_a*Tbound**4/unit_pressure
-    ! w(ixI^S, Fr(1)) = Fbound
+    F0(ixI^S,:) = 0.d0
 
-  end subroutine Fix_radflux
+    ! Only in radial direction
+    F0(ixI^S,1) = Fbound
+
+  end subroutine stellar_flux
 
 
   subroutine update_extravars(igrid,level,ixI^L,ixO^L,qt,w,x)

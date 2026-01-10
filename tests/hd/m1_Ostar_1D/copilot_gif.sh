@@ -188,9 +188,10 @@ unset yrange
 # Panel 2: column 5 vs 1
 set ylabel "Radiation Energy"
 if (strlen("${Y5_RANGE}") > 0) set yrange ${Y5_RANGE}
+set logscale y
 plot "${f}"       using 1:5 with lines ls 2 notitle, \
      "${REF_FILE}" using 1:5 with lines ls 12 notitle
-unset yrange
+unset logscale y
 
 # Panel 3: column 6 vs 1
 set ylabel "Radiation Flux"

@@ -326,7 +326,8 @@ contains
 
     if (hd_m1) then
       !> Heating and cooling sourceterms
-      phys_implicit_update => m1_heating_cooling
+      phys_implicit_update => m1_implicit_update
+      phys_evaluate_implicit => m1_evaluate_implicit
       !> Setting opacities
       phys_get_auxiliary => m1_set_opacities
     end if
@@ -2267,7 +2268,7 @@ contains
 
   end subroutine m1_hydro_source
 
-  subroutine m1_heating_cooling(dtfactor,qdt,qtC,psa,psb)
+  subroutine m1_implicit_update(dtfactor,qdt,qtC,psa,psb)
    use mod_global_parameters
    type(state), target :: psa(max_blocks)
    type(state), target :: psb(max_blocks)
@@ -2282,42 +2283,107 @@ contains
    if (m1_heatcool .and. hd_energy) then
      !$OMP PARALLEL DO PRIVATE(igrid)
      do iigrid=1,igridstail; igrid=igrids(iigrid);
-        call Energy_interaction(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
+        call m1_heating_cooling(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
      end do
      !$OMP END PARALLEL DO
    end if
 
    !$OMP PARALLEL DO PRIVATE(igrid)
    do iigrid=1,igridstail; igrid=igrids(iigrid);
-      call m1_flux_momentum_source(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
+      call m1_flux_absorbtion(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
    end do
    !$OMP END PARALLEL DO
 
- end subroutine m1_heating_cooling
+ end subroutine m1_implicit_update
 
- subroutine m1_flux_momentum_source(w, x, ixI^L, ixO^L, dtfactor, qdt)
+ subroutine m1_evaluate_implicit(qtC,psa)
+  use mod_global_parameters
+  type(state), target :: psa(max_blocks)
+  double precision, intent(in) :: qtC
+
+  integer :: ixO^L,iigrid,igrid
+
+  ixO^L=ixG^LL^LSUBnghostcells;
+
+  if (m1_heatcool .and. hd_energy) then
+    !$OMP PARALLEL DO PRIVATE(igrid)
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+       call m1_heating_cooling_evaluate(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L);
+    end do
+    !$OMP END PARALLEL DO
+  end if
+
+  !$OMP PARALLEL DO PRIVATE(igrid)
+  do iigrid=1,igridstail; igrid=igrids(iigrid);
+     call m1_flux_absorbtion_evaluate(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L);
+  end do
+  !$OMP END PARALLEL DO
+
+end subroutine m1_evaluate_implicit
+
+ subroutine m1_flux_absorbtion(w, x, ixI^L, ixO^L, dtfactor, qdt)
    use mod_global_parameters
+   use mod_usr_methods, only: usr_set_F0
 
    integer, intent(in)             :: ixI^L,ixO^L
    double precision, intent(in)    :: x(ixI^S,1:ndim)
    double precision, intent(in)    :: dtfactor, qdt
-   double precision, intent(inout) :: w(ixI^S,1:nw)
+   double precision, intent(inout)    :: w(ixI^S,1:nw)
 
+   double precision :: F0(ixI^S,1:ndir), lambda(ixI^S), tau(ixI^S)
    integer :: idir
 
-   !> Fully implicit update
-   do idir = 1, ndir
-     !> Backward Euler
-     ! w(ixO^S,Fr(idir)) =  w(ixO^S,Fr(idir))/(1.d0 + m1_RSOL*m1_c*w(ixO^S,rho_)*w(ixO^S,kF_)*dtfactor*qdt)
+   !> Assymptotic preserving IMEX implicit step:
+   if (associated(usr_set_F0)) then
+     call usr_set_F0(ixI^L,ixO^L,w,x,F0)
+   else
+     F0 = 0.d0
+   end if
 
-     !> Analytic solution
-     w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) * dexp(-m1_RSOL*m1_c*w(ixO^S,rho_)*w(ixO^S,kF_)*qdt)
+   lambda(ixI^S) = m1_RSOL*m1_c*w(ixI^S,rho_)*w(ixI^S,kF_)
+   tau(ixI^S) = lambda(ixI^S)*dtfactor*dt
+
+   do idir = 1, ndir
+     w(ixI^S,Fr(idir)) = F0(ixI^S,idir) + (w(ixI^S,Fr(idir)) - F0(ixI^S,idir))*dexp(-tau(ixI^S))
+     ! w(ixI^S,Fr(idir)) = F0(ixI^S,idir) + (w(ixI^S,Fr(idir)) - F0(ixI^S,idir))/(1 + tau(ixI^S))
    end do
 
- end subroutine m1_flux_momentum_source
+ end subroutine m1_flux_absorbtion
+
+ subroutine m1_flux_absorbtion_evaluate(w, x, ixI^L, ixO^L)
+   use mod_global_parameters
+   use mod_usr_methods, only: usr_set_F0
+
+   integer, intent(in)             :: ixI^L,ixO^L
+   double precision, intent(in)    :: x(ixI^S,1:ndim)
+   double precision, intent(inout) :: w(ixI^S,1:nw)
+
+   double precision :: F0(ixI^S,1:ndir), lambda(ixI^S) !, tau(ixI^S)
+   integer :: idir
+   !
+   ! !> Fully implicit update
+   ! do idir = 1, ndir
+   !   w(ixO^S,Fr(idir)) = -m1_RSOL*m1_c*w(ixO^S,rho_)*w(ixO^S,kF_)*w(ixO^S,Fr(idir))
+   ! end do
+
+   !> Assymptotic preserving IMEX implicit evaluation:
+   if (associated(usr_set_F0)) then
+     call usr_set_F0(ixI^L,ixO^L,w,x,F0)
+   else
+     F0 = 0.d0
+   end if
+
+   lambda(ixI^S) = m1_RSOL*m1_c*w(ixI^S,rho_)*w(ixI^S,kF_)
+   ! tau(ixI^S) = lambda(ixI^S)*dtfactor*dt
+
+   do idir = 1, ndir
+     w(ixI^S,Fr(idir)) = -lambda(ixI^S)*(w(ixI^S,Fr(idir)) - F0(ixI^S,idir))
+   end do
+
+ end subroutine m1_flux_absorbtion_evaluate
 
 
- subroutine Energy_interaction(w, x, ixI^L, ixO^L, dtfactor, qdt)
+ subroutine m1_heating_cooling(w, x, ixI^L, ixO^L, dtfactor, qdt)
    use mod_global_parameters
    use mod_constants
 
@@ -2358,27 +2424,36 @@ contains
    !> Get gas total energy
    call hd_ei_to_e(ixI^L,ixO^L,w,x)
 
- end subroutine Energy_interaction
+ end subroutine m1_heating_cooling
 
- ! subroutine m1_flux_momentum(w, x, ixI^L, ixO^L, dtfactor, qdt)
- !   use mod_global_parameters
- !   use mod_constants
- !
- !   integer, intent(in)             :: ixI^L,ixO^L
- !   double precision, intent(in)    :: x(ixI^S,1:ndim)
- !   double precision, intent(in)    :: dtfactor, qdt
- !   double precision, intent(inout) :: w(ixI^S,1:nw)
- !
- !   integer :: idir
- !
- !   !> Skinner & Ostriker 2013 Eq. 43
- !   do idir = 1,ndir
- !     w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) &
- !     *(1.d0 - (1-m1_theta_stiff)*m1_RSOL*m1_c*w(ixO^S,rho_)*w(ixO^S,kF_)*dtfactor*qdt) &
- !     /(1.d0 + m1_theta_stiff*m1_RSOL*m1_c*w(ixO^S,rho_)*w(ixO^S,kF_)*dtfactor*qdt)
- !   end do
- !
- ! end subroutine m1_flux_momentum
+ subroutine m1_heating_cooling_evaluate(w, x, ixI^L, ixO^L)
+   use mod_global_parameters
+
+   integer, intent(in)             :: ixI^L,ixO^L
+   double precision, intent(in)    :: x(ixI^S,1:ndim)
+   double precision, intent(inout) :: w(ixI^S,1:nw)
+
+   double precision :: Bb(ixI^S)
+
+   !> Get pressure
+   call hd_get_pthermal(w,x,ixI^L,ixO^L,Bb)
+
+   !> Gas temperature
+   Bb(ixI^S) = const_mp*hd_mu/const_kB*Bb(ixI^S)/w(ixO^S,rho_)
+   Bb(ixI^S) = Bb(ixI^S)*unit_pressure/unit_density
+
+   !> Integrated black body mean intensity
+   Bb(ixI^S) = const_sigma*Bb(ixI^S)**4/dpi
+   Bb(ixI^S) = Bb(ixI^S)*unit_time/unit_pressure
+
+   !> Heating and cooling sourceterms
+   w(ixO^S,e_) = m1_RSOL*m1_c*w(ixO^S,kE_)*w(ixO^S,rho_)*w(ixO^S,Er_) &
+                - 4*dpi*m1_RSOL*w(ixO^S,kB_)*w(ixO^S,rho_)*Bb(ixO^S)
+
+   w(ixO^S,Er_) = - m1_RSOL*m1_c*w(ixO^S,kE_)*w(ixO^S,rho_)*w(ixO^S,Er_) &
+                  + 4*dpi*m1_RSOL*w(ixO^S,kB_)*w(ixO^S,rho_)**Bb(ixO^S)
+
+ end subroutine m1_heating_cooling_evaluate
 
   subroutine m1_set_opacities(ixI^L,ixO^L,w,x)
     use mod_global_parameters

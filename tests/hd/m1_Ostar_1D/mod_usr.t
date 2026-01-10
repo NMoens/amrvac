@@ -15,7 +15,7 @@ module mod_usr
   double precision :: fred_bound
 
   integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum
-  integer :: i_SdivF, i_SdivP, i_SFdv, i_SgR, i_ScdvP
+  integer :: i_SdivF, i_SdivP, i_SFdv, i_SgR, i_ScdvP, i_tau_cell
 
   integer :: len_ic = 3070
   double precision, allocatable :: r_init(:), rho_init(:), vr_init(:), p_init(:), Er_init(:)
@@ -40,6 +40,7 @@ contains
 
     ! Fix negative radiation flux
     usr_internal_bc => Fix_radflux
+    usr_set_F0 => stellar_flux
 
     !> Additional variables
     usr_process_grid => update_extravars
@@ -64,11 +65,13 @@ contains
     i_chi = var_set_extravar('chi','chi')
     i_lum = var_set_extravar('lum','lum')
 
-    i_SdivF = var_set_extravar('Div_Fv','Div_Fv')
-    i_SdivP = var_set_extravar('Div_c2P','Div_c2P')
-    i_SFdv = var_set_extravar('DDv','DDv')
-    i_SgR = var_set_extravar('gG','gG')
-    i_ScdvP = var_set_extravar('corr_Div_c2P','corr_Div_c2P')
+    ! i_SdivF = var_set_extravar('Div_Fv','Div_Fv')
+    ! i_SdivP = var_set_extravar('Div_c2P','Div_c2P')
+    ! i_SFdv = var_set_extravar('DDv','DDv')
+    ! i_SgR = var_set_extravar('gG','gG')
+    ! i_ScdvP = var_set_extravar('corr_Div_c2P','corr_Div_c2P')
+
+    i_tau_cell = var_set_extravar('tau_cell','tau_cell')
 
   end subroutine usr_init
 
@@ -196,7 +199,6 @@ contains
     call hd_to_conserved(ixI^L,ixO^L,w,x)
 
     w(ixI^S,Fr(1)) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux
-    ! w(ixI^S,Er_) = max(w(ixI^S,Er_),w(ixI^S,Fr(1))/m1_c)
 
   end subroutine initial_conditions
 
@@ -280,12 +282,13 @@ contains
           w(ix1,Er_) = w(ix1+1,Er_) + gradE*(x(ix1,1)-x(ix1+1,1))
         end do
       ! end if
-      ! print*, 'gradE', gradE, 'krF', w(ixOmin1,kF_),w(ixOmin1,rho_),w(ixOmin1,Fr(1))
-      w(ixB^S,Er_) = min(w(ixB^S,Er_), const_rad_a*5.d5**4/unit_pressure)
 
-      print*, 'E', w(1:7,Er_)
-      print*, 'F', w(1:7,Fr(1))/(lstar/(4*dpi*(x(1:7,1)*unit_length)**2)/unit_radflux)
-      print*, 'f', w(1:7,mom(1))*w(1:7,Er_)/w(1:7,Fr(1))
+      ! print*, 'gradE', gradE, 'krF', w(ixOmin1,kF_),w(ixOmin1,rho_),w(ixOmin1,Fr(1))
+      ! w(ixB^S,Er_) = min(w(ixB^S,Er_), const_rad_a*5.d5**4/unit_pressure)
+
+      ! print*, 'E', w(1:7,Er_)
+      ! print*, 'F', w(1:7,Fr(1))/(lstar/(4*dpi*(x(1:7,1)*unit_length)**2)/unit_radflux)
+      ! print*, 'f', w(1:7,mom(1))*w(1:7,Er_)/w(1:7,Fr(1))
 
       call hd_to_conserved(ixI^L,ixI^L,w,x)
 
@@ -314,6 +317,9 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
     double precision, intent(in)    :: x(ixI^S,1:ndim)
 
+    double precision :: fld_flux(ixI^S), tau_cell(ixI^S)
+    integer :: idir
+
     integer :: ix1, nearest_i
 
     do ix1 = ixImin1, ixImax1
@@ -322,12 +328,12 @@ contains
 
       !> Read closest values
       w(ix1, rho_) = rho_init(nearest_i)/unit_density
-      w(ix1, mom(1)) = vr_init(nearest_i)/unit_velocity*w(ix1, rho_)
-      ! w(ix1, p_) = p_init(nearest_i)/unit_pressure
+      w(ix1, mom(1)) = vr_init(nearest_i)/unit_velocity!*w(ix1, rho_)
+      w(ix1, p_) = p_init(nearest_i)/unit_pressure
       ! w(ix1, Er_) = Er_init(nearest_i)/unit_pressure
     end do
 
-    ! call hd_to_conserved(ixI^L,ixO^L,w,x)
+    call hd_to_conserved(ixI^L,ixO^L,w,x)
 
 
     !> Radiation subsystem
@@ -341,6 +347,21 @@ contains
 
 
   end subroutine Fix_radflux
+
+  subroutine stellar_flux(ixI^L,ixO^L,w,x,F0)
+    use mod_global_parameters
+    integer, intent(in)             :: ixI^L,ixO^L
+    double precision, intent(in)    :: w(ixI^S,1:ndim)
+    double precision, intent(in)    :: x(ixI^S,1:ndim)
+    double precision, intent(out) :: F0(ixI^S,1:ndir)
+
+    F0(ixI^S,:) = 0.d0
+
+    ! Only in radial direction
+    F0(ixI^S,1) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux &
+    -w(ixI^S,mom(1))*w(ixI^S,Er_)/w(ixI^S,rho_)
+
+  end subroutine stellar_flux
 
   subroutine stellar_gravity(ixI^L,ixO^L,wCT,x,gravity_field)
 
@@ -392,29 +413,25 @@ contains
     w(ixO^S,i_chi) = (3.d0+4*w(ixO^S,i_ff))/(5.d0+2*dsqrt(4.d0-3*w(ixO^S,i_ff)))
     w(ixO^S,i_lum) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * w(ixO^S,Fr(1))*unit_radflux / lstar
 
-    !> Flux equation terms:
-    !> Directional derivative
-    w(ixO^S,i_SFdv) = -w(ixO^S,Fr(1))*gradv(ixO^S)
+    ! !> Flux equation terms:
+    ! !> Directional derivative
+    ! w(ixO^S,i_SFdv) = -w(ixO^S,Fr(1))*gradv(ixO^S)
+    !
+    ! !> Shadowing radiation force source term
+    ! w(ixO^S,i_SgR) = -m1_c*w(ixO^S,kF_)*w(ixO^S,rho_)*w(ixO^S,Fr(1))
+    !
+    ! !> advected flux term
+    ! T(ixI^S) = w(ixI^S,Fr(1))*w(ixI^S,mom(1))/w(ixI^S,rho_)
+    ! call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
+    ! w(ixO^S,i_SdivF) = -divT(ixO^S)
+    !
+    ! call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, T)
+    ! T = m1_c**2 * T
+    ! call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
+    ! w(ixO^S,i_SdivP) = -divT(ixO^S)
+    ! w(ixO^S,i_ScdvP) = (1-T(ixO^S)/w(ixO^S,Er_))*w(ixO^S,Er_)/x(ixO^S,1)
 
-    !> Shadowing radiation force source term
-    w(ixO^S,i_SgR) = -m1_c*w(ixO^S,kF_)*w(ixO^S,rho_)*w(ixO^S,Fr(1))
-
-    !> advected flux term
-    T(ixI^S) = w(ixI^S,Fr(1))*w(ixI^S,mom(1))/w(ixI^S,rho_)
-    call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
-    w(ixO^S,i_SdivF) = -divT(ixO^S)
-
-    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, T)
-    T = m1_c**2 * T
-    call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
-    w(ixO^S,i_SdivP) = -divT(ixO^S)
-    w(ixO^S,i_ScdvP) = (1-T(ixO^S)/w(ixO^S,Er_))*w(ixO^S,Er_)/x(ixO^S,1)
-
-    if (x(1,1) .lt. xprobmin1) then
-      print*, T(3:7)
-      print*, divT(3:7)
-      print*, divT(3:7) + 2*T(3:7)/x(3:7,1)
-    end if
+    w(ixO^S,i_tau_cell) = w(ixO^S,rho_)*w(ixO^S,kF_)*m1_c*m1_RSOL
 
   end subroutine update_extravars
 

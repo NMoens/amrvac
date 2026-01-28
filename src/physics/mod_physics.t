@@ -92,11 +92,18 @@ module mod_physics
   procedure(sub_update_temperature), pointer :: phys_update_temperature  => null()
   procedure(sub_get_auxiliary), pointer         :: phys_get_auxiliary         => null()
   procedure(sub_get_auxiliary_prim), pointer    :: phys_get_auxiliary_prim    => null()
+  procedure(sub_process_global), pointer  :: phys_process_global   => null()
+  procedure(sub_before_main_loop), pointer  :: phys_before_main_loop   => null()
+
 
   abstract interface
 
      subroutine sub_check_params
      end subroutine sub_check_params
+
+     subroutine sub_before_main_loop
+       use mod_global_parameters
+     end subroutine sub_before_main_loop
 
      subroutine sub_set_mg_bounds
        use mod_global_parameters
@@ -272,6 +279,12 @@ module mod_physics
        integer, intent(in)          :: ixI^L, ixO^L
        double precision, intent(inout) :: w(ixI^S,nw)
      end subroutine sub_get_auxiliary_prim
+
+     subroutine sub_process_global(iit,qt)
+       use mod_global_parameters
+       integer, intent(in)          :: iit
+       double precision, intent(in) :: qt
+     end subroutine sub_process_global
 
      subroutine sub_get_tgas(w,x,ixI^L,ixO^L,tgas)
        use mod_global_parameters

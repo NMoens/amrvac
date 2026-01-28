@@ -56,7 +56,7 @@
   hd_energy  = .true.
   hd_gamma   = 1.667d0
   hd_m1 = .true.
-  m1_opacity_type = 'hybrid1'
+  m1_opacity_type = 'hybrid2'
   m1_heatcool = .true.
   m1_force = .true.
   m1_RSOL = 1.d0

@@ -1,0 +1,75 @@
+&filelist
+  base_filename = 'output/Star89_1d'
+  typefilelog   = 'default'
+  convert_type  = 'oneblock'
+  level_io      = 1
+  saveprim      = .true.
+/
+
+&savelist
+  itsave(1,1)=0
+  itsave(1,2)=0
+  dtsave_dat = 1.d-3
+  ! dtsave_log = 1.d-2
+  ! ditsave_dat = 50000
+  ! ditsave_log = 50000
+/
+
+&stoplist
+  time_max = 2.d0
+  !it_max = 500000
+/
+
+&methodlist
+  time_stepper = 'onestep'
+  time_integrator = 'IMEX_Euler'
+  flux_scheme  = 'tvdlf'
+  limiter      = 'ppm'
+  check_small_values = .True.
+  fix_small_values = .True.
+  small_values_method = 'replace'
+  small_pressure = 1.d-14
+/
+
+&boundlist
+  typeboundary_min1 = 5*'special'
+  typeboundary_max1 = 'noinflow','special','noinflow','noinflow','special'
+  internalboundary = .false.
+/
+
+&meshlist
+  refine_max_level   = 1
+  domain_nx1         = 640
+  block_nx1          = 80
+  xprobmin1          = 1.0d0
+  xprobmax1          = 5.0d0
+  stretch_dim(1)     = 'uni'
+  !qstretch_baselevel = 1.015
+/
+
+&paramlist
+  courantpar = 0.4d0
+/
+
+&hd_list
+  hd_gravity = .true.
+  hd_energy  = .true.
+  hd_gamma   = 1.667d0
+  hd_m1 = .true.
+  m1_opacity_type = 'hybrid1'
+  m1_heatcool = .true.
+  m1_force = .true.
+  m1_RSOL = 1.d0
+  m1_theta_stiff = 0.9d0
+/
+
+ &star_list
+    mstar =    58.2800000000000000000000000000000010
+    rstar =    12.2641719405982179519490796497759073
+    Tbound = 5.0d5
+    gamma_e =   0.400000000000000000000000000000000019
+    rhobound =    1.41544452984611419100608881873655224E-0006
+    beta     = 0.5d0
+    ic_file = './Star89_init.txt'
+    len_ic   = 2110
+ /

@@ -223,6 +223,8 @@ contains
     use mod_rotating_frame, only:rotating_frame_init
     use mod_cak_force, only: cak_init
     use mod_opal_opacity, only: init_opal_table
+    use mod_cak_opacity, only: init_cak
+    use mod_windsim_tools, only: init_windsim_tools, wst_get_photosphere
     use mod_supertimestepping, only: sts_init, add_sts_method,&
             set_conversion_methods_to_head, set_error_handling_to_head
     use mod_ionization_degree
@@ -443,7 +445,18 @@ contains
     if (hd_cak_force) call cak_init(hd_gamma)
 
     ! Initialise opal module if necessary
-    if (hd_m1 .and. (m1_opacity_type .eq. 'hybrid1')) call init_opal_table('Y02800')
+    if (hd_m1 )then
+      if (m1_opacity_type .eq. 'hybrid1') call init_opal_table('Y02800')
+
+      if (m1_opacity_type .eq. 'hybrid2') then
+        call init_opal_table('Y02800')
+        call init_cak('Y02800')
+
+        !> Photosphere needed
+        call init_windsim_tools(rho_,m1_kappa_e)
+        phys_process_global => wst_get_photosphere
+      end if
+    end if
 
     ! Initialize particles module
     if (hd_particles) then
@@ -452,7 +465,7 @@ contains
     end if
 
     !> Source-splitting for m1 forces
-    if(m1_force_split) any_source_split=.true.
+    if (m1_force_split) any_source_split=.true.
 
     ! Check whether custom flux types have been defined
     if (.not. allocated(flux_type)) then
@@ -912,17 +925,39 @@ contains
       !> e.g. Gonzalez+ 2007
       ! cmax(ixO^S) = m1_c*m1_RSOL
 
+      ! print*, "GUTENTAG"
+
       !TODO: Check this sum, it does not produce what is expected
       ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
+
+      ! print*, 'ff'
+      ! print*, dsqrt(ff(:,5))
+
       !> Eddington scalars
-      fi(ixI^S) = (w(ixI^S,Fr(idim))/(m1_c*w(ixI^S,Er_)))
-      fj(ixI^S) = dsqrt(ff(ixI^S) - fi(ixI^S)**2)
+      fi(ixI^S) = abs(w(ixI^S,Fr(idim))/(m1_c*w(ixI^S,Er_)))
+      ! print*, 'fi'
+      ! print*, fi(:, 5)
+
+      fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
+      ! print*, 'fj'
+      ! print*, fj(:, 5)
 
       xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
+      ! print*, 'xi'
+      ! print*, xi(:, 5)
 
       cmax(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
                   + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
                   /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+      ! print*, 'cmax'
+      ! print*, cmax(:, 5)
+
+      ! print*, 'eigenvalue'
+      ! print*, (fi(ixI^S)/xi(ixI^S) &
+      !         + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+      !         /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
 
     else
       call hd_get_v_idim(w, x, ixI^L, ixO^L, idim, v)
@@ -1254,12 +1289,13 @@ contains
       ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
 
       !> Cap ff, this should not be necessary, but the sum above does not behave properly
-      ! fi(ixI^S) = min(fi(ixI^S),1.d0)
-      ! fj(ixI^S) = min(fj(ixI^S),1.d0)
-      ! ff(ixI^S) = min(ff(ixI^S),1.d0)
+      fi(ixI^S) = min(fi(ixI^S),1.d0)
+      fj(ixI^S) = min(fj(ixI^S),1.d0)
+      ff(ixI^S) = min(ff(ixI^S),1.d0)
 
       !> Eddington factor
       chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
+      chi(ixI^S) = max(chi(ixI^S),0.d0)
 
       !> Temporary (??) fix
       where (chi(ixI^S) .ne. chi(ixI^S))
@@ -2056,40 +2092,6 @@ contains
       end do
 
       do idir = 1,ndir
-        !> MOVED TO IMPLICIT PART?
-        !> Force in radiation flux
-        ! w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))*m1_RSOL*m1_c
-
-        if (m1_well_balanced) then
-          !> Well-balanced formulation, Bloch+ 2020
-          !TODO: Figure out why well balanced scheme is not working in critical shock and shadow tests
-          hxO^L=ixO^L-kr(idir,^D);
-          jxO^L=ixO^L+kr(idir,^D);
-
-          !> Flux face averages
-          sm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,rho_)*wCT(hxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
-          sp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,rho_)*wCT(jxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
-          Fm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
-          Fp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
-
-          !> Update flux
-          w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) - qdt*1.d0/2*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))*m1_RSOL*m1_c
-
-        else
-          !> Skinner & Ostriker 2013 Eq. 43
-          !> MOVE TO IMPLICIT PART?
-          ! w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir)) &
-          ! *(1.d0 - (1-m1_theta_stiff)*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) &
-          ! /(1.d0 + m1_theta_stiff*m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt)
-
-          ! w(ixO^S,Fr(idir)) = wCT(ixO^S,Fr(idir)) &
-          ! *(m1_theta_stiff/(1.d0 + m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) &
-          ! + (1.d0 - m1_theta_stiff)*(1.d0 - m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt) )
-
-          !> Exponential solution
-          ! w(ixO^S,Fr(idir)) = wCT(ixO^S,Fr(idir)) * dexp(-m1_RSOL*m1_c*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*qdt)
-
-        end if
 
         !> Photon tiring + Radflux CMF correction
         do idim = 1,ndim
@@ -2216,14 +2218,14 @@ contains
         ! TODO: Well-balanced scheme?!
         ! w(ixO^S,mom(idir)) = w(ixO^S,mom(idir)) + qdt*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
         !> Well-balanced formulation, Bloch+ 2020
-        hxO^L=ixO^L-kr(idir,^D);
-        jxO^L=ixO^L+kr(idir,^D);
+        ! hxO^L=ixO^L-kr(idir,^D);
+        ! jxO^L=ixO^L+kr(idir,^D);
 
         !> Flux face averages
-        sm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,rho_)*wCT(hxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
-        sp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,rho_)*wCT(jxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
-        Fm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
-        Fp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
+        ! sm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,rho_)*wCT(hxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
+        ! sp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,rho_)*wCT(jxO^S,kF_) + wCT(ixO^S,rho_)*wCT(ixO^S,kF_))
+        ! Fm(ixO^S) = 1.d0/2.d0*(wCT(hxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
+        ! Fp(ixO^S) = 1.d0/2.d0*(wCT(jxO^S,Fr(idir)) + wCT(ixO^S,Fr(idir)))
 
         !> Update momentum
         w(ixO^S,mom(idir)) = w(ixO^S,mom(idir)) + qdt*wCT(ixO^S,rho_)*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
@@ -2232,9 +2234,10 @@ contains
         !> Force work term
         if (energy) &
           w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
+
         !> Well balanced scheme
         ! if (energy) &
-        !   w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/(2*m1_c)
+          ! w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/(2*m1_c)
 
           if (any(w(ixO^S,e_) .lt. 0.d0)) then
             ! print*, 'e', w(ixO^S,e_)
@@ -2534,7 +2537,11 @@ end subroutine m1_evaluate_implicit
 
     case('hybrid1')
 
-      call hybrid_opacity(ixI^L,ixO^L,w,x)
+      call hybrid1_opacity(ixI^L,ixO^L,w,x)
+
+    case('hybrid2')
+
+      call hybrid2_opacity(ixI^L,ixO^L,w,x)
 
     case('special')
       if (.not. associated(usr_special_opacity_m1)) then
@@ -2549,7 +2556,7 @@ end subroutine m1_evaluate_implicit
 
   end subroutine m1_set_opacities
 
-  subroutine hybrid_opacity(ixI^L,ixO^L,w,x)
+  subroutine hybrid1_opacity(ixI^L,ixO^L,w,x)
     use mod_global_parameters
     use mod_opal_opacity
     use mod_geometry
@@ -2605,7 +2612,94 @@ end subroutine m1_evaluate_implicit
       stop "kappa_B NaN in hybrid opacity"
     end if
 
-  end subroutine hybrid_opacity
+  end subroutine hybrid1_opacity
+
+  subroutine hybrid2_opacity(ixI^L,ixO^L,w,x)
+    use mod_global_parameters
+    use mod_opal_opacity
+    use mod_cak_opacity
+    use mod_geometry
+    use mod_windsim_tools, only: R_phot
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(inout) :: w(ixI^S,nw)
+    double precision, intent(in) :: x(ixI^S,1:ndim)
+
+    double precision :: tau_sob(ixI^S), vr(ixI^S), dvrdr(ixI^S)
+
+    double precision :: OPAL(ixO^S), rho, Trad, kappa
+    double precision :: CAK(ixO^S), alpha, Qbar, Q0, kappa_e_t, gradv, tau
+
+    double precision :: fdfac, beta_fd
+
+
+    integer :: ix^D
+
+    !> Velocity stretched opacities
+    !> Calculate velocity gradient
+    vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
+    call gradient_str(vr,x,ixI^L,ixO^L,1,dvrdr)
+
+    ! print*, 'WST photosphere: ', R_phot
+
+    ! stop
+
+    !> Opal Opacities
+    {do ix^D=ixOmin^D,ixOmax^D\ }
+        rho = w(ix^D,rho_)*unit_density
+        Trad = (w(ix^D,Er_)*unit_pressure/const_rad_a)**(0.25d0)
+        Trad = max(Trad,1.d4)
+        gradv = abs(dvrdr(ix^D))*unit_velocity/unit_length
+
+        call set_cak_opacity(rho, Trad, gradv ,alpha, Qbar, Q0, kappa_e_t)
+
+        !> Finite disc correction factor
+        beta_fd = ( 1.0d0 - vr(ix^D)/(x(ix^D,1) * dvrdr(ix^D)) ) &
+        * (R_phot/x(ix^D,1))**2.0d0
+
+        if (x(ix^D,1) .le. R_phot) then
+          fdfac = 1.d0/(1.d0 + alpha)
+        else if (beta_fd >= 1.0d0) then
+          fdfac = 1.0d0/(1.0d0 + alpha)
+        else if (beta_fd < -1.0d10) then
+          fdfac = abs(beta_fd)**alpha / (1.0d0 + alpha)
+        else if (abs(beta_fd) > 1.0d-3) then
+          fdfac = (1.0d0 - (1.0d0 - beta_fd)**(1.0d0 + alpha)) &
+          / (beta_fd*(1.0d0 + alpha))
+        else
+          fdfac = 1.0d0 - 0.5d0*alpha*beta_fd &
+          * (1.0d0 + 1.0d0/3.0d0 * (1.0d0 - alpha)*beta_fd)
+        end if
+
+        tau = (m1_kappa_e*unit_opacity)*rho*m1_c*unit_velocity/gradv
+        CAK(ix^D) = m1_kappa_e * fdfac * Qbar/(1-alpha)*((1+Q0*tau)**(1-alpha) - 1)/(Q0*tau)
+
+        call set_opal_opacity(rho,Trad,kappa)
+        OPAL(ix^D) = kappa/unit_opacity
+    {enddo\ }
+
+    !> Combine OPAL and CAK-like
+    w(ixO^S,kF_) = min(CAK(ixO^S), 50.d0*m1_kappa_e) + OPAL(ixO^S)
+    w(ixO^S,kE_) = 1.d-1 * CAK(ixO^S) + OPAL(ixO^S) - m1_kappa_e
+    w(ixO^S,kB_) = 1.d-1 * CAK(ixO^S) + OPAL(ixO^S) - m1_kappa_e
+
+    w(ixO^S,kF_) = max(w(ixO^S,kF_), 0.1d0*m1_kappa_e)
+    w(ixO^S,kE_) = max(w(ixO^S,kE_), 1.d-5*m1_kappa_e)
+    w(ixO^S,kB_) = max(w(ixO^S,kB_), 1.d-5*m1_kappa_e)
+
+    if (any(w(ixO^S,kF_) .ne. w(ixO^S,kF_))) then
+      stop "kappa_F NaN in hybrid opacity"
+    end if
+
+    if (any(w(ixO^S,kE_) .ne. w(ixO^S,kE_))) then
+      stop "kappa_E NaN in hybrid opacity"
+    end if
+
+    if (any(w(ixO^S,kB_) .ne. w(ixO^S,kB_))) then
+      stop "kappa_B NaN in hybrid opacity"
+    end if
+
+  end subroutine hybrid2_opacity
 
   !> Check time step for total radiation contribution
   subroutine m1_get_dt(w,ixI^L,ixO^L,dtnew,dx^D,x)

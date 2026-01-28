@@ -80,7 +80,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer :: n
 
-    namelist /star_list/ mstar, rstar, Tbound, rhobound, beta, fred_bound, gamma_e, ic_file
+    namelist /star_list/ mstar, rstar, Tbound, rhobound, beta, fred_bound, gamma_e, ic_file, len_ic
 
     do n = 1,size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -322,18 +322,18 @@ contains
 
     integer :: ix1, nearest_i
 
-    do ix1 = ixImin1, ixImax1
-      !> Find nearest line in init
-      nearest_i = minloc(abs(r_init - x(ix1,1)),DIM=1)
-
-      !> Read closest values
-      w(ix1, rho_) = rho_init(nearest_i)/unit_density
-      w(ix1, mom(1)) = vr_init(nearest_i)/unit_velocity!*w(ix1, rho_)
-      w(ix1, p_) = p_init(nearest_i)/unit_pressure
-      ! w(ix1, Er_) = Er_init(nearest_i)/unit_pressure
-    end do
-
-    call hd_to_conserved(ixI^L,ixO^L,w,x)
+    ! do ix1 = ixImin1, ixImax1
+    !   !> Find nearest line in init
+    !   nearest_i = minloc(abs(r_init - x(ix1,1)),DIM=1)
+    !
+    !   !> Read closest values
+    !   w(ix1, rho_) = rho_init(nearest_i)/unit_density
+    !   w(ix1, mom(1)) = vr_init(nearest_i)/unit_velocity!*w(ix1, rho_)
+    !   w(ix1, p_) = p_init(nearest_i)/unit_pressure
+    !   ! w(ix1, Er_) = Er_init(nearest_i)/unit_pressure
+    ! end do
+    !
+    ! call hd_to_conserved(ixI^L,ixO^L,w,x)
 
 
     !> Radiation subsystem
@@ -355,11 +355,36 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(out) :: F0(ixI^S,1:ndir)
 
-    F0(ixI^S,:) = 0.d0
+    double precision :: gradE(ixI^S), lambda(ixI^S), R(ixI^S)
 
-    ! Only in radial direction
-    F0(ixI^S,1) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux &
-    -w(ixI^S,mom(1))*w(ixI^S,Er_)/w(ixI^S,rho_)
+    integer :: idir
+
+    !> Fixed total luminosity
+    ! F0(ixI^S,:) = 0.d0
+    !
+    ! ! Only in radial direction
+    ! F0(ixI^S,1) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux &
+    ! -w(ixI^S,mom(1))*w(ixI^S,Er_)/w(ixI^S,rho_)
+
+    !> FLD approximation
+    !> Get magnitude of grad E
+    gradE = 0.d0
+    do idir = 1, ndim
+      call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
+      gradE(ixI^S) = gradE(ixI^S) + gradE(ixI^S)**2
+    end do
+    gradE(ixI^S) = dsqrt(max(0.d0,gradE(ixI^S)))
+
+    !> Get fld R
+    R(ixI^S) = gradE(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_)*w(ixI^S,Er_))
+
+    !> Get fld lambda
+    lambda(ixI^S) = (2.d0+R(ixI^S))/(6.d0+3*R(ixI^S)+R(ixI^S)**2.d0)
+
+    do idir = 1, ndim
+      call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
+      F0(ixI^S,idir) = -m1_c*lambda(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_))*gradE(ixI^S)
+    end do
 
   end subroutine stellar_flux
 
@@ -388,7 +413,7 @@ contains
     double precision :: grav(ixI^S), grad(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S), pth(ixI^S)
     double precision :: T(ixI^S), divT(ixI^S)
 
-    grav(ixI^S) = w(ixI^S,rho_) * Ggrav * mstar/x(ixO^S,1)**2.0d0
+    grav(ixI^S) = w(ixI^S,rho_) * Ggrav * mstar/x(ixI^S,1)**2.0d0
     grad(ixI^S) = w(ixI^S,rho_) * w(ixI^S,kF_) * w(ixI^S,Fr(1)) / m1_c
 
     w(ixI^S,i_Gamma) = grad(ixI^S)/grav(ixI^S)

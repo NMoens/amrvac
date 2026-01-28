@@ -123,7 +123,8 @@ program amrvac
        ! Optionally call a user method that can modify the grid variables
        ! before saving the converted data
        if (associated(usr_process_grid) .or. &
-            associated(usr_process_global)) then
+            associated(usr_process_global) .or. &
+            associated(phys_process_global)) then
           call process(it,global_time)
        end if
        !here requires -1 snapshot
@@ -176,6 +177,9 @@ program amrvac
   ! an interface to allow user to do special things before the main loop
   if (associated(usr_before_main_loop)) &
        call usr_before_main_loop()
+
+  if (associated(phys_before_main_loop)) &
+       call phys_before_main_loop()
 
   ! do time integration of all grids on all levels
   call timeintegration()
@@ -251,7 +255,8 @@ contains
        ! Optionally call a user method that can modify the grid variables at the
        ! beginning of a time step
        if (associated(usr_process_grid) .or. &
-            associated(usr_process_global)) then
+            associated(usr_process_global) .or. &
+            associated(phys_process_global)) then
           call process(it,global_time)
        end if
 

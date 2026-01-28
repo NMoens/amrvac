@@ -753,7 +753,7 @@ contains
     use mod_usr_methods, only: usr_process_grid, usr_process_global
     use mod_global_parameters
     use mod_ghostcells_update
-    use mod_physics, only: phys_req_diagonal
+    use mod_physics, only: phys_req_diagonal, phys_process_global
     ! .. scalars ..
     integer,intent(in)          :: iit
     double precision, intent(in):: qt
@@ -762,6 +762,10 @@ contains
 
     if (associated(usr_process_global)) then
        call usr_process_global(iit,qt)
+    end if
+
+    if (associated(phys_process_global)) then
+       call phys_process_global(iit,qt)
     end if
 
     if (associated(usr_process_grid)) then

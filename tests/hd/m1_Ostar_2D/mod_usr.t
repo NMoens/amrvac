@@ -166,8 +166,10 @@ contains
   subroutine read_init_conds
     integer :: ii
 
+    if (mype .eq. 0) print*, ic_file, len_ic, 'lines'
+
     open(unit=1, file=trim(ic_file))
-    read(1,*) !> first line of data
+    ! read(1,*) !> first line of data
     do ii = 1,len_ic-2
       read(1,*) r_init(ii), rho_init(ii), vr_init(ii), p_init(ii), Er_init(ii)
     enddo
@@ -228,6 +230,8 @@ contains
         w(ix1,:,rho_) = 10.d0**max(2 * dlog10(w(ix1+1,:,rho_)) - dlog10(w(ix1+2,:,rho_)), dlog10(w(ix1+1,:,rho_)))
       end do
 
+      w(ixB^S,mom(1)) = 0.d0
+
       do ix1 = ixBmax1,ixBmin1,-1
         ! w(ix1,mom(1)) = max(2 * w(ix1+1,mom(1)) - w(ix1+2,mom(1)), w(ix1+1,mom(1)))
         w(ix1,:,mom(1)) = 2 * w(ix1+1,:,mom(1)) - w(ix1+2,:,mom(1))
@@ -245,6 +249,8 @@ contains
         !   ! w(ix1,p_) = max(w(ix1,p_), w(ix1+1,p_))
         ! end do
       end if
+
+      w(ixB^S,Fr(:)) = 0.d0
 
       ! Radiation flux
       w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux
@@ -296,7 +302,7 @@ contains
     case (2)
 
       do ix1 = ixBmin1,ixBmax1
-        w(ix1,:,mom(1)) = w(ix1-1,:,mom(1))!*(x(ix1,1)/x(ix1-1,1))**2
+        w(ix1,:,mom(1)) = w(ix1-1,:,mom(1))!*(x(ix1,:,1)/x(ix1-1,:,1))**2
         w(ix1,:,Fr(1)) = w(ix1-1,:,Fr(1))*(x(ix1,:,1)/x(ix1-1,:,1))**2
 
         w(ix1,:,mom(1)) = max(0.d0,w(ix1,:,mom(1)))

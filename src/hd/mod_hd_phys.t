@@ -2326,6 +2326,7 @@ end subroutine m1_evaluate_implicit
 
  subroutine m1_flux_absorbtion(w, x, ixI^L, ixO^L, dtfactor, qdt)
    use mod_global_parameters
+   use mod_geometry
    use mod_usr_methods, only: usr_set_F0
 
    integer, intent(in)             :: ixI^L,ixO^L
@@ -2334,15 +2335,36 @@ end subroutine m1_evaluate_implicit
    double precision, intent(inout)    :: w(ixI^S,1:nw)
 
    double precision :: F0(ixI^S,1:ndir), lambda(ixI^S), tau(ixI^S)
+   double precision :: gradE(ixI^S), R(ixI^S)
+
    integer :: idir
 
    !> Assymptotic preserving IMEX implicit step:
    if (associated(usr_set_F0)) then
      call usr_set_F0(ixI^L,ixO^L,w,x,F0)
    else
-     F0 = 0.d0
+     !> FLD approximation
+     !> Get magnitude of grad E
+     gradE = 0.d0
+     do idir = 1, ndim
+       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
+       gradE(ixI^S) = gradE(ixI^S) + gradE(ixI^S)**2
+     end do
+     gradE(ixI^S) = dsqrt(max(0.d0,gradE(ixI^S)))
+
+     !> Get fld R
+     R(ixI^S) = gradE(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_)*w(ixI^S,Er_))
+
+     !> Get fld lambda (Pomraning flux limiter)
+     lambda(ixI^S) = (2.d0+R(ixI^S))/(6.d0+3*R(ixI^S)+R(ixI^S)**2.d0)
+
+     do idir = 1, ndim
+       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
+       F0(ixI^S,idir) = -m1_c*lambda(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_))*gradE(ixI^S)
+     end do
    end if
 
+   !> AP lambda
    lambda(ixI^S) = m1_RSOL*m1_c*w(ixI^S,rho_)*w(ixI^S,kF_)
    tau(ixI^S) = lambda(ixI^S)*dtfactor*dt
 
@@ -2640,9 +2662,7 @@ end subroutine m1_evaluate_implicit
     vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
     call gradient_str(vr,x,ixI^L,ixO^L,1,dvrdr)
 
-    ! print*, 'WST photosphere: ', R_phot
-
-    ! stop
+    ! print*, 'WST photosphere: ', it, R_phot
 
     !> Opal Opacities
     {do ix^D=ixOmin^D,ixOmax^D\ }

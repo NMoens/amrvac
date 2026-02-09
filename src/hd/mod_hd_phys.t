@@ -475,9 +475,18 @@ contains
        call mpistop("phys_check error: flux_type has wrong shape")
     end if
 
-    nvector      = 1 ! No. vector vars
-    allocate(iw_vector(nvector))
-    iw_vector(1) = mom(1) - 1
+    if (hd_m1) then
+      nvector      = 2 ! No. vector vars
+      allocate(iw_vector(nvector))
+      iw_vector(1) = mom(1) - 1
+      iw_vector(2) = Fr(1) - 1
+    else
+      nvector      = 1 ! No. vector vars
+      allocate(iw_vector(nvector))
+      iw_vector(1) = mom(1) - 1
+    end if
+
+
     ! initialize ionization degree table
     if(hd_partial_ionization) call ionization_degree_init()
 

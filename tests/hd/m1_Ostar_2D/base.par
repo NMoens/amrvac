@@ -4,7 +4,7 @@
   convert_type  = 'vtuBCCmpi'
   autoconvert   = .true.
   saveprim      = .true.
-  !nocartesian   = .true.
+  nocartesian   = .true.
 /
 
 &savelist

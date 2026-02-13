@@ -40,7 +40,7 @@
 &meshlist
   refine_max_level   = 1
   domain_nx1         = 640
-  block_nx1          = 80
+  block_nx1          = 160
   xprobmin1          = 1.0d0
   xprobmax1          = 5.0d0
   stretch_dim(1)     = 'uni'

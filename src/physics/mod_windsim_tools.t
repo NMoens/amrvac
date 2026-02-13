@@ -3,6 +3,7 @@ implicit none
 
   !> average photosphere
   double precision, public :: R_phot
+  integer, public :: i_phot
 
   !> Grid on which to compute photosphere
   double precision, allocatable :: radial_grid(:)
@@ -78,8 +79,10 @@ contains
     double precision :: dtau_S(np1), dtau_R(np1)
     double precision :: rho(np1)
 
+    double precision :: tau_ph = 2.d0/3
+
     integer :: iigrid, igrid
-    integer :: i_phot, ii, jj, il, ih, jj_blk, nc
+    integer :: ii, jj, il, ih, jj_blk, nc
 
     if (.not. convert) then
 
@@ -139,8 +142,8 @@ contains
 
       !> Communicate optical depth additions over processors
       dtau_S = dtau
-      call mpi_allreduce(dtau_S,dtau_R,np1,MPI_DOUBLE_PRECISION,MPI_SUM,icomm,ierrmpi)
-      ! call mpi_reduce(dtau_S,dtau_R,np1,MPI_DOUBLE_PRECISION,MPI_SUM,0,icomm,ierrmpi)
+      ! call mpi_allreduce(dtau_S,dtau_R,np1,MPI_DOUBLE_PRECISION,MPI_SUM,icomm,ierrmpi)
+      call mpi_reduce(dtau_S,dtau_R,np1,MPI_DOUBLE_PRECISION,MPI_SUM,0,icomm,ierrmpi)
       dtau = dtau_R
 
       !> Calculate optical depth radius
@@ -157,8 +160,26 @@ contains
         ! end do
 
         !> cell closest to 2/3
-        i_phot = minloc(abs(tau(1:np1) - 2.d0/3),DIM=1)
+        i_phot = minloc(abs(tau(1:np1) - tau_ph),DIM=1)
         R_phot = radial_grid(i_phot)
+
+        !> With continuous interpolation
+        if ((tau(i_phot) - tau_ph) * (tau(i_phot + 1) - tau_ph) .le. 0) then
+          R_phot = radial_grid(i_phot)  &
+                 + (radial_grid(i_phot + 1) - radial_grid(i_phot)) &
+                 / (log10(tau(i_phot+1)) - log10(tau(i_phot))) &
+                 * (log10(tau_ph) - log10(tau(i_phot)))
+        else if ((tau(i_phot) - tau_ph) * (tau(i_phot - 1) - tau_ph) .le. 0) then
+          R_phot = radial_grid(i_phot)  &
+                 + (radial_grid(i_phot - 1) - radial_grid(i_phot)) &
+                 / (log10(tau(i_phot - 1)) - log10(tau(i_phot))) &
+                 * (log10(tau_ph) - log10(tau(i_phot)))
+        else
+          stop
+        end if
+
+
+
       end if
 
       !> Broadcast photospheric radius

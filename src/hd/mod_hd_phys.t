@@ -2650,7 +2650,7 @@ end subroutine m1_evaluate_implicit
     use mod_opal_opacity
     use mod_cak_opacity
     use mod_geometry
-    use mod_windsim_tools, only: R_phot
+    use mod_windsim_tools, only: R_phot, i_phot
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S,nw)
@@ -2671,7 +2671,9 @@ end subroutine m1_evaluate_implicit
     vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
     call gradient_str(vr,x,ixI^L,ixO^L,1,dvrdr)
 
-    ! print*, 'WST photosphere: ', it, R_phot
+    if ((modulo(it,10000) == 0) .and. (mype == 0)) then
+      print*, 'WST photosphere: ', it, i_phot, R_phot
+    end if
 
     !> Opal Opacities
     {do ix^D=ixOmin^D,ixOmax^D\ }

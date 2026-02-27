@@ -76,8 +76,8 @@ contains
     double precision, intent(in) :: qt
 
     double precision :: dtau(np1), tau(np1)
-    double precision :: dtau_S(np1), dtau_R(np1)
-    double precision :: rho(np1)
+    double precision :: send(np1), rec(np1)
+    double precision :: rho(np1), vol(np1)
 
     double precision :: tau_ph = 2.d0/3
 
@@ -87,6 +87,7 @@ contains
     if (.not. convert) then
 
       rho(:) = 0.d0
+      vol(:) = 0.d0
 
       !> loop over all grids for this proc
       do iigrid=1,igridstail; igrid=igrids(iigrid);
@@ -113,38 +114,41 @@ contains
 
             !> Density
             {^IFONED
-            rho(jj) = rho(jj) &
-            + sum(block%w(il:ih,rho_)*block%dvolume(il:ih))/sum(block%dvolume(il:ih))
-            ! + sum(block%w(il:ih,rho_))/nc !> average value on lvl 1
+            rho(jj) = rho(jj) + sum(block%w(il:ih,rho_)*block%dvolume(il:ih))
+            vol(jj) = vol(jj) + sum(block%dvolume(il:ih))
             }
 
             {^IFTWOD
             rho(jj) = rho(jj) &
-            + sum(block%w(il:ih,ixMlo2:ixMhi2,rho_)*block%dvolume(il:ih,ixMlo2:ixMhi2))/sum(block%dvolume(il:ih,ixMlo2:ixMhi2)) !> average value on lvl 1
-            ! + sum(block%w(il:ih,ixMlo2:ixMhi2,rho_))/domain_nx2/nc**2 !> average value on lvl 1
+            + sum(block%w(il:ih,ixMlo2:ixMhi2,rho_)*block%dvolume(il:ih,ixMlo2:ixMhi2))
+            vol(jj) = vol(jj) + sum(block%dvolume(il:ih,ixMlo2:ixMhi2))
             }
 
             {^IFTHREED
             rho(jj) = rho(jj) &
-            + sum(block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,rho_)*block%dvolume(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3))/sum(block%dvolume(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3)) !> average value on lvl 1
-            ! + sum(block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,rho_))/(domain_nx2*domain_nx3)/nc**3 !> average value on lvl 1
+            + sum(block%w(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3,rho_)*block%dvolume(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3))
+            vol(jj) = vol(jj) + sum(block%dvolume(il:ih,ixMlo2:ixMhi2,ixMlo3:ixMhi3))
             }
 
           end do
       end do
 
-      !> Calculate increment of optical depth
-      ! dtau(1:np1) = rho(1:np1)*unit_density*wst_kappa*unit_opacity*dr(1:np1)*unit_length
-      dtau(1:np1) = rho(1:np1)*wst_kappa*dr(1:np1)
-
-      ! print*, "dtau"
-      ! print*, dtau
-
       !> Communicate optical depth additions over processors
-      dtau_S = dtau
-      ! call mpi_allreduce(dtau_S,dtau_R,np1,MPI_DOUBLE_PRECISION,MPI_SUM,icomm,ierrmpi)
-      call mpi_reduce(dtau_S,dtau_R,np1,MPI_DOUBLE_PRECISION,MPI_SUM,0,icomm,ierrmpi)
-      dtau = dtau_R
+      send = rho
+      ! call mpi_allreduce(send,rec,np1,MPI_DOUBLE_PRECISION,MPI_SUM,icomm,ierrmpi)
+      call mpi_reduce(send,rec,np1,MPI_DOUBLE_PRECISION,MPI_SUM,0,icomm,ierrmpi)
+      rho = rec
+
+      send = vol
+      ! call mpi_allreduce(send,rec,np1,MPI_DOUBLE_PRECISION,MPI_SUM,icomm,ierrmpi)
+      call mpi_reduce(send,rec,np1,MPI_DOUBLE_PRECISION,MPI_SUM,0,icomm,ierrmpi)
+      vol = rec
+
+      !> Calculate increment of optical depth
+      rho = rho/vol
+      if (mype == 0) then
+        dtau(1:np1) = rho(1:np1)*wst_kappa*dr(1:np1)
+      end if
 
       !> Calculate optical depth radius
       if (mype == 0) then
@@ -153,11 +157,6 @@ contains
         do ii = np1-1, 1, -1
           tau(ii) = tau(ii+1) + dtau(ii)
         end do
-
-        ! print*, "ii, r, rho, tau, dr, dtau"
-        ! do ii = np1, 1, -1
-        !   print*, ii, radial_grid(ii), rho(ii), tau(ii), dr(ii), dtau(ii)
-        ! end do
 
         !> cell closest to 2/3
         i_phot = minloc(abs(tau(1:np1) - tau_ph),DIM=1)
@@ -175,11 +174,8 @@ contains
                  / (log10(tau(i_phot - 1)) - log10(tau(i_phot))) &
                  * (log10(tau_ph) - log10(tau(i_phot)))
         else
-          stop
+          stop "R_phot out of bounds???"
         end if
-
-
-
       end if
 
       !> Broadcast photospheric radius

@@ -377,8 +377,8 @@ contains
     !> Get magnitude of grad E
     gradE = 0.d0
     do idir = 1, ndim
-      call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
-      gradE(ixI^S) = gradE(ixI^S) + gradE(ixI^S)**2
+      call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,lambda)
+      gradE(ixI^S) = gradE(ixI^S) + lambda(ixI^S)**2
     end do
     gradE(ixI^S) = dsqrt(max(0.d0,gradE(ixI^S)))
 

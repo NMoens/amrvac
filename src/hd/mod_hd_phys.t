@@ -1301,14 +1301,16 @@ contains
       fi(ixI^S) = min(fi(ixI^S),1.d0)
       fj(ixI^S) = min(fj(ixI^S),1.d0)
       ff(ixI^S) = min(ff(ixI^S),1.d0)
+      ff(ixI^S) = max(ff(ixI^S),1.d-14)
 
       !> Eddington factor
       chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
-      chi(ixI^S) = max(chi(ixI^S),0.d0)
+      chi(ixI^S) = max(chi(ixI^S),1/3.d0)
+      chi(ixI^S) = min(chi(ixI^S),1.d0)
 
       !> Temporary (??) fix
       where (chi(ixI^S) .ne. chi(ixI^S))
-        chi(ixI^S) = 5.d0/3.d0
+        chi(ixI^S) = 1.d0 !5.d0/3.d0
       end where
 
       !> Eddington tensor
@@ -1665,7 +1667,6 @@ contains
       stop "Fr(1) NaN before m1_geom_source"
     end if
 
-
     select case (coordinate)
     case (cylindrical,Cartesian_expansion)
       call mpistop("m1 geom source terms not implemented yet with cylindrical geometries")
@@ -1706,14 +1707,15 @@ contains
         !> Get relevant pressure tensors:
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt)
-        ppp = 1.d0 - prr - ptt !> trace is one
+        ppp(ixI^S) = 1.d0 - prr(ixI^S) - ptt(ixI^S) !> trace is one
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr)
 
         !> Add advection part
-        prr = m1_c**2 * prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
-        ptt = m1_c**2 * ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
-        ptr = m1_c**2 * ptr + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        prr(ixI^S)  = m1_c**2 * prr(ixI^S)  + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
+        ptt(ixI^S)  = m1_c**2 * ptt(ixI^S)  + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
+        ptr(ixI^S)  = m1_c**2 * ptr(ixI^S)  + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
         ! ptr = m1_c**2 * ptr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        ppp(ixI^S)  = m1_c**2 * ppp(ixI^S)  !+ 0.d0
 
         !> Perform corrections
         !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*(nabla T + S_corr)
@@ -1959,18 +1961,18 @@ contains
            enddo
         endif
 
+        !> Radiation flux
         if (hd_m1) then
 
-          !> Radiation flux
-          if (hd_m1) then
-            if (any(flag(ixO^S,Fr(:)))) &
-              Fmag(ixI^S) = dsqrt(sum(w(ixI^S,Fr(:))**2, dim=ndim+1))
+          where(flag(ixO^S,Er_)) w(ixO^S, Er_) = small_e
 
-              do idir = 1,ndir
-                where(flag(ixO^S,Fr(idir))) w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir))*m1_c*w(ixO^S,Er_)/Fmag(ixO^S)
-              end do
-            end if
-          end if
+          if (any(flag(ixO^S,Fr(:)))) &
+            Fmag(ixI^S) = dsqrt(sum(w(ixI^S,Fr(:))**2, dim=ndim+1))
+
+          do idir = 1,ndir
+            where(flag(ixO^S,Fr(idir))) w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir))*m1_c*w(ixO^S,Er_)/Fmag(ixO^S)
+          end do
+        end if
 
       case ("average")
         if(primitive)then
@@ -2210,7 +2212,6 @@ contains
     integer                         :: jxO^L, hxO^L
     double precision :: Fp(ixO^S), Fm(ixO^S), sm(ixO^S), sp(ixO^S)
 
-
     if (any(w(ixO^S,e_) .lt. 0.d0)) then
       stop "e zero before m1_hydro_source 1"
     end if
@@ -2276,7 +2277,6 @@ contains
 
       end do
     end if
-
 
   end subroutine m1_hydro_source
 
@@ -2356,8 +2356,8 @@ end subroutine m1_evaluate_implicit
      !> Get magnitude of grad E
      gradE = 0.d0
      do idir = 1, ndim
-       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
-       gradE(ixI^S) = gradE(ixI^S) + gradE(ixI^S)**2
+       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,lambda)
+       gradE(ixI^S) = gradE(ixI^S) + lambda(ixI^S)**2
      end do
      gradE(ixI^S) = dsqrt(max(0.d0,gradE(ixI^S)))
 
@@ -2378,7 +2378,7 @@ end subroutine m1_evaluate_implicit
    tau(ixI^S) = lambda(ixI^S)*dtfactor*dt
 
    do idir = 1, ndir
-     w(ixI^S,Fr(idir)) = F0(ixI^S,idir) + (w(ixI^S,Fr(idir)) - F0(ixI^S,idir))*dexp(-tau(ixI^S))
+     w(ixO^S,Fr(idir)) = F0(ixO^S,idir) + (w(ixO^S,Fr(idir)) - F0(ixO^S,idir))*dexp(-tau(ixO^S))
      ! w(ixI^S,Fr(idir)) = F0(ixI^S,idir) + (w(ixI^S,Fr(idir)) - F0(ixI^S,idir))/(1 + tau(ixI^S))
    end do
 
@@ -2386,13 +2386,15 @@ end subroutine m1_evaluate_implicit
 
  subroutine m1_flux_absorbtion_evaluate(w, x, ixI^L, ixO^L)
    use mod_global_parameters
+   use mod_geometry
    use mod_usr_methods, only: usr_set_F0
 
    integer, intent(in)             :: ixI^L,ixO^L
    double precision, intent(in)    :: x(ixI^S,1:ndim)
    double precision, intent(inout) :: w(ixI^S,1:nw)
 
-   double precision :: F0(ixI^S,1:ndir), lambda(ixI^S) !, tau(ixI^S)
+   double precision :: F0(ixI^S,1:ndir), lambda(ixI^S) , tau(ixI^S)
+   double precision :: gradE(ixI^S), R(ixI^S)
    integer :: idir
    !
    ! !> Fully implicit update
@@ -2404,14 +2406,32 @@ end subroutine m1_evaluate_implicit
    if (associated(usr_set_F0)) then
      call usr_set_F0(ixI^L,ixO^L,w,x,F0)
    else
-     F0 = 0.d0
+     !> FLD approximation
+     !> Get magnitude of grad E
+     gradE = 0.d0
+     do idir = 1, ndim
+       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,lambda)
+       gradE(ixI^S) = gradE(ixI^S) + lambda(ixI^S)**2
+     end do
+     gradE(ixI^S) = dsqrt(max(0.d0,gradE(ixI^S)))
+
+     !> Get fld R
+     R(ixI^S) = gradE(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_)*w(ixI^S,Er_))
+
+     !> Get fld lambda (Pomraning flux limiter)
+     lambda(ixI^S) = (2.d0+R(ixI^S))/(6.d0+3*R(ixI^S)+R(ixI^S)**2.d0)
+
+     do idir = 1, ndim
+       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
+       F0(ixI^S,idir) = -m1_c*lambda(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_))*gradE(ixI^S)
+     end do
    end if
 
    lambda(ixI^S) = m1_RSOL*m1_c*w(ixI^S,rho_)*w(ixI^S,kF_)
    ! tau(ixI^S) = lambda(ixI^S)*dtfactor*dt
 
    do idir = 1, ndir
-     w(ixI^S,Fr(idir)) = -lambda(ixI^S)*(w(ixI^S,Fr(idir)) - F0(ixI^S,idir))
+     w(ixO^S,Fr(idir)) = -lambda(ixO^S)*(w(ixO^S,Fr(idir)) - F0(ixO^S,idir))
    end do
 
  end subroutine m1_flux_absorbtion_evaluate
@@ -2433,10 +2453,10 @@ end subroutine m1_evaluate_implicit
 
    !> Get gas internal energy
    call hd_e_to_ei(ixI^L,ixO^L,w,x)
-
-   if (fix_small_values) then
-     call hd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'Energy_interaction')
-   end if
+   !
+   ! if (fix_small_values) then
+   !   call hd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'Energy_interaction')
+   ! end if
 
    !> Set polynomial coefficients
    alpha = const_rad_a*m1_c*(unit_temperature**4/unit_pressure) !> mu, mp, kb hidden in units
@@ -2449,6 +2469,7 @@ end subroutine m1_evaluate_implicit
 
    !> Solve polynomial
    {do ix^D = ixOmin^D,ixOmax^D\}
+    w(ix^D,e_) = max(w(ix^D,e_), small_e)
     call Bisection_method(w(ix^D,e_),w(ix^D,Er_),c0(ix^D),c1(ix^D))
    {enddo\}
 
@@ -2457,6 +2478,10 @@ end subroutine m1_evaluate_implicit
 
    !> Get gas total energy
    call hd_ei_to_e(ixI^L,ixO^L,w,x)
+
+   if (fix_small_values) then
+     call hd_handle_small_values(.false., w, x, ixI^L, ixO^L, 'Energy_interaction')
+   end if
 
  end subroutine m1_heating_cooling
 
@@ -2663,7 +2688,6 @@ end subroutine m1_evaluate_implicit
 
     double precision :: fdfac, beta_fd
 
-
     integer :: ix^D
 
     !> Velocity stretched opacities
@@ -2671,7 +2695,7 @@ end subroutine m1_evaluate_implicit
     vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
     call gradient_str(vr,x,ixI^L,ixO^L,1,dvrdr)
 
-    if ((modulo(it,10000) == 0) .and. (mype == 0)) then
+    if ((modulo(it,1000) == 0) ) then
       print*, 'WST photosphere: ', it, i_phot, R_phot
     end if
 
@@ -2788,7 +2812,7 @@ end subroutine m1_evaluate_implicit
      e_b = min(abs(c0/c1),abs(c0)**(1.d0/4.d0))+smalldouble
 
      !> Start bisection algorithm
-     do while((abs(e_b-e_a) .ge. 1.d-7*min(e_gas,E_rad)) .and. n < max_its)
+     do while((abs(e_b-e_a) .ge. 1.d-15*min(e_gas,E_rad)) .and. n < max_its)
        !> Bisection point
        e_c = (e_a + e_b)/two
 
@@ -2803,6 +2827,7 @@ end subroutine m1_evaluate_implicit
          print*, 'e, E', e_gas, E_rad
          print*, 'x**4 +',c1,'x -',c0
          print*, 'between x=', e_a, 'and', e_b
+         return
          call mpistop("Problems with bisection scheme")
        end if
 

@@ -1301,11 +1301,10 @@ contains
       fi(ixI^S) = min(fi(ixI^S),1.d0)
       fj(ixI^S) = min(fj(ixI^S),1.d0)
       ff(ixI^S) = min(ff(ixI^S),1.d0)
-      ff(ixI^S) = max(ff(ixI^S),1.d-14)
 
       !> Eddington factor
       chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
-      chi(ixI^S) = max(chi(ixI^S),1/3.d0)
+      chi(ixI^S) = max(chi(ixI^S),1.d0/3)
       chi(ixI^S) = min(chi(ixI^S),1.d0)
 
       !> Temporary (??) fix
@@ -1323,7 +1322,7 @@ contains
       end where
 
       if (idir == jdir) then
-        prad(ixI^S) = prad(ixI^S) + (1.d0-chi(ixI^S))/2.d0
+        prad(ixI^S) = max(0.d0, prad(ixI^S) + (1.d0-chi(ixI^S))/2.d0)
       end if
 
     end if
@@ -1331,33 +1330,33 @@ contains
     !> Radiation pressure tensor
     prad(ixI^S) = prad(ixI^S) * w(ixI^S,Er_)
 
-    {do ix^D = ixOmin^D,ixOmax^D\}
-     if (w(ix^D,Er_) .lt. 0.d0) then
-       print*, 'ix', ix^D
-       print*, 'x', x(ix^D,:)
-       print*, 'c', unit_velocity, m1_c, m1_c*unit_velocity, const_c
-       print*, 'Er', w(ix^D,Er_)
-       print*, 'x', x(ix^D,:)
-       print*, 'i,j, ndim', idir, jdir, ndim
-       print*, 'fi, fj, f**2, fi**2 + fj**2', &
-       fi(ix^D), fj(ix^D), ff(ix^D), fi(ix^D)**2 + fj(ix^D)**2
-       print*, w(ix^D,Fr(idir)),w(ix^D,Fr(jdir)),sum(w(ix^D,Fr(:))**2), &
-       w(ix^D,Fr(idir))**2 + w(ix^D,Fr(jdir))**2
-       print*, chi(ix^D)
-     end if
-    {enddo\}
+!    {do ix^D = ixOmin^D,ixOmax^D\}
+!     if (w(ix^D,Er_) .lt. 0.d0) then
+!       print*, 'ix', ix^D
+!       print*, 'x', x(ix^D,:)
+!       print*, 'c', unit_velocity, m1_c, m1_c*unit_velocity, const_c
+!       print*, 'Er', w(ix^D,Er_)
+!       print*, 'x', x(ix^D,:)
+!       print*, 'i,j, ndim', idir, jdir, ndim
+!       print*, 'fi, fj, f**2, fi**2 + fj**2', &
+!       fi(ix^D), fj(ix^D), ff(ix^D), fi(ix^D)**2 + fj(ix^D)**2
+!       print*, w(ix^D,Fr(idir)),w(ix^D,Fr(jdir)),sum(w(ix^D,Fr(:))**2), &
+!       w(ix^D,Fr(idir))**2 + w(ix^D,Fr(jdir))**2
+!       print*, chi(ix^D)
+!     end if
+!    {enddo\}
 
-    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-      stop "Er zero in Prad"
-    end if
+    !if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+    !  stop "Er zero in Prad"
+    !end if
 
-    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-      stop "Er NaN in Prad"
-    end if
+    !if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+    !  stop "Er NaN in Prad"
+    !end if
 
-    if (any(prad(ixO^S) .ne. prad(ixO^S))) then
-      stop "Pr NaN in Prad"
-    end if
+    !if (any(prad(ixO^S) .ne. prad(ixO^S))) then
+    !  stop "Pr NaN in Prad"
+    !end if
 
   end subroutine m1_get_prad
 
@@ -1655,17 +1654,18 @@ contains
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-      stop "Er zero before m1_geom_source"
-    end if
+    !if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+    !  stop "Er zero before m1_geom_source"
+    !end if
 
-    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-      stop "Er NaN before m1_geom_source"
-    end if
+    !if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+    !  stop "Er NaN before m1_geom_source"
+    !end if
 
-    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
-      stop "Fr(1) NaN before m1_geom_source"
-    end if
+    !if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
+    !  stop "Fr(1) NaN before m1_geom_source"
+    !end if
+
 
     select case (coordinate)
     case (cylindrical,Cartesian_expansion)
@@ -1707,15 +1707,16 @@ contains
         !> Get relevant pressure tensors:
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt)
-        ppp(ixI^S) = 1.d0 - prr(ixI^S) - ptt(ixI^S) !> trace is one
+        ppp = wCT(ixI^S,Er_) - prr - ptt !> trace is one
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr)
 
         !> Add advection part
-        prr(ixI^S)  = m1_c**2 * prr(ixI^S)  + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
-        ptt(ixI^S)  = m1_c**2 * ptt(ixI^S)  + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
-        ptr(ixI^S)  = m1_c**2 * ptr(ixI^S)  + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
+        prr = m1_c**2 * prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
+        ptt = m1_c**2 * ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
+        ptr = m1_c**2 * ptr + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
         ! ptr = m1_c**2 * ptr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
-        ppp(ixI^S)  = m1_c**2 * ppp(ixI^S)  !+ 0.d0
+        ppp = m1_c**2 * ppp
+
 
         !> Perform corrections
         !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*(nabla T + S_corr)
@@ -1752,18 +1753,18 @@ contains
 
     end select
 
-    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-      stop "Er zero after m1_geom_source"
-    end if
-
-    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-      stop "Er NaN after m1_geom_source"
-    end if
-
-    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
-      print*, source(ixO^S)
-      stop "Fr(1) NaN after m1_geom_source"
-    end if
+!    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+!      stop "Er zero after m1_geom_source"
+!    end if
+!
+!    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+!      stop "Er NaN after m1_geom_source"
+!    end if
+!
+!    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
+!      print*, source(ixO^S)
+!      stop "Fr(1) NaN after m1_geom_source"
+!    end if
 
 
   end subroutine m1_add_source_geom
@@ -1970,9 +1971,10 @@ contains
             Fmag(ixI^S) = dsqrt(sum(w(ixI^S,Fr(:))**2, dim=ndim+1))
 
           do idir = 1,ndir
-            where(flag(ixO^S,Fr(idir))) w(ixO^S,Fr(idir)) = w(ixO^S,Fr(idir))*m1_c*w(ixO^S,Er_)/Fmag(ixO^S)
+            where(flag(ixI^S,Fr(idir))) w(ixI^S,Fr(idir)) = w(ixI^S,Fr(idir))*m1_c*w(ixI^S,Er_)/Fmag(ixI^S)
           end do
         end if
+
 
       case ("average")
         if(primitive)then
@@ -2082,18 +2084,18 @@ contains
     double precision :: Fp(ixO^S), Fm(ixO^S), sm(ixO^S), sp(ixO^S)
     double precision :: geom_corr(ixO^S), vec_grad(ixO^S), vel(ixI^S,1:ndir)
 
-    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-      stop "Er zero before m1_rad_source"
-    end if
-
-    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-      stop "Er NaN before m1_rad_source"
-    end if
-
-    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
-      stop "Fr(1) NaN before m1_rad_source"
-    end if
-
+!    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+!      stop "Er zero before m1_rad_source"
+!    end if
+!
+!    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+!      stop "Er NaN before m1_rad_source"
+!    end if
+!
+!    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
+!      stop "Fr(1) NaN before m1_rad_source"
+!    end if
+!
 
     if(qsourcesplit .eqv. m1_force_split) then
       active = .true.
@@ -2183,17 +2185,22 @@ contains
 
     end if
 
-    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-      stop "Er zero in m1_rad_source"
-    end if
+!    if (any(w(ixO^S,Er_) .lt. 0.d0)) then
+!      stop "Er zero in m1_rad_source"
+!    end if
+!
+!    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
+!      stop "Er NaN in m1_rad_source"
+!    end if
+!
+!    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
+!      stop "Fr(1) NaN after m1_rad_source"
+!    end if
 
-    if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-      stop "Er NaN in m1_rad_source"
-    end if
+     if (fix_small_values) then
+       call hd_handle_small_values(.false., w, x, ixI^L, ixO^L, 'rad_source')
+     end if
 
-    if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
-      stop "Fr(1) NaN after m1_rad_source"
-    end if
 
   end subroutine m1_rad_source
 
@@ -2212,13 +2219,14 @@ contains
     integer                         :: jxO^L, hxO^L
     double precision :: Fp(ixO^S), Fm(ixO^S), sm(ixO^S), sp(ixO^S)
 
-    if (any(w(ixO^S,e_) .lt. 0.d0)) then
-      stop "e zero before m1_hydro_source 1"
-    end if
 
-    if (any(w(ixO^S,e_) .ne. w(ixO^S,e_))) then
-      stop "e NaN before m1_hydro_source 1"
-    end if
+!    if (any(w(ixO^S,e_) .lt. 0.d0)) then
+!      stop "e zero before m1_hydro_source 1"
+!    end if
+!
+!    if (any(w(ixO^S,e_) .ne. w(ixO^S,e_))) then
+!      stop "e NaN before m1_hydro_source 1"
+!    end if
 
     if(qsourcesplit .eqv. m1_force_split) then
       active = .true.
@@ -2245,38 +2253,43 @@ contains
         if (energy) &
           w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
 
-        !> Well balanced scheme
-        ! if (energy) &
-          ! w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/(2*m1_c)
+       ! !> Well balanced scheme
+       ! ! if (energy) &
+       !   ! w(ixO^S,e_) = w(ixO^S,e_) + qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)*(sm(ixO^S)*Fm(ixO^S) + sp(ixO^S)*Fp(ixO^S))/(2*m1_c)
 
-          if (any(w(ixO^S,e_) .lt. 0.d0)) then
-            ! print*, 'e', w(ixO^S,e_)
-            ! print*, 'p', w(ixO^S,e_) - w(ixO^S,mom(idir))**2/(2*w(ixO^S,rho_))
-            ! print*, 'S', qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
-            ! print*, 'kappa', wCT(ixO^S,kF_)
-            ! print*, 'F', wCT(ixO^S,Fr(idir))
-            ! print*, 'mom', wCT(ixO^S,mom(idir))
-            stop "e zero after m1_hydro_source 1"
-          end if
+       !   if (any(w(ixO^S,e_) .lt. 0.d0)) then
+       !     ! print*, 'e', w(ixO^S,e_)
+       !     ! print*, 'p', w(ixO^S,e_) - w(ixO^S,mom(idir))**2/(2*w(ixO^S,rho_))
+       !     ! print*, 'S', qdt*wCT(ixO^S,mom(idir))*wCT(ixO^S,kF_)*wCT(ixO^S,Fr(idir))/m1_c
+       !     ! print*, 'kappa', wCT(ixO^S,kF_)
+       !     ! print*, 'F', wCT(ixO^S,Fr(idir))
+       !     ! print*, 'mom', wCT(ixO^S,mom(idir))
+       !     stop "e zero after m1_hydro_source 1"
+       !   end if
 
-          if (any(w(ixO^S,e_) .ne. w(ixO^S,e_))) then
-            ! print*, 'e'
-            ! print*, wCT(ixO^S,e_)
-            ! print*, 'A', qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)/2
-            ! print*, 'B',(sm(ixO^S)*Fm(ixO^S)+ sp(ixO^S)*Fp(ixO^S))/m1_c
-            ! print*, 'B1', sm(ixO^S)*Fm(ixO^S)
-            ! print*, 'B2', sp(ixO^S)*Fp(ixO^S)
-            ! print*, 'F', wCT(ixO^S,Fr(idir))
-            ! print*, 'k', wCT(ixO^S,kF_)
-            ! print*, 'Se'
-            ! print*,  qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)/2*(sm(ixO^S)*Fm(ixO^S) &
-            ! + sp(ixO^S)*Fp(ixO^S))/m1_c
+       !   if (any(w(ixO^S,e_) .ne. w(ixO^S,e_))) then
+       !     ! print*, 'e'
+       !     ! print*, wCT(ixO^S,e_)
+       !     ! print*, 'A', qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)/2
+       !     ! print*, 'B',(sm(ixO^S)*Fm(ixO^S)+ sp(ixO^S)*Fp(ixO^S))/m1_c
+       !     ! print*, 'B1', sm(ixO^S)*Fm(ixO^S)
+       !     ! print*, 'B2', sp(ixO^S)*Fp(ixO^S)
+       !     ! print*, 'F', wCT(ixO^S,Fr(idir))
+       !     ! print*, 'k', wCT(ixO^S,kF_)
+       !     ! print*, 'Se'
+       !     ! print*,  qdt*wCT(ixO^S,mom(idir))/wCT(ixO^S,rho_)/2*(sm(ixO^S)*Fm(ixO^S) &
+       !     ! + sp(ixO^S)*Fp(ixO^S))/m1_c
 
-            stop "e NaN after m1_hydro_source 1"
-          end if
+       !     stop "e NaN after m1_hydro_source 1"
+       !   end if
 
       end do
     end if
+
+   if (fix_small_values) then
+     call hd_handle_small_values(.false., w, x, ixI^L, ixO^L, 'Hydro_source')
+   end if
+
 
   end subroutine m1_hydro_source
 
@@ -2453,10 +2466,6 @@ end subroutine m1_evaluate_implicit
 
    !> Get gas internal energy
    call hd_e_to_ei(ixI^L,ixO^L,w,x)
-   !
-   ! if (fix_small_values) then
-   !   call hd_handle_small_values(.true., w, x, ixI^L, ixO^L, 'Energy_interaction')
-   ! end if
 
    !> Set polynomial coefficients
    alpha = const_rad_a*m1_c*(unit_temperature**4/unit_pressure) !> mu, mp, kb hidden in units
@@ -2695,9 +2704,9 @@ end subroutine m1_evaluate_implicit
     vr(ixI^S) = w(ixI^S,mom(1))/w(ixI^S,rho_)
     call gradient_str(vr,x,ixI^L,ixO^L,1,dvrdr)
 
-    if ((modulo(it,1000) == 0) ) then
-      print*, 'WST photosphere: ', it, i_phot, R_phot
-    end if
+    !if ((modulo(it,1000) == 0) .and. (mype .eq. 0)) then
+    !  print*, 'WST photosphere: ', mype, i_phot, R_phot
+    !end if
 
     !> Opal Opacities
     {do ix^D=ixOmin^D,ixOmax^D\ }
@@ -2738,9 +2747,20 @@ end subroutine m1_evaluate_implicit
     w(ixO^S,kE_) = 1.d-1 * CAK(ixO^S) + OPAL(ixO^S) - m1_kappa_e
     w(ixO^S,kB_) = 1.d-1 * CAK(ixO^S) + OPAL(ixO^S) - m1_kappa_e
 
+ !   w(ixO^S,kE_) = OPAL(ixO^S) - m1_kappa_e
+  !  w(ixO^S,kB_) = OPAL(ixO^S) - m1_kappa_e
+
     w(ixO^S,kF_) = max(w(ixO^S,kF_), 0.1d0*m1_kappa_e)
-    w(ixO^S,kE_) = max(w(ixO^S,kE_), 1.d-5*m1_kappa_e)
-    w(ixO^S,kB_) = max(w(ixO^S,kB_), 1.d-5*m1_kappa_e)
+    w(ixO^S,kE_) = max(w(ixO^S,kE_), 1.d-1*m1_kappa_e)
+    w(ixO^S,kB_) = max(w(ixO^S,kB_), 1.d-1*m1_kappa_e)
+
+    !> Correction for line driving opacity at outer physical cells
+    if (any(x(ixI^S,1) .gt. xprobmax1)) then
+      {^IFONED w(ixOmax1,kF_) = max(w(ixOmax1-1,kF_), w(ixOmax1,kF_))}
+      {^IFTWOD w(ixOmax1,:,kF_) = max(w(ixOmax1-1,:,kF_), w(ixOmax1,:,kF_))}
+      {^IFTHREED w(ixOmax1,:,:,kF_) = max(w(ixOmax1-1,:,:,kF_), w(ixOmax1,:,:,kF_))}
+    end if
+
 
     if (any(w(ixO^S,kF_) .ne. w(ixO^S,kF_))) then
       stop "kappa_F NaN in hybrid opacity"
@@ -2789,9 +2809,11 @@ end subroutine m1_evaluate_implicit
 
     !> Flag flux values where |F| > cE
     !> Flag all dirs
-    ! do idir =1,ndir
-      where (Fmag2(ixO^S) > (m1_c*w(ixO^S, Er_))**2) flag(ixO^S,Fr(1)) = .true.
-    ! end do
+    do idir =1,ndir
+      where (Fmag2(ixO^S) > (m1_c*w(ixO^S, Er_))**2) 
+        flag(ixO^S,Fr(idir)) = .true.
+      end where
+    end do
 
   end subroutine m1_check_w
 
@@ -2823,12 +2845,18 @@ end subroutine m1_evaluate_implicit
 
        !> Sanity check NEEDS TO BE REMOVED AFTER TESTING
        if (p_a*p_b .gt. 0) then
-         print*, 'p_a, p_b, n_hc',p_a, p_b, n
-         print*, 'e, E', e_gas, E_rad
-         print*, 'x**4 +',c1,'x -',c0
-         print*, 'between x=', e_a, 'and', e_b
-         return
-         call mpistop("Problems with bisection scheme")
+         !print*, 'fail on it :', it
+         !print*, 'p_a, p_b, n_hc',p_a, p_b, n
+         !print*, 'e, E', e_gas, E_rad
+         !print*, 'x**4 +',c1,'x -',c0
+         !print*, 'between x=', e_a, 'and', e_b
+         !call mpistop("Problems with bisection scheme")
+       
+        n = max_its
+        e_a = small_e
+        e_b = small_e
+        e_c = small_e
+
        end if
 
        !> Bisection
@@ -2838,13 +2866,14 @@ end subroutine m1_evaluate_implicit
          e_a = e_c
        else
 
-         print*, 'e_g, E_r:',e_gas, E_rad
-         print*, 'c0, c1', c0, c1
-         print*, n, 'a, c, b'
-         print*, e_a, e_c, e_b
-         print*, p_a, p_c, p_b
+         !print*, 'fail on it :', it
+         !print*, 'e_g, E_r:',e_gas, E_rad
+         !print*, 'c0, c1', c0, c1
+         !print*, n, 'a, c, b'
+         !print*, e_a, e_c, e_b
+         !print*, p_a, p_c, p_b
 
-         call mpistop('mehhh')
+         !call mpistop('mehhh')
 
          e_a = e_c
          e_b = e_c
@@ -2873,3 +2902,4 @@ end subroutine m1_evaluate_implicit
     end function Polynomial_Bisection
 
 end module mod_hd_phys
+

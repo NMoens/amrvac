@@ -213,8 +213,10 @@ contains
     ! Local variable
     integer :: ir, ix1, ixOmin1
     double precision :: prad(ixI^S)
-    double precision :: gradE
     double precision :: ff(ixI^S), chi(ixI^S)
+
+    double precision :: gradE
+    double precision :: fs, bs, cs
 
     select case (iB)
     case(1)
@@ -239,56 +241,26 @@ contains
       ! Gas pressure
       if (hd_energy) then
         w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
-        ! do ix1 = ixBmax1,ixBmin1,-1
-        !   w(ix1,p_) = 2 * w(ix1+1,p_) - w(ix1+2,p_)
-        !   ! w(ix1,p_) = max(w(ix1,p_), w(ix1+1,p_))
-        ! end do
       end if
 
       ! Radiation flux
       w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux
-      ! w(ixB^S,Fr(1)) = w(ixB^S ,Fr(1)) - w(ixB^S,mom(1))*w(ixB^S,Er_)
-      ! > Extrapolate
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   w(ix1,Fr(1)) = max(w(ix1+1,Fr(1)),0.d0)
-      ! end do
+
+      ixOmin1 = ixBmax1 + 1
+      gradE = -3*w(ixOmin1,kF_)*w(ixOmin1,rho_)*w(ixOmin1,Fr(1))/m1_c
 
 
-      ! Radiation energy
-      !> Manual ff
-      ! ff(ixB^S) = fred_bound**2
-      ! w(ixB^S,Er_) = w(ixB^S,Fr(1))/(m1_c*dsqrt(ff(ixB^S) ))
+      do ix1 = ixOmin1,ixBmin1+1,-1
+        !> Forward, backward and central derivs, needed for stretched grid gradient
+        fs = (x(ix1,1) - x(ix1-1,1)) &
+        / ((x(ix1+1,1) - x(ix1,1)) * (x(ix1+1,1) - x(ix1-1,1)))
+        bs = (x(ix1+1,1) - x(ix1,1)) &
+        / ((x(ix1,1) - x(ix1-1,1)) * (x(ix1+1,1) - x(ix1-1,1)))
+        cs = (x(ix1+1,1) + x(ix1-1,1) - 2*x(ix1,1)) &
+        / ((x(ix1,1) - x(ix1-1,1)) * (x(ix1+1,1) - x(ix1,1)))
 
-      !> StefBoltz
-
-      !> Fixed to Tbound
-      ! w(ixB^S,Er_) = const_rad_a*Tbound**4/unit_pressure
-      ! w(ixB^S,Er_) = max(Er_init(1)/unit_pressure,w(ixB^S,Fr(1))/m1_c)
-
-      !> Extrapolate
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   w(ix1,Er_) = w(ix1+1,Er_)
-      ! end do
-
-      !> Diffusion approximation
-      ! if (w(ixBmax1 + 1,Fr(1)) > w(ixBmax1,Fr(1))) then
-      !   do ix1 = ixBmax1,ixBmin1,-1
-      !     w(ix1,Er_) = w(ix1+1,Er_)
-      !   end do
-      ! else
-        ixOmin1 = ixBmax1 + 1
-        gradE = -3*w(ixOmin1,kF_)*w(ixBmax1,rho_)*w(ixBmax1,Fr(1))/m1_c
-        do ix1 = ixBmax1,ixBmin1,-1
-          w(ix1,Er_) = w(ix1+1,Er_) + gradE*(x(ix1,1)-x(ix1+1,1))
-        end do
-      ! end if
-
-      ! print*, 'gradE', gradE, 'krF', w(ixOmin1,kF_),w(ixOmin1,rho_),w(ixOmin1,Fr(1))
-      ! w(ixB^S,Er_) = min(w(ixB^S,Er_), const_rad_a*5.d5**4/unit_pressure)
-
-      ! print*, 'E', w(1:7,Er_)
-      ! print*, 'F', w(1:7,Fr(1))/(lstar/(4*dpi*(x(1:7,1)*unit_length)**2)/unit_radflux)
-      ! print*, 'f', w(1:7,mom(1))*w(1:7,Er_)/w(1:7,Fr(1))
+        w(ix1-1,Er_) = (gradE - fs*w(ix1+1,Er_) - cs*w(ix1,Er_))/bs
+      end do
 
       call hd_to_conserved(ixI^L,ixI^L,w,x)
 

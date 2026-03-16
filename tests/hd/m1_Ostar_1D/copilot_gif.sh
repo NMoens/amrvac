@@ -1,6 +1,6 @@
 
 #!/usr/bin/env bash
-# blk2gif.sh — Generate an animated GIF from Star89_1d####.blk files using gnuplot + ffmpeg.
+# blk2gif.sh — Generate an animated GIF from Star8_1d####.blk files using gnuplot + ffmpeg.
 # Usage:
 #   ./blk2gif.sh /path/to/data out.gif [FPS] [WIDTH] [HEIGHT] [FRAMES_DIR]
 # Defaults:
@@ -43,9 +43,9 @@ for cmd in gnuplot ffmpeg; do
 done
 
 # --- Inputs ---
-mapfile -t files < <(LC_ALL=C find "$DATA_DIR" -maxdepth 1 -type f -name 'Star89_1d[0-9][0-9][0-9][0-9].blk' | sort -V)
+mapfile -t files < <(LC_ALL=C find "$DATA_DIR" -maxdepth 1 -type f -name 'Star8_1d[0-9][0-9][0-9][0-9].blk' | sort -V)
 if [[ ${#files[@]} -eq 0 ]]; then
-  echo "ERROR: No files matching 'Star89_1d####.blk' found in '$DATA_DIR'." >&2
+  echo "ERROR: No files matching 'Star8_1d####.blk' found in '$DATA_DIR'." >&2
   exit 1
 fi
 echo "==> Found ${#files[@]} input files."
@@ -142,7 +142,7 @@ for f in "${files[@]}"; do
 
   # Extract frame number (#### from filename)
   frame_num=""
-  if [[ "$base" =~ ^Star89_1d([0-9]{4})\.blk$ ]]; then
+  if [[ "$base" =~ ^Star8_1d([0-9]{4})\.blk$ ]]; then
     frame_num="${BASH_REMATCH[1]}"
   fi
 

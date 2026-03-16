@@ -1,0 +1,20 @@
+ &filelist
+ base_filename= 'Star92_'
+ /
+
+ &fld_list
+  !> DON't FORGET TO FILL IN OPACITY TABLE IN BASE.PAR
+  !> ALSO: He_ABUNDANCE
+ /
+
+ &star_list
+    rhobound =    1.64142998027675526819988219412001471E-0006
+    Gamma_e =   0.359999999999999999999999999999999988
+    Tbound  = 5.d5
+    beta = 0.5d0
+    rstar =    11.5965928616424489354849856697026117
+    mstar =    49.1000000000000000000000000000000012
+    ic_file = 'init_conds/Star92_init.txt'
+    len_ic = 2176
+    fixed_lum = .false.
+ /

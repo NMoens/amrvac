@@ -29,6 +29,7 @@
   fix_small_values = .True.
   small_values_method = 'replace'
   small_pressure = 1.d-14
+  small_pressure = 1.d-18
 /
 
 &boundlist

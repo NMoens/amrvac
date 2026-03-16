@@ -1086,7 +1086,7 @@ contains
 
       ! TODO: Implement actual eigenvalues
       !> e.g. Gonzalez+ 2007
-      cmax(ixO^S,1) = m1_c*m1_RSOL
+      cmax(ixI^S,1) = m1_c*m1_RSOL
 
       ! !TODO: Check this sum, it does not produce what is expected
       ! ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
@@ -1698,7 +1698,7 @@ contains
        ptt = m1_c**2 * (wCT(ixI^S, Er_) - prr) /2
        ppp = ptt
 
-       w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * m1_RSOL * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
+       w(ixI^S, Fr(1)) = w(ixI^S, Fr(1)) + qdt * m1_RSOL * (ptt(ixI^S) + ppp(ixI^S))/ x(ixI^S, 1)
 
       {^NOONED
       case (2)
@@ -2566,7 +2566,7 @@ end subroutine m1_evaluate_implicit
 
       !> Finite disc correction factor
       beta_fd(ixO^S) = ( 1.0d0 - vr(ixO^S)/(x(ixO^S,1) * dvrdr(ixO^S)) ) &
-                        * (xprobmin1/x(ixO^S,1))**2.0d0
+                        * (xprobmin1/x(ixO^S,1))**2
 
       where (beta_fd(ixO^S) >= 1.0d0)
         fdfac(ixO^S) = 1.0d0/(1.0d0 + a_F)
@@ -2719,7 +2719,7 @@ end subroutine m1_evaluate_implicit
 
         !> Finite disc correction factor
         beta_fd = ( 1.0d0 - vr(ix^D)/(x(ix^D,1) * dvrdr(ix^D)) ) &
-        * (R_phot/x(ix^D,1))**2.0d0
+        * (R_phot/x(ix^D,1))**2
 
         if (x(ix^D,1) .le. R_phot) then
           fdfac = 1.d0/(1.d0 + alpha)
@@ -2743,7 +2743,7 @@ end subroutine m1_evaluate_implicit
     {enddo\ }
 
     !> Combine OPAL and CAK-like
-    w(ixO^S,kF_) = min(CAK(ixO^S), 50.d0*m1_kappa_e) + OPAL(ixO^S)
+    w(ixO^S,kF_) = min(CAK(ixO^S), 500.d0*m1_kappa_e) + OPAL(ixO^S)
     w(ixO^S,kE_) = 1.d-1 * CAK(ixO^S) + OPAL(ixO^S) - m1_kappa_e
     w(ixO^S,kB_) = 1.d-1 * CAK(ixO^S) + OPAL(ixO^S) - m1_kappa_e
 
@@ -2810,7 +2810,7 @@ end subroutine m1_evaluate_implicit
     !> Flag flux values where |F| > cE
     !> Flag all dirs
     do idir =1,ndir
-      where (Fmag2(ixO^S) > (m1_c*w(ixO^S, Er_))**2) 
+      where (Fmag2(ixO^S) > (m1_c*w(ixO^S, Er_))**2)
         flag(ixO^S,Fr(idir)) = .true.
       end where
     end do
@@ -2851,7 +2851,7 @@ end subroutine m1_evaluate_implicit
          !print*, 'x**4 +',c1,'x -',c0
          !print*, 'between x=', e_a, 'and', e_b
          !call mpistop("Problems with bisection scheme")
-       
+
         n = max_its
         e_a = small_e
         e_b = small_e
@@ -2873,7 +2873,7 @@ end subroutine m1_evaluate_implicit
          !print*, e_a, e_c, e_b
          !print*, p_a, p_c, p_b
 
-         !call mpistop('mehhh')
+         call mpistop('mehhh')
 
          e_a = e_c
          e_b = e_c
@@ -2902,4 +2902,3 @@ end subroutine m1_evaluate_implicit
     end function Polynomial_Bisection
 
 end module mod_hd_phys
-

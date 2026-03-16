@@ -227,6 +227,7 @@ contains
       w(ixBmax1,rho_) = rhobound
       do ix1 = ixBmax1-1, ixBmin1, -1
         w(ix1,rho_) = 10.d0**max(2 * dlog10(w(ix1+1,rho_)) - dlog10(w(ix1+2,rho_)), dlog10(w(ix1+1,rho_)))
+        w(ix1,rho_) = max(w(ix1,rho_), rhobound)
       end do
 
       do ix1 = ixBmax1,ixBmin1,-1
@@ -238,29 +239,45 @@ contains
       w(ixB^S,mom(1)) = min(w(ixB^S,mom(1)), asound)
       w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), -0.d0*asound)
 
-      ! Gas pressure
+      ! Gas pressure.
       if (hd_energy) then
-        w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
+        !w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
+        do ix1 = ixBmax1, ixBmin1, -1
+          w(ix1,p_) = 10.d0**(2 * dlog10(w(ix1+1,p_)) - dlog10(w(ix1+2,p_)))
+        end do
       end if
 
       ! Radiation flux
-      w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux
+      w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux &
+                     - w(ixB^S,Er_)*w(ixB^S,mom(1))
 
       ixOmin1 = ixBmax1 + 1
-      gradE = -3*w(ixOmin1,kF_)*w(ixOmin1,rho_)*w(ixOmin1,Fr(1))/m1_c
-
 
       do ix1 = ixOmin1,ixBmin1+1,-1
+        gradE = lstar/(4*dpi*(x(ix1,1)*unit_length)**2)/unit_radflux &
+              - w(ix1,Er_)*w(ix1,mom(1))
+        ! gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*w(ix1,Fr(1))/m1_c
+        gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*gradE/m1_c
+
         !> Forward, backward and central derivs, needed for stretched grid gradient
         fs = (x(ix1,1) - x(ix1-1,1)) &
         / ((x(ix1+1,1) - x(ix1,1)) * (x(ix1+1,1) - x(ix1-1,1)))
-        bs = (x(ix1+1,1) - x(ix1,1)) &
+
+        bs = -(x(ix1+1,1) - x(ix1,1)) &
         / ((x(ix1,1) - x(ix1-1,1)) * (x(ix1+1,1) - x(ix1-1,1)))
+
         cs = (x(ix1+1,1) + x(ix1-1,1) - 2*x(ix1,1)) &
         / ((x(ix1,1) - x(ix1-1,1)) * (x(ix1+1,1) - x(ix1,1)))
 
         w(ix1-1,Er_) = (gradE - fs*w(ix1+1,Er_) - cs*w(ix1,Er_))/bs
       end do
+
+      ! Gas pressure
+      if (hd_energy) then
+        w(ixB^S,p_) = (w(ixB^S,Er_)*unit_pressure/const_rad_a)**0.25d0
+        w(ixB^S,p_) = const_kB/(const_mp*hd_mu) * w(ixB^S,p_) * w(ixB^S,rho_)*unit_density
+        w(ixB^S,p_) = w(ixB^S,p_)/unit_pressure
+      end if
 
       call hd_to_conserved(ixI^L,ixI^L,w,x)
 

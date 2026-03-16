@@ -14,12 +14,15 @@ module mod_usr
   double precision :: lstar, vesc, gamma_e, logg, logge, heff
   double precision :: fred_bound
 
-  integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum
+  integer :: i_Gamma, i_Mf, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum, i_mdot, i_am
   integer :: i_SdivF, i_SdivP, i_SFdv, i_SgR, i_ScdvP, i_tau_cell
+  integer :: i_Prr, i_Ptt, i_Ppp, i_Prt
 
   integer :: len_ic = 3000
   double precision, allocatable :: r_init(:), rho_init(:), vr_init(:), p_init(:), Er_init(:)
-  character(len=32) :: ic_file
+  character(len=32) :: ic_file = 'init_conds/Star89_init.txt'
+
+  logical :: fixed_lum = .true.
 
 contains
 
@@ -56,7 +59,12 @@ contains
     !> Extra variables
     i_Gamma = var_set_extravar('Gamma','Gamma')
     i_Mf = var_set_extravar('M_F','M_F')
-    i_Prad = var_set_extravar('P_rr','P_rr')
+    i_Prr = var_set_extravar('P_rr','P_rr')
+    i_Ptt = var_set_extravar('P_tt','P_tt')
+    i_Ppp = var_set_extravar('P_pp','P_pp')
+    i_Prt = var_set_extravar('P_rt','P_rt')
+
+
     i_pht = var_set_extravar('pht','pht')
     i_fcmf = var_set_extravar('Fcmf','Fcmf')
     i_Tgas = var_set_extravar('Tgas','Tgas')
@@ -64,6 +72,8 @@ contains
     i_ff = var_set_extravar('ff','ff')
     i_chi = var_set_extravar('chi','chi')
     i_lum = var_set_extravar('lum','lum')
+    i_mdot = var_set_extravar('mdot','mdot')
+    i_am = var_set_extravar('am','am')
 
     ! i_SdivF = var_set_extravar('Div_Fv','Div_Fv')
     ! i_SdivP = var_set_extravar('Div_c2P','Div_c2P')
@@ -80,7 +90,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer :: n
 
-    namelist /star_list/ mstar, rstar, Tbound, rhobound, beta, fred_bound, gamma_e, ic_file, len_ic
+    namelist /star_list/ mstar, rstar, Tbound, rhobound, beta, fred_bound, gamma_e, ic_file, len_ic, fixed_lum
 
     do n = 1,size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -158,7 +168,14 @@ contains
     allocate(p_init(len_ic))
     allocate(Er_init(len_ic))
 
-    call read_init_conds()
+    if (mype .eq. 0) &
+      call read_init_conds()
+
+    call mpi_bcast(r_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+    call mpi_bcast(rho_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+    call mpi_bcast(vr_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+    call mpi_bcast(p_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+    call mpi_bcast(Er_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
 
   end subroutine initglobaldata_usr
 
@@ -169,7 +186,7 @@ contains
     if (mype .eq. 0) print*, ic_file, len_ic, 'lines'
 
     open(unit=1, file=trim(ic_file))
-    ! read(1,*) !> first line of data
+    !read(1,*) !> first line of data
     do ii = 1,len_ic-2
       read(1,*) r_init(ii), rho_init(ii), vr_init(ii), p_init(ii), Er_init(ii)
     enddo
@@ -199,6 +216,9 @@ contains
       w(ix1, :, Er_) = Er_init(nearest_i)/unit_pressure
     end do
 
+    !> Velocity perturbation
+    w(ixI^S, mom(2)) = 1.d0*sin(x(ixI^S,2)*10)*sin((x(ixI^S,1)-1.d0)*10)
+
     call hd_to_conserved(ixI^L,ixO^L,w,x)
 
     w(ixI^S,Fr(1)) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux
@@ -216,8 +236,10 @@ contains
     ! Local variable
     integer :: ir, ix1, ixOmin1
     double precision :: prad(ixI^S)
-    double precision :: gradE(ixBmin2:ixBmax2)
     double precision :: ff(ixI^S), chi(ixI^S)
+    double precision :: gradE(ixBmin2:ixBmax2)
+    double precision :: fs(ixBmin2:ixBmax2), cs(ixBmin2:ixBmax2), bs(ixBmin2:ixBmax2)
+
 
     select case (iB)
     case(1)
@@ -230,10 +252,8 @@ contains
         w(ix1,:,rho_) = 10.d0**max(2 * dlog10(w(ix1+1,:,rho_)) - dlog10(w(ix1+2,:,rho_)), dlog10(w(ix1+1,:,rho_)))
       end do
 
-      w(ixB^S,mom(1)) = 0.d0
-
+      w(ixB^S,mom(:)) = 0.d0
       do ix1 = ixBmax1,ixBmin1,-1
-        ! w(ix1,mom(1)) = max(2 * w(ix1+1,mom(1)) - w(ix1+2,mom(1)), w(ix1+1,mom(1)))
         w(ix1,:,mom(1)) = 2 * w(ix1+1,:,mom(1)) - w(ix1+2,:,mom(1))
       end do
 
@@ -241,68 +261,65 @@ contains
       w(ixB^S,mom(1)) = min(w(ixB^S,mom(1)), asound)
       w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), -0.d0*asound)
 
-      ! Gas pressure
-      if (hd_energy) then
-        w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
-        ! do ix1 = ixBmax1,ixBmin1,-1
-        !   w(ix1,p_) = 2 * w(ix1+1,p_) - w(ix1+2,p_)
-        !   ! w(ix1,p_) = max(w(ix1,p_), w(ix1+1,p_))
-        ! end do
-      end if
 
-      w(ixB^S,Fr(:)) = 0.d0
+      if (fixed_lum) then
 
-      ! Radiation flux
-      w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux
-      ! w(ixB^S,Fr(1)) = w(ixB^S ,Fr(1)) - w(ixB^S,mom(1))*w(ixB^S,Er_)
-      ! > Extrapolate
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   w(ix1,Fr(1)) = max(w(ix1+1,Fr(1)),0.d0)
-      ! end do
+        ! Radiation flux
+        w(ixB^S,Fr(:)) = 0.d0
+        w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux &
+                       - w(ixB^S,Er_)*w(ixB^S,mom(1))
 
+        ixOmin1 = ixBmax1 +1
+        do ix1 = ixBmax1+1, ixBmin1+1, -1
+          gradE(ixBmin2:ixBmax2) = lstar/(4*dpi*(x(ix1,ixBmin2:ixBmax2,1)*unit_length)**2)/unit_radflux &
+                - w(ix1,ixBmin2:ixBmax2,Er_)*w(ix1,ixBmin2:ixBmax2,mom(1))
+          gradE(ixBmin2:ixBmax2) = -3*w(ixBmax1 +1,ixBmin2:ixBmax2,kF_)*w(ix1,ixBmin2:ixBmax2,rho_)*gradE(ixBmin2:ixBmax2)/m1_c
 
-      ! Radiation energy
-      !> Manual ff
-      ! ff(ixB^S) = fred_bound**2
-      ! w(ixB^S,Er_) = w(ixB^S,Fr(1))/(m1_c*dsqrt(ff(ixB^S) ))
+          !> Forward, backward and central derivs, needed for stretched grid gradient
+          fs(ixBmin2:ixBmax2) = (x(ix1,ixBmin2:ixBmax2,1) - x(ix1-1,ixBmin2:ixBmax2,1)) &
+          / ((x(ix1+1,ixBmin2:ixBmax2,1) - x(ix1,ixBmin2:ixBmax2,1)) * (x(ix1+1,ixBmin2:ixBmax2,1) - x(ix1-1,ixBmin2:ixBmax2,1)))
 
-      !> StefBoltz
+          bs(ixBmin2:ixBmax2) = -(x(ix1+1,ixBmin2:ixBmax2,1) - x(ix1,ixBmin2:ixBmax2,1)) &
+          / ((x(ix1,ixBmin2:ixBmax2,1) - x(ix1-1,ixBmin2:ixBmax2,1)) * (x(ix1+1,ixBmin2:ixBmax2,1) - x(ix1-1,ixBmin2:ixBmax2,1)))
 
-      !> Fixed to Tbound
-      ! w(ixB^S,Er_) = const_rad_a*Tbound**4/unit_pressure
-      ! w(ixB^S,Er_) = max(Er_init(1)/unit_pressure,w(ixB^S,Fr(1))/m1_c)
+          cs(ixBmin2:ixBmax2) = (x(ix1+1,ixBmin2:ixBmax2,1) + x(ix1-1,ixBmin2:ixBmax2,1) - 2*x(ix1,ixBmin2:ixBmax2,1)) &
+          / ((x(ix1,ixBmin2:ixBmax2,1) - x(ix1-1,ixBmin2:ixBmax2,1)) * (x(ix1+1,ixBmin2:ixBmax2,1) - x(ix1,ixBmin2:ixBmax2,1)))
 
-      !> Extrapolate
-      ! do ix1 = ixBmax1,ixBmin1,-1
-      !   w(ix1,Er_) = w(ix1+1,Er_)
-      ! end do
-
-      !> Diffusion approximation
-      ! if (w(ixBmax1 + 1,Fr(1)) > w(ixBmax1,Fr(1))) then
-      !   do ix1 = ixBmax1,ixBmin1,-1
-      !     w(ix1,Er_) = w(ix1+1,Er_)
-      !   end do
-      ! else
-        ixOmin1 = ixBmax1 + 1
-        gradE(ixBmin2:ixBmax2) = -3*w(ixOmin1,ixBmin2:ixBmax2,kF_)*w(ixBmax1,ixBmin2:ixBmax2,rho_)*w(ixBmax1,ixBmin2:ixBmax2,Fr(1))/m1_c
-        do ix1 = ixBmax1,ixBmin1,-1
-          w(ix1,ixBmin2:ixBmax2,Er_) = w(ix1+1,ixBmin2:ixBmax2,Er_) + gradE(ixBmin2:ixBmax2)*(x(ix1,ixBmin2:ixBmax2,1)-x(ix1+1,ixBmin2:ixBmax2,1))
+          w(ix1-1,ixBmin2:ixBmax2,Er_) = (gradE(ixBmin2:ixBmax2) - fs(ixBmin2:ixBmax2)*w(ix1+1,ixBmin2:ixBmax2,Er_) - cs(ixBmin2:ixBmax2)*w(ix1,ixBmin2:ixBmax2,Er_))/bs(ixBmin2:ixBmax2)
         end do
-      ! end if
 
-      ! print*, 'gradE', gradE, 'krF', w(ixOmin1,kF_),w(ixOmin1,rho_),w(ixOmin1,Fr(1))
-      ! w(ixB^S,Er_) = min(w(ixB^S,Er_), const_rad_a*5.d5**4/unit_pressure)
+        ! Gas pressure
+        if (hd_energy) then
+          w(ixB^S,p_) = (w(ixB^S,Er_)*unit_pressure/const_rad_a)**0.25d0
+          w(ixB^S,p_) = const_kB/(const_mp*hd_mu) * w(ixB^S,p_) * w(ixB^S,rho_)*unit_density
+          w(ixB^S,p_) = w(ixB^S,p_)/unit_pressure
+          !> limits
+          w(ixB^S,p_) = min(w(ixB^S,p_),1.d1)
+          w(ixB^S,p_) = max(w(ixB^S,p_),1.d-1)
+        end if
 
-      ! print*, 'E', w(1:7,Er_)
-      ! print*, 'F', w(1:7,Fr(1))/(lstar/(4*dpi*(x(1:7,1)*unit_length)**2)/unit_radflux)
-      ! print*, 'f', w(1:7,mom(1))*w(1:7,Er_)/w(1:7,Fr(1))
+      else
+
+        !> Gas pressure
+        w(ixB^S,p_) = const_kB*Tbound*w(ixB^S,rho_)*unit_density/(const_mp*hd_mu)/unit_pressure
+
+        !> Radiation energy density
+        w(ixB^S,Er_) = const_rad_a*Tbound**4/unit_pressure
+
+        !> Radiation flux
+        w(ixB^S,Fr(:)) = 0.d0
+        do ix1 = ixBmax1,ixBmin1,-1
+          w(ix1,:,Fr(1)) = w(ix1+1,:,Fr(1)) * (x(ix1+1,:,1)/x(ix1,:,1))**2
+        end do
+
+      end if
 
       call hd_to_conserved(ixI^L,ixI^L,w,x)
 
     case (2)
 
       do ix1 = ixBmin1,ixBmax1
-        w(ix1,:,mom(1)) = w(ix1-1,:,mom(1))!*(x(ix1,:,1)/x(ix1-1,:,1))**2
+        w(ix1,:,mom(1)) = w(ix1-1,:,mom(1))*(x(ix1,:,1)/x(ix1-1,:,1))**2
         w(ix1,:,Fr(1)) = w(ix1-1,:,Fr(1))*(x(ix1,:,1)/x(ix1-1,:,1))**2
 
         w(ix1,:,mom(1)) = max(0.d0,w(ix1,:,mom(1)))
@@ -402,10 +419,10 @@ contains
     double precision, intent(in)  :: x(ixI^S,1:ndim), wCT(ixI^S,1:nw)
     double precision, intent(out) :: gravity_field(ixI^S,ndim)
 
-    gravity_field(ixO^S,:) = 0.0d0
+    gravity_field(ixI^S,:) = 0.0d0
 
     ! Only in radial direction
-    gravity_field(ixO^S,1) = -Ggrav * mstar/x(ixO^S,1)**2.0d0
+    gravity_field(ixI^S,1) = -Ggrav * mstar/x(ixI^S,1)**2
 
   end subroutine stellar_gravity
 
@@ -431,7 +448,7 @@ contains
     call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, prad)
     call gradient_str(v, x, ixI^L, ixO^L, 1, gradv)
 
-    w(ixO^S,i_Prad) = prad(ixO^S)
+    w(ixO^S,i_Prr) = prad(ixO^S)
     w(ixO^S,i_pht) = - m1_RSOL*gradv(ixO^S)*prad(ixO^S)
     w(ixO^S,i_fcmf) = - m1_RSOL*w(ixO^S,Fr(1))*gradv(ixO^S)
 
@@ -444,6 +461,18 @@ contains
     w(ixO^S,i_ff) = sum(w(ixO^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixO^S,Er_))**2
     w(ixO^S,i_chi) = (3.d0+4*w(ixO^S,i_ff))/(5.d0+2*dsqrt(4.d0-3*w(ixO^S,i_ff)))
     w(ixO^S,i_lum) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * w(ixO^S,Fr(1))*unit_radflux / lstar
+
+    w(ixO^S,i_mdot) = 4*dpi*w(ixO^S,mom(1))*x(ixO^S,1)**2 * unit_velocity*unit_density*unit_length**2/const_Msun*365*24*60*60
+    w(ixO^S,i_am) = x(ixO^S,1)*w(ixO^S,mom(2))
+
+    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, T)
+    w(ixO^S,i_Prr) = T(ixO^S)/w(ixO^S,Er_)
+    call m1_get_prad(w, x, ixI^L, ixO^L, 2, 2, T)
+    w(ixO^S,i_Ptt) = T(ixO^S)/w(ixO^S,Er_)
+    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 2, T)
+    w(ixO^S,i_Prt) = T(ixO^S)/w(ixO^S,Er_)
+
+    w(ixO^S,i_Ppp) = 1.d0 - w(ixO^S,i_Prr) - w(ixO^S,i_Ptt)
 
     ! !> Flux equation terms:
     ! !> Directional derivative

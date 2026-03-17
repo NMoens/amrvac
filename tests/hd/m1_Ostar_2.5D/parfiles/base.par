@@ -35,7 +35,7 @@
 &boundlist
   typeboundary_min1 = 9*'special'
   typeboundary_max1 = 9*'noinflow'
-  typeboundary_min2 = 'symm','symm','asymm','asymm','symm','symm','symm','asymm','asymm'
+  typeboundary_min2 = 9*'pole' !'symm','symm','asymm','asymm','symm','symm','symm','asymm','asymm'
   typeboundary_max2 = 'symm','symm','asymm','symm','symm','symm','symm','asymm','symm'
   internalboundary = .false.
 /

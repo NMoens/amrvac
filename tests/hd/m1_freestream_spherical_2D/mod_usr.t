@@ -166,15 +166,6 @@ subroutine update_extravars(igrid,level,ixI^L,ixO^L,qt,w,x)
   call m1_get_prad(w, x, ixI^L, ixO^L, 2, 2, prad)
   w(ixI^S,i_Pyy) = prad(ixI^S)/w(ixI^S,Er_)
 
-  if (mype .eq. 0) then
-    print*, 'Er', it
-    print*, w(ixI^S,Er_)/(Er/unit_pressure)
-    print*, 'F1', it
-    print*, w(ixI^S,Fr(1))/(m1_c*w(ixI^S,Er_))
-    print*, 'F2', it
-    print*, w(ixI^S,Fr(2))/(m1_c*w(ixI^S,Er_))
-  end if
-
 end subroutine update_extravars
 
 end module mod_usr

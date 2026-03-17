@@ -1,0 +1,14 @@
+&filelist
+  base_filename = 'Star8_'
+/
+
+&star_list
+  mstar    = 21.0d0
+  rstar    = 11.0d0
+  Tbound   = 5.0d5
+  gamma_e  = 0.17d0
+  rhobound = 3.8e-6
+  beta     = 0.5d0
+  ic_file  = 'init_conds/Star8_init.txt'
+  len_ic   = 3070
+/

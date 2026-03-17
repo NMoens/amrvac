@@ -1360,6 +1360,32 @@ contains
 
   end subroutine m1_get_prad
 
+  subroutine m1_get_chi(w, x, ixI^L, ixO^L, chi)
+    use mod_global_parameters
+
+    integer, intent(in)          :: ixI^L, ixO^L
+    double precision, intent(in) :: w(ixI^S, 1:nw)
+    double precision, intent(in) :: x(ixI^S, 1:ndim)
+    double precision, intent(out):: chi(ixI^S)
+
+    !TODO: Check this sum, it does not produce what is expected
+    chi(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
+
+    !> Cap ff, this should not be necessary, but the sum above does not behave properly
+    chi(ixI^S) = min(chi(ixI^S),1.d0)
+
+    !> Eddington factor
+    chi(ixI^S) = (3.d0+4*chi(ixI^S))/(5.d0+2*dsqrt(4.d0-3*chi(ixI^S)))
+    chi(ixI^S) = max(chi(ixI^S),1.d0/3)
+    chi(ixI^S) = min(chi(ixI^S),1.d0)
+
+    !> Temporary (??) fix
+    where (chi(ixI^S) .ne. chi(ixI^S))
+      chi(ixI^S) = 1.d0 !5.d0/3.d0
+    end where
+
+    end subroutine m1_get_chi
+
   !> Calculate temperature=p/rho when in e_ the  total energy is stored
   subroutine hd_get_temperature_from_etot(w, x, ixI^L, ixO^L, res)
     use mod_global_parameters
@@ -1674,25 +1700,6 @@ contains
       h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
       select case (ndir)
       case (1)
-       !  !> If only 1D, F = (F,0,0)
-       !  ff(ixI^S) = wCT(ixI^S, Fr(1))**2/(m1_c*wCT(ixI^S,Er_))**2
-       !  ff(ixI^S) = min(ff(ixI^S), 1.d0)
-       !
-       !  !> Eddington factor
-       !  chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
-       !  source(ixO^S) = m1_c**2 * ((1-chi(ixO^S))*wCT(ixO^S,Er_)/2) &
-       !       * x(ixO^S,1) * (block%surfaceC(ixO^S,1) - block%surfaceC(h1x^S,1)) &
-       !       / block%dvolume(ixO^S)
-       !
-       ! if (any(chi(ixI^S).ne.chi(ixI^S))) then
-       !   print*, ff(ixI^S)
-       !   print*, chi(ixI^S)
-       !   stop "Chi NaN in m1_geom_source"
-       ! end if
-       !
-       !  !> Add sourceterms
-       !  w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * m1_RSOL * source(ixO^S) / x(ixO^S,1)
-
        !> Get relevant pressure tensor
        call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
        ptt = m1_c**2 * (wCT(ixI^S, Er_) - prr) /2
@@ -1702,7 +1709,7 @@ contains
 
       {^NOONED
       case (2)
-        if (ndim .eq. 1) call mpistop("1.x D not implemented yet")
+        ! if (ndim .eq. 1) call mpistop("1.x D not implemented yet")
 
         !> Get relevant pressure tensors:
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
@@ -1711,31 +1718,30 @@ contains
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr)
 
         !> Add advection part
-        prr = m1_c**2 * prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
+        ! prr = m1_c**2 * prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
         ptt = m1_c**2 * ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
         ptr = m1_c**2 * ptr + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
         ! ptr = m1_c**2 * ptr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_) !< IS THIS ONE CORRECT?
         ppp = m1_c**2 * ppp
 
-
         !> Perform corrections
         !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*(nabla T + S_corr)
         w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * m1_RSOL * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
         w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * m1_RSOL * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
-      }
-      {^IFTHREED
+
       case(3)
-        if ((ndim .eq. 1) .or. (ndim .eq. 2)) call mpistop("1.x D not implemented yet")
+        ! if ((ndim .eq. 1) .or. (ndim .eq. 2)) call mpistop("1.x D not implemented yet")
 
         !> Get relevant pressure tensors:
-        call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
+        ! call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt)
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, ppp)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 2, ppt)
-        call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, ppp)
+        call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 1, ppr)
 
         !> Add advection part
-        prr = m1_c**2 * prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
+        ! prr = m1_c**2 * prr + wCT(ixI^S, Fr(1))*wCT(ixI^S, mom(1))/wCT(ixI^S, rho_)
         ptt = m1_c**2 * ptt + wCT(ixI^S, Fr(2))*wCT(ixI^S, mom(2))/wCT(ixI^S, rho_)
         ppp = m1_c**2 * ppp + wCT(ixI^S, Fr(3))*wCT(ixI^S, mom(3))/wCT(ixI^S, rho_)
 
@@ -1747,8 +1753,11 @@ contains
         !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*nabla T
         w(ixO^S, Fr(1)) = w(ixO^S, Fr(1)) + qdt * m1_RSOL * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
         w(ixO^S, Fr(2)) = w(ixO^S, Fr(2)) + qdt * m1_RSOL * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
-        w(ixO^S, Fr(3)) = w(ixO^S, Fr(3)) + qdt * m1_RSOL * (-ppr(ixO^S)/x(ixO^S, 1)  - ppt(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
+
+        !> 2 ptp BELOW: P is symmetric
+        w(ixO^S, Fr(3)) = w(ixO^S, Fr(3)) + qdt * m1_RSOL * (-ppr(ixO^S)/x(ixO^S, 1) - 2*ppt(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
       }
+
       end select
 
     end select
@@ -2380,6 +2389,8 @@ end subroutine m1_evaluate_implicit
      !> Get fld lambda (Pomraning flux limiter)
      lambda(ixI^S) = (2.d0+R(ixI^S))/(6.d0+3*R(ixI^S)+R(ixI^S)**2.d0)
 
+     !> initialise for ndir != ndim
+     F0(ixI^S,:) = 0.d0
      do idir = 1, ndim
        call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
        F0(ixI^S,idir) = -m1_c*lambda(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_))*gradE(ixI^S)
@@ -2392,7 +2403,6 @@ end subroutine m1_evaluate_implicit
 
    do idir = 1, ndir
      w(ixO^S,Fr(idir)) = F0(ixO^S,idir) + (w(ixO^S,Fr(idir)) - F0(ixO^S,idir))*dexp(-tau(ixO^S))
-     ! w(ixI^S,Fr(idir)) = F0(ixI^S,idir) + (w(ixI^S,Fr(idir)) - F0(ixI^S,idir))/(1 + tau(ixI^S))
    end do
 
  end subroutine m1_flux_absorbtion
@@ -2434,6 +2444,9 @@ end subroutine m1_evaluate_implicit
      !> Get fld lambda (Pomraning flux limiter)
      lambda(ixI^S) = (2.d0+R(ixI^S))/(6.d0+3*R(ixI^S)+R(ixI^S)**2.d0)
 
+     !> initialise for ndir != ndim
+     F0(ixI^S,:) = 0.d0
+
      do idir = 1, ndim
        call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
        F0(ixI^S,idir) = -m1_c*lambda(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_))*gradE(ixI^S)
@@ -2441,7 +2454,6 @@ end subroutine m1_evaluate_implicit
    end if
 
    lambda(ixI^S) = m1_RSOL*m1_c*w(ixI^S,rho_)*w(ixI^S,kF_)
-   ! tau(ixI^S) = lambda(ixI^S)*dtfactor*dt
 
    do idir = 1, ndir
      w(ixO^S,Fr(idir)) = -lambda(ixO^S)*(w(ixO^S,Fr(idir)) - F0(ixO^S,idir))

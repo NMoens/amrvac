@@ -1,5 +1,5 @@
 &filelist
-  base_filename = 'output/fs2d'
+  base_filename = 'output/fs_rad'
   typefilelog   = 'default'
   convert_type  = 'vtuBCCmpi'
   autoconvert   = .true.

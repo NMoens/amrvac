@@ -23,7 +23,7 @@
 &methodlist
   time_stepper = 'twostep'
   time_integrator = 'IMEX_Midpoint'
-  flux_scheme  = 'tvdlf'
+  flux_scheme  = 'hll'
   limiter      = 'minmod'
   check_small_values = .True.
   fix_small_values = .True.
@@ -66,7 +66,7 @@
 &star_list
   mstar    = 21.0d0
   rstar    = 11.0d0
-  Tbound   = 5.0d5
+  Tbound   = 5.0d8
   gamma_e  = 0.17d0
-  rhobound = 3.8d-6
+  rhobound = 3.8d-4
 /

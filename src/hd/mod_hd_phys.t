@@ -1080,29 +1080,67 @@ contains
     double precision                          :: fi(ixI^S), fj(ixI^S)
     double precision                          :: ff(ixI^S), xi(ixI^S)
 
+    double precision                          :: lam_L_max(ixI^S), lam_L_min(ixI^S)
+    double precision                          :: lam_R_max(ixI^S), lam_R_min(ixI^S)
+
     integer :: ix^D
 
     if (hd_m1) then
 
       ! TODO: Implement actual eigenvalues
       !> e.g. Gonzalez+ 2007
-      cmax(ixI^S,1) = m1_c*m1_RSOL
+      ! cmax(ixI^S,1) = m1_c*m1_RSOL
 
-      ! !TODO: Check this sum, it does not produce what is expected
-      ! ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
-      !
-      ! !> Eddington scalars
-      ! fi(ixI^S) = (w(ixI^S,Fr(idim))/(m1_c*w(ixI^S,Er_)))
-      ! fj(ixI^S) = dsqrt(ff(ixI^S) - fi(ixI^S)**2)
-      ! xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
-      !
-      ! cmax(ixI^S,1) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-      !             + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-      !             /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-      !
-      ! cmin(ixI^S,1) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-      !             - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-      !             /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+      !TODO: Check this sum, it does not produce what is expected
+      !> Left state
+      ff(ixI^S) = sum(wLC(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*wLC(ixI^S,Er_))**2
+      ff(ixI^S) = min(ff(ixI^S),1.d0)
+
+      !> Eddington scalars
+      fi(ixI^S) = abs(wLC(ixI^S,Fr(idim))/(m1_c*wLC(ixI^S,Er_)))
+      fi(ixI^S) = min(fi(ixI^S),1.d0)
+
+      fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
+
+      xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
+
+      lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+                  + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+                  /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+      lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+                  - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+                  /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+      !> Right state
+      ff(ixI^S) = sum(wRC(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*wRC(ixI^S,Er_))**2
+      ff(ixI^S) = min(ff(ixI^S),1.d0)
+
+      !> Eddington scalars
+      fi(ixI^S) = abs(wRC(ixI^S,Fr(idim))/(m1_c*wRC(ixI^S,Er_)))
+      fi(ixI^S) = min(fi(ixI^S),1.d0)
+
+      fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
+
+      xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
+
+      lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+                  + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+                  /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+      lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+                  - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+                  /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+      !>Skinner Ostricker 2013, Eq 39
+      !TODO: Is below correctly implemented?
+      cmax(ixI^S,1) = max(lam_L_max(ixI^S),lam_R_max(ixI^S))
+      cmax(ixI^S,1) = max(cmax(ixI^S,1),0.d0)
+
+      if (present(cmin)) then
+        cmin(ixI^S,1) = min(lam_L_min(ixI^S),lam_R_min(ixI^S))
+        cmin(ixI^S,1) = min(cmin(ixI^S,1),0.d0)
+      end if
 
     else
 
@@ -1268,7 +1306,7 @@ contains
   !> Calculate the radiation pressure tensor components
   !> using the M1 closure
   !> https://www.sciencedirect.com/science/article/pii/S0022407314001691
-  subroutine m1_get_prad(w, x, ixI^L, ixO^L, idir, jdir, prad)
+  subroutine m1_get_prad(w, x, ixI^L, ixO^L, idir, jdir, prad, str)
     use mod_global_parameters
 
     integer, intent(in)          :: ixI^L, ixO^L
@@ -1277,8 +1315,14 @@ contains
     double precision, intent(out):: prad(ixI^S)
     integer, intent(in)          :: idir, jdir
 
+    double precision :: Erad(ixI^S)
+    logical, optional, intent(in):: str
+    logical :: streaming = .false.
+
     integer                      :: iw, ix^D
     double precision :: fi(ixI^S), fj(ixI^S), ff(ixI^S), chi(ixI^S)
+
+    if (present(str)) streaming = str
 
     if (m1_diffusion) then
 
@@ -1290,12 +1334,19 @@ contains
 
     else
 
+      if (streaming) then
+        call m1_get_streaming_fraction(w, x, ixI^L, ixO^L, idir, Erad)
+        Erad(ixI^S) = w(ixI^S,Er_)*Erad(ixI^S)
+      else
+        Erad(ixI^S) = w(ixI^S,Er_)
+      end if
+
       !> Eddington scalars
-      fi(ixI^S) = w(ixI^S,Fr(idir))/(m1_c*w(ixI^S,Er_))
-      fj(ixI^S) = w(ixI^S,Fr(jdir))/(m1_c*w(ixI^S,Er_))
+      fi(ixI^S) = w(ixI^S,Fr(idir))/(m1_c*Erad(ixI^S))
+      fj(ixI^S) = w(ixI^S,Fr(jdir))/(m1_c*Erad(ixI^S))
 
       !TODO: Check this sum, it does not produce what is expected
-      ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
+      ff(ixI^S) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*Erad(ixI^S))**2
 
       !> Cap ff, this should not be necessary, but the sum above does not behave properly
       fi(ixI^S) = min(fi(ixI^S),1.d0)
@@ -1328,35 +1379,7 @@ contains
     end if
 
     !> Radiation pressure tensor
-    prad(ixI^S) = prad(ixI^S) * w(ixI^S,Er_)
-
-!    {do ix^D = ixOmin^D,ixOmax^D\}
-!     if (w(ix^D,Er_) .lt. 0.d0) then
-!       print*, 'ix', ix^D
-!       print*, 'x', x(ix^D,:)
-!       print*, 'c', unit_velocity, m1_c, m1_c*unit_velocity, const_c
-!       print*, 'Er', w(ix^D,Er_)
-!       print*, 'x', x(ix^D,:)
-!       print*, 'i,j, ndim', idir, jdir, ndim
-!       print*, 'fi, fj, f**2, fi**2 + fj**2', &
-!       fi(ix^D), fj(ix^D), ff(ix^D), fi(ix^D)**2 + fj(ix^D)**2
-!       print*, w(ix^D,Fr(idir)),w(ix^D,Fr(jdir)),sum(w(ix^D,Fr(:))**2), &
-!       w(ix^D,Fr(idir))**2 + w(ix^D,Fr(jdir))**2
-!       print*, chi(ix^D)
-!     end if
-!    {enddo\}
-
-    !if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-    !  stop "Er zero in Prad"
-    !end if
-
-    !if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-    !  stop "Er NaN in Prad"
-    !end if
-
-    !if (any(prad(ixO^S) .ne. prad(ixO^S))) then
-    !  stop "Pr NaN in Prad"
-    !end if
+    prad(ixI^S) = prad(ixI^S) * Erad(ixI^S)
 
   end subroutine m1_get_prad
 
@@ -1385,6 +1408,50 @@ contains
     end where
 
     end subroutine m1_get_chi
+
+    subroutine m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
+      use mod_global_parameters
+
+      integer, intent(in)          :: ixI^L, ixO^L
+      double precision, intent(in) :: w(ixI^S, 1:nw)
+      double precision, intent(in) :: x(ixI^S, 1:ndim)
+      double precision, intent(out):: theta(ixI^S)
+      integer, intent(in)          :: idim
+
+      integer :: hxO^L,jxO^L
+
+      double precision :: tau_c(ixI^S)
+
+      ! !> Cell optical depth in idim
+      ! ! tau_c(ixI^S) = block%dx(ixI^S,idim)*w(ixI^S,rho_)*w(ixI^S,kF_)
+      tau_c(ixI^S) = block%dx(ixI^S,idim)*w(ixI^S,rho_)*m1_kappa_e
+      !
+      ! ! !> Minimum of its neighbours
+      hxO^L=ixO^L-kr(idim,^D);
+      jxO^L=ixO^L+kr(idim,^D);
+      tau_c(ixO^S) = min(tau_c(ixO^S),tau_c(hxO^S),tau_c(jxO^S))
+      ! !TODO: stencil minimum in first GC's
+
+      ! tau_c(ixO^S) = min(w(hxO^S,rho_),w(ixO^S,rho_),w(jxO^S,rho_))*w(ixO^S,kF_)
+
+      ! theta(ixI^S) = 2.d0/(2 + 3*tau_c(ixI^S))
+      theta(ixI^S) = dexp(-2.d0/(3*tau_c(ixI^S)))
+
+    end subroutine m1_get_trapped_fraction
+
+    subroutine m1_get_streaming_fraction(w, x, ixI^L, ixO^L, idim, theta)
+      use mod_global_parameters
+
+      integer, intent(in)          :: ixI^L, ixO^L
+      double precision, intent(in) :: w(ixI^S, 1:nw)
+      double precision, intent(in) :: x(ixI^S, 1:ndim)
+      double precision, intent(out):: theta(ixI^S)
+      integer, intent(in)          :: idim
+
+      call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
+      theta(ixI^S) = 1.d0 - theta(ixI^S)
+
+    end subroutine m1_get_streaming_fraction
 
   !> Calculate temperature=p/rho when in e_ the  total energy is stored
   subroutine hd_get_temperature_from_etot(w, x, ixI^L, ixO^L, res)
@@ -1507,7 +1574,7 @@ contains
 
       !> Radiation flux flux is v_i F_i + c^2 P_ii
       do idir = 1,ndir
-        call m1_get_prad(w, x, ixI^L, ixO^L, idir, idim, prad_ii)
+        call m1_get_prad(w, x, ixI^L, ixO^L, idir, idim, prad_ii, .true.)
         f(ixO^S,Fr(idir)) = m1_RSOL * (w(ixO^S,mom(idim)) * w(ixO^S,Fr(idir)) + m1_c**2 * prad_ii(ixO^S))
       end do
     end if
@@ -1701,7 +1768,7 @@ contains
       select case (ndir)
       case (1)
        !> Get relevant pressure tensor
-       call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
+       call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr, .true.)
        ptt = m1_c**2 * (wCT(ixI^S, Er_) - prr) /2
        ppp = ptt
 
@@ -2368,42 +2435,57 @@ end subroutine m1_evaluate_implicit
    double precision :: F0(ixI^S,1:ndir), lambda(ixI^S), tau(ixI^S)
    double precision :: gradE(ixI^S), R(ixI^S)
 
-   integer :: idir
+   double precision :: aa(ixI^S), bb(ixI^S)
 
-   !> Assymptotic preserving IMEX implicit step:
-   if (associated(usr_set_F0)) then
-     call usr_set_F0(ixI^L,ixO^L,w,x,F0)
-   else
-     !> FLD approximation
-     !> Get magnitude of grad E
-     gradE = 0.d0
-     do idir = 1, ndim
-       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,lambda)
-       gradE(ixI^S) = gradE(ixI^S) + lambda(ixI^S)**2
-     end do
-     gradE(ixI^S) = dsqrt(max(0.d0,gradE(ixI^S)))
+   integer :: idir, idim
 
-     !> Get fld R
-     R(ixI^S) = gradE(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_)*w(ixI^S,Er_))
+   ! !> Assymptotic preserving IMEX implicit step:
+   ! if (associated(usr_set_F0)) then
+   !   call usr_set_F0(ixI^L,ixO^L,w,x,F0)
+   ! else
+   !   !> FLD approximation
+   !   !> Get magnitude of grad E
+   !   gradE = 0.d0
+   !   do idir = 1, ndim
+   !     call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,lambda)
+   !     gradE(ixI^S) = gradE(ixI^S) + lambda(ixI^S)**2
+   !   end do
+   !   gradE(ixI^S) = dsqrt(max(0.d0,gradE(ixI^S)))
+   !
+   !   !> Get fld R
+   !   R(ixI^S) = gradE(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_)*w(ixI^S,Er_))
+   !
+   !   !> Get fld lambda (Pomraning flux limiter)
+   !   lambda(ixI^S) = (2.d0+R(ixI^S))/(6.d0+3*R(ixI^S)+R(ixI^S)**2.d0)
+   !
+   !   !> initialise for ndir != ndim
+   !   F0(ixI^S,:) = 0.d0
+   !   do idir = 1, ndim
+   !     call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
+   !     F0(ixI^S,idir) = -m1_c*lambda(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_))*gradE(ixI^S)
+   !   end do
+   ! end if
+   !
+   ! !> AP lambda
+   ! lambda(ixI^S) = m1_RSOL*m1_c*w(ixI^S,rho_)*w(ixI^S,kF_)
+   ! tau(ixI^S) = lambda(ixI^S)*dtfactor*dt
+   !
+   ! do idir = 1, ndir
+   !   w(ixO^S,Fr(idir)) = F0(ixO^S,idir) + (w(ixO^S,Fr(idir)) - F0(ixO^S,idir))*dexp(-tau(ixO^S))
+   ! end do
 
-     !> Get fld lambda (Pomraning flux limiter)
-     lambda(ixI^S) = (2.d0+R(ixI^S))/(6.d0+3*R(ixI^S)+R(ixI^S)**2.d0)
 
-     !> initialise for ndir != ndim
-     F0(ixI^S,:) = 0.d0
-     do idir = 1, ndim
-       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
-       F0(ixI^S,idir) = -m1_c*lambda(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_))*gradE(ixI^S)
-     end do
-   end if
+   ! > Exact solution: dF/dt = - a F - b
+   !                  <=> F = C1 * exp(-a*t) - b/a
+   !                  w. C1 = F0 + b/a
 
-   !> AP lambda
-   lambda(ixI^S) = m1_RSOL*m1_c*w(ixI^S,rho_)*w(ixI^S,kF_)
-   tau(ixI^S) = lambda(ixI^S)*dtfactor*dt
-
-   do idir = 1, ndir
-     w(ixO^S,Fr(idir)) = F0(ixO^S,idir) + (w(ixO^S,Fr(idir)) - F0(ixO^S,idir))*dexp(-tau(ixO^S))
-   end do
+  do idim = 1, ndim
+     aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,rho_)*w(ixI^S,kF_)
+     call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, lambda)
+     call gradient_str(w(ixI^S,Er_)*lambda(ixI^S),x,ixI^L,ixO^L,idim,gradE)
+     bb(ixI^S) = m1_RSOL*m1_c**2*gradE(ixI^S)/3.d0
+     w(ixO^S,Fr(idim)) = (w(ixO^S,Fr(idim)) + bb(ixO^S)/aa(ixO^S)) * dexp(-aa(ixO^S)*dtfactor*dt) - bb(ixO^S)/aa(ixO^S)
+  end do
 
  end subroutine m1_flux_absorbtion
 

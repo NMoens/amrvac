@@ -14,8 +14,10 @@ module mod_usr
   double precision :: lstar, vesc, gamma_e, logg, logge, heff
   double precision :: fred_bound
 
-  integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum
-  integer :: i_SdivF, i_SdivP, i_SFdv, i_SgR, i_ScdvP, i_tau_cell
+  integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum, i_lumt
+  integer :: i_SdivF, i_SdivP, i_SFdv, i_SgR, i_ScdvP, i_tau_cell, i_LFLD
+
+  logical :: fixed_lum = .true.
 
   integer :: len_ic = 3070
   double precision, allocatable :: r_init(:), rho_init(:), vr_init(:), p_init(:), Er_init(:)
@@ -64,6 +66,8 @@ contains
     i_ff = var_set_extravar('ff','ff')
     i_chi = var_set_extravar('chi','chi')
     i_lum = var_set_extravar('lum','lum')
+    i_lumt = var_set_extravar('lum_tot','lum_tot')
+    i_LFLD = var_set_extravar('lum_fld','lum_fld')
 
     ! i_SdivF = var_set_extravar('Div_Fv','Div_Fv')
     ! i_SdivP = var_set_extravar('Div_c2P','Div_c2P')
@@ -80,7 +84,7 @@ contains
     character(len=*), intent(in) :: files(:)
     integer :: n
 
-    namelist /star_list/ mstar, rstar, Tbound, rhobound, beta, fred_bound, gamma_e, ic_file, len_ic
+    namelist /star_list/ mstar, rstar, Tbound, rhobound, beta, fred_bound, gamma_e, ic_file, len_ic, fixed_lum
 
     do n = 1,size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -202,7 +206,6 @@ contains
 
   end subroutine initial_conditions
 
-
   subroutine special_bound(qt,ixI^L,ixB^L,iB,w,x)
 
     ! Subroutine arguments
@@ -239,44 +242,63 @@ contains
       w(ixB^S,mom(1)) = min(w(ixB^S,mom(1)), asound)
       w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), -0.d0*asound)
 
-      ! Gas pressure.
-      if (hd_energy) then
-        !w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
-        do ix1 = ixBmax1, ixBmin1, -1
-          w(ix1,p_) = 10.d0**(2 * dlog10(w(ix1+1,p_)) - dlog10(w(ix1+2,p_)))
+      ! ! Gas pressure.
+      ! if (hd_energy) then
+      !   !w(ixB^S,p_) = asound**2.0 * rhobound * (w(ixB^S,rho_)/rhobound)**hd_gamma
+      !   do ix1 = ixBmax1, ixBmin1, -1
+      !     w(ix1,p_) = 10.d0**(2 * dlog10(w(ix1+1,p_)) - dlog10(w(ix1+2,p_)))
+      !   end do
+      ! end if
+
+      if (fixed_lum) then
+
+        ! Radiation flux
+        w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux &
+                       - w(ixB^S,Er_)*w(ixB^S,mom(1))
+
+        ixOmin1 = ixBmax1 + 1
+
+        do ix1 = ixOmin1,ixBmin1+1,-1
+          gradE = lstar/(4*dpi*(x(ix1,1)*unit_length)**2)/unit_radflux &
+                - w(ix1,Er_)*w(ix1,mom(1))
+          ! gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*w(ix1,Fr(1))/m1_c
+          gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*gradE/m1_c
+
+          !> Forward, backward and central derivs, needed for stretched grid gradient
+          fs = (x(ix1,1) - x(ix1-1,1)) &
+          / ((x(ix1+1,1) - x(ix1,1)) * (x(ix1+1,1) - x(ix1-1,1)))
+
+          bs = -(x(ix1+1,1) - x(ix1,1)) &
+          / ((x(ix1,1) - x(ix1-1,1)) * (x(ix1+1,1) - x(ix1-1,1)))
+
+          cs = (x(ix1+1,1) + x(ix1-1,1) - 2*x(ix1,1)) &
+          / ((x(ix1,1) - x(ix1-1,1)) * (x(ix1+1,1) - x(ix1,1)))
+
+          w(ix1-1,Er_) = (gradE - fs*w(ix1+1,Er_) - cs*w(ix1,Er_))/bs
         end do
-      end if
 
-      ! Radiation flux
-      w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux &
-                     - w(ixB^S,Er_)*w(ixB^S,mom(1))
+        ! Gas pressure
+        if (hd_energy) then
+          w(ixB^S,p_) = (w(ixB^S,Er_)*unit_pressure/const_rad_a)**0.25d0
+          w(ixB^S,p_) = const_kB/(const_mp*hd_mu) * w(ixB^S,p_) * w(ixB^S,rho_)*unit_density
+          w(ixB^S,p_) = w(ixB^S,p_)/unit_pressure
+          !> limits
+          w(ixB^S,p_) = min(w(ixB^S,p_),1.d1)
+          w(ixB^S,p_) = max(w(ixB^S,p_),1.d-1)
+        end if
 
-      ixOmin1 = ixBmax1 + 1
+      else
+        !> Gas pressure
+        w(ixB^S,p_) = const_kB*Tbound*w(ixB^S,rho_)*unit_density/(const_mp*hd_mu)/unit_pressure
 
-      do ix1 = ixOmin1,ixBmin1+1,-1
-        gradE = lstar/(4*dpi*(x(ix1,1)*unit_length)**2)/unit_radflux &
-              - w(ix1,Er_)*w(ix1,mom(1))
-        ! gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*w(ix1,Fr(1))/m1_c
-        gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*gradE/m1_c
+        !> Radiation energy density
+        w(ixB^S,Er_) = const_rad_a*Tbound**4/unit_pressure
 
-        !> Forward, backward and central derivs, needed for stretched grid gradient
-        fs = (x(ix1,1) - x(ix1-1,1)) &
-        / ((x(ix1+1,1) - x(ix1,1)) * (x(ix1+1,1) - x(ix1-1,1)))
-
-        bs = -(x(ix1+1,1) - x(ix1,1)) &
-        / ((x(ix1,1) - x(ix1-1,1)) * (x(ix1+1,1) - x(ix1-1,1)))
-
-        cs = (x(ix1+1,1) + x(ix1-1,1) - 2*x(ix1,1)) &
-        / ((x(ix1,1) - x(ix1-1,1)) * (x(ix1+1,1) - x(ix1,1)))
-
-        w(ix1-1,Er_) = (gradE - fs*w(ix1+1,Er_) - cs*w(ix1,Er_))/bs
-      end do
-
-      ! Gas pressure
-      if (hd_energy) then
-        w(ixB^S,p_) = (w(ixB^S,Er_)*unit_pressure/const_rad_a)**0.25d0
-        w(ixB^S,p_) = const_kB/(const_mp*hd_mu) * w(ixB^S,p_) * w(ixB^S,rho_)*unit_density
-        w(ixB^S,p_) = w(ixB^S,p_)/unit_pressure
+        !> Radiation flux
+        w(ixB^S,Fr(:)) = 0.d0
+        do ix1 = ixBmax1,ixBmin1,-1
+          w(ix1,Fr(1)) = w(ix1+1,Fr(1)) * (x(ix1+1,1)/x(ix1,1))**2
+        end do
       end if
 
       call hd_to_conserved(ixI^L,ixI^L,w,x)
@@ -311,18 +333,18 @@ contains
 
     integer :: ix1, nearest_i
 
-    ! do ix1 = ixImin1, ixImax1
-    !   !> Find nearest line in init
-    !   nearest_i = minloc(abs(r_init - x(ix1,1)),DIM=1)
-    !
-    !   !> Read closest values
-    !   w(ix1, rho_) = rho_init(nearest_i)/unit_density
-    !   w(ix1, mom(1)) = vr_init(nearest_i)/unit_velocity!*w(ix1, rho_)
-    !   w(ix1, p_) = p_init(nearest_i)/unit_pressure
-    !   ! w(ix1, Er_) = Er_init(nearest_i)/unit_pressure
-    ! end do
-    !
-    ! call hd_to_conserved(ixI^L,ixO^L,w,x)
+    do ix1 = ixImin1, ixImax1
+      !> Find nearest line in init
+      nearest_i = minloc(abs(r_init - x(ix1,1)),DIM=1)
+
+      !> Read closest values
+      w(ix1, rho_) = rho_init(nearest_i)/unit_density
+      w(ix1, mom(1)) = vr_init(nearest_i)/unit_velocity!*w(ix1, rho_)
+      w(ix1, p_) = p_init(nearest_i)/unit_pressure
+      ! w(ix1, Er_) = Er_init(nearest_i)/unit_pressure
+    end do
+
+    call hd_to_conserved(ixI^L,ixO^L,w,x)
 
 
     !> Radiation subsystem
@@ -348,7 +370,7 @@ contains
 
     integer :: idir
 
-    !> Fixed total luminosity
+    ! !> Fixed total luminosity
     ! F0(ixI^S,:) = 0.d0
     !
     ! ! Only in radial direction
@@ -359,8 +381,8 @@ contains
     !> Get magnitude of grad E
     gradE = 0.d0
     do idir = 1, ndim
-      call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
-      gradE(ixI^S) = gradE(ixI^S) + gradE(ixI^S)**2
+      call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,lambda)
+      gradE(ixI^S) = gradE(ixI^S) + lambda(ixI^S)**2
     end do
     gradE(ixI^S) = dsqrt(max(0.d0,gradE(ixI^S)))
 
@@ -372,7 +394,8 @@ contains
 
     do idir = 1, ndim
       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
-      F0(ixI^S,idir) = -m1_c*lambda(ixI^S)/(w(ixI^S,rho_)*w(ixI^S,kF_))*gradE(ixI^S)
+      F0(ixO^S,idir) = -m1_c*lambda(ixO^S)/(w(ixO^S,rho_)*w(ixO^S,kF_))*gradE(ixO^S)
+      ! F0(ixO^S,idir) = -m1_c/(3*w(ixO^S,rho_)*w(ixO^S,kF_))*gradE(ixO^S)
     end do
 
   end subroutine stellar_flux
@@ -400,7 +423,7 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: grav(ixI^S), grad(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S), pth(ixI^S)
-    double precision :: T(ixI^S), divT(ixI^S)
+    double precision :: T(ixI^S), divT(ixI^S), F(ixI^S,1:ndir)
 
     grav(ixI^S) = w(ixI^S,rho_) * Ggrav * mstar/x(ixI^S,1)**2.0d0
     grad(ixI^S) = w(ixI^S,rho_) * w(ixI^S,kF_) * w(ixI^S,Fr(1)) / m1_c
@@ -426,6 +449,11 @@ contains
     w(ixO^S,i_ff) = sum(w(ixO^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixO^S,Er_))**2
     w(ixO^S,i_chi) = (3.d0+4*w(ixO^S,i_ff))/(5.d0+2*dsqrt(4.d0-3*w(ixO^S,i_ff)))
     w(ixO^S,i_lum) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * w(ixO^S,Fr(1))*unit_radflux / lstar
+
+    w(ixO^S,i_lumt) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * (w(ixO^S,Fr(1)) + w(ixO^S,Er_)*w(ixO^S,mom(1))/w(ixO^S,rho_))*unit_radflux / lstar
+
+    call stellar_flux(ixI^L,ixO^L,w,x,F)
+    w(ixO^S,i_LFLD) = 4*dpi*F(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux / lstar
 
     ! !> Flux equation terms:
     ! !> Directional derivative

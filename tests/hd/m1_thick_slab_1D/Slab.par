@@ -68,5 +68,5 @@
   rstar    = 11.0d0
   Tbound   = 5.0d8
   gamma_e  = 0.17d0
-  rhobound = 3.8d-4
+  rhobound = 3.8d-12
 /

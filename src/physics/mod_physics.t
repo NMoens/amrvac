@@ -94,7 +94,8 @@ module mod_physics
   procedure(sub_get_auxiliary_prim), pointer    :: phys_get_auxiliary_prim    => null()
   procedure(sub_process_global), pointer  :: phys_process_global   => null()
   procedure(sub_before_main_loop), pointer  :: phys_before_main_loop   => null()
-
+  !> Subroutine to compute streaming portions of conserved variables in low-mach flows
+  procedure(sub_IDSA_correction), pointer :: phys_IDSA_correction => null()
 
   abstract interface
 
@@ -372,6 +373,14 @@ module mod_physics
        double precision, intent(in)    :: wCT(ixI^S,nw),x(ixI^S,1:ndim)
        double precision, intent(inout) :: w(ixI^S,nw)
      end subroutine sub_update_temperature
+
+     subroutine sub_IDSA_correction(w, x, ixI^L, ixO^L, idim, theta)
+       use mod_global_parameters
+       integer, intent(in)             :: ixI^L, ixO^L
+       double precision, intent(in)    :: w(ixI^S,nw), x(ixI^S,1:ndim)
+       double precision, intent(out)   :: theta(ixI^S,nw)
+       integer, intent(in)             :: idim
+     end subroutine sub_IDSA_correction
 
    end interface
 

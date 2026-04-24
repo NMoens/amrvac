@@ -17,14 +17,14 @@
 
 &stoplist
   time_max = 10.d0
-  it_max = 30000
+  it_max = 100 !30000
 /
 
 &methodlist
-  time_stepper = 'twostep'
-  time_integrator = 'IMEX_Midpoint'
-  flux_scheme  = 'tvdlf'
-  limiter      = 'weno3'
+  time_stepper = 'onestep'
+  time_integrator = 'IMEX_Euler'
+  flux_scheme  = 6*'tvdlf'
+  limiter      = 6*'weno3' !'weno3'
   check_small_values = .True.
   fix_small_values = .True.
   small_values_method = 'replace'

@@ -18,7 +18,8 @@ contains
     use mod_global_parameters
     use mod_particles, only: handle_particles
     use mod_source, only: add_split_source
-    use mod_physics, only: phys_get_auxiliary
+    use mod_physics, only: phys_get_auxiliary,phys_req_diagonal
+    use mod_ghostcells_update
 
     integer, intent(in) :: iit
 
@@ -34,6 +35,9 @@ contains
          call phys_get_auxiliary(ixG^LL, ixO^L, ps(igrid)%w, ps(igrid)%x);
       end do
       !$OMP END PARALLEL DO
+
+      !> Boundary conditions to get e.g. opacities in ghostcells
+      call getbc(global_time,0.d0,ps,iwstart,nwgc,phys_req_diagonal)
     end if
 
     ! split source addition

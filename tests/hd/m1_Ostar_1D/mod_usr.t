@@ -473,7 +473,7 @@ contains
     ! w(ixO^S,i_SdivP) = -divT(ixO^S)
     ! w(ixO^S,i_ScdvP) = (1-T(ixO^S)/w(ixO^S,Er_))*w(ixO^S,Er_)/x(ixO^S,1)
 
-    w(ixO^S,i_tau_cell) = w(ixO^S,rho_)*w(ixO^S,kF_)*m1_c*m1_RSOL
+    w(ixO^S,i_tau_cell) = w(ixO^S,rho_)*w(ixO^S,kF_)*block%dx(ixO^S,1)
 
   end subroutine update_extravars
 

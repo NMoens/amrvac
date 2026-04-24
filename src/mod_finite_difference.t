@@ -30,6 +30,7 @@ contains
     double precision, dimension(ixI^S,1:nw) :: wLC, wRC
     ! left and right constructed status in primitive form, needed for better performance
     double precision, dimension(ixI^S,1:nw) :: wLp, wRp
+    double precision, dimension(ixI^S,1:nw) :: theta
     double precision, dimension(ixI^S)      :: cmaxC, cminC
     double precision, dimension(ixI^S)      :: Hspeed
     double precision, dimension(ixO^S)      :: inv_volume
@@ -44,7 +45,7 @@ contains
     wprim=wCT
     call phys_to_primitive(ixI^L,ixI^L,wprim,x)
 
-    b0i = 0 ! fd uses centered values in phys_get_flux  
+    b0i = 0 ! fd uses centered values in phys_get_flux
     do idims= idims^LIM
 
        !b0i=idims
@@ -74,11 +75,20 @@ contains
 
        call phys_get_flux(wCT,wprim,x,ixG^LL,ix^L,idims,fCT)
 
-       do iw=iwstart,nwflux
-          ! Lax-Friedrich splitting:
-          fp(ix^S,iw) = half * (fCT(ix^S,iw) + tvdlfeps * cmax_global * wCT(ix^S,iw))
-          fm(ix^S,iw) = half * (fCT(ix^S,iw) - tvdlfeps * cmax_global * wCT(ix^S,iw))
-       end do ! iw loop
+       if (associated(phys_IDSA_correction)) then
+         call phys_IDSA_correction(wCT, x, ixI^L, ixO^L, idims, theta)
+         do iw=iwstart,nwflux
+            ! Lax-Friedrich splitting:
+            fp(ix^S,iw) = half * (fCT(ix^S,iw) + tvdlfeps * cmax_global * theta(ix^S,iw) * wCT(ix^S,iw))
+            fm(ix^S,iw) = half * (fCT(ix^S,iw) - tvdlfeps * cmax_global * theta(ix^S,iw) * wCT(ix^S,iw))
+         end do ! iw loop
+       else
+         do iw=iwstart,nwflux
+            ! Lax-Friedrich splitting:
+            fp(ix^S,iw) = half * (fCT(ix^S,iw) + tvdlfeps * cmax_global * wCT(ix^S,iw))
+            fm(ix^S,iw) = half * (fCT(ix^S,iw) - tvdlfeps * cmax_global * wCT(ix^S,iw))
+         end do ! iw loop
+       end if
 
        ! now do the reconstruction of fp and fm:
        call reconstructL(ixI^L,ixC^L,idims,fp,fpL)
@@ -163,7 +173,7 @@ contains
     integer, intent(in)             :: ixI^L, iL^L, idims
     double precision, intent(in)    :: w(ixI^S,1:nw)
 
-    double precision, intent(out)   :: wLC(ixI^S,1:nw) 
+    double precision, intent(out)   :: wLC(ixI^S,1:nw)
 
     double precision                :: ldw(ixI^S), dwC(ixI^S)
     integer                         :: jxR^L, ixC^L, jxC^L, kxC^L, iw
@@ -184,7 +194,7 @@ contains
        call WENO5limiterL(ixI^L,iL^L,idims,w,wLC,3)
     case (limiter_wenozp5nm)
        call WENO5NMlimiterL(ixI^L,iL^L,idims,w,wLC,3)
-    case default 
+    case default
 
        kxCmin^D=ixImin^D; kxCmax^D=ixImax^D-kr(idims,^D);
 
@@ -198,7 +208,7 @@ contains
        do iw=iwstart,nwflux
           dwC(ixC^S)=w(jxC^S,iw)-w(ixC^S,iw)
 
-           if(need_global_a2max) then 
+           if(need_global_a2max) then
              a2max=a2max_global(idims)
            else
              select case(idims)
@@ -234,7 +244,7 @@ contains
     integer, intent(in)             :: ixI^L, iL^L, idims
     double precision, intent(in)    :: w(ixI^S,1:nw)
 
-    double precision, intent(out)   :: wRC(ixI^S,1:nw) 
+    double precision, intent(out)   :: wRC(ixI^S,1:nw)
 
     double precision                :: rdw(ixI^S), dwC(ixI^S)
     integer                         :: jxR^L, ixC^L, jxC^L, kxC^L, kxR^L, iw
@@ -255,7 +265,7 @@ contains
        call WENO5limiterR(ixI^L,iL^L,idims,w,wRC,3)
     case (limiter_wenozp5nm)
        call WENO5NMlimiterR(ixI^L,iL^L,idims,w,wRC,3)
-    case default 
+    case default
 
        kxCmin^D=ixImin^D; kxCmax^D=ixImax^D-kr(idims,^D);
        kxR^L=kxC^L+kr(idims,^D);
@@ -299,7 +309,7 @@ contains
   subroutine centdiff(method,qdt,dtfactor,ixI^L,ixO^L,idims^LIM,qtC,sCT,qt,s,fC,fE,dxs,x)
 
     ! Advance the flow variables from global_time to global_time+qdt within ixO^L by
-    ! fourth order centered differencing in space 
+    ! fourth order centered differencing in space
     ! for the dw/dt+dF_i(w)/dx_i=S type equation.
     ! wCT contains the time centered variables at time qtC for flux and source.
     ! w is the old value at qt on input and the new value at qt+qdt on output.
@@ -354,7 +364,7 @@ contains
     do idims= idims^LIM
        b0i=idims
 
-       ix^L=ixO^L^LADD2*kr(idims,^D); 
+       ix^L=ixO^L^LADD2*kr(idims,^D);
        hxO^L=ixO^L-kr(idims,^D);
 
        if(stagger_grid) then
@@ -367,9 +377,9 @@ contains
          ! ixC is centered index in the idims direction from ixOmin-1/2 to ixOmax+1/2
          ixCmax^D=ixOmax^D; ixCmin^D=hxOmin^D;
        end if
-       hxC^L=ixC^L-kr(idims,^D); 
-       jxC^L=ixC^L+kr(idims,^D); 
-       kxC^L=ixC^L+2*kr(idims,^D); 
+       hxC^L=ixC^L-kr(idims,^D);
+       jxC^L=ixC^L+kr(idims,^D);
+       kxC^L=ixC^L+2*kr(idims,^D);
 
        kkxCmin^D=ixImin^D; kkxCmax^D=ixImax^D-kr(idims,^D);
        kkxR^L=kkxC^L+kr(idims,^D);
@@ -449,7 +459,7 @@ contains
             w(ixO^S,iw)=w(ixO^S,iw)+ &
                  (fC(ixO^S,iw,idims)-fC(hxO^S,iw,idims))*inv_volume(ixO^S)
           end do    !next iw
-        endif 
+        endif
       end do ! Next idims
     end if
 

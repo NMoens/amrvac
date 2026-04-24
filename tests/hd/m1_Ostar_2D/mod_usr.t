@@ -217,12 +217,13 @@ contains
     end do
 
     !> Velocity perturbation
-    w(ixI^S, mom(2)) = 1.d0*sin(x(ixI^S,2)*10)*sin((x(ixI^S,1)-1.d0)*10)
+    ! w(ixI^S, mom(2)) = 1.d0*sin(x(ixI^S,2)*10)*sin((x(ixI^S,1)-1.d0)*10)
 
     call hd_to_conserved(ixI^L,ixO^L,w,x)
 
     w(ixI^S,Fr(1)) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux
     w(ixI^S,Fr(2)) = 0.d0
+
   end subroutine initial_conditions
 
 

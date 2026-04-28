@@ -55,12 +55,13 @@
   hd_energy  = .true.
   hd_gamma   = 1.667d0
   hd_m1 = .true.
+/
+
+&m1_list
   m1_opacity_type = 'kappa_e'
   m1_heatcool = .false.
   m1_force = .false.
   m1_RSOL = 1.d0
-  m1_theta_stiff = 1.d0
-  m1_well_balanced = .false.
 /
 
 &star_list

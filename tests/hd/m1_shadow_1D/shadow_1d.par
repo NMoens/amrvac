@@ -52,10 +52,12 @@
   hd_energy  = .true.
   hd_gamma   = 1.667d0
   hd_m1 = .true.
+/
+
+&m1_list
   m1_opacity_type = 'special'
   m1_diffusion = .false.
   m1_force = .true.
-  m1_theta_stiff = 0.61d0
 /
 
 &stream_list

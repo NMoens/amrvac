@@ -47,6 +47,9 @@
   hd_energy = .true.
   hd_gamma = 1.666667d0
   hd_m1 = .true.
+/
+
+&m1_list
   m1_opacity_type = 'kappa_e'
   m1_diffusion = .true.
   m1_force = .false.

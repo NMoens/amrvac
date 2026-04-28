@@ -3,6 +3,7 @@ module mod_usr
 
   ! Include a physics module
   use mod_hd
+  use mod_m1
 
   implicit none
 

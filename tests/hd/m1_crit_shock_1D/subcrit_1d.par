@@ -55,11 +55,13 @@
   hd_energy       = .true.
   hd_gamma        = 1.4d0
   hd_m1           = .true.
+/
+
+&m1_list
   m1_opacity_type = 'kappa_e'
   m1_diffusion    = .false.
   m1_force        = .true.
   m1_RSOL         = 1.d0
-  m1_theta_stiff  = 0.61d0
 /
 
 &shock_list

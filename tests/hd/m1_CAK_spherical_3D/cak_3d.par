@@ -68,11 +68,12 @@
   hd_energy  = .true.
   hd_gamma   = 1.667d0
   hd_m1 = .true.
+
+&m1_list
   m1_opacity_type = 'Gayley'
   m1_heatcool = .true.
   m1_force = .true.
   m1_RSOL = 1.d-2
-  m1_theta_stiff = 0.96d0
 /
 
 &star_list

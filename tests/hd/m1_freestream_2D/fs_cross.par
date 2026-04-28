@@ -58,6 +58,9 @@
   hd_energy  = .false.
   hd_gamma   = 1.d0
   hd_m1 = .true.
+/
+
+&m1_list
   m1_opacity_type = 'zero'
   m1_diffusion = .false.
   m1_force = .false.

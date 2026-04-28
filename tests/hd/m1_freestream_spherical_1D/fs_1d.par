@@ -50,6 +50,9 @@
   hd_energy  = .false.
   hd_gamma   = 1.d0
   hd_m1 = .true.
+/
+
+&m1_list
   m1_opacity_type = 'kappa_e'
   m1_force = .false.
   m1_theta_stiff = 0.61d0

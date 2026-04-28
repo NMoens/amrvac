@@ -2,11 +2,6 @@
  base_filename= 'Star92_'
  /
 
- &fld_list
-  !> DON't FORGET TO FILL IN OPACITY TABLE IN BASE.PAR
-  !> ALSO: He_ABUNDANCE
- /
-
  &star_list
     rhobound =    1.64142998027675526819988219412001471E-0006
     Gamma_e =   0.359999999999999999999999999999999988

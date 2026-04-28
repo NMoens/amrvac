@@ -1168,60 +1168,60 @@ contains
 
     ! TODO: Implement actual eigenvalues
     ! > e.g. Gonzalez+ 2007
-    cmax(ixO^S,1) = m1_c*m1_RSOL
+    ! cmax(ixO^S,1) = m1_c*m1_RSOL
 
-    ! !TODO: Check this sum, it does not produce what is expected
-    ! !> Left state
-    ! ff(ixI^S) = sum(wLC(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*wLC(ixI^S,Er_))**2
-    ! ff(ixI^S) = min(ff(ixI^S),1.d0)
-    !
-    ! !> Eddington scalars
-    ! fi(ixI^S) = abs(wLC(ixI^S,Fr(idim))/(m1_c*wLC(ixI^S,Er_)))
-    ! fi(ixI^S) = min(fi(ixI^S),1.d0)
-    !
-    ! fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
-    !
-    ! xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
-    !
-    ! lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-    !             + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-    !             /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-    !
-    ! if (present(cmin)) &
-    ! lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-    !             - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-    !             /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-    !
-    ! !> Right state
-    ! ff(ixI^S) = sum(wRC(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*wRC(ixI^S,Er_))**2
-    ! ff(ixI^S) = min(ff(ixI^S),1.d0)
-    !
-    ! !> Eddington scalars
-    ! fi(ixI^S) = abs(wRC(ixI^S,Fr(idim))/(m1_c*wRC(ixI^S,Er_)))
-    ! fi(ixI^S) = min(fi(ixI^S),1.d0)
-    !
-    ! fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
-    !
-    ! xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
-    !
-    ! lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-    !             + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-    !             /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-    !
-    ! if (present(cmin)) &
-    ! lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-    !             - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-    !             /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-    !
-    ! !>Skinner Ostricker 2013, Eq 39
-    ! !TODO: Is below correctly implemented?
-    ! cmax(ixI^S,1) = max(lam_L_max(ixI^S),lam_R_max(ixI^S))
-    ! cmax(ixI^S,1) = max(cmax(ixI^S,1),0.d0)
-    !
-    ! if (present(cmin)) then
-    !   cmin(ixI^S,1) = min(lam_L_min(ixI^S),lam_R_min(ixI^S))
-    !   cmin(ixI^S,1) = min(cmin(ixI^S,1),0.d0)
-    ! end if
+    !TODO: Check this sum, it does not produce what is expected
+    !> Left state
+    ff(ixI^S) = sum(wLC(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*wLC(ixI^S,Er_))**2
+    ff(ixI^S) = min(ff(ixI^S),1.d0)
+
+    !> Eddington scalars
+    fi(ixI^S) = abs(wLC(ixI^S,Fr(idim))/(m1_c*wLC(ixI^S,Er_)))
+    fi(ixI^S) = min(fi(ixI^S),1.d0)
+
+    fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
+
+    xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
+
+    lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+                + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+                /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+    if (present(cmin)) &
+    lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+                - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+                /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+    !> Right state
+    ff(ixI^S) = sum(wRC(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*wRC(ixI^S,Er_))**2
+    ff(ixI^S) = min(ff(ixI^S),1.d0)
+
+    !> Eddington scalars
+    fi(ixI^S) = abs(wRC(ixI^S,Fr(idim))/(m1_c*wRC(ixI^S,Er_)))
+    fi(ixI^S) = min(fi(ixI^S),1.d0)
+
+    fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
+
+    xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
+
+    lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+                + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+                /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+    if (present(cmin)) &
+    lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+                - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+                /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+    !>Skinner Ostricker 2013, Eq 39
+    !TODO: Is below correctly implemented?
+    cmax(ixI^S,1) = max(lam_L_max(ixI^S),lam_R_max(ixI^S))
+    cmax(ixI^S,1) = max(cmax(ixI^S,1),0.d0)
+
+    if (present(cmin)) then
+      cmin(ixI^S,1) = min(lam_L_min(ixI^S),lam_R_min(ixI^S))
+      cmin(ixI^S,1) = min(cmin(ixI^S,1),0.d0)
+    end if
 
   end subroutine m1_get_cbounds
 
@@ -1449,13 +1449,8 @@ contains
 
       double precision :: tau_c(ixI^S)
 
-      ! alpha = 1.d0
-      ! call m1_get_streaming_fraction(w, x, ixI^L, ixO^L, idim, alpha(ixI^S,Er_))
-
-      alpha(ixI^S,:) = 1.d0
-
-      tau_c(ixI^S) = block%dx(ixI^S,idim)*w(ixI^S,rho_)*m1_kappa_e
-      alpha(ixI^S,Er_) = 1.d0/(1.d0 + 3.d0*tau_c(ixI^S)/2.d0)
+      alpha = 1.d0
+      call m1_get_streaming_fraction(w, x, ixI^L, ixO^L, idim, alpha(ixI^S,Er_))
 
     end subroutine m1_IDSA_correction
 
@@ -1703,19 +1698,6 @@ contains
     !SEE APPENDIX B IN GONZALEZ 2007 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    !if (any(w(ixO^S,Er_) .lt. 0.d0)) then
-    !  stop "Er zero before m1_geom_source"
-    !end if
-
-    !if (any(w(ixO^S,Er_) .ne. w(ixO^S,Er_))) then
-    !  stop "Er NaN before m1_geom_source"
-    !end if
-
-    !if (any(w(ixO^S,Fr(1)) .ne. w(ixO^S,Fr(1)))) then
-    !  stop "Fr(1) NaN before m1_geom_source"
-    !end if
-
 
     select case (coordinate)
     case (cylindrical,Cartesian_expansion)
@@ -2267,7 +2249,6 @@ contains
    if (m1_heatcool .and. hd_energy) then
      !$OMP PARALLEL DO PRIVATE(igrid)
      do iigrid=1,igridstail; igrid=igrids(iigrid);
-       block=>ps(igrid)
        call m1_heating_cooling(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
      end do
      !$OMP END PARALLEL DO

@@ -287,6 +287,8 @@ contains
           w(ixB^S,p_) = max(w(ixB^S,p_),1.d-1)
         end if
 
+        ! print*, it, '|' ,w(ixB^S,Er_), '|' ,w(ixB^S,Fr(1))
+
       else
         !> Gas pressure
         w(ixB^S,p_) = const_kB*Tbound*w(ixB^S,rho_)*unit_density/(const_mp*hd_mu)/unit_pressure
@@ -473,7 +475,7 @@ contains
     ! w(ixO^S,i_SdivP) = -divT(ixO^S)
     ! w(ixO^S,i_ScdvP) = (1-T(ixO^S)/w(ixO^S,Er_))*w(ixO^S,Er_)/x(ixO^S,1)
 
-    w(ixO^S,i_tau_cell) = w(ixO^S,rho_)*w(ixO^S,kF_)*block%dx(ixO^S,1)
+    w(ixO^S,i_tau_cell) = w(ixO^S,rho_)*m1_kappa_e*block%dx(ixO^S,1)
 
   end subroutine update_extravars
 

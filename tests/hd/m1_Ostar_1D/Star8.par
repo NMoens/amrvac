@@ -11,20 +11,20 @@
   itsave(1,2)=0
   dtsave_dat = 1.d-3
   dtsave_log = 1.d-3
-  !ditsave_dat = 50
-  !ditsave_log = 50
+  !ditsave_dat = 100
+  !ditsave_log = 100
 /
 
 &stoplist
-  time_max = 1.d-2 !2.d0
-  !it_max = 1000
+  time_max = 1.d-1 !2.d0
+  !it_max = 1500
 /
 
 &methodlist
   time_stepper = 'twostep'
   time_integrator = 'IMEX_Midpoint'
   flux_scheme  = 'tvdlf' !'tvdlf'
-  limiter      = 'ppm' !'ppm'
+  limiter      = 'weno3' !'ppm'
   check_small_values = .True.
   fix_small_values = .True.
   small_values_method = 'replace'
@@ -39,7 +39,7 @@
 /
 
 &meshlist
-  refine_max_level   = 1
+  refine_max_level   = 3
   domain_nx1         = 640
   block_nx1          = 80
   xprobmin1          = 1.0d0
@@ -49,7 +49,7 @@
 /
 
 &paramlist
-  courantpar = 0.5d0
+  courantpar = 0.1d0
 /
 
 &hd_list

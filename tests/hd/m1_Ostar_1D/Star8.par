@@ -40,8 +40,8 @@
 
 &meshlist
   refine_max_level   = 3
-  domain_nx1         = 640
-  block_nx1          = 80
+  domain_nx1         = 800
+  block_nx1          = 100
   xprobmin1          = 1.0d0
   xprobmax1          = 5.0d0
   stretch_dim(1)     = 'uni'
@@ -57,11 +57,13 @@
   hd_energy  = .true.
   hd_gamma   = 1.667d0
   hd_m1 = .true.
+/
+
+&m1_list
   m1_opacity_type = 'hybrid2'
   m1_heatcool = .true.
   m1_force = .true.
   m1_RSOL = 1.d0
-  m1_theta_stiff = 0.9d0
 /
 
 &star_list

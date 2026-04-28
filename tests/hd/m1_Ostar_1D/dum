@@ -1,0 +1,5 @@
+rsync -c amrvac.h /home/nicolasm/Codes/amrvac3/amrvac/lib/1d_default/amrvac.h
+make -C /home/nicolasm/Codes/amrvac3/amrvac/lib/1d_default -f /home/nicolasm/Codes/amrvac3/amrvac/arch/lib.make
+make[1]: Entering directory '/home/nicolasm/Codes/amrvac3/amrvac/lib/1d_default'
+mpif90 -cpp -ffree-form -fimplicit-none -O3 -Wall -Wno-unused-dummy-argument -Wno-unused-function -Wno-unused -Wno-uninitialized -Wno-zerotrip -Wno-target-lifetime -c mod_m1.f -o mod_m1.o 
+make[1]: Leaving directory '/home/nicolasm/Codes/amrvac3/amrvac/lib/1d_default'

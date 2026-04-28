@@ -3,6 +3,7 @@ module mod_usr
 
   ! Include a physics module: mod_rho, mod_hd, mod_mhd ...
   use mod_hd
+  use mod_m1
 
   implicit none
 
@@ -42,7 +43,7 @@ contains
 
     ! Fix negative radiation flux
     usr_internal_bc => Fix_radflux
-    usr_set_F0 => stellar_flux
+    usr_set_F0 => fld_flux
 
     !> Additional variables
     usr_process_grid => update_extravars
@@ -361,7 +362,7 @@ contains
 
   end subroutine Fix_radflux
 
-  subroutine stellar_flux(ixI^L,ixO^L,w,x,F0)
+  subroutine fld_flux(ixI^L,ixO^L,w,x,F0)
     use mod_global_parameters
     integer, intent(in)             :: ixI^L,ixO^L
     double precision, intent(in)    :: w(ixI^S,1:ndim)
@@ -371,13 +372,6 @@ contains
     double precision :: gradE(ixI^S), lambda(ixI^S), R(ixI^S)
 
     integer :: idir
-
-    ! !> Fixed total luminosity
-    ! F0(ixI^S,:) = 0.d0
-    !
-    ! ! Only in radial direction
-    ! F0(ixI^S,1) = lstar/(4*dpi*(x(ixI^S,1)*unit_length)**2)/unit_radflux &
-    ! -w(ixI^S,mom(1))*w(ixI^S,Er_)/w(ixI^S,rho_)
 
     !> FLD approximation
     !> Get magnitude of grad E
@@ -397,10 +391,9 @@ contains
     do idir = 1, ndim
       call gradient_str(w(ixI^S,Er_),x,ixI^L,ixO^L,idir,gradE)
       F0(ixO^S,idir) = -m1_c*lambda(ixO^S)/(w(ixO^S,rho_)*w(ixO^S,kF_))*gradE(ixO^S)
-      ! F0(ixO^S,idir) = -m1_c/(3*w(ixO^S,rho_)*w(ixO^S,kF_))*gradE(ixO^S)
     end do
 
-  end subroutine stellar_flux
+  end subroutine fld_flux
 
   subroutine stellar_gravity(ixI^L,ixO^L,wCT,x,gravity_field)
 
@@ -454,7 +447,7 @@ contains
 
     w(ixO^S,i_lumt) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * (w(ixO^S,Fr(1)) + w(ixO^S,Er_)*w(ixO^S,mom(1))/w(ixO^S,rho_))*unit_radflux / lstar
 
-    call stellar_flux(ixI^L,ixO^L,w,x,F)
+    call fld_flux(ixI^L,ixO^L,w,x,F)
     w(ixO^S,i_LFLD) = 4*dpi*F(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux / lstar
 
     ! !> Flux equation terms:

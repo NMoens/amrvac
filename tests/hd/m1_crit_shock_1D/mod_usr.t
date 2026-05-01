@@ -15,7 +15,7 @@ contains
   !> This routine should set user methods, and activate the physics module
   subroutine usr_init()
 
-    ! Choose coordinate system as 2D Cartesian with three components for vectors
+    ! Choose coordinate system
     call set_coordinate_system("Cartesian")
     call usr_params_read(par_files)
 

@@ -33,6 +33,7 @@ module mod_m1
   !> Speed of light used in m1 subsystem
   double precision, public, protected     :: m1_c
   double precision, public, protected     :: m1_sb
+  double precision, public, protected     :: alpha_qdot
 
   !> Opacity prescription
   character(len=8)                        :: m1_opacity_type = 'kappa_e'
@@ -70,15 +71,17 @@ contains
 
   end subroutine m1_read_params
 
-
-  subroutine m1_init(phys_mu, small_e)
+  subroutine m1_init(phys_mu, small_e, He_abundance)
     use mod_global_parameters
     use mod_opal_opacity, only: init_opal_table
     use mod_cak_opacity, only: init_cak
     use mod_windsim_tools, only: init_windsim_tools, wst_get_photosphere
     use mod_physics
+    use mod_constants
 
-    double precision, intent(in) :: phys_mu, small_e
+    double precision, intent(in) :: phys_mu, small_e, He_abundance
+
+    double precision :: sigma_thom
 
     call m1_read_params(par_files)
 
@@ -98,11 +101,36 @@ contains
     !> Radiation units
     unit_opacity = unit_length**2/unit_mass
     unit_radflux = unit_pressure*unit_velocity
-    m1_kappa_e = m1_kappa_e/unit_opacity
 
-    !> dimensionless speed of light and stefan boltzmann
-    m1_c = const_c/unit_velocity
-    m1_sb = const_sigma/unit_radflux*unit_temperature**4
+    if (SI_unit) then
+      !> Thomson crossection
+      sigma_thom = sigma_thom_SI
+
+      !> dimensionless speed of light and stefan boltzmann
+      m1_c = c_SI/unit_velocity
+      m1_sb = sigma_SI/unit_radflux*unit_temperature**4
+
+      !> Coefficient in heating-cooling sourceterm
+      alpha_qdot = rad_a_SI*m1_c*(unit_temperature**4/unit_pressure) !> mu, mp, kb hidden in units
+
+      !> Electron scattering opacity
+      m1_kappa_e = sigma_thom_SI/mp_SI * (1 + 2*He_abundance)/(1 + 4*He_abundance)
+      m1_kappa_e = m1_kappa_e/unit_opacity
+    else
+      !> Thomson crossection
+      sigma_thom = sigma_thom_cgs
+
+      !> dimensionless speed of light and stefan boltzmann
+      m1_c = const_c/unit_velocity
+      m1_sb = const_sigma/unit_radflux*unit_temperature**4
+
+      !> Coefficient in heating-cooling sourceterm
+      alpha_qdot = const_rad_a*m1_c*(unit_temperature**4/unit_pressure) !> mu, mp, kb hidden in units
+
+      !> Electron scattering opacity
+      m1_kappa_e = sigma_thom_cgs/mp_cgs * (1 + 2*He_abundance)/(1 + 4*He_abundance)
+      m1_kappa_e = m1_kappa_e/unit_opacity
+    end if
 
     !> Input from phys_init
     !> heatcool depends on energy eq
@@ -155,15 +183,15 @@ contains
     double precision, intent(inout), optional :: cmin(ixI^S,1:number_species)
     double precision, intent(in)    :: Hspeed(ixI^S,1:number_species)
 
+    double precision                          :: m1_cmax(ixI^S), m1_cmin(ixI^S)
+
     double precision                          :: fi(ixI^S), fj(ixI^S)
     double precision                          :: ff(ixI^S), xi(ixI^S)
 
     double precision                          :: lam_L_max(ixI^S), lam_L_min(ixI^S)
     double precision                          :: lam_R_max(ixI^S), lam_R_min(ixI^S)
 
-    ! TODO: Implement actual eigenvalues
-    ! > e.g. Gonzalez+ 2007
-    ! cmax(ixO^S,1) = m1_c*m1_RSOL
+    double precision                          :: tau_c(ixI^S)
 
     !TODO: Check this sum, it does not produce what is expected
     !> Left state
@@ -178,14 +206,23 @@ contains
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
 
+    tau_c(ixI^S) = block%dx(ixI^S,idim)*wLC(ixI^S,iw_rho)*m1_kappa_e
+
     lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
     /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
 
-    if (present(cmin)) &
-    lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-    - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-    /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+    ! Fuksman Melon 2019, Sadowski 20212
+    lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 4.d0/(3*tau_c(ixI^S)))
+
+    if (present(cmin)) then
+      lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+      - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+      /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+      ! Fuksman Melon 2019, Sadowski 20212
+      lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -4.d0/(3*tau_c(ixI^S)))
+    end if
 
     !> Right state
     ff(ixI^S) = sum(wRC(ixI^S, iw_Fr(:))**2, dim=ndim+1)/(m1_c*wRC(ixI^S,iw_r_e))**2
@@ -199,23 +236,33 @@ contains
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
 
+    tau_c(ixI^S) = block%dx(ixI^S,idim)*wRC(ixI^S,iw_rho)*m1_kappa_e
+
     lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
     /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
 
-    if (present(cmin)) &
-    lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-    - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-    /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-
-    !>Skinner Ostricker 2013, Eq 39
-    !TODO: Is below correctly implemented?
-    cmax(ixI^S,1) = max(lam_L_max(ixI^S),lam_R_max(ixI^S))
-    cmax(ixI^S,1) = max(cmax(ixI^S,1),0.d0)
+    ! Fuksman Melon 2019, Sadowski 20212
+    lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 4.d0/(3*tau_c(ixI^S)))
 
     if (present(cmin)) then
-      cmin(ixI^S,1) = min(lam_L_min(ixI^S),lam_R_min(ixI^S))
-      cmin(ixI^S,1) = min(cmin(ixI^S,1),0.d0)
+      lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+      - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+      /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+
+      ! Fuksman Melon 2019, Sadowski 20212
+      lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -4.d0/(3*tau_c(ixI^S)))
+    end if
+
+    ! Skinner Ostricker 2013, Eq 39,
+    m1_cmax(ixI^S) = max(lam_L_max(ixI^S),lam_R_max(ixI^S))
+    m1_cmax(ixI^S) = max(m1_cmax(ixI^S), 0.d0)
+    cmax(ixI^S,1) = max(cmax(ixI^S,1), m1_cmax(ixI^S))
+
+    if (present(cmin)) then
+      m1_cmin(ixI^S) = min(lam_L_min(ixI^S),lam_R_min(ixI^S))
+      m1_cmin(ixI^S) = min(m1_cmin(ixI^S), 0.d0)
+      cmin(ixI^S,1) = min(cmin(ixI^S,1), m1_cmin(ixI^S))
     end if
 
   end subroutine m1_get_cbounds
@@ -713,6 +760,7 @@ contains
         end do
         !$OMP END PARALLEL DO
 
+
       end subroutine m1_evaluate_implicit
 
       subroutine m1_flux_absorbtion(w, x, ixI^L, ixO^L, dtfactor, qdt)
@@ -788,7 +836,7 @@ contains
         double precision, intent(inout) :: w(ixI^S,1:nw)
 
         double precision :: ke(ixO^S)
-        double precision :: a4(ixO^S), a0(ixO^S), alpha
+        double precision :: a4(ixO^S), a0(ixO^S)
         double precision :: c0(ixO^S), c1(ixO^S)
 
         integer :: ix^D, idir
@@ -800,9 +848,7 @@ contains
         w(ixO^S,iw_e) = w(ixO^S,iw_e) - ke(ixO^S)
 
         !> Set polynomial coefficients
-        alpha = const_rad_a*m1_c*(unit_temperature**4/unit_pressure) !> mu, mp, kb hidden in units
-
-        a4(ixO^S) = alpha*w(ixO^S,kB_)*(m1_gamma-1.d0)**4/w(ixO^S,iw_rho)**3*dtfactor*dt
+        a4(ixO^S) = alpha_qdot*w(ixO^S,kB_)*(m1_gamma-1.d0)**4/w(ixO^S,iw_rho)**3*dtfactor*dt
         a0(ixO^S) = m1_c*w(ixO^S,kE_)*w(ixO^S,iw_rho)*dtfactor*qdt
 
         c1(ixO^S) = 1.d0/(a4(ixO^S) - m1_RSOL*a4(ixO^S)*a0(ixO^S)/(1.d0 + m1_RSOL*a0(ixO^S)))
@@ -846,11 +892,11 @@ contains
         Bb(ixI^S) = Bb(ixI^S)*unit_time/unit_pressure
 
         !> Heating and cooling sourceterms
-        w(ixO^S,iw_e) = m1_RSOL*m1_c*w(ixO^S,kE_)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e) &
-        - 4*dpi*m1_RSOL*w(ixO^S,kB_)*w(ixO^S,iw_rho)*Bb(ixO^S)
+        w(ixO^S,iw_e) = m1_c*w(ixO^S,kE_)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e) &
+                      - 4*dpi*w(ixO^S,kB_)*w(ixO^S,iw_rho)*Bb(ixO^S)
 
         w(ixO^S,iw_r_e) = - m1_RSOL*m1_c*w(ixO^S,kE_)*w(ixO^S,iw_rho)*w(ixO^S,iw_r_e) &
-        + 4*dpi*m1_RSOL*w(ixO^S,kB_)*w(ixO^S,iw_rho)**Bb(ixO^S)
+                          + 4*dpi*m1_RSOL*w(ixO^S,kB_)*w(ixO^S,iw_rho)*Bb(ixO^S)
 
       end subroutine m1_heating_cooling_evaluate
 
@@ -884,7 +930,6 @@ contains
         end if
 
       end subroutine m1_evaluate_rest
-
 
       subroutine m1_set_opacities(ixI^L,ixO^L,w,x)
         use mod_global_parameters

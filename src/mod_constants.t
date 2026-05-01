@@ -33,6 +33,9 @@ module mod_constants
   !> Boltzmann constant in cgs
   double precision, parameter :: kB_cgs = 1.3806488d-16 ! erg K^-1
 
+  !> Thomson crossection in SI
+  double precision, parameter :: sigma_thom_cgs = 6.6524587051d-25! cm^2
+
   !> Proton mass in SI
   double precision, parameter :: mp_SI = 1.672621777d-27 ! kg
 
@@ -44,6 +47,15 @@ module mod_constants
 
   !> Speed of light in SI
   double precision, parameter :: c_SI = 2.99792458d8 ! m s^-1
+
+  !> Thomson crossection in SI
+  double precision, parameter :: sigma_thom_SI = 6.6524587051d-29 ! m^2
+
+  !> Boltzman constant in SI
+  double precision, parameter :: sigma_SI = 5.670374419d-8 ! W m^-2 K^-4
+
+  !> Radiation constant in SI
+  double precision, parameter :: rad_a_SI = 7.5657d-16 ! J m^-3 K^-4
 
   double precision, PARAMETER :: const_c     = 2.99792458d10   ! cm s^-1           ; Speed of light
   double precision, PARAMETER :: const_me    = 9.1093897d-28   ! g                 ; Electron mass
@@ -58,7 +70,7 @@ module mod_constants
 
   double precision, PARAMETER :: const_sigma  = 5.670367d-5 ! erg cm^-2 K^-4 s^-1 ; Stefan-Boltzman constant
   double precision, PARAMETER :: const_G      = 6.67191d-8  ! cm^3 g^-1 s^-2      ; Cavendish gravitational constant
-  double precision, PARAMETER :: const_rad_a  = 7.5657e-15  ! erg cm^-3 K^-4      ; radiation density constant
+  double precision, PARAMETER :: const_rad_a  = 7.5657d-15  ! erg cm^-3 K^-4      ; radiation density constant
   double precision, PARAMETER :: const_kappae = 0.34d0      ! cm^2 g^-1           ; free-electron scattering opacity
 
   ! Conversion factors:

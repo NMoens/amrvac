@@ -405,7 +405,7 @@ contains
 
     ! initialize m1 module
     if (hd_m1) then
-      call m1_init(hd_mu, small_e)
+      call m1_init(hd_mu, small_e, He_abundance)
     end if
 
   end subroutine hd_phys_init
@@ -957,12 +957,6 @@ contains
 
     integer :: ix^D
 
-    if (hd_m1) then
-
-      call m1_get_cbounds(wLC, wRC, wLp, wRp, x, ixI^L, ixO^L, idim,Hspeed,cmax, cmin)
-
-    else
-
       select case(boundspeed)
       case (1)
         ! This implements formula (10.52) from "Riemann Solvers and Numerical
@@ -1054,7 +1048,9 @@ contains
         end if
       end select
 
-    end if
+      if (hd_m1) then
+        call m1_get_cbounds(wLC, wRC, wLp, wRp, x, ixI^L, ixO^L, idim, Hspeed, cmax, cmin)
+      end if
 
   end subroutine hd_get_cbounds
 

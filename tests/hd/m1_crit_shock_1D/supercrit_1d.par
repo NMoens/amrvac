@@ -1,19 +1,19 @@
 &filelist
-  base_filename = 'output/shock1d'
+  base_filename = 'output/supc_shock'
   typefilelog   = 'default'
   convert_type  = 'oneblock'
   level_io      = 1
   saveprim      = .true.
-  nwauxio       = 2
+  nwauxio       = 0
 /
 
 &savelist
   itsave(1,1)=0
   itsave(1,2)=0
-  !dtsave_dat = 1d-2
-  !dtsave_log = 1d-2
-  ditsave_dat = 1000
-  ditsave_log = 1
+  dtsave_dat = 1d-2
+  dtsave_log = 1d-2
+  !ditsave_dat = 1000
+  !ditsave_log = 1
 /
 
 &stoplist
@@ -37,7 +37,7 @@
 /
 
 &meshlist
-  refine_max_level   = 1
+  refine_max_level   = 3
   refine_criterion   = 3
   domain_nx1         = 512
   block_nx1          = 16

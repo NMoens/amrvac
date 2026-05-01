@@ -10,7 +10,7 @@ mod_geometry.t mod_ghostcells_update.t mod_small_values.t  \
 mod_fix_conserve.t mod_source.t mod_initialize.t  \
 mod_amrvac.t mod_bc_data.t mod_lookup_table.t    \
 mod_constrained_transport.t mod_multigrid_coupling.t \
-mod_supertimestepping.t mod_init_datafromfile.t mod_opal_opacity.t 
+mod_supertimestepping.t mod_init_datafromfile.t mod_opal_opacity.t
 FOBJECTS += m_octree_mg_$(NDIM)d.t
 # Add multigrid files and dependencies. Due to the m_ prefix, the
 # list_module_deps.sh script ignores these dependencies.
@@ -359,6 +359,7 @@ mod_m1.o: mod_geometry.mod
 mod_m1.o: mod_ghostcells_update.mod
 mod_m1.o: mod_global_parameters.mod
 mod_m1.o: mod_opal_opacity.mod
+mod_m1.o: mod_physics.mod
 mod_m1.o: mod_usr_methods.mod
 mod_m1.o: mod_variables.mod
 mod_m1.o: mod_windsim_tools.mod

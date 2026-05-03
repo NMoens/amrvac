@@ -36,7 +36,7 @@
 
 &meshlist
   iprob		     = 2
-  refine_max_level   = 4
+  refine_max_level   = 1
   refine_criterion   = 3
   domain_nx1         = 256
   block_nx1          = 16

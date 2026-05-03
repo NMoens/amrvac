@@ -576,18 +576,18 @@ contains
         vel(ixI^S,idir) = wCT(ixI^S,iw_mom(idir))/wCT(ixI^S,iw_rho)
       end do
 
-      print*, wCT(ixO^S, iw_Fr)
+      ! print*, 'before', w(ixO^S,iw_r_e)
 
-      do idir = 1,ndir
+      do idim = 1, ndim
 
         !> Photon tiring + Radflux CMF correction
-        do idim = 1,ndim
+        do idir = 1, ndir
 
           !TODO: implement vector gradient corrections in spherical!
           !TODO: implement directional derivative in spherical!
           !> Both are expressed at: https://en.wikipedia.org/wiki/Del_in_cylindrical_and_spherical_coordinates
-          call gradient_str(vel(ixI^S,idim), x, ixI^L, ixO^L, idir, gradv)
-          call m1_get_prad(wCT, x, ixI^L, ixO^L, idir, idim, prad)
+          call gradient_str(vel(ixI^S,idir), x, ixI^L, ixO^L, idim, gradv)
+          call m1_get_prad(wCT, x, ixI^L, ixO^L, idim, idir, prad)
 
           !> Geometric correction terms to vector gradient
           vec_grad(ixO^S) = gradv(ixO^S)
@@ -596,23 +596,23 @@ contains
           case(cylindrical)
             call mpistop("vector gradient not implemented for cylindrical coords")
           case(spherical)
-            if (idim .eq. 1) then
+            if (idir .eq. 1) then
               {^NOONED
-              if (idir .eq. 2) then
-                vec_grad(ixO^S) = vec_grad(ixO^S) - vel(ixO^S,2)/x(ixO^S,1)
-              else if (idir .eq. 3) then
-                vec_grad(ixO^S) = vec_grad(ixO^S) -  vel(ixO^S,3)/x(ixO^S,1)
+              if (idim .eq. 2) then
+                vec_grad(ixO^S) = vec_grad(ixO^S) - vel(ixO^S,idim)/x(ixO^S,1)
+              else if (idim .eq. 3) then
+                vec_grad(ixO^S) = vec_grad(ixO^S) -  vel(ixO^S,idim)/x(ixO^S,1)
               end if
-            else if (idim .eq. 2) then
-              if (idir .eq. 2) then
+            else if (idir .eq. 2) then
+              if (idim .eq. 2) then
                 vec_grad(ixO^S) = vec_grad(ixO^S) +  vel(ixO^S,1)/x(ixO^S,1)
-              else if (idir .eq. 3) then
-                vec_grad(ixO^S) = vec_grad(ixO^S) -  vel(ixO^S,3)/(x(ixO^S,1)*dtan(x(ixO^S,2)))
+              else if (idim .eq. 3) then
+                vec_grad(ixO^S) = vec_grad(ixO^S) -  vel(ixO^S,idim)/(x(ixO^S,1)*dtan(x(ixO^S,2)))
               end if
               }
               {^IFTHREED
-            else if (idim .eq. 3) then
-              if (idir .eq. 3) then
+            else if (idir .eq. 3) then
+              if (idim .eq. 3) then
                 vec_grad(ixO^S) = vec_grad(ixO^S) +  vel(ixO^S,1)/x(ixO^S,1)
                 vec_grad(ixO^S) = vec_grad(ixO^S) +  vel(ixO^S,2)/(x(ixO^S,1)*dtan(x(ixO^S,2)))
               end if
@@ -622,10 +622,7 @@ contains
 
           !TODO: Well balanced source-terms here? Requires gradient in GC
           w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) - qdt*m1_RSOL*vec_grad(ixO^S)*prad(ixO^S)
-          w(ixO^S,iw_Fr(idim)) = w(ixO^S,iw_Fr(idim)) - qdt*m1_RSOL*wCT(ixO^S,iw_Fr(idir))*gradv(ixO^S)
-          print*, idim, idir
-          print*, - qdt*m1_RSOL*vec_grad(ixO^S)*prad(ixO^S)
-          print*, - qdt*m1_RSOL*wCT(ixO^S,iw_Fr(idir))*gradv(ixO^S)
+          w(ixO^S,iw_Fr(idir)) = w(ixO^S,iw_Fr(idir)) - qdt*m1_RSOL*wCT(ixO^S,iw_Fr(idim))*gradv(ixO^S)
         end do
 
 
@@ -634,7 +631,7 @@ contains
         case(cylindrical)
           call mpistop("directional derivative not implemented for cylindrical coords")
         case(spherical)
-          select case(idir)
+          select case(idim)
             {^NOONED
           case(1)
             geom_corr(ixO^S) = -(wCT(ixO^S,iw_Fr(2)) * vel(ixO^S,2))/x(ixO^S,1)
@@ -655,19 +652,14 @@ contains
           end select
           {^NOONED
           !> add correction
-          w(ixO^S,iw_Fr(idir)) = w(ixO^S,iw_Fr(idir)) + qdt*m1_RSOL*geom_corr(ixO^S)
+          w(ixO^S,iw_Fr(idim)) = w(ixO^S,iw_Fr(idim)) + qdt*m1_RSOL*geom_corr(ixO^S)
           }
         end select
-
       end do
 
+      ! print*, 'after', w(ixO^S,iw_r_e)
 
-      stop
     end if
-
-    ! print*, 'after'
-    ! print*, w(ixOmin1,:,iw_Fr(2))/w(ixOmin1,:,iw_Fr(1))
-    ! stop
 
   end subroutine m1_rad_source
 

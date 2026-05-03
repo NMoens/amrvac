@@ -9,20 +9,20 @@
 &savelist
   itsave(1,1)=0
   itsave(1,2)=0
-  !dtsave_dat = 1d0
-  !dtsave_log = 1d0
-  ditsave_dat = 1
+  dtsave_dat = 1d0
+  dtsave_log = 1d0
+  !ditsave_dat = 1
   !ditsave_log = 1
 /
 
 &stoplist
-  !time_max = 20.d0
-  it_max = 10
+  time_max = 20.d0
+  !it_max = 10 !200
 /
 
 &methodlist
-  time_stepper = 'twostep'
-  time_integrator = 'Predictor_Corrector'
+  time_stepper = 'onestep'
+  time_integrator = 'Forward_Euler'
   flux_scheme  = 'hll'
   limiter      = 'weno3'
   fix_small_values = .true.
@@ -36,16 +36,18 @@
 /
 
 &meshlist
-  refine_max_level   = 1
+  refine_max_level   = 3
   refine_criterion   = 3
   domain_nx1         = 512
   block_nx1          = 16
   xprobmin1          = -20.d0
   xprobmax1          = 20.d0
+  w_refine_weight(4) = 1.d0
 /
 
 &paramlist
   courantpar = 0.3d0
+  !slowsteps = 100
 /
 
 &hd_list

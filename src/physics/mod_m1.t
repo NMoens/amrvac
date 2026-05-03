@@ -287,6 +287,7 @@ contains
     integer                      :: iw, ix^D
     double precision :: fi(ixI^S), fj(ixI^S), ff(ixI^S), chi(ixI^S)
 
+
     if (present(str)) streaming = str
     if (streaming) then
       call m1_get_streaming_fraction(w, x, ixI^L, ixO^L, idir, Erad)
@@ -400,6 +401,8 @@ contains
 
     ! theta(ixI^S) = 1.d0/(1.d0 + 2.d0/(3.d0*tau_c(ixI^S)))
     theta(ixI^S) = dexp(-2.d0/(3*tau_c(ixI^S)))
+
+    if (m1_opacity_type .eq. 'zero') theta = 0.d0
 
   end subroutine m1_get_trapped_fraction
 
@@ -566,15 +569,14 @@ contains
     double precision :: Fp(ixO^S), Fm(ixO^S), sm(ixO^S), sp(ixO^S)
     double precision :: geom_corr(ixO^S), vec_grad(ixO^S), vel(ixI^S,1:ndir)
 
-    ! print*, 'rad source'
-    ! print*, w(ixOmin1,:,iw_Fr(2))/w(ixOmin1,:,iw_Fr(1))
-
     if(qsourcesplit .eqv. m1_force_split) then
       active = .true.
 
       do idir = 1,ndir
         vel(ixI^S,idir) = wCT(ixI^S,iw_mom(idir))/wCT(ixI^S,iw_rho)
       end do
+
+      print*, wCT(ixO^S, iw_Fr)
 
       do idir = 1,ndir
 
@@ -621,7 +623,11 @@ contains
           !TODO: Well balanced source-terms here? Requires gradient in GC
           w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) - qdt*m1_RSOL*vec_grad(ixO^S)*prad(ixO^S)
           w(ixO^S,iw_Fr(idim)) = w(ixO^S,iw_Fr(idim)) - qdt*m1_RSOL*wCT(ixO^S,iw_Fr(idir))*gradv(ixO^S)
+          print*, idim, idir
+          print*, - qdt*m1_RSOL*vec_grad(ixO^S)*prad(ixO^S)
+          print*, - qdt*m1_RSOL*wCT(ixO^S,iw_Fr(idir))*gradv(ixO^S)
         end do
+
 
         !> Geometric correction terms to directional derivative
         select case(coordinate)
@@ -655,6 +661,8 @@ contains
 
       end do
 
+
+      stop
     end if
 
     ! print*, 'after'

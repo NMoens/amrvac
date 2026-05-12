@@ -16,6 +16,9 @@ module mod_m1
   !> Compute m1 pressure in diffusion limit
   logical, public, protected              :: m1_diffusion = .false.
 
+  !> Split trapped vs streaming photons in Flux eq
+  logical, public, protected              :: m1_split_trapped = .true.
+
   !> small_e set in hd module
   double precision, public                :: m1_small_e
   double precision, public                :: m1_gamma
@@ -33,7 +36,7 @@ module mod_m1
   !> Speed of light used in m1 subsystem
   double precision, public, protected     :: m1_c
   double precision, public, protected     :: m1_sb
-  double precision, public, protected     :: alpha_qdot
+  double precision, public, protected     :: alpha_qdot, beta_qdot
 
   !> Opacity prescription
   character(len=8)                        :: m1_opacity_type = 'kappa_e'
@@ -60,7 +63,7 @@ contains
     integer                      :: n
 
     namelist /m1_list/ m1_force, m1_opacity_type, m1_diffusion, m1_RSOL, &
-    m1_force_split, &
+    m1_force_split, m1_split_trapped, &
     m1_heatcool, m1_kappa_e
 
     do n = 1, size(files)
@@ -102,6 +105,11 @@ contains
     unit_opacity = unit_length**2/unit_mass
     unit_radflux = unit_pressure*unit_velocity
 
+    !> Local copy of mean molecular weight
+    m1_mu = phys_mu
+    m1_gamma = phys_gamma
+    m1_small_e = small_e
+
     if (SI_unit) then
       !> Thomson crossection
       sigma_thom = sigma_thom_SI
@@ -112,6 +120,7 @@ contains
 
       !> Coefficient in heating-cooling sourceterm
       alpha_qdot = rad_a_SI*m1_c*(unit_temperature**4/unit_pressure) !> mu, mp, kb hidden in units
+      beta_qdot = mp_SI*m1_mu/kB_SI*unit_pressure/unit_density
 
       !> Electron scattering opacity
       m1_kappa_e = sigma_thom_SI/mp_SI * (1 + 2*He_abundance)/(1 + 4*He_abundance)
@@ -126,6 +135,7 @@ contains
 
       !> Coefficient in heating-cooling sourceterm
       alpha_qdot = const_rad_a*m1_c*(unit_temperature**4/unit_pressure) !> mu, mp, kb hidden in units
+      beta_qdot = const_mp*m1_mu/const_kB*unit_pressure/unit_density
 
       !> Electron scattering opacity
       m1_kappa_e = sigma_thom_cgs/mp_cgs * (1 + 2*He_abundance)/(1 + 4*He_abundance)
@@ -138,11 +148,6 @@ contains
 
     !> diagonal requirements in gc
     m1_req_diagonal = phys_req_diagonal
-
-    !> Local copy of mean molecular weight
-    m1_mu = phys_mu
-    m1_gamma = phys_gamma
-    m1_small_e = small_e
 
     !> Initialise opacity modules if necessary
     if (m1_opacity_type .eq. 'hybrid1') call init_opal_table('Y02800')
@@ -403,6 +408,7 @@ contains
     theta(ixI^S) = dexp(-2.d0/(3*tau_c(ixI^S)))
 
     if (m1_opacity_type .eq. 'zero') theta = 0.d0
+    if (.not. m1_split_trapped) theta = 0.d0
 
   end subroutine m1_get_trapped_fraction
 
@@ -856,8 +862,8 @@ contains
 
         !> Solve polynomial
         {do ix^D = ixOmin^D,ixOmax^D\}
-        w(ix^D,iw_e) = max(w(ix^D,iw_e), m1_small_e)
-        call Bisection_method(w(ix^D,iw_e),w(ix^D,iw_r_e),c0(ix^D),c1(ix^D))
+          w(ix^D,iw_e) = max(w(ix^D,iw_e), m1_small_e)
+          call Bisection_method(w(ix^D,iw_e),w(ix^D,iw_r_e),c0(ix^D),c1(ix^D))
         {enddo\}
 
         !> Set radiation energy density
@@ -884,10 +890,10 @@ contains
         Bb(ixO^S) = (m1_gamma - 1.0d0) * (w(ixO^S, iw_e) - Bb(ixO^S))
 
         !> Gas temperature
-        Bb(ixI^S) = const_mp*m1_mu/const_kB*Bb(ixI^S)/w(ixO^S,iw_rho)
-        Bb(ixI^S) = Bb(ixI^S)*unit_pressure/unit_density
+        Bb(ixI^S) = beta_qdot*Bb(ixI^S)/w(ixO^S,iw_rho)
 
         !> Integrated black body mean intensity
+        !TODO: Fix units here
         Bb(ixI^S) = const_sigma*Bb(ixI^S)**4/dpi
         Bb(ixI^S) = Bb(ixI^S)*unit_time/unit_pressure
 

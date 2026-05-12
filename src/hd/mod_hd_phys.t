@@ -280,9 +280,6 @@ contains
     ! derive units from basic units
     call hd_physical_units()
 
-    !> Mean molecular weight
-    hd_mu = (1.0d0 + 4.0d0*He_abundance)/(2.0d0 + 3.0d0*He_abundance)
-
     if (hd_dust) then
         call dust_init(rho_, mom(:), e_)
     endif
@@ -405,6 +402,9 @@ contains
 
     ! initialize m1 module
     if (hd_m1) then
+      !> Mean molecular weight
+      hd_mu = (1.0d0 + 4.0d0*He_abundance)/(2.0d0 + 3.0d0*He_abundance)
+
       call m1_init(hd_mu, small_e, He_abundance)
     end if
 

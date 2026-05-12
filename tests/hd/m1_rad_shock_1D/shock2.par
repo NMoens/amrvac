@@ -9,10 +9,10 @@
 &savelist
   itsave(1,1)=0
   itsave(1,2)=0
-  !dtsave_dat = 1d-2
-  !dtsave_log = 1d-2
-  ditsave_dat = 1
-  ditsave_log = 1
+  dtsave_dat = 1d-2
+  dtsave_log = 1d-2
+  !ditsave_dat = 1
+  !ditsave_log = 1
 /
 
 &stoplist
@@ -21,8 +21,8 @@
 /
 
 &methodlist
-  time_stepper = 'twostep'
-  time_integrator = 'IMEX_Midpoint'
+  time_stepper = 'onestep'
+  time_integrator = 'IMEX_Euler'
   flux_scheme  = 'hll'
   limiter      = 'weno3'
   fix_small_values = .true.
@@ -40,8 +40,8 @@
   refine_criterion   = 3
   domain_nx1         = 800
   block_nx1          = 16
-  xprobmin1          = -1.d0
-  xprobmax1          = 1.d0
+  xprobmin1          = -20.d0
+  xprobmax1          = 20.d0
 /
 
 &paramlist
@@ -50,26 +50,25 @@
 /
 
 &hd_list
-  He_abundance    = 0.d0
   hd_energy       = .true.
   hd_gamma        = 1.667d0
   hd_m1           = .true.
 /
 
 &m1_list
-  m1_opacity_type = 'special'
+  m1_opacity_type = 'kappa_e'
   m1_diffusion    = .false.
-  m1_force        = .false.
+  m1_force        = .true.
   m1_RSOL         = 1.d0
 /
 
 &shock_list
   rho1    = 1.d0
-  p1      = 6.d-3
-  v1      = 0.69d0
-  Er1     = 0.18d0
-  rho2    = 3.65d0
-  p2      = 3.59d-2
-  v2      = 0.189d0
-  Er2     = 1.3d0
+  p1      = 4.d-3
+  v1      = 0.25d0
+  Er1     = 2.d-5
+  rho2    = 3.11d0
+  p2      = 0.04512d0
+  v2      = 0.0804d0
+  Er2     = 3.46d-3
 /

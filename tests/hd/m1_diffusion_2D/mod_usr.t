@@ -8,7 +8,7 @@ module mod_usr
   implicit none
 
   double precision :: L, rho, Er, Bg_E
-  integer :: i_Pxx,i_Pxy,i_Pyx,i_Pyy
+  integer :: i_Pxx,i_Pxy,i_Pyx,i_Pyy,i_sol,i_trap
 
 contains
 
@@ -36,7 +36,8 @@ contains
     unit_density     = rho ! g cm^-3
 
 
-
+    rho = rho/unit_density
+    Bg_E = Bg_E/unit_pressure
 
     ! Active the physics module: rho_activate(), hd_activate(), mhd_activate()
     call hd_activate()
@@ -45,6 +46,10 @@ contains
     i_Pxy = var_set_extravar('P_xy','P_xy')
     i_Pyx = var_set_extravar('P_yx','P_yx')
     i_Pyy = var_set_extravar('P_yy','P_yy')
+
+    i_trap = var_set_extravar('trap','trap')
+
+    i_sol = var_set_extravar('sol','sol')
 
   end subroutine usr_init
 
@@ -70,14 +75,14 @@ contains
     integer, intent(in)    :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision :: sol(ixI^S)
 
-      print*, unit_density
-      print*, unit_pressure
+    call solution(ixI^L, ixO^L, x, 0.d0, sol)
 
-      w(ixI^S,rho_) = rho/unit_density
-      w(ixI^S,mom(:)) = 0.d0
-      w(ixI^S,Er_) = Bg_E*(1+Er*dexp(-sum(x(ixI^S,:)**2, dim=ndim+1)/0.01d0))/unit_pressure
-      w(ixI^S,Fr(:)) = 0.d0
+    w(ixI^S,rho_) = rho
+    w(ixI^S,mom(:)) = 0.d0
+    w(ixI^S,Er_) = sol(ixI^S) !Bg_E*(1+Er*dexp(-sum(x(ixI^S,:)**2, dim=ndim+1)/0.01d0))
+    w(ixI^S,Fr(:)) = 0.d0
 
   end subroutine initial_conditions
 
@@ -89,7 +94,7 @@ contains
     double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    double precision :: prad(ixI^S)
+    double precision :: prad(ixI^S), sol(ixI^S), theta(ixI^S)
 
     call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, prad)
     w(ixO^S,i_Pxx) = prad(ixO^S)/w(ixO^S,Er_)
@@ -100,5 +105,28 @@ contains
     call m1_get_prad(w, x, ixI^L, ixO^L, 2, 2, prad)
     w(ixO^S,i_Pyy) = prad(ixO^S)/w(ixO^S,Er_)
 
+    call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, 1, theta)
+    w(ixO^S,i_trap) = theta(ixO^S)
+
+    call solution(ixI^L, ixO^L, x, global_time, sol)
+    w(ixO^S,i_sol) = sol(ixO^S)
+
   end subroutine update_extravars
+
+  subroutine solution(ixI^L, ixO^L, x, time, sol)
+    integer, intent(in)             :: ixI^L,ixO^L
+    double precision, intent(in)    :: x(ixI^S,1:ndim), time
+    double precision, intent(inout) :: sol(ixI^S)
+
+    double precision :: D, t
+    double precision :: G(ixI^S)
+
+    t = time + 1.d-4
+    D = m1_RSOL*m1_c/(3*rho*m1_kappa_e)
+    G(ixI^S) = 1/(4*dpi*D*t) * dexp(-sum(x(ixI^S,:)**2, dim=ndim+1)/(4*D*t))
+
+    sol(ixI^S) = Bg_E*(1+G(ixI^S))
+
+  end subroutine solution
+
 end module mod_usr

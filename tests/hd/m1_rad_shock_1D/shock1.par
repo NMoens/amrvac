@@ -9,15 +9,15 @@
 &savelist
   itsave(1,1)=0
   itsave(1,2)=0
-  dtsave_dat = 500.d0
+  dtsave_dat = 10.d0
   dtsave_log = 500.d0
   !ditsave_dat = 1
   !ditsave_log = 1
 /
 
 &stoplist
-  time_max = 5000.d0
-  !it_max = 200
+  time_max = 100.d0
+  !it_max = 100
 /
 
 &methodlist
@@ -25,6 +25,8 @@
   time_integrator = 'IMEX_Euler'
   flux_scheme  = 'hll'
   limiter      = 'minmod'
+  typegrad     = 'limited'
+  gradient_limiter = 'minmod'
   fix_small_values = .true.
   small_values_method = 'replace'
   small_pressure = 1.d-12
@@ -38,14 +40,14 @@
 &meshlist
   refine_max_level   = 1
   refine_criterion   = 3
-  domain_nx1         = 600
-  block_nx1          = 200
+  domain_nx1         = 900
+  block_nx1          = 300
   xprobmin1          = -20.d0
   xprobmax1          = 20.d0
 /
 
 &paramlist
-  courantpar = 0.3d0
+  courantpar = 0.1d0
 /
 
 &hd_list
@@ -56,7 +58,7 @@
 
 &m1_list
   m1_opacity_type = 'kappa_e'
-  m1_diffusion    = .false.
+  m1_diffusion    = .true.
   m1_split_trapped = .true.
   m1_heatcool     = .true.
   m1_force        = .true.

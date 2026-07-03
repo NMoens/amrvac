@@ -11,18 +11,18 @@
   itsave(1,2)=0
   ! dtsave_dat = 1d-2
   dtsave_log = 1d-2
-  ditsave_dat = 20
+  ditsave_dat = 10000
   ! ditsave_log = 100
 /
 
 &stoplist
   time_max = 1.d0
-  it_max = 5000
+  it_max = 100000
 /
 
 &methodlist
-  time_stepper = 'onestep'
-  time_integrator = 'IMEX_Euler'
+  time_stepper = 'twostep'
+  time_integrator = 'IMEX_Midpoint'
   flux_scheme  = 'tvdlf'
   limiter      = 'minmod'
 /
@@ -35,7 +35,6 @@
 /
 
 &meshlist
-  iprob  	     = 2
   refine_max_level   = 1
   refine_criterion   = 3
   domain_nx1         = 256
@@ -50,7 +49,6 @@
 
 &paramlist
   courantpar = 0.3d0
-  slowsteps = 100
 /
 
 &hd_list
@@ -67,7 +65,7 @@
 /
 
 &stream_list
-  L = 100.d0
+  L = 1.d28
   rho = 1.d0
   Er = 10.d0
   Bg_E = 1.d-7

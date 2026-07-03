@@ -8,7 +8,7 @@ module mod_usr
   implicit none
 
   double precision :: rho1, rho2, v1, v2, p1, p2, Er1, Er2
-  double precision :: my_unit_density, mu
+  double precision :: my_unit_density, my_unit_length, mu
 
   integer :: i_massflux, i_momflux, i_eflux, i_trapped
 
@@ -28,8 +28,8 @@ contains
     usr_process_grid => update_extravars
 
     ! Choose independent normalization units if using dimensionless variables.
-    unit_time        = 1.d0   ! cm
     unit_velocity    = const_c !
+    unit_time        = my_unit_length/unit_velocity   ! cm
     unit_density     = my_unit_density !100.d0 + smalldouble! g cm^-3
 
     call hd_activate()
@@ -58,6 +58,7 @@ contains
     !> Set unit_density such that Trad = Tgas
     mu = (1.0d0 + 4.0d0*He_abundance)/(2.0d0 + 3.0d0*He_abundance)
     my_unit_density = 4*const_sigma/Er1 * (const_mp*mu/const_kB)**4 * (p1/rho1)**4 * const_c**5
+    my_unit_length = 1/(my_unit_density)
 
   end subroutine usr_params_read
 
@@ -69,6 +70,7 @@ contains
     integer, intent(in)    :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
+    integer :: ix1
 
     where (x(ixI^S,1) .lt. 0.d0)
       w(ixI^S,rho_) = rho1
@@ -84,9 +86,32 @@ contains
       w(ixI^S,Fr(1)) = 0.d0 !1.d-2*Er2 !- v2*Er2
     end where
 
+    ! w(ixI^S,rho_) = smooth_ic(ixI^L, ixO^L, x, rho1, rho2)
+    ! w(ixI^S,mom(1)) = smooth_ic(ixI^L, ixO^L, x, v1, v2)
+    ! w(ixI^S,p_) = smooth_ic(ixI^L, ixO^L, x, p1, p2)
+    ! w(ixI^S,Er_) = smooth_ic(ixI^L, ixO^L, x, Er1, Er2)
+
+    ! w(ixI^S,Fr(1)) = -m1_c/(3*w(ixI^S,rho_)*m1_kappa_e)*(Er2 - Er1)/2/cosh(10*x(ixI^S,1))
+
+    print*, "Shock thickness", m1_c/(3*m1_kappa_e*rho1*v1), m1_c/(3*m1_kappa_e*rho2*v2)
+    print*, "kappa", m1_kappa_e
+    print*, "domain in mean-free path", (xprobmax1-xprobmin1)*m1_kappa_e*rho1
+
     call hd_to_conserved(ixI^L,ixO^L,w,x)
 
   end subroutine initial_conditions
+
+  function smooth_ic(ixI^L, ixO^L, x, Er1, Er2) result(Er_out)
+    use mod_constants
+
+    ! Subroutine arguments
+    integer, intent(in)    :: ixI^L, ixO^L
+    double precision, intent(in)    :: x(ixI^S,1:ndim), Er1, Er2
+    double precision                :: Er_out(ixI^S)
+
+    Er_out = Er1 + (Er2 - Er1)/2*(1+tanh(10*x(ixI^S,1)))
+
+  end function smooth_ic
 
   subroutine update_extravars(igrid,level,ixI^L,ixO^L,qt,w,x)
     use mod_global_parameters

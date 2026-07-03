@@ -1,0 +1,14 @@
+ &filelist
+ base_filename= 'Star89_'
+ /
+
+ &star_list
+    mstar =    58.2800000000000000000000000000000010
+    rstar =    12.2641719405982179519490796497759073
+    Tbound = 5.0d5
+    gamma_e =   0.400000000000000000000000000000000019
+    rhobound =    1.41544452984611419100608881873655224E-0006
+    beta     = 0.5d0
+    ic_file = './init_conds/Star89_init.txt'
+    len_ic   = 2110
+ /

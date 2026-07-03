@@ -10,7 +10,7 @@ module mod_usr
   double precision :: rho1, rho2, v1, v2, p1, p2, Er1, Er2
   double precision :: my_unit_density, my_unit_length, mu
 
-  integer :: i_massflux, i_momflux, i_eflux, i_trapped
+  integer :: i_massflux, i_momflux, i_eflux, i_trapped, i_Prr
 
 contains
 
@@ -37,8 +37,9 @@ contains
     i_massflux = var_set_extravar('massflux','massflux')
     i_momflux = var_set_extravar('momflux','momflux')
     i_eflux = var_set_extravar('eflux','eflux')
-    i_trapped = var_set_extravar('trapped','trapped')
 
+    i_trapped = var_set_extravar('trapped','trapped')
+    i_Prr = var_set_extravar('Prr','Prr')
 
   end subroutine usr_init
 
@@ -136,8 +137,10 @@ contains
                        + w(ixO^S,Fr(1)) - w(ixO^S,Er_)*v(ixO^S) - prad(ixO^S)*v(ixO^S)
 
     call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, 1, theta)
-
     w(ixO^S,i_trapped) = theta(ixO^S)
+
+    w(ixO^S,i_Prr) = prad(ixO^S)
+
 
   end subroutine update_extravars
 

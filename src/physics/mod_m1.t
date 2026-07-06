@@ -194,7 +194,10 @@ contains
     double precision                          :: lam_L_max(ixI^S), lam_L_min(ixI^S)
     double precision                          :: lam_R_max(ixI^S), lam_R_min(ixI^S)
 
-    double precision                          :: tau_c(ixI^S)
+    double precision                          :: tau_c(ixI^S), kappa
+
+    kappa = m1_kappa_e
+    if (m1_opacity_type .eq. 'zero') kappa = 0.d0
 
     !TODO: Check this sum, it does not produce what is expected
     !> Left state
@@ -208,8 +211,9 @@ contains
     fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
+    ! xi(ixI^S) = max(1.d0,min(ff(ixI^S), 2.d0)
 
-    tau_c(ixI^S) = block%dx(ixI^S,idim)*wLC(ixI^S,iw_rho)*m1_kappa_e
+    tau_c(ixI^S) = block%dx(ixI^S,idim)*wLC(ixI^S,iw_rho)*kappa
 
     lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
@@ -238,8 +242,9 @@ contains
     fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
+    ! xi(ixI^S) = max(1.d0,min(ff(ixI^S), 2.d0)
 
-    tau_c(ixI^S) = block%dx(ixI^S,idim)*wRC(ixI^S,iw_rho)*m1_kappa_e
+    tau_c(ixI^S) = block%dx(ixI^S,idim)*wRC(ixI^S,iw_rho)*kappa
 
     lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &

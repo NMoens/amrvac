@@ -1547,10 +1547,11 @@ contains
           if (any(flag(ixO^S,Fr(:)))) &
             Fmag(ixI^S) = dsqrt(sum(w(ixI^S,Fr(:))**2, dim=ndim+1))
 
-          do idir = 1,ndir
-            where(flag(ixI^S,Fr(idir))) w(ixI^S,Fr(idir)) = w(ixI^S,Fr(idir))*m1_c*w(ixI^S,Er_)/Fmag(ixI^S)
-          end do
-        end if
+            do idir = 1,ndir
+              where(flag(ixI^S,Fr(idir))) w(ixI^S,Fr(idir)) = w(ixI^S,Fr(idir))*m1_c*w(ixI^S,Er_)/max(Fmag(ixI^S),smalldouble)
+            end do
+
+          end if
 
 
       case ("average")

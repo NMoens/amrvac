@@ -24,7 +24,9 @@
   time_stepper = 'onestep'
   time_integrator = 'IMEX_Euler'
   flux_scheme  = 'hll' !'tvdlf'
-  limiter      = 'ppm' !'ppm'
+  limiter      = 'minmod' !'ppm'
+  typegrad     = 'limited'
+  gradient_limiter = 'minmod'
   check_small_values = .True.
   fix_small_values = .True.
   small_values_method = 'replace'

@@ -8,6 +8,7 @@ module mod_usr
   implicit none
 
   double precision :: Er_l, Fx_l, Fy_l, Er_r, Fx_r, Fy_r
+  integer :: i_Pxx, i_Pxy, i_Pyy, i_chi, i_trap
 
 contains
 
@@ -21,7 +22,6 @@ contains
     ! A routine for initial conditions is always required
     ! usr_set_parameters => initglobaldata_usr
     usr_init_one_grid => initial_conditions
-    ! usr_special_bc => boundary_conditions
 
     ! Choose independent normalization units if using dimensionless variables.
     unit_length      = 1.d0 ! cm
@@ -30,6 +30,12 @@ contains
 
     ! Active the physics module: rho_activate(), hd_activate(), mhd_activate()
     call hd_activate()
+
+    i_Pxx = var_set_extravar('Pxx','Pxx')
+    i_Pxy = var_set_extravar('Pxy','Pxy')
+    i_Pyy = var_set_extravar('Pyy','Pyy')
+    i_chi = var_set_extravar('chi','chi')
+    i_trap = var_set_extravar('theta','theta')
 
   end subroutine usr_init
 
@@ -74,40 +80,31 @@ contains
 
   end subroutine initial_conditions
 
-!   subroutine boundary_conditions(qt,ixI^L,ixB^L,iB,w,x)
-!   use mod_global_parameters
-!   use mod_fld
-!
-!
-!   integer, intent(in)             :: ixI^L, ixB^L, iB
-!   double precision, intent(in)    :: qt, x(ixI^S,1:ndim)
-!   double precision, intent(inout) :: w(ixI^S,1:nw)
-!
-!   integer :: ii
-!
-!   select case (iB)
-!
-!   case(1)
-!     w(ixB^S,rho_) = rho1
-!     w(ixB^S,mom(1)) = v1
-!     w(ixB^S,e_) = p1
-!     w(ixB^S,Er_) = Er1
-!     w(ixB^S,Fr(1)) = 0.d0
-!
-!     call hd_to_conserved(ixI^L,ixB^L,w,x)
-!
-!   case(2)
-!     w(ixB^S,rho_) = rho2
-!     w(ixB^S,mom(1)) = v2
-!     w(ixB^S,e_) = p2
-!     w(ixB^S,Er_) = Er2
-!     w(ixB^S,Fr(1)) = 0.d0
-!
-!     call hd_to_conserved(ixI^L,ixB^L,w,x)
-!
-!   case default
-!     call mpistop('boundary not known')
-!   end select
-! end subroutine boundary_conditions
+  subroutine update_extravars(igrid,level,ixI^L,ixO^L,qt,w,x)
+    use mod_global_parameters
+    use mod_hd
+
+    integer, intent(in)             :: igrid,level,ixI^L,ixO^L
+    double precision, intent(in)    :: qt,x(ixI^S,1:ndim)
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+
+    double precision :: prad(ixI^S), chi(ixI^S), theta(ixI^S)
+
+    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, prad)
+    w(ixO^S,i_Pxx) = prad(ixO^S)
+
+    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 2, prad)
+    w(ixO^S,i_Pxy) = prad(ixO^S)
+
+    call m1_get_prad(w, x, ixI^L, ixO^L, 2, 2, prad)
+    w(ixO^S,i_Pyy) = prad(ixO^S)
+
+    call m1_get_chi(w, x, ixI^L, ixO^L, chi)
+    w(ixO^S,i_chi) = chi(ixO^S)
+
+    call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, 1, theta)
+    w(ixO^S,i_trap) = theta(ixO^S)
+
+  end subroutine update_extravars
 
 end module mod_usr

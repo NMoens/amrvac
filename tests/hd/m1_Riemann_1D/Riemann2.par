@@ -17,14 +17,15 @@
 
 &stoplist
   time_max = 20.d0
-  !it_max = 10 !200
+  !it_max = 100 !200
 /
 
 &methodlist
-  time_stepper = 'twostep'
-  time_integrator = 'Predictor_Corrector'
+  time_stepper = 'onestep'
+  time_integrator = 'Forward_Euler'
   flux_scheme  = 'hll'
   limiter      = 'weno3'
+  check_small_values = .true.
   fix_small_values = .true.
   small_values_method = 'replace'
   small_pressure = 1.d-6
@@ -39,15 +40,14 @@
   refine_max_level   = 1
   refine_criterion   = 3
   domain_nx1         = 512
-  block_nx1          = 16
+  block_nx1          = 128
   xprobmin1          = -10.d0
   xprobmax1          = 10.d0
   w_refine_weight(4) = 1.d0
 /
 
 &paramlist
-  courantpar = 0.3d0
-  !slowsteps = 100
+  courantpar = 0.4d0
 /
 
 &hd_list
@@ -62,6 +62,7 @@
   m1_force        = .false.
   m1_heatcool     = .false
   m1_RSOL         = 1.d0
+  m1_split_trapped = .false.
 /
 
 &shock_list

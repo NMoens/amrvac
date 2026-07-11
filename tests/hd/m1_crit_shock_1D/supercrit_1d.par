@@ -4,7 +4,6 @@
   convert_type  = 'oneblock'
   level_io      = 1
   saveprim      = .true.
-  nwauxio       = 0
 /
 
 &savelist
@@ -12,20 +11,20 @@
   itsave(1,2)=0
   dtsave_dat = 1d-2
   dtsave_log = 1d-2
-  !ditsave_dat = 1000
+  ditsave_dat = 100
   !ditsave_log = 1
 /
 
 &stoplist
   time_max = 1.d0
-  !it_max = 200
+  it_max = 1000
 /
 
 &methodlist
-  time_stepper = 'twostep'
-  time_integrator = 'IMEX_Midpoint'
-  flux_scheme  = 'tvdlf'
-  limiter      = 'weno5'
+  time_stepper = 'onestep'
+  time_integrator = 'IMEX_Euler'
+  flux_scheme  = 'hll'
+  limiter      = 'minmod'
   fix_small_values = .true.
   small_values_method = 'replace'
   small_pressure = 1.d-6
@@ -40,7 +39,7 @@
   refine_max_level   = 3
   refine_criterion   = 3
   domain_nx1         = 512
-  block_nx1          = 16
+  block_nx1          = 128
   xprobmin1          = 0.d0
   xprobmax1          = 1.d0
 /
@@ -61,7 +60,7 @@
   m1_opacity_type = 'kappa_e'
   m1_diffusion    = .false.
   m1_force        = .true.
-  m1_RSOL         = 1.d-2
+  m1_RSOL         = 1.d-1
 /
 
 &shock_list

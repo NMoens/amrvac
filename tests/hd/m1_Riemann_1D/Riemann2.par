@@ -17,7 +17,7 @@
 
 &stoplist
   time_max = 20.d0
-  !it_max = 100 !200
+  !it_max = 1000 !200
 /
 
 &methodlist
@@ -41,8 +41,8 @@
   refine_criterion   = 3
   domain_nx1         = 512
   block_nx1          = 128
-  xprobmin1          = -10.d0
-  xprobmax1          = 10.d0
+  xprobmin1          = -20.d0
+  xprobmax1          = 20.d0
   w_refine_weight(4) = 1.d0
 /
 

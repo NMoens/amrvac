@@ -23,6 +23,9 @@ contains
     ! usr_set_parameters => initglobaldata_usr
     usr_init_one_grid => initial_conditions
 
+    !> Additional variables
+    usr_process_grid => update_extravars
+
     ! Choose independent normalization units if using dimensionless variables.
     unit_length      = 1.d0 ! cm
     unit_velocity    = const_c ! K

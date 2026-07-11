@@ -207,17 +207,23 @@ contains
     !> Eddington scalars
     fi(ixI^S) = abs(wLC(ixI^S,iw_Fr(idim))/(m1_c*wLC(ixI^S,iw_r_e)))
     fi(ixI^S) = min(fi(ixI^S),1.d0)
+    ! mu(ixI^S) = abs(wLC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wLC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
+    ! mu(ixI^S) = min(mu(ixI^S),1.d0)
 
     fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
-    ! xi(ixI^S) = max(1.d0,min(ff(ixI^S), 2.d0)
 
     tau_c(ixI^S) = block%dx(ixI^S,idim)*wLC(ixI^S,iw_rho)*kappa
 
     lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
     /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+    ! lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)*dsqrt(ff(ixI^S)) &
+    ! + dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
+    ! + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
+    ! /xi(ixI^S)
+
 
     ! Fuksman Melon 2019, Sadowski 20212
     lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 4.d0/(3*tau_c(ixI^S)))
@@ -226,6 +232,10 @@ contains
       lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
       - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
       /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+      ! lam_L_min(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
+      ! - dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
+      ! + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
+      ! /xi(ixI^S)
 
       ! Fuksman Melon 2019, Sadowski 20212
       lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -4.d0/(3*tau_c(ixI^S)))
@@ -238,17 +248,22 @@ contains
     !> Eddington scalars
     fi(ixI^S) = abs(wRC(ixI^S,iw_Fr(idim))/(m1_c*wRC(ixI^S,iw_r_e)))
     fi(ixI^S) = min(fi(ixI^S),1.d0)
+    ! mu(ixI^S) = abs(wRC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wRC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
+    ! mu(ixI^S) = min(mu(ixI^S),1.d0)
 
     fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
-    ! xi(ixI^S) = max(1.d0,min(ff(ixI^S), 2.d0)
 
     tau_c(ixI^S) = block%dx(ixI^S,idim)*wRC(ixI^S,iw_rho)*kappa
 
     lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
     /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+    ! lam_R_max(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
+    ! + dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
+    ! + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
+    ! /xi(ixI^S)
 
     ! Fuksman Melon 2019, Sadowski 20212
     lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 4.d0/(3*tau_c(ixI^S)))
@@ -257,6 +272,10 @@ contains
       lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
       - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
       /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+      ! lam_R_min(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
+      ! - dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
+      ! + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
+      ! /xi(ixI^S)
 
       ! Fuksman Melon 2019, Sadowski 20212
       lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -4.d0/(3*tau_c(ixI^S)))
@@ -324,7 +343,12 @@ contains
       !> Cap ff, this should not be necessary, but the sum above does not behave properly
       fi(ixI^S) = min(fi(ixI^S),1.d0)
       fj(ixI^S) = min(fj(ixI^S),1.d0)
+
+      fi(ixI^S) = max(fi(ixI^S),smalldouble)
+      fj(ixI^S) = max(fj(ixI^S),smalldouble)
+
       ff(ixI^S) = min(ff(ixI^S),1.d0)
+      ff(ixI^S) = max(ff(ixI^S),smalldouble)
 
       !> Eddington factor
       chi(ixI^S) = (3.d0+4*ff(ixI^S))/(5.d0+2*dsqrt(4.d0-3*ff(ixI^S)))
@@ -333,7 +357,7 @@ contains
 
       !> Temporary (??) fix
       where (chi(ixI^S) .ne. chi(ixI^S))
-        chi(ixI^S) = 1.d0 !5.d0/3.d0
+        chi(ixI^S) = 1.d0 !3.d0/5.d0
       end where
 
       !> Eddington tensor
@@ -390,8 +414,6 @@ contains
     double precision, intent(in) :: x(ixI^S, 1:ndim)
     double precision, intent(out):: theta(ixI^S)
     integer, intent(in)          :: idim
-
-    integer :: hxO^L,jxO^L
 
     double precision :: tau_c(ixI^S), fred(ixI^S)
 
@@ -564,7 +586,6 @@ contains
     logical, intent(inout) :: active
 
     integer :: idir, idim
-    integer                         :: jxO^L, hxO^L
 
     double precision :: prad(ixI^S), gradv(ixI^S)
     double precision :: Fp(ixO^S), Fm(ixO^S), sm(ixO^S), sp(ixO^S)
@@ -620,7 +641,6 @@ contains
             end if
           end select
 
-          !TODO: Well balanced source-terms here? Requires gradient in GC
           w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) - qdt*m1_RSOL*vec_grad(ixO^S)*prad(ixO^S)
           w(ixO^S,iw_Fr(idir)) = w(ixO^S,iw_Fr(idir)) - qdt*m1_RSOL*wCT(ixO^S,iw_Fr(idim))*gradv(ixO^S)
         end do
@@ -672,7 +692,6 @@ contains
     logical, intent(inout) :: active
 
     integer :: idir
-    integer                         :: jxO^L, hxO^L
 
     if(qsourcesplit .eqv. m1_force_split) then
       active = .true.
@@ -776,6 +795,23 @@ contains
     double precision :: aa(ixI^S), bb(ixI^S)
 
     integer :: idim
+
+    ! do idim = 1, ndim
+    !
+    !
+    !   hxO^L=ixO^L-kr(idim,^D);
+    !   jxO^L=ixO^L+kr(idim,^D);
+    !
+    !
+    !   ! > Exact solution: dF/dt = - a F - b
+    !   !                  <=> F = C1 * exp(-a*t) - b/a
+    !   !                  w. C1 = F0 + b/a
+    !
+    !
+    !   ! aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,iw_rho)*w(ixI^S,kF_)
+    !   !> rho evaluated at cell face for well-balancing
+    !   rho(ixO^S) = (w(hxO^S,iw_rho) + 2*w(ixO^S,iw_rho) + w(jxO^S,iw_rho))/4
+    !   aa(ixO^S) = m1_RSOL*m1_c*rho(ixO^S)*w(ixO^S,kF_)
 
     ! > Exact solution: dF/dt = - a F - b
     !                  <=> F = C1 * exp(-a*t) - b/a

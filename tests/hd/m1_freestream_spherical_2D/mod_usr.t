@@ -9,7 +9,7 @@ module mod_usr
 
   double precision :: L, rho, Er, F_red, Bg_E
   integer :: i_Pxx,i_Pxy,i_Pyx,i_Pyy
-  integer :: i_r, i_ff, i_chi
+  integer :: i_r, i_ff, i_chi, i_tau
 
 contains
 
@@ -25,6 +25,7 @@ contains
     usr_init_one_grid => initial_conditions
     usr_special_bc => boundary_conditions
 
+    usr_refine_grid => refine_beam
     usr_process_grid => update_extravars
 
 
@@ -47,6 +48,7 @@ contains
     i_r = var_set_extravar('r','r')
     i_ff = var_set_extravar('ff','ff')
     i_chi = var_set_extravar('chi','chi')
+    i_tau = var_set_extravar('tau_c','tau_c')
 
   end subroutine usr_init
 
@@ -106,7 +108,7 @@ contains
 
   select case (iprob)
 
-  case(1)
+  case(1) !> F Parallel to r
 
     select case (iB)
 
@@ -122,7 +124,7 @@ contains
       call mpistop('boundary not known')
     end select
 
-  case(2)
+  case(2) !> F Parallel to z
 
     select case (iB)
 
@@ -142,6 +144,36 @@ contains
   end select
 end subroutine boundary_conditions
 
+!> Enforce additional refinement or coarsening
+!> One can use the coordinate info in x and/or time qt=t_n and w(t_n) values w.
+!> you must set consistent values for integers refine/coarsen:
+!> refine = -1 enforce to not refine
+!> refine =  0 doesn't enforce anything
+!> refine =  1 enforce refinement
+!> coarsen = -1 enforce to not coarsen
+!> coarsen =  0 doesn't enforce anything
+!> coarsen =  1 enforce coarsen
+!> e.g. refine for negative first coordinate x < 0 as
+!> if (any(x(ix^S,1) < zero)) refine=1
+subroutine refine_beam(igrid,level,ixI^L,ixO^L,qt,w,x,refine,coarsen)
+  use mod_global_parameters
+  integer, intent(in)          :: igrid, level, ixI^L, ixO^L
+  double precision, intent(in) :: qt, w(ixI^S,1:nw), x(ixI^S,1:ndim)
+  integer, intent(inout)       :: refine, coarsen
+
+  double precision :: xx(ixI^S), yy(ixI^S)
+
+  xx(ixI^S) = x(ixI^S,1)*sin(dpi-x(ixI^S,2))
+  yy(ixI^S) = x(ixI^S,1)*cos(dpi-x(ixI^S,2))
+
+  if (any(xx .gt. 2 .and. xx .lt. 3 .and. yy .lt. qt)) then
+    refine=1
+  else
+    coarsen=1
+  end if
+
+end subroutine refine_beam
+
 subroutine update_extravars(igrid,level,ixI^L,ixO^L,qt,w,x)
   use mod_global_parameters
   use mod_hd
@@ -156,6 +188,9 @@ subroutine update_extravars(igrid,level,ixI^L,ixO^L,qt,w,x)
   w(ixI^S,i_r) = dsqrt(x(ixI^S,1)**2 + r0**2 - 2*x(ixI^S,1)*r0*cos(dpi/2-x(ixI^S,2)))
 
   w(ixI^S,i_ff) = sum(w(ixI^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixI^S,Er_))**2
+  w(ixI^S,i_ff) = min(w(ixI^S,i_ff),1.d0)
+  w(ixI^S,i_ff) = max(w(ixI^S,i_ff),smalldouble)
+
   w(ixI^S,i_chi) = (3.d0+4*w(ixI^S,i_ff))/(5.d0+2*dsqrt(4.d0-3*w(ixI^S,i_ff)))
 
   call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, prad)
@@ -166,6 +201,8 @@ subroutine update_extravars(igrid,level,ixI^L,ixO^L,qt,w,x)
   w(ixI^S,i_Pyx) = prad(ixI^S)/w(ixI^S,Er_)
   call m1_get_prad(w, x, ixI^L, ixO^L, 2, 2, prad)
   w(ixI^S,i_Pyy) = prad(ixI^S)/w(ixI^S,Er_)
+
+  w(ixI^S,i_tau) = block%dx(ixI^S,1)*w(ixI^S,kF_)*w(ixI^S,rho_)
 
 end subroutine update_extravars
 

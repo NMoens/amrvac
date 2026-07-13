@@ -1,0 +1,77 @@
+&filelist
+  base_filename = 'output/shock1_RSOL_'
+  typefilelog   = 'default'
+  convert_type  = 'oneblock'
+  level_io      = 1
+  saveprim      = .true.
+/
+
+&savelist
+  itsave(1,1)=0
+  itsave(1,2)=0
+  dtsave_dat = 10.d0
+  dtsave_log = 500.d0
+  !ditsave_dat = 10
+  !ditsave_log = 1
+/
+
+&stoplist
+  time_max = 100.d0
+  !it_max = 100
+/
+
+&methodlist
+  time_stepper = 'onestep'
+  time_integrator = 'IMEX_Euler'
+  flux_scheme  = 'tvdlf'
+  limiter      = 'minmod'
+  typegrad     = 'limited'
+  gradient_limiter = 'minmod'
+  fix_small_values = .true.
+  small_values_method = 'replace'
+  small_pressure = 1.d-12
+/
+
+&boundlist
+  typeboundary_min1 = 5*'cont'
+  typeboundary_max1 = 5*'cont'
+/
+
+&meshlist
+  refine_max_level   = 1
+  refine_criterion   = 3
+  domain_nx1         = 900
+  block_nx1          = 300
+  xprobmin1          = -20.d0
+  xprobmax1          = 20.d0
+/
+
+&paramlist
+  courantpar = 0.1d0
+/
+
+&hd_list
+  hd_energy       = .true.
+  hd_gamma        = 1.667d0
+  hd_m1           = .true.
+/
+
+&m1_list
+  m1_opacity_type = 'kappa_e'
+  m1_diffusion    = .false.
+  m1_split_trapped = .true.
+  m1_heatcool     = .true.
+  m1_force        = .true.
+  m1_RSOL         = 1.d-1
+/
+
+&shock_list
+  rho1    = 1.d0
+  p1      = 3.d-5
+  v1      = 0.015d0
+  Er1     = 1.d-8
+  rho2    = 2.4d0
+  p2      = 1.61d-4
+  v2      = 6.25d-3
+  Er2     = 2.51d-7
+/

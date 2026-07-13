@@ -9,22 +9,22 @@
 &savelist
   itsave(1,1)=0
   itsave(1,2)=0
-  ! dtsave_dat = 1d-2
-  dtsave_log = 1d-2
-  ditsave_dat = 50
+  dtsave_dat = 1d-4
+  dtsave_log = 1d-4
+  ! ditsave_dat = 50
   ! ditsave_log = 100
 /
 
 &stoplist
-  time_max = 1.d0
-  it_max = 5000
+  time_max = 1.d-3
+  !it_max = 5000
 /
 
 &methodlist
   time_stepper = 'onestep'
   ! time_integrator = 'IMEX_Euler'
-  flux_scheme  = 'tvdlf'
-  limiter      = 'minmod'
+  flux_scheme  = 'hll'
+  limiter      = 'weno3'
 /
 
 &boundlist
@@ -36,21 +36,25 @@
 
 &meshlist
   iprob		     = 1
-  refine_max_level   = 1
+  refine_max_level   = 4
   refine_criterion   = 3
-  domain_nx1         = 256
-  block_nx1          = 16
-  domain_nx2         = 256
-  block_nx2          = 16
+  domain_nx1         = 32
+  block_nx1          = 8
+  domain_nx2         = 32
+  block_nx2          = 8
   xprobmin1          = 1.d0
   xprobmax1          = 5.d0
-  xprobmin2          = 0.d0
+  xprobmin2          = 0.001d0
   xprobmax2          = 0.25d0
+  w_refine_weight(4) = 1.d0
+  refine_threshold = 0.5
+  stretch_dim(1)     = 'uni'
 /
+
 
 &paramlist
   courantpar = 0.3d0
-  slowsteps = 100
+  !slowsteps = 100
 /
 
 &hd_list

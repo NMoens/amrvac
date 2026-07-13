@@ -194,7 +194,7 @@ contains
     double precision                          :: lam_L_max(ixI^S), lam_L_min(ixI^S)
     double precision                          :: lam_R_max(ixI^S), lam_R_min(ixI^S)
 
-    double precision                          :: tau_c(ixI^S), kappa
+    double precision                          :: tau_c(ixI^S), kappa, mu(ixI^S)
 
     kappa = m1_kappa_e
     if (m1_opacity_type .eq. 'zero') kappa = 0.d0
@@ -207,8 +207,8 @@ contains
     !> Eddington scalars
     fi(ixI^S) = abs(wLC(ixI^S,iw_Fr(idim))/(m1_c*wLC(ixI^S,iw_r_e)))
     fi(ixI^S) = min(fi(ixI^S),1.d0)
-    ! mu(ixI^S) = abs(wLC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wLC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
-    ! mu(ixI^S) = min(mu(ixI^S),1.d0)
+    mu(ixI^S) = abs(wLC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wLC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
+    mu(ixI^S) = min(mu(ixI^S),1.d0)
 
     fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
 
@@ -216,26 +216,26 @@ contains
 
     tau_c(ixI^S) = block%dx(ixI^S,idim)*wLC(ixI^S,iw_rho)*kappa
 
-    lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-    + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-    /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-    ! lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)*dsqrt(ff(ixI^S)) &
-    ! + dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
-    ! + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
-    ! /xi(ixI^S)
+    ! lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+    ! + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+    ! /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+    lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)*dsqrt(ff(ixI^S)) &
+    + dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
+    + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
+    /xi(ixI^S)
 
 
     ! Fuksman Melon 2019, Sadowski 20212
     lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 4.d0/(3*tau_c(ixI^S)))
 
     if (present(cmin)) then
-      lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-      - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-      /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-      ! lam_L_min(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
-      ! - dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
-      ! + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
-      ! /xi(ixI^S)
+      ! lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+      ! - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+      ! /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+      lam_L_min(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
+      - dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
+      + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
+      /xi(ixI^S)
 
       ! Fuksman Melon 2019, Sadowski 20212
       lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -4.d0/(3*tau_c(ixI^S)))
@@ -248,8 +248,8 @@ contains
     !> Eddington scalars
     fi(ixI^S) = abs(wRC(ixI^S,iw_Fr(idim))/(m1_c*wRC(ixI^S,iw_r_e)))
     fi(ixI^S) = min(fi(ixI^S),1.d0)
-    ! mu(ixI^S) = abs(wRC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wRC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
-    ! mu(ixI^S) = min(mu(ixI^S),1.d0)
+    mu(ixI^S) = abs(wRC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wRC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
+    mu(ixI^S) = min(mu(ixI^S),1.d0)
 
     fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
 
@@ -257,25 +257,25 @@ contains
 
     tau_c(ixI^S) = block%dx(ixI^S,idim)*wRC(ixI^S,iw_rho)*kappa
 
-    lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-    + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-    /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-    ! lam_R_max(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
-    ! + dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
-    ! + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
-    ! /xi(ixI^S)
+    ! lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+    ! + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+    ! /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+    lam_R_max(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
+    + dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
+    + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
+    /xi(ixI^S)
 
     ! Fuksman Melon 2019, Sadowski 20212
     lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 4.d0/(3*tau_c(ixI^S)))
 
     if (present(cmin)) then
-      lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
-      - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
-      /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-      ! lam_R_min(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
-      ! - dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
-      ! + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
-      ! /xi(ixI^S)
+      ! lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
+      ! - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
+      ! /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
+      lam_R_min(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
+      - dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
+      + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
+      /xi(ixI^S)
 
       ! Fuksman Melon 2019, Sadowski 20212
       lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -4.d0/(3*tau_c(ixI^S)))
@@ -333,19 +333,21 @@ contains
 
     else
 
-      !> Eddington scalars
-      fi(ixI^S) = w(ixI^S,iw_Fr(idir))/(m1_c*Erad(ixI^S))
-      fj(ixI^S) = w(ixI^S,iw_Fr(jdir))/(m1_c*Erad(ixI^S))
+      !> Reduced fluxes
+      fi(ixI^S) = dabs(w(ixI^S,iw_Fr(idir)))/(m1_c*Erad(ixI^S))
+      fj(ixI^S) = dabs(w(ixI^S,iw_Fr(jdir)))/(m1_c*Erad(ixI^S))
 
-      !TODO: Check this sum, it does not produce what is expected
       ff(ixI^S) = sum(w(ixI^S, iw_Fr(:))**2, dim=ndim+1)/(m1_c*Erad(ixI^S))**2
 
-      !> Cap ff, this should not be necessary, but the sum above does not behave properly
+      !> Cap ff, fi, fj
       fi(ixI^S) = min(fi(ixI^S),1.d0)
       fj(ixI^S) = min(fj(ixI^S),1.d0)
 
       fi(ixI^S) = max(fi(ixI^S),smalldouble)
       fj(ixI^S) = max(fj(ixI^S),smalldouble)
+
+      fi(ixI^S) = sign(fi(ixI^S),w(ixI^S,iw_Fr(idir)))
+      fj(ixI^S) = sign(fj(ixI^S),w(ixI^S,iw_Fr(jdir)))
 
       ff(ixI^S) = min(ff(ixI^S),1.d0)
       ff(ixI^S) = max(ff(ixI^S),smalldouble)
@@ -360,8 +362,21 @@ contains
         chi(ixI^S) = 1.d0 !3.d0/5.d0
       end where
 
+      !> Refactor ff, fi, fj
+      ! ff(ixI^S) = fi(ixI^S)*fj(ixI^S)/ff(ixI^S)
+      ! !TODO IMPLEMENT CORRECT LIMIT!!! DEPENDS ON DIRECTION OF F OFC!!!!
+      ! where(fi(ixI^S)*fj(ixI^S) .lt. smalldouble)
+      !   ff(ixI^S) = 0.d0
+      ! end where
+
+      ! where (ff(ixI^S) .ne. ff(ixI^S))
+      !   ff(ixI^S) = sign(1.d0,w(ixI^S,iw_Fr(idir))*w(ixI^S,iw_Fr(jdir)))
+      ! end where
+
       !> Eddington tensor
       prad(ixI^S) = (3.d0*chi(ixI^S)-1)/2.d0 * fi(ixI^S)*fj(ixI^S)/ff(ixI^S)
+      ! prad(ixI^S) = (3.d0*chi(ixI^S)-1)/2.d0 * ff(ixI^S)
+      ! prad(ixI^S) = (3.d0*chi(ixI^S)-1)/2.d0 * sign(max(fi(ixI^S)*fj(ixI^S)/ff(ixI^S), smalldouble),w(ixI^S,iw_Fr(idir))*w(ixI^S,iw_Fr(idir)))
 
       !> Nan when F == 0 as fi*fj / ff = 0/0
       !> Tensor term should be 0
@@ -519,7 +534,6 @@ contains
 
         {^NOONED
       case (2)
-        ! if (ndim .eq. 1) call mpistop("1.x D not implemented yet")
 
         !> Get relevant pressure tensors:
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr, .true.)
@@ -528,10 +542,8 @@ contains
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr, .true.)
 
         !> Add advection part
-        ! prr(ixI^S) = m1_c**2 * prr(ixI^S) + wCT(ixI^S, iw_Fr(1))*wCT(ixI^S, iw_mom(1))/wCT(ixI^S, iw_rho)
         ptt(ixI^S) = m1_c**2 * ptt(ixI^S) + wCT(ixI^S, iw_Fr(2))*wCT(ixI^S, iw_mom(2))/wCT(ixI^S, iw_rho)
         ptr(ixI^S) = m1_c**2 * ptr(ixI^S) + wCT(ixI^S, iw_Fr(2))*wCT(ixI^S, iw_mom(1))/wCT(ixI^S, iw_rho) !< IS THIS ONE CORRECT?
-        ! ptr(ixI^S) = m1_c**2 * ptr(ixI^S) + wCT(ixI^S, iw_Fr(1))*wCT(ixI^S, iw_mom(2))/wCT(ixI^S, iw_rho) !< IS THIS ONE CORRECT?
         ppp(ixI^S) = m1_c**2 * ppp(ixI^S)
 
         !> Perform corrections
@@ -543,7 +555,6 @@ contains
         ! if ((ndim .eq. 1) .or. (ndim .eq. 2)) call mpistop("1.x D not implemented yet")
 
         !> Get relevant pressure tensors:
-        ! call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt, .true.)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, ppp, .true.)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr, .true.)
@@ -551,7 +562,6 @@ contains
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 1, ppr, .true.)
 
         !> Add advection part
-        ! prr = m1_c**2 * prr + wCT(ixI^S, iw_Fr(1))*wCT(ixI^S, iw_mom(1))/wCT(ixI^S, iw_rho)
         ptt = m1_c**2 * ptt + wCT(ixI^S, iw_Fr(2))*wCT(ixI^S, iw_mom(2))/wCT(ixI^S, iw_rho)
         ppp = m1_c**2 * ppp + wCT(ixI^S, iw_Fr(3))*wCT(ixI^S, iw_mom(3))/wCT(ixI^S, iw_rho)
 

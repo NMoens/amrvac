@@ -9,49 +9,55 @@
 &savelist
   itsave(1,1)=0
   itsave(1,2)=0
-  ! dtsave_dat = 1d-2
-  dtsave_log = 1d-2
-  ditsave_dat = 50
+  dtsave_dat = 1d-4
+  dtsave_log = 1d-4
+  ! ditsave_dat = 100
   ! ditsave_log = 100
 /
 
 &stoplist
-  time_max = 1.d0
-  it_max = 5000
+  time_max = 1.d-3
+  ! it_max = 500
 /
 
 &methodlist
   time_stepper = 'onestep'
   ! time_integrator = 'IMEX_Euler'
   flux_scheme  = 'tvdlf'
-  limiter      = 'weno3'
+  limiter      = 'minmod'
 /
 
 &boundlist
   typeboundary_min1 = 6*'cont'
   typeboundary_max1 = 6*'cont'
   typeboundary_min2 = 6*'cont'
-  typeboundary_max2 = 3*'cont','special','cont','special'
+  typeboundary_max2 = 3*'cont','special','special','special'
 /
 
 &meshlist
   iprob		     = 2
-  refine_max_level   = 1
-  refine_criterion   = 3
-  domain_nx1         = 256
-  block_nx1          = 16
-  domain_nx2         = 256
-  block_nx2          = 16
+  refine_max_level   = 4
+  refine_criterion   = 1
+  domain_nx1         = 32
+  block_nx1          = 8
+  domain_nx2         = 32
+  block_nx2          = 8
   xprobmin1          = 1.d0
-  xprobmax1          = 5.d0
-  xprobmin2          = 0.025d0
+  xprobmax1          = 6.d0
+  xprobmin2          = 0.001d0
   xprobmax2          = 0.25d0
-  w_refine_weight(5) = 1.d0
+  w_refine_weight(4) = 1.d0
+  logflag(4) = .false.
+  refine_threshold = 5.d1
+  derefine_ratio = 1.d0
+  nbufferx1 = 0
+  nbufferx2 = 0
+  stretch_dim(1)     = 'uni'
 /
 
 &paramlist
   courantpar = 0.3d0
-  slowsteps = 100
+  !slowsteps = 100
 /
 
 &hd_list
@@ -65,6 +71,7 @@
   m1_opacity_type = 'kappa_e'
   m1_diffusion = .false.
   m1_force = .false.
+  m1_split_trapped = .false.
 /
 
 &stream_list

@@ -22,10 +22,10 @@
 /
 
 &methodlist
-  time_stepper = 'twostep'
-  time_integrator = 'IMEX_Midpoint'
+  time_stepper = 'onestep'
+  time_integrator = 'IMEX_Euler'
   flux_scheme  = 'tvdlf'
-  limiter      = 'koren'
+  limiter      = 'minmod'
 /
 
 &boundlist

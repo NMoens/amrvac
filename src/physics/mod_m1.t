@@ -266,7 +266,7 @@ contains
     /xi(ixI^S)
 
     ! Fuksman Melon 2019, Sadowski 20212
-    lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 4.d0/(3*tau_c(ixI^S)))
+    lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 2.d0/(3*tau_c(ixI^S)))
 
     if (present(cmin)) then
       ! lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
@@ -278,7 +278,7 @@ contains
       /xi(ixI^S)
 
       ! Fuksman Melon 2019, Sadowski 20212
-      lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -4.d0/(3*tau_c(ixI^S)))
+      lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -2.d0/(3*tau_c(ixI^S)))
     end if
 
     ! Skinner Ostricker 2013, Eq 39,

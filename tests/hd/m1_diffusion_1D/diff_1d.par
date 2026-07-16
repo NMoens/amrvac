@@ -1,0 +1,67 @@
+&filelist
+  base_filename = 'output/diff_1d'
+  typefilelog   = 'default'
+  autoconvert   = .false.
+  convert_type  = 'oneblock'
+  level_io      = 1
+  saveprim      = .true.
+/
+
+&savelist
+  itsave(1,1)=0
+  itsave(1,2)=0
+  ! dtsave_dat = 1d-2
+  dtsave_log = 1d-2
+  ditsave_dat = 10000
+  ! ditsave_log = 100
+/
+
+&stoplist
+  time_max = 1.d0
+  it_max = 100000
+/
+
+&methodlist
+  time_stepper = 'twostep'
+  time_integrator = 'IMEX_Midpoint'
+  flux_scheme  = 'tvdlf'
+  limiter      = 'minmod'
+/
+
+&boundlist
+  typeboundary_min1 = 4*'cont'
+  typeboundary_max1 = 4*'cont'
+/
+
+&meshlist
+  refine_max_level   = 1
+  refine_criterion   = 3
+  domain_nx1         = 256
+  block_nx1          = 16
+  xprobmin1          = -0.5d0
+  xprobmax1          = 0.5d0
+/
+
+&paramlist
+  courantpar = 0.3d0
+/
+
+&hd_list
+  He_abundance = 0.d0
+  hd_energy  = .false.
+  hd_gamma   = 1.d0
+  hd_m1 = .true.
+/
+
+&m1_list
+  m1_opacity_type = 'kappa_e'
+  m1_diffusion = .false.
+  m1_force = .false.
+/
+
+&stream_list
+  L = 1.d28
+  rho = 1.d0
+  Er = 10.d0
+  Bg_E = 1.d-7
+/

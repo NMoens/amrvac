@@ -70,11 +70,11 @@ contains
     i_lumt = var_set_extravar('lum_tot','lum_tot')
     i_LFLD = var_set_extravar('lum_fld','lum_fld')
 
-    ! i_SdivF = var_set_extravar('Div_Fv','Div_Fv')
-    ! i_SdivP = var_set_extravar('Div_c2P','Div_c2P')
-    ! i_SFdv = var_set_extravar('DDv','DDv')
-    ! i_SgR = var_set_extravar('gG','gG')
-    ! i_ScdvP = var_set_extravar('corr_Div_c2P','corr_Div_c2P')
+    i_SdivF = var_set_extravar('Div_Fv','Div_Fv')
+    i_SdivP = var_set_extravar('Div_c2P','Div_c2P')
+    i_SFdv = var_set_extravar('DDv','DDv')
+    i_SgR = var_set_extravar('gG','gG')
+    i_ScdvP = var_set_extravar('corr_Div_c2P','corr_Div_c2P')
 
     i_tau_cell = var_set_extravar('tau_cell','tau_cell')
 
@@ -450,23 +450,23 @@ contains
     call fld_flux(ixI^L,ixO^L,w,x,F)
     w(ixO^S,i_LFLD) = 4*dpi*F(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux / lstar
 
-    ! !> Flux equation terms:
-    ! !> Directional derivative
-    ! w(ixO^S,i_SFdv) = -w(ixO^S,Fr(1))*gradv(ixO^S)
-    !
-    ! !> Shadowing radiation force source term
-    ! w(ixO^S,i_SgR) = -m1_c*w(ixO^S,kF_)*w(ixO^S,rho_)*w(ixO^S,Fr(1))
-    !
-    ! !> advected flux term
-    ! T(ixI^S) = w(ixI^S,Fr(1))*w(ixI^S,mom(1))/w(ixI^S,rho_)
-    ! call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
-    ! w(ixO^S,i_SdivF) = -divT(ixO^S)
-    !
-    ! call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, T)
-    ! T = m1_c**2 * T
-    ! call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
-    ! w(ixO^S,i_SdivP) = -divT(ixO^S)
-    ! w(ixO^S,i_ScdvP) = (1-T(ixO^S)/w(ixO^S,Er_))*w(ixO^S,Er_)/x(ixO^S,1)
+    !> Flux equation terms:
+    !> Directional derivative
+    w(ixO^S,i_SFdv) = -gradv(ixO^S)*dt
+    
+    !> Shadowing radiation force source term
+    w(ixO^S,i_SgR) = -m1_c*w(ixO^S,kF_)*w(ixO^S,rho_)*w(ixO^S,Fr(1))
+    
+    !> advected flux term
+    T(ixI^S) = w(ixI^S,Fr(1))*w(ixI^S,mom(1))/w(ixI^S,rho_)
+    call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
+    w(ixO^S,i_SdivF) = -divT(ixO^S)
+    
+    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, T)
+    T = m1_c**2 * T
+    call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
+    w(ixO^S,i_SdivP) = -divT(ixO^S)
+    w(ixO^S,i_ScdvP) = (1-T(ixO^S)/w(ixO^S,Er_))*w(ixO^S,Er_)/x(ixO^S,1)
 
     w(ixO^S,i_tau_cell) = w(ixO^S,rho_)*m1_kappa_e*block%dx(ixO^S,1)
 

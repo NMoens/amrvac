@@ -41,6 +41,12 @@ contains
     ! Active the physics module: rho_activate(), hd_activate(), mhd_activate()
     call hd_activate()
 
+    print*, unit_length
+    print*, unit_time
+    print*, unit_velocity
+
+    print*, m1_c*4.d-4
+
     i_Pxx = var_set_extravar('P_rr','P_rr')
     i_Pxy = var_set_extravar('P_rt','P_rt')
     i_Pyx = var_set_extravar('P_tr','P_tr')
@@ -163,10 +169,10 @@ subroutine refine_beam(igrid,level,ixI^L,ixO^L,qt,w,x,refine,coarsen)
 
   double precision :: xx(ixI^S), yy(ixI^S)
 
-  xx(ixI^S) = x(ixI^S,1)*sin(dpi-x(ixI^S,2))
-  yy(ixI^S) = x(ixI^S,1)*cos(dpi-x(ixI^S,2))
+  xx(ixI^S) = x(ixI^S,1)*sin(x(ixI^S,2))
+  yy(ixI^S) = x(ixI^S,1)*cos(x(ixI^S,2))
 
-  if (any(xx .gt. 2 .and. xx .lt. 3 .and. yy .lt. qt)) then
+  if (any(xx .gt. 2 .and. xx .lt. 3 .and. yy .lt. qt*m1_c)) then
     refine=1
   else
     coarsen=1

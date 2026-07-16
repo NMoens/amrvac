@@ -39,8 +39,8 @@
 &meshlist
   refine_max_level   = 1
   refine_criterion   = 3
-  domain_nx1         = 5120
-  block_nx1          = 1280
+  domain_nx1         = 51200
+  block_nx1          = 12800
   xprobmin1          = -20.d0
   xprobmax1          = 20.d0
   w_refine_weight(4) = 1.d0

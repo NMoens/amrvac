@@ -19,6 +19,9 @@ module mod_m1
   !> Split trapped vs streaming photons in Flux eq
   logical, public, protected              :: m1_split_trapped = .true.
 
+  !> Have different values for kF, kE, kB opacities
+  logical, public, protected              :: m1_split_opacities = .true.
+
   !> small_e set in hd module
   double precision, public                :: m1_small_e
   double precision, public                :: m1_gamma
@@ -63,7 +66,7 @@ contains
     integer                      :: n
 
     namelist /m1_list/ m1_force, m1_opacity_type, m1_diffusion, m1_RSOL, &
-    m1_force_split, m1_split_trapped, &
+    m1_force_split, m1_split_trapped, m1_split_opacities, &
     m1_heatcool, m1_kappa_e
 
     do n = 1, size(files)
@@ -90,12 +93,20 @@ contains
 
     !> Set index of opacity variables
     kF_ = var_set_extravar("kappa_F", "kappa_F")
-    kE_ = var_set_extravar("kappa_E", "kappa_E")
-    kB_ = var_set_extravar("kappa_B", "kappa_B")
+    if (m1_split_opacities) then
+      kE_ = var_set_extravar("kappa_E", "kappa_E")
+      kB_ = var_set_extravar("kappa_B", "kappa_B")
+    else
+      kE_ = kF_
+      kB_ = kF_
+    end if
 
-    !> Heating and cooling sourceterms
-    phys_implicit_update => m1_implicit_update
-    phys_evaluate_implicit => m1_evaluate_implicit
+    !> Heating and cooling, absorbtion sourceterms
+    if (m1_opacity_type .ne. 'zero') then
+      phys_implicit_update => m1_implicit_update
+      phys_evaluate_implicit => m1_evaluate_implicit
+    end if
+
     !> Setting opacities
     phys_get_auxiliary => m1_set_opacities
 
@@ -168,6 +179,14 @@ contains
     iw_vector(1) = iw_mom(1) - 1
     iw_vector(2) = iw_Fr(1) - 1
 
+    ! set number of variables which need update ghostcells
+    ! For M1, this includes the opacities (Needed for cbounds)
+    if (m1_split_opacities) then
+      nwgc=nwflux+3
+    else
+      nwgc=nwflux+1
+    end if
+
   end subroutine m1_init
 
 
@@ -214,7 +233,7 @@ contains
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
 
-    tau_c(ixI^S) = block%dx(ixI^S,idim)*wLC(ixI^S,iw_rho)*kappa
+    tau_c(ixI^S) = block%dx(ixI^S,idim)*wLC(ixI^S,iw_rho)*wLp(ixI^S,kF_)
 
     ! lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     ! + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
@@ -226,7 +245,8 @@ contains
 
 
     ! Fuksman Melon 2019, Sadowski 20212
-    lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 4.d0/(3*tau_c(ixI^S)))
+    ! lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 2.d0/(3*tau_c(ixI^S)))
+    lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
 
     if (present(cmin)) then
       ! lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
@@ -238,7 +258,8 @@ contains
       /xi(ixI^S)
 
       ! Fuksman Melon 2019, Sadowski 20212
-      lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -4.d0/(3*tau_c(ixI^S)))
+      ! lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -2.d0/(3*tau_c(ixI^S)))
+      lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
     end if
 
     !> Right state
@@ -255,7 +276,7 @@ contains
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
 
-    tau_c(ixI^S) = block%dx(ixI^S,idim)*wRC(ixI^S,iw_rho)*kappa
+    tau_c(ixI^S) = block%dx(ixI^S,idim)*wRC(ixI^S,iw_rho)*wRp(ixI^S,kF_)
 
     ! lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     ! + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
@@ -266,7 +287,8 @@ contains
     /xi(ixI^S)
 
     ! Fuksman Melon 2019, Sadowski 20212
-    lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 2.d0/(3*tau_c(ixI^S)))
+    ! lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 2.d0/(3*tau_c(ixI^S)))
+    lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
 
     if (present(cmin)) then
       ! lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
@@ -278,7 +300,8 @@ contains
       /xi(ixI^S)
 
       ! Fuksman Melon 2019, Sadowski 20212
-      lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -2.d0/(3*tau_c(ixI^S)))
+      ! lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -2.d0/(3*tau_c(ixI^S)))
+      lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
     end if
 
     ! Skinner Ostricker 2013, Eq 39,
@@ -313,7 +336,6 @@ contains
 
     integer                      :: iw, ix^D
     double precision :: fi(ixI^S), fj(ixI^S), ff(ixI^S), chi(ixI^S)
-
 
     if (present(str)) streaming = str
     if (streaming) then
@@ -431,9 +453,13 @@ contains
     integer, intent(in)          :: idim
 
     double precision :: tau_c(ixI^S), fred(ixI^S)
+    integer                         :: jxO^L, hxO^L
+
+    hxO^L=ixO^L-kr(idim,^D);
+    jxO^L=ixO^L+kr(idim,^D);
 
     !> Cell optical depth in idim
-    tau_c(ixI^S) = block%dx(ixI^S,idim)*w(ixI^S,iw_rho)*m1_kappa_e
+    tau_c(ixI^S) = block%dx(ixI^S,idim)*w(ixI^S,iw_rho)*w(ixI^S,kF_)
 
     !> Reduced flux
     fred(ixI^S) = dsqrt(sum(w(ixI^S, iw_Fr(:))**2,dim=ndim+1))/(m1_c*w(ixI^S,iw_r_e))
@@ -445,6 +471,9 @@ contains
     ! theta(ixI^S) = (1-fred(ixI^S))/(1.d0 + 2.d0/(3.d0*tau_c(ixI^S)))
     theta(ixI^S) = (1-fred(ixI^S))*dexp(-2.d0/(3*tau_c(ixI^S)))
     ! theta(ixI^S) = (1-fred(ixI^S))*(1.d0 - dexp(-tau_c(ixI^S)))
+
+    !> Neighbouring cells following
+    theta(ixO^S) = min(theta(hxO^S),theta(ixO^S),theta(jxO^S))
 
     !> Physical limits
     theta = max(0.d0, min(1.d0, theta))
@@ -479,7 +508,7 @@ contains
     ! primitive w
     double precision, intent(in)    :: w(ixI^S, 1:nw)
     double precision, intent(in)    :: x(ixI^S, 1:ndim)
-    double precision, intent(out)   :: f(ixI^S, nwflux)
+    double precision, intent(inout)   :: f(ixI^S, nwflux)
     double precision                :: prad_ii(ixI^S), ftrap(ixI^S), gradE(ixI^S)
     integer :: idir
 
@@ -502,8 +531,8 @@ contains
     use mod_global_parameters
     use mod_geometry
     integer, intent(in)             :: ixI^L, ixO^L
-    double precision, intent(in)    :: qdt, x(ixI^S, 1:ndim)
-    double precision, intent(inout) :: wCT(ixI^S, 1:nw), w(ixI^S, 1:nw)
+    double precision, intent(in)    :: qdt, x(ixI^S, 1:ndim), wCT(ixI^S, 1:nw)
+    double precision, intent(inout) :: w(ixI^S, 1:nw)
 
     double precision                :: chi(ixI^S), ff(ixI^S), fi(ixI^S)
     double precision                :: source(ixI^S)
@@ -530,7 +559,7 @@ contains
         ptt(ixI^S) = m1_c**2 * (wCT(ixI^S, iw_r_e) - prr(ixI^S)) /2
         ppp(ixI^S) = ptt(ixI^S)
 
-        w(ixI^S, iw_Fr(1)) = w(ixI^S, iw_Fr(1)) + qdt * m1_RSOL * (ptt(ixI^S) + ppp(ixI^S))/ x(ixI^S, 1)
+        w(ixO^S, iw_Fr(1)) = w(ixO^S, iw_Fr(1)) + qdt * m1_RSOL * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
 
         {^NOONED
       case (2)
@@ -653,6 +682,7 @@ contains
 
           w(ixO^S,iw_r_e) = w(ixO^S,iw_r_e) - qdt*m1_RSOL*vec_grad(ixO^S)*prad(ixO^S)
           w(ixO^S,iw_Fr(idir)) = w(ixO^S,iw_Fr(idir)) - qdt*m1_RSOL*wCT(ixO^S,iw_Fr(idim))*gradv(ixO^S)
+
         end do
 
         !> Geometric correction terms to directional derivative
@@ -753,6 +783,9 @@ contains
     end do
     !$OMP END PARALLEL DO
 
+    ! enforce boundary conditions for psa
+    call getbc(qtC,qdt,psa,iwstart,nwgc,m1_req_diagonal)
+
   end subroutine m1_implicit_update
 
   subroutine m1_evaluate_implicit(qtC,psa)
@@ -830,11 +863,19 @@ contains
     aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,iw_rho)*w(ixI^S,kF_)
     do idim = 1, ndim
       call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
-      ! call gradient_str(w(ixI^S,iw_r_e)*lambda(ixI^S),x,ixI^L,ixO^L,idim,gradE)
+
       call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
       bb(ixI^S) = m1_RSOL*m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
+
       w(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
       * dexp(-aa(ixO^S)*dtfactor*dt) - bb(ixO^S)/aa(ixO^S)
+
+      ! call gradientF(w(ixI^S,iw_r_e),1.d0/aa(ixI^S),ixI^L,ixO^L,idim,gradE)
+      ! bb(ixI^S) = m1_RSOL*m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
+      !
+      ! w(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)) &
+      ! * dexp(-aa(ixO^S)*dtfactor*dt) - bb(ixO^S)
+
     end do
 
     ! if (block%igrid .eq. 2) print*, gradE(ixO^S)
@@ -856,6 +897,9 @@ contains
     double precision :: aa(ixI^S), bb(ixI^S)
 
     integer :: idim
+
+    !> ghostcells
+    w(ixO^S,iw_Fr(:)) = 0.d0
 
     ! > Exact solution: dF/dt = - a F - b
     !                  <=> F = C1 * exp(-a*t) - b/a
@@ -1003,6 +1047,8 @@ contains
       w(ixI^S,kB_) = m1_kappa_e!/unit_opacity
 
     case('Gayley')
+      !> GC's for cbounds
+      w(ixI^S,kF_) = m1_kappa_e
 
       !> Calculate velocity gradient
       vr(ixI^S) = w(ixI^S,iw_mom(1))/w(ixI^S,iw_rho)
@@ -1090,6 +1136,9 @@ contains
     double precision :: OPAL(ixO^S), rho, Trad, kappa
     integer :: ix^D
 
+    !> GC's for cbounds
+    w(ixI^S,kF_) = m1_kappa_e
+
     !> Velocity stretched opacities
     !> Calculate velocity gradient
     vr(ixI^S) = w(ixI^S,iw_mom(1))/w(ixI^S,iw_rho)
@@ -1154,10 +1203,14 @@ contains
 
     integer :: ix^D
 
+    !> GC's for cbounds
+    w(ixI^S,kF_) = m1_kappa_e
+
     !> Velocity stretched opacities
     !> Calculate velocity gradient
     vr(ixI^S) = w(ixI^S,iw_mom(1))/w(ixI^S,iw_rho)
-    call gradient_str(vr,x,ixI^L,ixO^L,1,dvrdr)
+    ! call gradient_str(vr,x,ixI^L,ixO^L,1,dvrdr)
+    call gradientS(vr,ixI^L,ixO^L,1,dvrdr)
 
     !if ((modulo(it,1000) == 0) .and. (mype .eq. 0)) then
     !  print*, 'WST photosphere: ', mype, i_phot, R_phot
@@ -1165,42 +1218,44 @@ contains
 
     !> Opal Opacities
     {do ix^D=ixOmin^D,ixOmax^D\ }
-    rho = w(ix^D,iw_rho)*unit_density
-    Trad = (w(ix^D,iw_r_e)*unit_pressure/const_rad_a)**(0.25d0)
-    Trad = max(Trad,1.d4)
-    ! gradv = max(dvrdr(ix^D),smalldouble)*unit_velocity/unit_length
-    gradv = dabs(dvrdr(ix^D))*unit_velocity/unit_length
+      rho = w(ix^D,iw_rho)*unit_density
+      Trad = (w(ix^D,iw_r_e)*unit_pressure/const_rad_a)**(0.25d0)
+      Trad = max(Trad,1.d4)
+      ! gradv = max(dvrdr(ix^D),smalldouble)*unit_velocity/unit_length
+      gradv = max(dabs(dvrdr(ix^D)),smalldouble)*unit_velocity/unit_length
 
-    call set_cak_opacity(rho, Trad, gradv ,alpha, Qbar, Q0, kappa_e_t)
+      call set_cak_opacity(rho, Trad, gradv ,alpha, Qbar, Q0, kappa_e_t)
 
-    !> Finite disc correction factor
-    ! beta_fd = ( 1.0d0 - vr(ix^D)/(x(ix^D,1) * max(dvrdr(ix^D),smalldouble)) ) &
-    beta_fd = ( 1.0d0 - vr(ix^D)/(x(ix^D,1) * abs(dvrdr(ix^D))) ) &
-    * (R_phot/x(ix^D,1))**2
+      !> Finite disc correction factor
+      beta_fd = ( 1.0d0 - vr(ix^D)/(x(ix^D,1) * max(abs(dvrdr(ix^D)),smalldouble)) ) &
+      ! beta_fd = ( 1.0d0 - vr(ix^D)/(x(ix^D,1) * abs(dvrdr(ix^D))) ) &
+      * (R_phot/x(ix^D,1))**2
 
-    if (x(ix^D,1) .le. R_phot) then
-      fdfac = 1.d0/(1.d0 + alpha)
-    else if (beta_fd >= 1.0d0) then
-      fdfac = 1.0d0/(1.0d0 + alpha)
-    else if (beta_fd < -1.0d10) then
-      fdfac = abs(beta_fd)**alpha / (1.0d0 + alpha)
-    else if (abs(beta_fd) > 1.0d-3) then
-      fdfac = (1.0d0 - (1.0d0 - beta_fd)**(1.0d0 + alpha)) &
-      / (beta_fd*(1.0d0 + alpha))
-    else
-      fdfac = 1.0d0 - 0.5d0*alpha*beta_fd &
-      * (1.0d0 + 1.0d0/3.0d0 * (1.0d0 - alpha)*beta_fd)
-    end if
+      if (x(ix^D,1) .le. R_phot) then
+        fdfac = 1.d0/(1.d0 + alpha)
+      else if (beta_fd >= 1.0d0) then
+        fdfac = 1.0d0/(1.0d0 + alpha)
+      else if (beta_fd < -1.0d10) then
+        fdfac = abs(beta_fd)**alpha / (1.0d0 + alpha)
+        ! fdfac = 1.d10**alpha / (1.0d0 + alpha)
+        ! fdfac = 1.d0
+      else if (abs(beta_fd) > 1.0d-3) then
+        fdfac = (1.0d0 - (1.0d0 - beta_fd)**(1.0d0 + alpha)) &
+        / (beta_fd*(1.0d0 + alpha))
+      else
+        fdfac = 1.0d0 - 0.5d0*alpha*beta_fd &
+        * (1.0d0 + 1.0d0/3.0d0 * (1.0d0 - alpha)*beta_fd)
+      end if
 
-    tau = (m1_kappa_e*unit_opacity)*rho*m1_c*unit_velocity/gradv
-    CAK(ix^D) = m1_kappa_e * fdfac * Qbar/(1-alpha)*((1+Q0*tau)**(1-alpha) - 1)/(Q0*tau)
+      tau = (m1_kappa_e*unit_opacity)*rho*m1_c*unit_velocity/gradv
+      CAK(ix^D) = m1_kappa_e * fdfac * Qbar/(1-alpha)*((1+Q0*tau)**(1-alpha) - 1)/(Q0*tau)
 
-    call set_opal_opacity(rho,Trad,kappa)
-    OPAL(ix^D) = kappa/unit_opacity
+      call set_opal_opacity(rho,Trad,kappa)
+      OPAL(ix^D) = kappa/unit_opacity
 
-    ! print*, x(ix^D,1)/R_phot, fdfac, tau, CAK(ix^D)/m1_kappa_e, beta_fd!, alpha, Qbar, Q0
+      ! print*, x(ix^D,1)/R_phot, fdfac, tau, CAK(ix^D)/fdfac/m1_kappa_e, beta_fd, alpha, Qbar, Q0
 
-    ! print*, block%igrid, x(ix^D,1), alpha, Qbar, Q0, gradv, tau, fdfac
+      ! print*, block%igrid, x(ix^D,1), alpha, Qbar, Q0, gradv, tau, fdfac
     {enddo\ }
 
     !> Combine OPAL and CAK-like
@@ -1220,6 +1275,23 @@ contains
       {^IFONED w(ixOmax1,kF_) = max(w(ixOmax1-1,kF_), w(ixOmax1,kF_))}
       {^IFTWOD w(ixOmax1,:,kF_) = max(w(ixOmax1-1,:,kF_), w(ixOmax1,:,kF_))}
       {^IFTHREED w(ixOmax1,:,:,kF_) = max(w(ixOmax1-1,:,:,kF_), w(ixOmax1,:,:,kF_))}
+    end if
+
+    if (any(x(ixI^S,1) .lt. xprobmin1)) then
+      {^IFONED w(ixImin1:ixOmin1-1,kF_) = w(ixOmin1,kF_)}
+      {^IFTWOD
+          do ix2 = ixImin2, ixImax2
+            w(ixImin1:ixOmin1-1,ix2,kF_) = w(ixOmin1,ix2,kF_)
+          end do
+      }
+      {^IFTHREED
+      do ix2 = ixImin2, ixImax2
+        do ix3 = ixImin3, ixImax3
+          w(ixImin1:ixOmin1-1,ix2,ix3,kF_) = w(ixOmin1,ix2,ix3,kF_)
+        end do
+      end do
+      }
+      ! {^IFTHREED w(ixOmax1,:,:,kF_) = max(w(ixOmax1-1,:,:,kF_), w(ixOmax1,:,:,kF_))}
     end if
 
 

@@ -174,7 +174,8 @@ contains
                  / (log10(tau(i_phot - 1)) - log10(tau(i_phot))) &
                  * (log10(tau_ph) - log10(tau(i_phot)))
         else
-          stop "R_phot out of bounds???"
+          R_phot = xprobmax1
+          ! stop "R_phot out of bounds???"
         end if
       end if
 

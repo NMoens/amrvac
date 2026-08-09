@@ -1,0 +1,72 @@
+&filelist
+  base_filename = 'output/betalaw'
+  typefilelog   = 'default'
+  convert_type  = 'oneblock'
+  level_io      = 1
+  saveprim      = .true.
+/
+
+&savelist
+  itsave(1,1)=0
+  itsave(1,2)=0
+  dtsave_dat = 1.d0
+  dtsave_log = 1.d0
+  !ditsave_dat = 1
+  !ditsave_log = 1
+/
+
+&stoplist
+  time_max = 10.d0
+  !it_max = 10
+/
+
+&methodlist
+  time_stepper = 'threestep'
+  flux_scheme  = 'hll'
+  limiter      = 'vanleer'
+  gradient_limiter = 'vanleer'
+  check_small_values = .false.
+  fix_small_values = .false.
+  small_values_method = 'error'
+/
+
+&boundlist
+  typeboundary_min1 = 4*'special'
+  typeboundary_max1 = 4*'cont'
+  internalboundary = .true.
+/
+
+&meshlist
+  iprob		     = 2
+  refine_max_level   = 1
+  refine_criterion   = 3
+  domain_nx1         = 256
+  block_nx1          = 64
+  xprobmin1          = 1.d0
+  xprobmax1          = 10.d0
+  stretch_dim(1)     = 'uni'
+/
+
+&paramlist
+  courantpar = 0.3d0
+/
+
+&hd_list
+  He_abundance = 0.d0
+  hd_energy  = .false.
+  hd_gamma   = 1.d0
+  hd_adiab = 0.d0
+  hd_m1 = .true.
+/
+
+&m1_list
+  m1_opacity_type = 'zero'
+  m1_heatcool = .false.
+  m1_force = .false.
+  m1_split_opacities = .false.
+/
+
+&stream_list
+  beta_max = 0.1d0
+  F_red = 0.99d0
+/

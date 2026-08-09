@@ -15,7 +15,7 @@ module mod_usr
   double precision :: lstar, vesc, gamma_e, logg, logge, heff
   double precision :: fred_bound
 
-  integer :: i_Gamma, i_Mf, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum, i_mdot, i_am
+  integer :: i_Gamma, i_Mf, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum, i_lumg, i_lumr, i_mdot, i_am, i_ltot
   integer :: i_SdivF, i_SdivP, i_SFdv, i_SgR, i_ScdvP, i_tau_cell
   integer :: i_Prr, i_Ptt, i_Ppp, i_Prt
 
@@ -65,7 +65,6 @@ contains
     i_Ppp = var_set_extravar('P_pp','P_pp')
     i_Prt = var_set_extravar('P_rt','P_rt')
 
-
     i_pht = var_set_extravar('pht','pht')
     i_fcmf = var_set_extravar('Fcmf','Fcmf')
     i_Tgas = var_set_extravar('Tgas','Tgas')
@@ -73,6 +72,10 @@ contains
     i_ff = var_set_extravar('ff','ff')
     i_chi = var_set_extravar('chi','chi')
     i_lum = var_set_extravar('lum','lum')
+    
+    i_lumg = var_set_extravar('lum_gas','lum_gas')
+    i_lumr = var_set_extravar('lum_rad','lum_rad')
+
     i_mdot = var_set_extravar('mdot','mdot')
     i_am = var_set_extravar('am','am')
 
@@ -239,7 +242,7 @@ contains
     integer :: ir, ix1, ixOmin1
     double precision :: prad(ixI^S)
     double precision :: ff(ixI^S), chi(ixI^S)
-    double precision :: gradE(ixBmin2:ixBmax2)
+    double precision :: gradE(ixBmin2:ixBmax2), F_adv(ixB^S)
     double precision :: fs(ixBmin2:ixBmax2), cs(ixBmin2:ixBmax2), bs(ixBmin2:ixBmax2)
 
 
@@ -266,10 +269,12 @@ contains
 
       if (fixed_lum) then
 
+        ! advected flux !TODO: Kinetic energy??
+        F_adv(ixB^S) = (4.d0/3.d0*w(ixB^S,Er_) + hd_gamma*w(ixB^S,p_) + 0.5d0*w(ixB^S,mom(1))**2/w(ixB^S,rho_))*w(ixB^S,mom(1))
+
         ! Radiation flux
-        w(ixB^S,Fr(:)) = 0.d0
         w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux &
-                       - w(ixB^S,Er_)*w(ixB^S,mom(1))
+                       - F_adv(ixB^S) !w(ixB^S,Er_)*w(ixB^S,mom(1))
 
         ixOmin1 = ixBmax1 +1
         do ix1 = ixBmax1+1, ixBmin1+1, -1
@@ -437,7 +442,7 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: grav(ixI^S), grad(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S), pth(ixI^S)
-    double precision :: T(ixI^S), divT(ixI^S)
+    double precision :: T(ixI^S), divT(ixI^S), F_adv(ixO^S), F_adv_gas(ixO^S), F_adv_rad(ixO^S)
 
     grav(ixI^S) = w(ixI^S,rho_) * Ggrav * mstar/x(ixI^S,1)**2.0d0
     grad(ixI^S) = w(ixI^S,rho_) * w(ixI^S,kF_) * w(ixI^S,Fr(1)) / m1_c
@@ -462,7 +467,14 @@ contains
 
     w(ixO^S,i_ff) = sum(w(ixO^S, Fr(:))**2, dim=ndim+1)/(m1_c*w(ixO^S,Er_))**2
     w(ixO^S,i_chi) = (3.d0+4*w(ixO^S,i_ff))/(5.d0+2*dsqrt(4.d0-3*w(ixO^S,i_ff)))
+
     w(ixO^S,i_lum) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * w(ixO^S,Fr(1))*unit_radflux / lstar
+
+    F_adv_gas(ixO^S) = (w(ixO^S,e_) + pth(ixO^S))*v(ixO^S)
+    F_adv_rad(ixO^S) = (w(ixO^S,Er_) + prad(ixO^S))*v(ixO^S)
+
+    w(ixO^S,i_lumg) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * (F_adv_gas(ixO^S))*unit_radflux / lstar
+    w(ixO^S,i_lumr) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * (F_adv_rad(ixO^S))*unit_radflux / lstar
 
     w(ixO^S,i_mdot) = 4*dpi*w(ixO^S,mom(1))*x(ixO^S,1)**2 * unit_velocity*unit_density*unit_length**2/const_Msun*365*24*60*60
     w(ixO^S,i_am) = x(ixO^S,1)*w(ixO^S,mom(2))

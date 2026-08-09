@@ -775,6 +775,82 @@ contains
 
   end subroutine gradientS
 
+  !> This routine is similar to gradientS, but here the gradient contribution on either
+  !> side of the cell is multiplied with a scalar that is also reconstructed
+  !> At cell face. Usefull in diffusive fluxes w varying diffcoef
+  !> Calculate gradient of a scalar q within ixL in direction idir
+  !> first use limiter to go from cell center to edge
+  subroutine gradientF(q,D,ixI^L,ixO^L,idir,gradq)
+    use mod_global_parameters
+    use mod_limiter
+    use mod_ppm
+
+    integer, intent(in)                :: ixI^L, ixO^L, idir
+    double precision, intent(in)       :: q(ixI^S), D(ixI^S)
+    double precision, intent(inout)    :: gradq(ixI^S)
+    double precision ,dimension(ixI^S) :: qC,qL,qR,dqC,ldq,rdq
+    double precision ,dimension(ixI^S) :: dC,dL,dR,ddC,ldd,rdd
+
+    double precision :: x(ixI^S,1:ndim)
+    double precision :: invdx
+    integer          :: hxO^L,ixC^L,jxC^L,gxC^L,hxC^L
+
+    x(ixI^S,1:ndim)=block%x(ixI^S,1:ndim)
+
+    invdx=1.d0/dxlevel(idir)
+    hxO^L=ixO^L-kr(idir,^D);
+    ixCmin^D=hxOmin^D;ixCmax^D=ixOmax^D;
+    jxC^L=ixC^L+kr(idir,^D);
+    gxCmin^D=ixCmin^D-kr(idir,^D);gxCmax^D=jxCmax^D;
+    hxC^L=gxC^L+kr(idir,^D);
+
+    ! set the gradient limiter here
+    qR(gxC^S) = q(hxC^S)
+    qL(gxC^S) = q(gxC^S)
+    if (type_gradient_limiter(block%level)/=limiter_ppm) then
+      dqC(gxC^S)= qR(gxC^S)-qL(gxC^S)
+      call dwlimiter2(dqC,ixI^L,gxC^L,idir,type_gradient_limiter(block%level),ldw=ldq,rdw=rdq)
+      qL(ixC^S) = qL(ixC^S) + half*ldq(ixC^S)
+      qR(ixC^S) = qR(ixC^S) - half*rdq(jxC^S)
+    else
+      call PPMlimitervar(ixI^L,ixO^L,idir,q,q,qL,qR)
+    endif
+
+    ! diffcoef reconstruction here
+    dR(gxC^S) = d(hxC^S)
+    dL(gxC^S) = d(gxC^S)
+    if (type_gradient_limiter(block%level)/=limiter_ppm) then
+      ddC(gxC^S)= dR(gxC^S)-dL(gxC^S)
+      call dwlimiter2(ddC,ixI^L,gxC^L,idir,type_gradient_limiter(block%level),ldw=ldd,rdw=rdd)
+      dL(ixC^S) = dL(ixC^S) + half*ldd(ixC^S)
+      dR(ixC^S) = dR(ixC^S) - half*rdd(jxC^S)
+    else
+      call PPMlimitervar(ixI^L,ixO^L,idir,d,d,dL,dR)
+    endif
+
+    select case(coordinate)
+    case(Cartesian)
+      gradq(ixO^S)=(dR(ixO^S)*qR(ixO^S)-dL(ixO^S)*qL(hxO^S))*invdx
+    case(Cartesian_stretched,Cartesian_expansion)
+      gradq(ixO^S)=(dR(ixO^S)*qR(ixO^S)-dL(ixO^S)*qL(hxO^S))/block%dx(ixO^S,idir)
+    case(spherical)
+      gradq(ixO^S)=(dR(ixO^S)*qR(ixO^S)-dL(ixO^S)*qL(hxO^S))/block%dx(ixO^S,idir)
+      select case(idir)
+      case(2)
+        gradq(ixO^S)=gradq(ixO^S)/x(ixO^S,1)
+        {^IFTHREED
+      case(3)
+        gradq(ixO^S)=gradq(ixO^S)/(x(ixO^S,1)*dsin(x(ixO^S,2)))
+        }
+      end select
+    case(cylindrical)
+      gradq(ixO^S)=(dR(ixO^S)*qR(ixO^S)-dL(ixO^S)*qL(hxO^S))/block%dx(ixO^S,idir)
+      if(idir==phi_) gradq(ixO^S)=gradq(ixO^S)/x(ixO^S,1)
+    end select
+
+  end subroutine gradientF
+
+
   !> Calculate divergence of a vector qvec within ixL
   subroutine divvector(qvec,ixI^L,ixO^L,divq,fourthorder,sixthorder)
     use mod_global_parameters

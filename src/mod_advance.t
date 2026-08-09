@@ -32,6 +32,7 @@ contains
       ixO^L=ixG^LL^LSUBnghostcells;
       !$OMP PARALLEL DO PRIVATE(igrid)
       do iigrid=1,igridstail; igrid=igrids(iigrid);
+         block=>ps(igrid)
          call phys_get_auxiliary(ixG^LL, ixO^L, ps(igrid)%w, ps(igrid)%x);
       end do
       !$OMP END PARALLEL DO

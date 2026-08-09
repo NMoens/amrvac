@@ -9,41 +9,40 @@
 &savelist
   itsave(1,1)=0
   itsave(1,2)=0
-  dtsave_dat = 1.d-3
-  dtsave_log = 1.d-2
-  ditsave_dat = 1
+  ! dtsave_dat = 1.d1
+  ! dtsave_log = 1.d-2
+  ditsave_dat = 100
   ! ditsave_log = 1000
 /
 
 &stoplist
-  time_max = 1.d-2
-  it_max = 10
+  !time_max = 1.d2
+  it_max = 1000
 /
 
 &methodlist
-  time_stepper = 'twostep'
-  time_integrator = 'IMEX_Midpoint'
+  time_stepper = 'onestep'
+  time_integrator = 'IMEX_Euler'
   flux_scheme  = 'hll'
   limiter      = 'minmod'
-  check_small_values = .True.
-  fix_small_values = .True.
+  gradient_limiter = 'minmod'
+  check_small_values = .false.
+  fix_small_values = .false.
   small_values_method = 'replace'
   small_pressure = 1.d-14
 /
 
 &boundlist
-  typeboundary_min1 = 3*'cont','special','symm'
-  typeboundary_max1 = 3*'cont','special','symm'
-  internalboundary = .true.
+  typeboundary_min1 = 2*'cont','special','special'
+  typeboundary_max1 =  2*'cont','special','special'
+  internalboundary = .false.
 /
 
 &meshlist
-  domain_nx1         = 200
-  block_nx1          = 100
-  xprobmin1          = 1.0d0
-  xprobmax1          = 1.01d0
-  stretch_dim(1)     = 'uni'
-  !qstretch_baselevel = 1.015
+  domain_nx1         = 30
+  block_nx1          = 10
+  xprobmin1          = -1.d0
+  xprobmax1          = 1.d0
 /
 
 &paramlist
@@ -52,22 +51,20 @@
 
 &hd_list
   hd_gravity = .false.
-  hd_energy  = .true.
+  hd_energy  = .false.
   hd_gamma   = 1.667d0
   hd_m1 = .true.
 /
 
 &m1_list
-  m1_opacity_type = 'kappa_e'
+  m1_opacity_type = 'special'
   m1_heatcool = .false.
   m1_force = .false.
   m1_RSOL = 1.d0
 /
 
 &star_list
-  mstar    = 21.0d0
-  rstar    = 11.0d0
-  Tbound   = 5.0d8
-  gamma_e  = 0.17d0
-  rhobound = 3.8d-12
+  rho = 1.d6
+  Fbound = 1.d0
+  kappa_step = 1.d-2 !1.d-5
 /

@@ -17,13 +17,14 @@
 
 &stoplist
   time_max = 4.d1
-  !it_max = 1500
+  !reset_it = T
+  !it_max = 2 !500
 /
 
 &methodlist
   time_stepper = 'onestep'
   time_integrator = 'IMEX_Euler'
-  flux_scheme  = 'hll' !'tvdlf'
+  flux_scheme  = 'tvdlf' !'tvdlf'
   limiter      = 'minmod' !'ppm'
   typegrad     = 'limited'
   gradient_limiter = 'minmod'
@@ -41,9 +42,9 @@
 /
 
 &meshlist
-  refine_max_level   = 1
-  domain_nx1         = 800
-  block_nx1          = 100
+  refine_max_level   = 4
+  domain_nx1         = 640
+  block_nx1          = 64
   xprobmin1          = 1.0d0
   xprobmax1          = 5.0d0
   stretch_dim(1)     = 'uni'
@@ -76,5 +77,5 @@
   rhobound = 3.8e-6
   beta     = 0.5d0
   ic_file  = 'Star8_init.txt'
-  fixed_lum = .true.
+  fixed_lum = .True.
 /

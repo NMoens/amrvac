@@ -15,8 +15,8 @@ module mod_usr
   double precision :: lstar, vesc, gamma_e, logg, logge, heff
   double precision :: fred_bound
 
-  integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum, i_lumt
-  integer :: i_SdivF, i_SdivP, i_SFdv, i_SgR, i_ScdvP, i_tau_cell, i_LFLD
+  integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum, i_lumg, i_lumr
+  integer :: i_SdivF, i_SdivP, i_SFdv, i_SgR, i_ScdvP, i_tau_cell, i_LFLD, i_theta
 
   logical :: fixed_lum = .true.
 
@@ -67,14 +67,14 @@ contains
     i_ff = var_set_extravar('ff','ff')
     i_chi = var_set_extravar('chi','chi')
     i_lum = var_set_extravar('lum','lum')
-    i_lumt = var_set_extravar('lum_tot','lum_tot')
+
+    i_lumg = var_set_extravar('lum_gas','lum_gas')
+    i_lumr = var_set_extravar('lum_rad','lum_rad')
+
+
     i_LFLD = var_set_extravar('lum_fld','lum_fld')
 
-    i_SdivF = var_set_extravar('Div_Fv','Div_Fv')
-    i_SdivP = var_set_extravar('Div_c2P','Div_c2P')
-    i_SFdv = var_set_extravar('DDv','DDv')
-    i_SgR = var_set_extravar('gG','gG')
-    i_ScdvP = var_set_extravar('corr_Div_c2P','corr_Div_c2P')
+    i_theta = var_set_extravar('theta','theta')
 
     i_tau_cell = var_set_extravar('tau_cell','tau_cell')
 
@@ -218,6 +218,7 @@ contains
     integer :: ir, ix1, ixOmin1
     double precision :: prad(ixI^S)
     double precision :: ff(ixI^S), chi(ixI^S)
+    double precision :: F_adv(ixB^S)
 
     double precision :: gradE
     double precision :: fs, bs, cs
@@ -253,15 +254,18 @@ contains
 
       if (fixed_lum) then
 
+        ! advected flux !TODO: Kinetic energy??
+        F_adv(ixB^S) = (4.d0/3.d0*w(ixB^S,Er_) + hd_gamma*w(ixB^S,p_) + 0.5d0*w(ixB^S,mom(1))**2/w(ixB^S,rho_))*w(ixB^S,mom(1))
+
         ! Radiation flux
         w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux &
-                       - w(ixB^S,Er_)*w(ixB^S,mom(1))
+                       - F_adv(ixB^S) !w(ixB^S,Er_)*w(ixB^S,mom(1))
 
         ixOmin1 = ixBmax1 + 1
 
         do ix1 = ixOmin1,ixBmin1+1,-1
           gradE = lstar/(4*dpi*(x(ix1,1)*unit_length)**2)/unit_radflux &
-                - w(ix1,Er_)*w(ix1,mom(1))
+                - 4.d0/3*w(ix1,Er_)*w(ix1,mom(1))
           ! gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*w(ix1,Fr(1))/m1_c
           gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*gradE/m1_c
 
@@ -418,7 +422,8 @@ contains
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
     double precision :: grav(ixI^S), grad(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S), pth(ixI^S)
-    double precision :: T(ixI^S), divT(ixI^S), F(ixI^S,1:ndir)
+    double precision :: T(ixI^S), divT(ixI^S), F(ixI^S,1:ndim), F_adv_gas(ixI^S), F_adv_rad(ixI^S), theta(ixI^S)
+
 
     grav(ixI^S) = w(ixI^S,rho_) * Ggrav * mstar/x(ixI^S,1)**2.0d0
     grad(ixI^S) = w(ixI^S,rho_) * w(ixI^S,kF_) * w(ixI^S,Fr(1)) / m1_c
@@ -445,30 +450,20 @@ contains
     w(ixO^S,i_chi) = (3.d0+4*w(ixO^S,i_ff))/(5.d0+2*dsqrt(4.d0-3*w(ixO^S,i_ff)))
     w(ixO^S,i_lum) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * w(ixO^S,Fr(1))*unit_radflux / lstar
 
-    w(ixO^S,i_lumt) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * (w(ixO^S,Fr(1)) + w(ixO^S,Er_)*w(ixO^S,mom(1))/w(ixO^S,rho_))*unit_radflux / lstar
+    F_adv_gas(ixO^S) = (w(ixO^S,e_) + pth(ixO^S))*v(ixO^S)
+    F_adv_rad(ixO^S) = (w(ixO^S,Er_) + prad(ixO^S))*v(ixO^S)
+
+    w(ixO^S,i_lumg) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * (F_adv_gas(ixO^S))*unit_radflux / lstar
+    w(ixO^S,i_lumr) = 4*dpi*(x(ixO^S,1)*unit_length)**2 * (F_adv_rad(ixO^S))*unit_radflux / lstar
+
 
     call fld_flux(ixI^L,ixO^L,w,x,F)
     w(ixO^S,i_LFLD) = 4*dpi*F(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux / lstar
 
-    !> Flux equation terms:
-    !> Directional derivative
-    w(ixO^S,i_SFdv) = -gradv(ixO^S)*dt
-    
-    !> Shadowing radiation force source term
-    w(ixO^S,i_SgR) = -m1_c*w(ixO^S,kF_)*w(ixO^S,rho_)*w(ixO^S,Fr(1))
-    
-    !> advected flux term
-    T(ixI^S) = w(ixI^S,Fr(1))*w(ixI^S,mom(1))/w(ixI^S,rho_)
-    call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
-    w(ixO^S,i_SdivF) = -divT(ixO^S)
-    
-    call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, T)
-    T = m1_c**2 * T
-    call gradient_str(T, x, ixI^L, ixO^L, 1, divT)
-    w(ixO^S,i_SdivP) = -divT(ixO^S)
-    w(ixO^S,i_ScdvP) = (1-T(ixO^S)/w(ixO^S,Er_))*w(ixO^S,Er_)/x(ixO^S,1)
+    call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, 1, theta)
+    w(ixO^S, i_theta) = theta(ixO^S)
 
-    w(ixO^S,i_tau_cell) = w(ixO^S,rho_)*m1_kappa_e*block%dx(ixO^S,1)
+    w(ixO^S,i_tau_cell) = w(ixO^S,rho_)*w(ixO^S,kF_)*block%dx(ixO^S,1)
 
   end subroutine update_extravars
 

@@ -185,7 +185,9 @@ contains
     w(ixI^S,i_FLD) = -m1_c/(3*w(ixI^S,rho_)*w(ixI^S,kF_)) * gradE(ixI^S)
 
     call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, 1, theta)
-    w(ixI^S,i_theta) = theta(ixI^S)
+    w(ixO^S,i_theta) = theta(ixO^S)
+
+    ! w(ixO^S,i_tau) = w(ixO^S,rho_)*w(ixO^S,kF_)*block%dx(ixO^S,1)
 
   end subroutine update_extravars
 

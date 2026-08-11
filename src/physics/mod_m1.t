@@ -472,6 +472,7 @@ contains
     theta(ixI^S) = (1-fred(ixI^S))*dexp(-2.d0/(3*tau_c(ixI^S)))
     ! theta(ixI^S) = (1-fred(ixI^S))*(1.d0 - dexp(-tau_c(ixI^S)))
 
+
     !> Neighbouring cells following
     theta(ixO^S) = min(theta(hxO^S),theta(ixO^S),theta(jxO^S))
 
@@ -512,11 +513,6 @@ contains
     double precision                :: prad_ii(ixI^S), ftrap(ixI^S), gradE(ixI^S)
     integer :: idir
 
-    !> Radiation energy flux is v_i E + F
-    ! call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, ftrap)
-    ! call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
-    ! ftrap(ixO^S) = - m1_c/(3*w(ixO^S,iw_rho)*w(ixO^S,kF_))*gradE(ixO^S)*ftrap(ixO^S)
-
     f(ixO^S,iw_r_e) = m1_RSOL * (w(ixO^S,iw_mom(idim)) * w(ixO^S, iw_r_e) + w(ixO^S, iw_Fr(idim)))
 
     !> Radiation flux flux is v_i F_i + c^2 P_ii
@@ -534,7 +530,7 @@ contains
     double precision, intent(in)    :: qdt, x(ixI^S, 1:ndim), wCT(ixI^S, 1:nw)
     double precision, intent(inout) :: w(ixI^S, 1:nw)
 
-    double precision                :: chi(ixI^S), ff(ixI^S), fi(ixI^S)
+    double precision                :: chi(ixI^S), ff(ixI^S), fi(ixI^S), theta(ixI^S)
     double precision                :: source(ixI^S)
     double precision                :: prr(ixI^S), ptt(ixI^S), ppp(ixI^S)
     double precision                :: ptr(ixI^S)
@@ -554,9 +550,10 @@ contains
       h1x^L=ixO^L-kr(1,^D); {^NOONED h2x^L=ixO^L-kr(2,^D);}
       select case (ndir)
       case (1)
-        !> Get relevant pressure tensor
+        !> Get relevant pressure tensor elements
+        call m1_get_streaming_fraction(wCT, x, ixI^L, ixO^L, 1, theta)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr, .true.)
-        ptt(ixI^S) = m1_c**2 * (wCT(ixI^S, iw_r_e) - prr(ixI^S)) /2
+        ptt(ixI^S) = m1_c**2 * (wCT(ixI^S, iw_r_e)*theta(ixI^S) - prr(ixI^S)) /2
         ppp(ixI^S) = ptt(ixI^S)
 
         w(ixO^S, iw_Fr(1)) = w(ixO^S, iw_Fr(1)) + qdt * m1_RSOL * (ptt(ixO^S) + ppp(ixO^S))/ x(ixO^S, 1)
@@ -564,10 +561,11 @@ contains
         {^NOONED
       case (2)
 
-        !> Get relevant pressure tensors:
+        !> Get relevant pressure tensor elements
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 1, 1, prr, .true.)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt, .true.)
-        ppp = wCT(ixI^S,iw_r_e) - prr - ptt !> trace is one
+        call m1_get_streaming_fraction(wCT, x, ixI^L, ixO^L, 1, theta)
+        ppp = wCT(ixI^S,iw_r_e)*theta(ixI^S) - prr - ptt !> trace is one
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr, .true.)
 
         !> Add advection part
@@ -583,7 +581,7 @@ contains
       case(3)
         ! if ((ndim .eq. 1) .or. (ndim .eq. 2)) call mpistop("1.x D not implemented yet")
 
-        !> Get relevant pressure tensors:
+        !> Get relevant pressure tensor elements
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 2, ptt, .true.)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 3, 3, ppp, .true.)
         call m1_get_prad(wCT, x, ixI^L, ixO^L, 2, 1, ptr, .true.)
@@ -838,6 +836,8 @@ contains
     double precision :: aa(ixI^S), bb(ixI^S)
 
     integer :: idim
+    integer                         :: jxO^L, hxO^L
+
 
     ! do idim = 1, ndim
     !
@@ -860,8 +860,33 @@ contains
     !                  <=> F = C1 * exp(-a*t) - b/a
     !                  w. C1 = F0 + b/a
 
+    ! do idim = 1, ndim
+    !
+    !
+    !   hxO^L=ixO^L;
+    !   jxO^L=ixO^L+kr(idim,^D);
+    !
+    !   aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,iw_rho)*w(ixI^S,kF_)
+    !
+    !   call gradientF(w(ixI^S,iw_r_e),x,ixI^L,ixO^L,idim,gradE)
+    !
+    !   !> Well-balanced flux
+    !   aa(ixO^S) = 0.5d0*(aa(hxO^S) + aa(jxO^S))
+    !   gradE(ixO^S) = 0.5d0*(gradE(hxO^S) + gradE(jxO^S))
+    !
+    !   call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
+    !
+    !   ! call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
+    !   bb(ixI^S) = m1_RSOL*m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
+    !
+    !   w(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
+    !   * dexp(-aa(ixO^S)*dtfactor*dt) - bb(ixO^S)/aa(ixO^S)
+    !
+    ! end do
+
     aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,iw_rho)*w(ixI^S,kF_)
     do idim = 1, ndim
+
       call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
 
       call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
@@ -869,13 +894,6 @@ contains
 
       w(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
       * dexp(-aa(ixO^S)*dtfactor*dt) - bb(ixO^S)/aa(ixO^S)
-
-      ! call gradientF(w(ixI^S,iw_r_e),1.d0/aa(ixI^S),ixI^L,ixO^L,idim,gradE)
-      ! bb(ixI^S) = m1_RSOL*m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
-      !
-      ! w(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)) &
-      ! * dexp(-aa(ixO^S)*dtfactor*dt) - bb(ixO^S)
-
     end do
 
     ! if (block%igrid .eq. 2) print*, gradE(ixO^S)

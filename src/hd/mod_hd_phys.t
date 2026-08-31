@@ -1201,7 +1201,7 @@ contains
 
     ! M1 fluxes
     if (hd_m1) then
-      call m1_get_flux(wC, w, x, ixI^L, ixO^L, idim, f)
+      call m1_get_flux(w, x, ixI^L, ixO^L, idim, f)
     end if
 
   end subroutine hd_get_flux

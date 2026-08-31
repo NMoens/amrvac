@@ -9,7 +9,7 @@
 &savelist
   itsave(1,1)=0
   itsave(1,2)=0
-  dtsave_dat = 1d-1
+  dtsave_dat = 1d-3
   dtsave_log = 1d-1
   !ditsave_dat = 1000
   !ditsave_log = 1
@@ -21,8 +21,8 @@
 /
 
 &methodlist
-  time_stepper = 'onestep'
-  time_integrator = 'IMEX_Euler'
+  time_stepper = 'twostep'
+  time_integrator = 'IMEX_Midpoint'
   flux_scheme  = 'hll'
   limiter      = 'minmod'
   fix_small_values = .true.

@@ -190,7 +190,7 @@ contains
   end subroutine m1_init
 
 
-  subroutine m1_get_cbounds(wLC, wRC, wLp, wRp, x, ixI^L, ixO^L, idim,Hspeed,cmax, cmin)
+  subroutine m1_get_cbounds(wLC, wRC, wLp, wRp, x, ixI^L, ixO^L, idim, Hspeed, cmax, cmin)
     use mod_global_parameters
     use mod_dust, only: dust_get_cmax
     use mod_variables
@@ -228,11 +228,13 @@ contains
     fi(ixI^S) = min(fi(ixI^S),1.d0)
     mu(ixI^S) = abs(wLC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wLC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
     mu(ixI^S) = min(mu(ixI^S),1.d0)
+    mu(ixI^S) = max(mu(ixI^S),-1.d0)
 
     fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
 
+    !TODO: Using same cell optical depth for both left and right state. Left state should use tau at i-1 i think?
     tau_c(ixI^S) = block%dx(ixI^S,idim)*wLC(ixI^S,iw_rho)*wLp(ixI^S,kF_)
 
     ! lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
@@ -243,6 +245,13 @@ contains
     + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
     /xi(ixI^S)
 
+
+    ! if (block%igrid .eq. 1) then
+    ! print*, 'max L'
+    ! print*, lam_L_max(ixO^S)/m1_c
+    ! print*, 'diff L'
+    ! print*, 4.d0*m1_RSOL/(3*tau_c(ixO^S))
+    ! end if
 
     ! Fuksman Melon 2019, Sadowski 20212
     ! lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 2.d0/(3*tau_c(ixI^S)))
@@ -271,6 +280,7 @@ contains
     fi(ixI^S) = min(fi(ixI^S),1.d0)
     mu(ixI^S) = abs(wRC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wRC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
     mu(ixI^S) = min(mu(ixI^S),1.d0)
+    mu(ixI^S) = max(mu(ixI^S),-1.d0)
 
     fj(ixI^S) = dsqrt(max(ff(ixI^S) - fi(ixI^S)**2,0.d0))
 
@@ -285,6 +295,15 @@ contains
     + dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
     + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
     /xi(ixI^S)
+
+    ! if (block%igrid .eq. 1) then
+    ! ! print*, 'max L'
+    ! ! print*, lam_L_max(ixO^S)/m1_c
+    ! print*, 'max R'
+    ! print*, lam_R_max(ixO^S)/m1_c
+    ! print*, 'diff R'
+    ! print*,  4.d0*m1_RSOL/(3*tau_c(ixO^S))
+    ! end if
 
     ! Fuksman Melon 2019, Sadowski 20212
     ! lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 2.d0/(3*tau_c(ixI^S)))
@@ -307,6 +326,20 @@ contains
     ! Skinner Ostricker 2013, Eq 39,
     m1_cmax(ixI^S) = max(lam_L_max(ixI^S),lam_R_max(ixI^S))
     m1_cmax(ixI^S) = max(m1_cmax(ixI^S), 0.d0)
+    ! if (block%igrid .eq. 1) then
+    ! ! print*, 'max L'
+    ! ! print*, lam_L_max(ixO^S)/m1_c
+    ! ! print*, 'max R'
+    ! ! print*, lam_R_max(ixO^S)/m1_c
+    ! print*, 'cmax hd'
+    ! print*, cmax(ixO^S,1)/m1_c
+    ! print*, 'cmax m1'
+    ! print*, m1_cmax(ixO^S)/m1_c
+    ! print*, 'tau cell'
+    ! print*, tau_c(ixO^S)
+    ! print*, 'ratio'
+    ! print*, m1_cmax(ixO^S)/cmax(ixO^S,1)
+    ! end if
     cmax(ixI^S,1) = max(cmax(ixI^S,1), m1_cmax(ixI^S))
 
     if (present(cmin)) then
@@ -337,7 +370,13 @@ contains
     integer                      :: iw, ix^D
     double precision :: fi(ixI^S), fj(ixI^S), ff(ixI^S), chi(ixI^S)
 
-    if (present(str)) streaming = str
+
+    if (present(str)) then
+      streaming = str
+    else
+      streaming = .false.
+    end if
+
     if (streaming) then
       call m1_get_streaming_fraction(w, x, ixI^L, ixO^L, idir, Erad)
       Erad(ixI^S) = w(ixI^S,iw_r_e)*Erad(ixI^S)
@@ -469,12 +508,14 @@ contains
     ! theta(ixI^S) = 1.d0 - dexp(-tau_c(ixI^S))
     ! theta(ixI^S) = 1 - fred(ixI^S)
     ! theta(ixI^S) = (1-fred(ixI^S))/(1.d0 + 2.d0/(3.d0*tau_c(ixI^S)))
-    theta(ixI^S) = (1-fred(ixI^S))*dexp(-2.d0/(3*tau_c(ixI^S)))
+    theta(ixI^S) = (1-fred(ixI^S))*dexp(-2.d0/(3*tau_c(ixI^S))) !> THIS IS THE ONE
     ! theta(ixI^S) = (1-fred(ixI^S))*(1.d0 - dexp(-tau_c(ixI^S)))
 
 
     !> Neighbouring cells following
     theta(ixO^S) = min(theta(hxO^S),theta(ixO^S),theta(jxO^S))
+
+    theta(ixI^S) = 1.d0
 
     !> Physical limits
     theta = max(0.d0, min(1.d0, theta))
@@ -499,13 +540,13 @@ contains
   end subroutine m1_get_streaming_fraction
 
   ! Calculate flux f_idim[iw]
-  subroutine m1_get_flux(wC, w, x, ixI^L, ixO^L, idim, f)
+  subroutine m1_get_flux(w, x, ixI^L, ixO^L, idim, f)
     use mod_global_parameters
     ! use mod_geometry
 
     integer, intent(in)             :: ixI^L, ixO^L, idim
     ! conservative w
-    double precision, intent(in)    :: wC(ixI^S, 1:nw)
+    ! double precision, intent(in)    :: wC(ixI^S, 1:nw)
     ! primitive w
     double precision, intent(in)    :: w(ixI^S, 1:nw)
     double precision, intent(in)    :: x(ixI^S, 1:ndim)
@@ -513,6 +554,7 @@ contains
     double precision                :: prad_ii(ixI^S), ftrap(ixI^S), gradE(ixI^S)
     integer :: idir
 
+    !> Radiation energy flux is v_i E + F_i
     f(ixO^S,iw_r_e) = m1_RSOL * (w(ixO^S,iw_mom(idim)) * w(ixO^S, iw_r_e) + w(ixO^S, iw_Fr(idim)))
 
     !> Radiation flux flux is v_i F_i + c^2 P_ii
@@ -753,8 +795,8 @@ contains
   subroutine m1_implicit_update(dtfactor,qdt,qtC,psa,psb)
     use mod_global_parameters
     use mod_ghostcells_update
-    type(state), target :: psa(max_blocks)
-    type(state), target :: psb(max_blocks)
+    type(state), target :: psa(max_blocks) !< Compute implicit part from this state and update it
+    type(state), target :: psb(max_blocks) !< Will be unchanged, as on entry
     double precision, intent(in) :: qdt
     double precision, intent(in) :: qtC
     double precision, intent(in) :: dtfactor
@@ -763,26 +805,20 @@ contains
 
     ixO^L=ixG^LL^LSUBnghostcells;
 
+    !$OMP PARALLEL DO PRIVATE(igrid)
+    do iigrid=1,igridstail; igrid=igrids(iigrid);
+      block=>ps(igrid)
+      call m1_flux_absorbtion(psa(igrid)%w, psb(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
+    end do
+    !$OMP END PARALLEL DO
+
     if (m1_heatcool) then
       !$OMP PARALLEL DO PRIVATE(igrid)
       do iigrid=1,igridstail; igrid=igrids(iigrid);
         call m1_heating_cooling(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
       end do
       !$OMP END PARALLEL DO
-
-      ! enforce boundary conditions for psa
-      call getbc(qtC,qdt,psa,iwstart,nwgc,m1_req_diagonal)
     end if
-
-    !$OMP PARALLEL DO PRIVATE(igrid)
-    do iigrid=1,igridstail; igrid=igrids(iigrid);
-      block=>ps(igrid)
-      call m1_flux_absorbtion(psa(igrid)%w, psa(igrid)%x, ixG^LL, ixO^L, dtfactor, qdt);
-    end do
-    !$OMP END PARALLEL DO
-
-    ! enforce boundary conditions for psa
-    call getbc(qtC,qdt,psa,iwstart,nwgc,m1_req_diagonal)
 
   end subroutine m1_implicit_update
 
@@ -792,6 +828,8 @@ contains
     double precision, intent(in) :: qtC
 
     integer :: ixO^L,iigrid,igrid
+
+    call mpistop("mulit-step implicit IMEX requiring evaluate Not working yet")
 
     ixO^L=ixG^LL^LSUBnghostcells;
 
@@ -820,7 +858,7 @@ contains
 
   end subroutine m1_evaluate_implicit
 
-  subroutine m1_flux_absorbtion(w, x, ixI^L, ixO^L, dtfactor, qdt)
+  subroutine m1_flux_absorbtion(w_out, w, x, ixI^L, ixO^L, dtfactor, qdt)
     use mod_global_parameters
     use mod_geometry
     use mod_usr_methods, only: usr_set_F0
@@ -828,7 +866,8 @@ contains
     integer, intent(in)             :: ixI^L,ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(in)    :: dtfactor, qdt
-    double precision, intent(inout)    :: w(ixI^S,1:nw)
+    double precision, intent(in)    :: w(ixI^S,1:nw)
+    double precision, intent(inout) :: w_out(ixI^S,1:nw)
 
     double precision :: F0(ixI^S,1:ndir), theta(ixI^S), tau(ixI^S)
     double precision :: gradE(ixI^S)
@@ -884,19 +923,19 @@ contains
     !
     ! end do
 
-    aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,iw_rho)*w(ixI^S,kF_)
-    do idim = 1, ndim
+    w_out = w
 
+    aa(ixI^S) = m1_c*w(ixI^S,iw_rho)*w_out(ixI^S,kF_)
+    do idim = 1, ndim
       call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
 
       call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
-      bb(ixI^S) = m1_RSOL*m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
+      bb(ixI^S) = m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
 
-      w(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
-      * dexp(-aa(ixO^S)*dtfactor*dt) - bb(ixO^S)/aa(ixO^S)
+      !> Analytic
+      w_out(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
+      * dexp(-aa(ixO^S)*m1_RSOL*dtfactor*qdt) - bb(ixO^S)/aa(ixO^S)
     end do
-
-    ! if (block%igrid .eq. 2) print*, gradE(ixO^S)
 
   end subroutine m1_flux_absorbtion
 
@@ -915,9 +954,6 @@ contains
     double precision :: aa(ixI^S), bb(ixI^S)
 
     integer :: idim
-
-    !> ghostcells
-    w(ixO^S,iw_Fr(:)) = 0.d0
 
     ! > Exact solution: dF/dt = - a F - b
     !                  <=> F = C1 * exp(-a*t) - b/a
@@ -1186,6 +1222,25 @@ contains
     w(ixO^S,kF_) = max(w(ixO^S,kF_), 0.1d0*m1_kappa_e)
     w(ixO^S,kE_) = max(w(ixO^S,kE_), 1.d-5*m1_kappa_e)
     w(ixO^S,kB_) = max(w(ixO^S,kB_), 1.d-5*m1_kappa_e)
+
+    !> Inner bound opacity
+    if (any(x(ixI^S,1) .lt. xprobmin1)) then
+      {^IFONED w(ixImin1:ixOmin1-1,kF_) = w(ixOmin1,kF_)}
+      {^IFTWOD
+          do ix2 = ixImin2, ixImax2
+            w(ixImin1:ixOmin1-1,ix2,kF_) = w(ixOmin1,ix2,kF_)
+          end do
+      }
+      {^IFTHREED
+      do ix2 = ixImin2, ixImax2
+        do ix3 = ixImin3, ixImax3
+          w(ixImin1:ixOmin1-1,ix2,ix3,kF_) = w(ixOmin1,ix2,ix3,kF_)
+        end do
+      end do
+      }
+      ! {^IFTHREED w(ixOmax1,:,:,kF_) = max(w(ixOmax1-1,:,:,kF_), w(ixOmax1,:,:,kF_))}
+    end if
+
 
     if (any(w(ixO^S,kF_) .ne. w(ixO^S,kF_))) then
       stop "kappa_F NaN in hybrid opacity"

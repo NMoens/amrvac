@@ -73,7 +73,7 @@ contains
             wnew(ixO^S,iw)=wnew(ixO^S,iw)-block%dt(ixO^S)*dtfactor/dxs(idims)* &
                  (fLC(ixO^S, iw)-fRC(hxO^S, iw))
           end do
-        else  
+        else
           do iw=1,nwflux
             wnew(ixO^S,iw)=wnew(ixO^S,iw)+dxinv(idims)* &
                  (fLC(ixO^S, iw)-fRC(hxO^S, iw))
@@ -100,7 +100,7 @@ contains
     if (.not.slab.and.idimsmin==1) call phys_add_source_geom(qdt,dtfactor,ixI^L,ixO^L,wCT,wnew,x)
 
     call addsource2(qdt*dble(idimsmax-idimsmin+1)/dble(ndim), &
-          dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim),& 
+          dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim),&
          ixI^L,ixO^L,1,nw,qtC,wCT,wprim,qt,wnew,x,.false.,active)
 
     ! check and optionally correct unphysical values
@@ -209,7 +209,7 @@ contains
        ! estimating bounds for the minimum and maximum signal velocities
        if(method==fs_tvdlf.or.method==fs_tvdmu) then
          call phys_get_cbounds(wLC,wRC,wLp,wRp,x,ixI^L,ixC^L,idims,Hspeed,cmaxC)
-         ! index of var  velocity appears in the induction eq. 
+         ! index of var  velocity appears in the induction eq.
          if(stagger_grid) call phys_get_ct_velocity(vcts,wLp,wRp,ixI^L,ixC^L,idims,cmaxC(ixI^S,index_v_mag))
        else
          call phys_get_cbounds(wLC,wRC,wLp,wRp,x,ixI^L,ixC^L,idims,Hspeed,cmaxC,cminC)
@@ -232,7 +232,7 @@ contains
              call get_Riemann_flux_hlld(start_indices(ii),stop_indices(ii))
            else
              call get_Riemann_flux_hll(start_indices(ii),stop_indices(ii))
-           endif   
+           endif
          end do
        case(fs_tvdlf)
          do ii=1,number_species
@@ -287,7 +287,7 @@ contains
             wnew(ixO^S,iw)=wnew(ixO^S,iw) + (fC(ixO^S,iw,idims)-fC(hxO^S,iw,idims)) * &
                 inv_volume
           end do
-        end if 
+        end if
         ! For the MUSCL scheme apply the characteristic based limiter
         if (method==fs_tvdmu) &
              call tvdlimit2(method,qdt,ixI^L,ixC^L,ixO^L,idims,wLC,wRC,wnew,x,fC,dxs)
@@ -304,8 +304,8 @@ contains
     if(fix_small_values) then
        call phys_handle_small_values(.false.,wnew,x,ixI^L,ixO^L,'multi-D finite_volume')
     end if
- 
-    call addsource2(qdt*dble(idimsmax-idimsmin+1)/dble(ndim),& 
+
+    call addsource2(qdt*dble(idimsmax-idimsmin+1)/dble(ndim),&
          dtfactor*dble(idimsmax-idimsmin+1)/dble(ndim),&
          ixI^L,ixO^L,1,nw,qtC,wCT,wprim,qt,wnew,x,.false.,active)
 
@@ -361,13 +361,13 @@ contains
                    /(cmaxC(ix^D,ii)-cminC(ix^D,ii))
            end if
          {end do\}
-       endif 
+       endif
       end do
 
     end subroutine get_Riemann_flux_hll
 
     subroutine get_Riemann_flux_hllc(iws,iwe)
-      integer, intent(in) :: iws, iwe  
+      integer, intent(in) :: iws, iwe
       double precision, dimension(ixI^S,1:nwflux)     :: whll, Fhll, fCD
       double precision, dimension(ixI^S)              :: lambdaCD
 
@@ -375,11 +375,11 @@ contains
 
       rho_ = iw_rho
       if (allocated(iw_mom)) mom(:) = iw_mom(:)
-      e_ = iw_e 
+      e_ = iw_e
 
       if(associated(phys_hllc_init_species)) then
        call phys_hllc_init_species(ii, rho_, mom(:), e_)
-      endif  
+      endif
 
       p_ = e_
 
@@ -450,8 +450,8 @@ contains
 
       rho_ = iw_rho
       mom(:) = iw_mom(:)
-      mag(:) = iw_mag(:) 
-      e_ = iw_e 
+      mag(:) = iw_mag(:)
+      e_ = iw_e
       p_ = e_
 
       f1R=0.d0
@@ -715,9 +715,9 @@ contains
 
       rho_ = iw_rho
       mom(:) = iw_mom(:)
-      mag(:) = iw_mag(:) 
+      mag(:) = iw_mag(:)
       p_ = iw_e
-      e_ = iw_e 
+      e_ = iw_e
 
       associate (sR=>cmaxC,sL=>cminC)
 
@@ -734,47 +734,47 @@ contains
       call get_hlld2_modif_c(wRp,x,ixI^L,ixO^L,s1R)
       !phiPres = min(1, maxval(max(s1L(ixO^S),s1R(ixO^S))/cmaxC(ixO^S,1)))
       phiPres = min(1d0, maxval(max(s1L(ixO^S),s1R(ixO^S)))/maxval(cmaxC(ixO^S,1)))
-      phiPres = phiPres*(2D0 - phiPres)  
+      phiPres = phiPres*(2D0 - phiPres)
 
-     !we use here not reconstructed velocity: wprim?       
+     !we use here not reconstructed velocity: wprim?
      ixV^L=ixO^L;
      !first dim
-     ixVmin1=ixOmin1+1  
+     ixVmin1=ixOmin1+1
      ixVmax1=ixOmax1+1
      du = minval(wprim(ixV^S,mom(1))-wprim(ixO^S,mom(1)))
-     if(du>0d0) du=0d0  
-     dv = 0d0 
-     dw = 0d0 
+     if(du>0d0) du=0d0
+     dv = 0d0
+     dw = 0d0
 
      {^NOONED
      !second dim
-     !i,j-1,k 
+     !i,j-1,k
      ixV^L=ixO^L;
-     ixVmin2=ixOmin2-1  
+     ixVmin2=ixOmin2-1
      ixVmax2=ixOmax2-1
- 
-     !i,j+1,k 
+
+     !i,j+1,k
      ixVb^L=ixO^L;
-     ixVbmin2=ixOmin2+1  
+     ixVbmin2=ixOmin2+1
      ixVbmax2=ixOmax2+1
 
-     !i+1,j,k 
+     !i+1,j,k
      ixVc^L=ixO^L;
-     ixVcmin1=ixOmin1+1  
+     ixVcmin1=ixOmin1+1
      ixVcmax1=ixOmax1+1
 
-     !i+1,j-1,k 
+     !i+1,j-1,k
      ixVd^L=ixO^L;
-     ixVdmin1=ixOmin1+1  
+     ixVdmin1=ixOmin1+1
      ixVdmax1=ixOmax1+1
-     ixVdmin2=ixOmin2-1  
+     ixVdmin2=ixOmin2-1
      ixVdmax2=ixOmax2-1
 
-     !i+1,j+1,k 
+     !i+1,j+1,k
      ixVe^L=ixO^L;
-     ixVemin1=ixOmin1+1  
+     ixVemin1=ixOmin1+1
      ixVemax1=ixOmax1+1
-     ixVemin2=ixOmin2+1  
+     ixVemin2=ixOmin2+1
      ixVemax2=ixOmax2+1
 
      dv = minval(min(wprim(ixO^S,mom(2))-wprim(ixV^S,mom(2)),&
@@ -782,37 +782,37 @@ contains
                   wprim(ixVc^S,mom(2))-wprim(ixVd^S,mom(2)),&
                   wprim(ixVe^S,mom(2))-wprim(ixVc^S,mom(2))&
                 ))
-     if(dv>0d0) dv=0d0} 
+     if(dv>0d0) dv=0d0}
 
       {^IFTHREED
      !third dim
-     !i,j,k-1 
+     !i,j,k-1
      ixV^L=ixO^L;
-     ixVmin3=ixOmin3-1  
+     ixVmin3=ixOmin3-1
      ixVmax3=ixOmax3-1
- 
-     !i,j,k+1 
+
+     !i,j,k+1
      ixVb^L=ixO^L;
-     ixVbmin3=ixOmin3+1  
+     ixVbmin3=ixOmin3+1
      ixVbmax3=ixOmax3+1
 
-     !i+1,j,k 
+     !i+1,j,k
      ixVc^L=ixO^L;
-     ixVcmin1=ixOmin1+1  
+     ixVcmin1=ixOmin1+1
      ixVcmax1=ixOmax1+1
 
-     !i+1,j,k-1 
+     !i+1,j,k-1
      ixVd^L=ixO^L;
-     ixVdmin1=ixOmin1+1  
+     ixVdmin1=ixOmin1+1
      ixVdmax1=ixOmax1+1
-     ixVdmin3=ixOmin3-1  
+     ixVdmin3=ixOmin3-1
      ixVdmax3=ixOmax3-1
 
-     !i+1,j,k+1 
+     !i+1,j,k+1
      ixVe^L=ixO^L;
-     ixVemin1=ixOmin1+1  
+     ixVemin1=ixOmin1+1
      ixVemax1=ixOmax1+1
-     ixVemin3=ixOmin3+1  
+     ixVemin3=ixOmin3+1
      ixVemax3=ixOmax3+1
      dw = minval(min(wprim(ixO^S,mom(3))-wprim(ixV^S,mom(3)),&
                   wprim(ixVb^S,mom(3))-wprim(ixO^S,mom(3)),&
@@ -820,10 +820,10 @@ contains
                   wprim(ixVe^S,mom(3))-wprim(ixVc^S,mom(3))&
                 ))
      if(dw>0d0) dw=0d0}
-     thetaSM = maxval(cmaxC(ixO^S,1)) 
-       
+     thetaSM = maxval(cmaxC(ixO^S,1))
+
      thetaSM = (min(1d0, (thetaSM-du)/(thetaSM-min(dv,dw))))**aParam
-     !print*, "HLLD2 ", du,dv,dw, thetaSM, phiPres 
+     !print*, "HLLD2 ", du,dv,dw, thetaSM, phiPres
 
       if(B0field) then
         BR(ixC^S,:)=wRC(ixC^S,mag(:))+block%B0(ixC^S,:,ip1)
@@ -1030,9 +1030,9 @@ contains
 
         rho_ = iw_rho
         mom(:) = iw_mom(:)
-        mag(:) = iw_mag(:) 
+        mag(:) = iw_mag(:)
         p_ = iw_e
-        e_ = iw_e 
+        e_ = iw_e
 
       inv_rho=1.d0/w(ixO^S,rho_)
 
@@ -1057,7 +1057,7 @@ contains
       cfast2(ixO^S)   = b2(ixO^S) * inv_rho+csound(ixO^S)
       AvMinCs2(ixO^S) = cfast2(ixO^S)**2-4.0d0*csound(ixO^S) &
            * AvMinCs2(ixO^S)**2 &
-           * inv_rho 
+           * inv_rho
 
       where(AvMinCs2(ixO^S)<zero)
          AvMinCs2(ixO^S)=zero
@@ -1121,7 +1121,7 @@ contains
     case (limiter_mpweno7)
        call WENO7limiter(ixI^L,ixL^L,idims,w,wLp,wRp,2)
     case (limiter_venk)
-       call venklimiter(ixI^L,ixL^L,idims,dxdim,w,wLp,wRp) 
+       call venklimiter(ixI^L,ixL^L,idims,dxdim,w,wLp,wRp)
        if(fix_small_values) then
           call phys_handle_small_values(.true.,wLp,x,ixI^L,ixL^L,'reconstruct left')
           call phys_handle_small_values(.true.,wRp,x,ixI^L,ixR^L,'reconstruct right')
@@ -1144,7 +1144,7 @@ contains
           end if
 
           dwC(ixC^S)=w(jxC^S,iw)-w(ixC^S,iw)
-          if(need_global_a2max) then 
+          if(need_global_a2max) then
             a2max=a2max_global(idims)
           else
             select case(idims)

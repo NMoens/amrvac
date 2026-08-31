@@ -245,12 +245,12 @@ contains
 
       if (fixed_lum) then
 
-        ! advected flux !TODO: Kinetic energy??
+        ! advected flux
         F_adv(ixB^S) = (4.d0/3.d0*w(ixB^S,Er_) + hd_gamma*w(ixB^S,p_) + 0.5d0*w(ixB^S,mom(1))**2/w(ixB^S,rho_))*w(ixB^S,mom(1))
 
         ! Radiation flux
         w(ixB^S,Fr(1)) = lstar/(4*dpi*(x(ixB^S,1)*unit_length)**2)/unit_radflux &
-                       - F_adv(ixB^S) !w(ixB^S,Er_)*w(ixB^S,mom(1))
+                       - F_adv(ixB^S)
 
         ixOmin1 = ixBmax1 + 1
 
@@ -258,7 +258,7 @@ contains
           gradE = lstar/(4*dpi*(x(ix1,1)*unit_length)**2)/unit_radflux &
                 - 4.d0/3*w(ix1,Er_)*w(ix1,mom(1))
           ! gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*w(ix1,Fr(1))/m1_c
-          gradE = -3*w(ixOmin1,kF_)*w(ix1,rho_)*gradE/m1_c
+          gradE = -3*w(ix1,kF_)*w(ix1,rho_)*gradE/m1_c
 
           !> Forward, backward and central derivs, needed for stretched grid gradient
           fs = (x(ix1,1) - x(ix1-1,1)) &
@@ -284,6 +284,10 @@ contains
         end if
 
         ! print*, it, '|' ,w(ixB^S,Er_), '|' ,w(ixB^S,Fr(1))
+
+        ! if (block%igrid .eq. 1) then
+        !   print*, it, '|', w(ixBmax1,1:5)
+        ! end if
 
       else
         !> Gas pressure
@@ -331,7 +335,7 @@ contains
 
     integer :: ix1, nearest_i
 
-    do ix1 = ixImin1, ixImax1
+    do ix1 = ixOmin1, ixOmax1
       !> Find nearest line in init
       nearest_i = minloc(abs(r_init - x(ix1,1)),DIM=1)
 
@@ -445,9 +449,12 @@ contains
     call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,1,gradE)
     w(ixO^S,i_emm) = m1_RSOL*m1_c**2*gradE(ixO^S)*theta(ixO^S)/3.d0
 
-
     call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, prad, .true.)
     w(ixO^S,i_geom) = m1_RSOL*m1_c**2*((1 - theta(ixO^S))*w(ixO^S,Er_) - prad(ixO^S))/x(ixO^S,1)
+
+    w(ixO^S, i_abs) = (w(ixO^S,Fr(1)) + w(ixO^S,i_emm)/(m1_RSOL*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_))) &
+                    * dexp(- m1_RSOL*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_)) &
+                    - w(ixO^S,i_emm)/(m1_RSOL*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_))
 
   end subroutine update_extravars
 

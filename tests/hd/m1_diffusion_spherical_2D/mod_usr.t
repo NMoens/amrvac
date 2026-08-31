@@ -11,7 +11,7 @@ module mod_usr
   integer :: i_Pxx,i_Pxy,i_Pyx,i_Pyy
   integer :: i_r, i_sol, i_trap
 
-  double precision :: r0 = 3.d0
+  double precision :: r0 = 1.d0
 
 contains
 

@@ -220,7 +220,7 @@ contains
     double precision :: ff(ixI^S), chi(ixI^S)
     double precision :: F_adv(ixB^S)
 
-    double precision :: gradE
+    double precision :: gradE, D
     double precision :: fs, bs, cs
 
     select case (iB)
@@ -243,6 +243,9 @@ contains
       ! Avoid supersonic ghost cells, also avoid overloading too much
       w(ixB^S,mom(1)) = min(w(ixB^S,mom(1)), asound)
       w(ixB^S,mom(1)) = max(w(ixB^S,mom(1)), -0.d0*asound)
+
+      !!! OVERWRITE VELOCITY TO 0
+      w(ixB^S,mom(1)) = -w(ixBmax1+1,mom(1))
 
       ! ! Gas pressure.
       ! if (hd_energy) then
@@ -280,6 +283,7 @@ contains
           / ((x(ix1,1) - x(ix1-1,1)) * (x(ix1+1,1) - x(ix1,1)))
 
           w(ix1-1,Er_) = (gradE - fs*w(ix1+1,Er_) - cs*w(ix1,Er_))/bs
+
         end do
 
         ! Gas pressure
@@ -294,18 +298,56 @@ contains
 
         ! print*, it, '|' ,w(ixB^S,Er_), '|' ,w(ixB^S,Fr(1))
 
+        ! print*, it, '------------------', w(ixBmax1,Fr(1))*x(ixBmax1,1)**2
+        ! print*, 'kappa', w(1:5,kF_)/m1_kappa_e
+        ! print*, 'E', w(1:5,Er_)
+        ! print*, 'F', (w(1:5,Fr(1))+F_adv(1:5))*x(1:5,1)**2
+        ! print*, 'vE', F_adv(1:2)/w(1:2,Fr(1))
+        !
+        ! stop
+
+
       else
         !> Gas pressure
         w(ixB^S,p_) = const_kB*Tbound*w(ixB^S,rho_)*unit_density/(const_mp*hd_mu)/unit_pressure
-
-        !> Radiation energy density
         w(ixB^S,Er_) = const_rad_a*Tbound**4/unit_pressure
 
-        !> Radiation flux
+        ! !> Radiation energy density (log extrapolated)
+        ! do ix1 = ixBmax1-1, ixBmin1, -1
+        !   w(ix1,Er_) = 10.d0**max(2 * dlog10(w(ix1+1,Er_)) - dlog10(w(ix1+2,Er_)), dlog10(w(ix1+1,Er_)))
+        !   w(ix1,Er_) = max(w(ix1,Er_), w(ixBmax1,Er_))
+        ! end do
+
+        !> Radiation flux (const lum)
         w(ixB^S,Fr(:)) = 0.d0
         do ix1 = ixBmax1,ixBmin1,-1
-          w(ix1,Fr(1)) = w(ix1+1,Fr(1)) * (x(ix1+1,1)/x(ix1,1))**2
+          w(ix1,Fr(1)) = (w(ix1+1,Fr(1))-4.d0/3*w(ix1+1,mom(1))*w(ix1+1,Er_) )* (x(ix1+1,1)/x(ix1,1))**2
+          ! w(ix1,Fr(1)) = 0.333d0*(w(ix1+1,Fr(1)) * (x(ix1+1,1)/x(ix1,1))**2 &
+          !                       + w(ix1+2,Fr(1)) * (x(ix1+2,1)/x(ix1,1))**2 &
+          !                       + w(ix1+3,Fr(1)) * (x(ix1+3,1)/x(ix1,1))**2)
         end do
+
+        !> Radiation energy density (FLD extrapolated)
+        do ix1 = ixBmax1-1, ixBmin1, -1
+          ! Evaluate F and kappa*rho at i+1/2 (hence 1/2*1/2)
+          D = 3.d0/4*(w(ix1,Fr(1)) + w(ix1+1,Fr(1)))*(w(ix1,kF_)*w(ix1,rho_) + w(ix1+1,kF_)*w(ix1+1,rho_))/m1_c
+          w(ix1,Er_) = w(ix1,Er_) + D*(x(ix1+1,1) - x(ix1,1))
+        end do
+
+        !> Radiation flux (FLD extrapolated)
+        ! do ix1 = ixBmax1,ixBmin1,-1
+        !   !> Linear derivative
+        !   w(ix1,Fr(1)) = -m1_c/(3*w(ix1,kF_)*w(ix1,rho_)) * (w(ix1+1,Er_) - w(ix1,Er_))/(x(ix1+1,1) - x(ix1,1))
+        !   !> Log derivative
+        !   ! w(ix1,Fr(1)) = -m1_c/(3*w(ix1,kF_)*w(ix1,rho_)) * (log(w(ix1+1,Er_)) - log(w(ix1,Er_)))/(x(ix1+1,1) - x(ix1,1))* w(ix1,Er_)
+        ! end do
+
+        ! print*, it, '------------------', w(ixBmax1,Fr(1))*x(ixBmax1,1)**2
+        ! print*, 'kappa', w(1:5,kF_)/m1_kappa_e
+        ! print*, 'E', w(1:5,Er_)/w(ixBmax1,Er_)
+        ! print*, 'F', w(1:5,Fr(1))*x(1:5,1)**2 / (w(ixBmax1,Fr(1))*x(ixBmax1,1)**2)
+        ! print*, 'vE', 4.d0/3*w(1:5,mom(1))*w(1:5,Er_)/w(1:5,Fr(1))
+
       end if
 
       call hd_to_conserved(ixI^L,ixI^L,w,x)

@@ -17,6 +17,7 @@ module mod_usr
 
   integer :: i_Gamma, i_Mf, i_prad, i_pht, i_fcmf, i_Tgas, i_Trad, i_chi, i_ff, i_lum, i_lumg, i_lumr
   integer :: i_SdivF, i_SdivP, i_SFdv, i_SgR, i_ScdvP, i_tau_cell, i_LFLD, i_theta, i_emm, i_abs, i_geom
+  integer :: i_Lnum1, i_Lnum2
 
   logical :: fixed_lum = .true.
 
@@ -71,6 +72,8 @@ contains
     i_lumg = var_set_extravar('lum_gas','lum_gas')
     i_lumr = var_set_extravar('lum_rad','lum_rad')
 
+    i_Lnum1 = var_set_extravar('lum_num1','lum_num1')
+    i_Lnum2 = var_set_extravar('lum_num2','lum_num2')
 
     i_LFLD = var_set_extravar('lum_fld','lum_fld')
 
@@ -242,7 +245,6 @@ contains
         w(ix1,mom(1)) = 0.d0
       end do
 
-
       if (fixed_lum) then
 
         ! advected flux
@@ -295,6 +297,10 @@ contains
 
         !> Radiation energy density
         w(ixB^S,Er_) = const_rad_a*Tbound**4/unit_pressure
+        do ix1 = ixBmax1-1, ixBmin1, -1
+          w(ix1,Er_) = 10.d0**max(2 * dlog10(w(ix1+1,Er_)) - dlog10(w(ix1+2,Er_)), dlog10(w(ix1+1,Er_)))
+          w(ix1,Er_) = max(w(ix1,Er_), w(ixBmax1,Er_))
+        end do
 
         !> Radiation flux
         w(ixB^S,Fr(:)) = 0.d0
@@ -304,6 +310,12 @@ contains
       end if
 
       call hd_to_conserved(ixI^L,ixI^L,w,x)
+
+      ! print*, it, '----------------------------------------------------------'
+      ! print*, 'rho', w(1:7,rho_)
+      ! print*, 'Er', w(1:7,Er_)
+      ! print*, 'F', w(1:7,Fr(1))
+      ! print*, 'f', w(1:7,Fr(1))/(w(1:7,Er_)*m1_c)
 
     case (2)
 
@@ -341,8 +353,8 @@ contains
 
       !> Read closest values
       w(ix1, rho_) = rho_init(nearest_i)/unit_density
-      w(ix1, mom(1)) = 0.d0
     end do
+    w(:, mom(1)) = 0.d0
 
   end subroutine Fix_steadystate
 
@@ -403,8 +415,8 @@ contains
 
     double precision :: grav(ixI^S), grad(ixI^S), prad(ixI^S), v(ixI^S), gradv(ixI^S), pth(ixI^S)
     double precision :: T(ixI^S), divT(ixI^S), F(ixI^S,1:ndim), F_adv_gas(ixI^S), F_adv_rad(ixI^S), theta(ixI^S)
-    double precision :: gradE(ixI^S)
-
+    double precision :: gradE(ixI^S), gradF(ixI^S)
+    double precision :: cmax(ixI^S)
 
     grav(ixI^S) = w(ixI^S,rho_) * Ggrav * mstar/x(ixI^S,1)**2.0d0
     grad(ixI^S) = w(ixI^S,rho_) * w(ixI^S,kF_) * w(ixI^S,Fr(1)) / m1_c
@@ -440,6 +452,8 @@ contains
     call fld_flux(ixI^L,ixO^L,w,x,F)
     w(ixO^S,i_LFLD) = 4*dpi*F(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux / lstar
 
+
+
     call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, 1, theta)
     w(ixO^S, i_theta) = theta(ixO^S)
 
@@ -452,9 +466,23 @@ contains
     call m1_get_prad(w, x, ixI^L, ixO^L, 1, 1, prad, .true.)
     w(ixO^S,i_geom) = m1_RSOL*m1_c**2*((1 - theta(ixO^S))*w(ixO^S,Er_) - prad(ixO^S))/x(ixO^S,1)
 
-    w(ixO^S, i_abs) = (w(ixO^S,Fr(1)) + w(ixO^S,i_emm)/(m1_RSOL*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_))) &
-                    * dexp(- m1_RSOL*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_)) &
-                    - w(ixO^S,i_emm)/(m1_RSOL*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_))
+    call hd_get_csound2(w,x,ixI^L,ixO^L,cmax)
+    cmax(ixO^S) = dsqrt(cmax(ixO^S))
+    F(ixO^S,1) = -cmax(ixO^S)*block%dx(ixO^S,1)/2*gradE(ixO^S)
+    w(ixO^S,i_Lnum1) = 4*dpi*F(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux / lstar
+
+    cmax(ixO^S) = 4*m1_c*m1_RSOL/(3*w(ixO^S,i_tau_cell))
+    F(ixO^S,1) = -cmax(ixO^S)*block%dx(ixO^S,1)/2*gradE(ixO^S)
+    w(ixO^S,i_Lnum1) = 4*dpi*F(ixO^S,1)*(x(ixO^S,1)*unit_length)**2*unit_radflux / lstar
+
+
+
+    ! w(ixO^S, i_abs) = (w(ixO^S,Fr(1)) + w(ixO^S,i_emm)/(m1_RSOL*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_))) &
+    !                 * dexp(- m1_RSOL*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_)) &
+    !                 - w(ixO^S,i_emm)/(m1_RSOL*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_))
+
+    ! call gradientS(w(ixI^S,Fr(1)),ixI^L,ixO^L,1,gradF)
+    ! w(ixO^S,i_geom) = 2*gradF(ixO^S)/(3*m1_c*w(ixO^S,kF_)*w(ixO^S,rho_))
 
   end subroutine update_extravars
 

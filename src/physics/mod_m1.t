@@ -159,6 +159,7 @@ contains
     m1_req_diagonal = phys_req_diagonal
 
     !> Initialise opacity modules if necessary
+    if (m1_opacity_type .eq. 'OPAL') call init_opal_table('Y02800')
     if (m1_opacity_type .eq. 'hybrid1') call init_opal_table('Y02800')
     if (m1_opacity_type .eq. 'hybrid2') then
       call init_opal_table('Y02800')
@@ -240,7 +241,7 @@ contains
     ! lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     ! + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
     ! /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
-    lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)*dsqrt(ff(ixI^S)) &
+    lam_L_max(ixI^S) = m1_c*m1_RSOL*(mu(ixI^S)*dsqrt(ff(ixI^S)) &
     + dsqrt(2.d0/3*(4 - 3*ff(ixI^S) - xi(ixI^S)) &
     + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
     /xi(ixI^S)
@@ -254,8 +255,8 @@ contains
     ! end if
 
     ! Fuksman Melon 2019, Sadowski 20212
-    ! lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 2.d0/(3*tau_c(ixI^S)))
-    lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
+    lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 2.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
+    ! lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
 
     if (present(cmin)) then
       ! lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
@@ -267,8 +268,8 @@ contains
       /xi(ixI^S)
 
       ! Fuksman Melon 2019, Sadowski 20212
-      ! lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -2.d0/(3*tau_c(ixI^S)))
-      lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
+      lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -2.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
+      ! lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
     end if
 
     !> Right state
@@ -306,8 +307,8 @@ contains
     ! end if
 
     ! Fuksman Melon 2019, Sadowski 20212
-    ! lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 2.d0/(3*tau_c(ixI^S)))
-    lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
+    lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 2.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
+    ! lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
 
     if (present(cmin)) then
       ! lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
@@ -319,8 +320,8 @@ contains
       /xi(ixI^S)
 
       ! Fuksman Melon 2019, Sadowski 20212
-      ! lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -2.d0/(3*tau_c(ixI^S)))
-      lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
+      ! lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
+      lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -2.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
     end if
 
     ! Skinner Ostricker 2013, Eq 39,
@@ -368,22 +369,24 @@ contains
     logical :: streaming = .false.
 
     integer                      :: iw, ix^D
-    double precision :: fi(ixI^S), fj(ixI^S), ff(ixI^S), chi(ixI^S)
+    double precision :: fi(ixI^S), fj(ixI^S), ff(ixI^S), chi(ixI^S), theta(ixI^S)
 
-
+    !> Free streaming input logical
     if (present(str)) then
       streaming = str
     else
       streaming = .false.
     end if
 
+    !> Compute free streaming fraction if necessary
     if (streaming) then
-      call m1_get_streaming_fraction(w, x, ixI^L, ixO^L, idir, Erad)
-      Erad(ixI^S) = w(ixI^S,iw_r_e)*Erad(ixI^S)
+      call m1_get_streaming_fraction(w, x, ixI^L, ixO^L, idir, theta)
+      Erad(ixI^S) = w(ixI^S,iw_r_e)*theta(ixI^S)
     else
       Erad(ixI^S) = w(ixI^S,iw_r_e)
     end if
 
+    !> In case of diffusion limit 1/3 times unit tensor
     if (m1_diffusion) then
 
       if (idir == jdir) then
@@ -392,6 +395,7 @@ contains
         prad(ixI^S) = 0.d0
       end if
 
+    !> M1 analytic closure
     else
 
       !> Reduced fluxes
@@ -450,6 +454,26 @@ contains
       end if
 
     end if
+
+    ! if ((.not. streaming) .and. (block%igrid .eq. 1) .and. any(prad(ixO^S) .gt. 0.7)) then
+    ! ! if ((.not. streaming) .and. (block%igrid .eq. 1)) then
+    !   print*, 'OSCILLATIONS!!!!!'
+    !   print*, it
+    !   print*, str, streaming
+    !   print*, 'Erad'
+    !   print*, Erad(ixO^S)
+    !   print*, 'F'
+    !   print*, w(ixO^S, iw_Fr(1))
+    !   print*, 'ff'
+    !   print*, ff(ixO^S)
+    !   print*, 'chi'
+    !   print*, chi(ixO^S)
+    !   print*, 'f_edd'
+    !   print*, prad(ixO^S)
+    !   print*, 'f_edd ixI'
+    !   print*, prad(ixI^S)
+    !   stop
+    ! end if
 
     !> Radiation pressure tensor
     prad(ixI^S) = prad(ixI^S) * Erad(ixI^S)
@@ -511,11 +535,10 @@ contains
     theta(ixI^S) = (1-fred(ixI^S))*dexp(-2.d0/(3*tau_c(ixI^S))) !> THIS IS THE ONE
     ! theta(ixI^S) = (1-fred(ixI^S))*(1.d0 - dexp(-tau_c(ixI^S)))
 
+    ! if (block%igrid .eq. 1)  print*, theta
 
     !> Neighbouring cells following
     theta(ixO^S) = min(theta(hxO^S),theta(ixO^S),theta(jxO^S))
-
-    theta(ixI^S) = 1.d0
 
     !> Physical limits
     theta = max(0.d0, min(1.d0, theta))
@@ -556,6 +579,11 @@ contains
 
     !> Radiation energy flux is v_i E + F_i
     f(ixO^S,iw_r_e) = m1_RSOL * (w(ixO^S,iw_mom(idim)) * w(ixO^S, iw_r_e) + w(ixO^S, iw_Fr(idim)))
+    ! f(ixO^S,iw_r_e) = m1_RSOL * w(ixO^S,iw_mom(idim)) * w(ixO^S, iw_r_e)
+
+    ! call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, ftrap)
+    ! f(ixO^S,iw_r_e) = m1_RSOL * (w(ixO^S,iw_mom(idim)) * w(ixO^S, iw_r_e) + w(ixO^S, iw_Fr(idim)) * ftrap(ixO^S))
+
 
     !> Radiation flux flux is v_i F_i + c^2 P_ii
     do idir = 1,ndir
@@ -935,6 +963,7 @@ contains
       !> Analytic
       w_out(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
       * dexp(-aa(ixO^S)*m1_RSOL*dtfactor*qdt) - bb(ixO^S)/aa(ixO^S)
+
     end do
 
   end subroutine m1_flux_absorbtion
@@ -1079,14 +1108,17 @@ contains
   subroutine m1_set_opacities(ixI^L,ixO^L,w,x)
     use mod_global_parameters
     use mod_geometry
+    use mod_opal_opacity
     use mod_usr_methods
 
     integer, intent(in)          :: ixI^L, ixO^L
     double precision, intent(inout) :: w(ixI^S,nw)
     double precision, intent(in) :: x(ixI^S,1:ndim)
 
-    double precision :: tau_sob(ixI^S), vr(ixI^S), dvrdr(ixI^S)
-    double precision :: fdfac(ixO^S), beta_fd(ixO^S)
+    double precision :: tau_sob(ixI^S), vr(ixI^S), dvrdr(ixI^S), OPAL(ixI^S)
+    double precision :: fdfac(ixO^S), beta_fd(ixO^S), rho, Trad, kappa
+    integer :: ix^D
+
 
     select case (m1_opacity_type)
 
@@ -1154,6 +1186,21 @@ contains
       ! w(ixOmin1-1,:,:,kF_) = w(ixOmin1,:,:,kF_)
       ! w(ixOmax1+1,:,:,kF_) = w(ixOmax1,:,:,kF_)
       ! }
+
+    case ('OPAL')
+
+      !> Opal Opacities
+      {do ix^D=ixImin^D,ixImax^D\ }
+      rho = w(ix^D,iw_rho)*unit_density
+      Trad = (w(ix^D,iw_r_e)*unit_pressure/const_rad_a)**(0.25d0)
+      Trad = max(Trad,1.d4)
+      call set_opal_opacity(rho,Trad,kappa)
+      OPAL(ix^D) = kappa/unit_opacity
+      {enddo\ }
+
+      w(ixI^S,kF_) = OPAL(ixI^S)
+      w(ixI^S,kE_) = OPAL(ixI^S)
+      w(ixI^S,kB_) = OPAL(ixI^S)
 
     case('hybrid1')
 

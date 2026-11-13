@@ -10,7 +10,7 @@ module mod_hd_phys
 
   !> Whether an energy equation is used
   logical, public, protected              :: hd_energy = .true.
-  logical, public, protected              :: hd_m1 = .true.
+  logical, public, protected              :: hd_m1 = .false.
 
   !> Whether thermal conduction is added
   logical, public, protected              :: hd_thermal_conduction = .false.

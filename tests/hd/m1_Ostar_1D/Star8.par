@@ -52,7 +52,7 @@
 /
 
 &paramlist
-  courantpar = 0.1d0
+  courantpar = 0.4d0
 /
 
 &hd_list
@@ -66,7 +66,7 @@
   m1_opacity_type = 'hybrid2'
   m1_heatcool = .true.
   m1_force = .true.
-  m1_RSOL = 1.d-1
+  m1_RSOL = 1.d0
 /
 
 &star_list
@@ -77,5 +77,5 @@
   rhobound = 3.8e-6
   beta     = 0.5d0
   ic_file  = 'Star8_init.txt'
-  fixed_lum = .True.
+  fixed_lum = .true.
 /

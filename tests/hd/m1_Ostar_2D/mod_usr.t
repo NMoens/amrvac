@@ -72,7 +72,7 @@ contains
     i_ff = var_set_extravar('ff','ff')
     i_chi = var_set_extravar('chi','chi')
     i_lum = var_set_extravar('lum','lum')
-    
+
     i_lumg = var_set_extravar('lum_gas','lum_gas')
     i_lumr = var_set_extravar('lum_rad','lum_rad')
 
@@ -312,6 +312,10 @@ contains
 
         !> Radiation energy density
         w(ixB^S,Er_) = const_rad_a*Tbound**4/unit_pressure
+        do ix1 = ixBmax1-1, ixBmin1, -1
+          w(ix1,:,Er_) = 10.d0**max(2 * dlog10(w(ix1+1,:,Er_)) - dlog10(w(ix1+2,:,Er_)), dlog10(w(ix1+1,:,Er_)))
+          w(ix1,:,Er_) = max(w(ix1,:,Er_), w(ixBmax1,:,Er_))
+        end do
 
         !> Radiation flux
         w(ixB^S,Fr(:)) = 0.d0

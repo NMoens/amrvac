@@ -11,4 +11,5 @@
   beta     = 0.5d0
   ic_file  = 'init_conds/Star8_init.txt'
   len_ic   = 3070
+  fixed_lum = .false.
 /

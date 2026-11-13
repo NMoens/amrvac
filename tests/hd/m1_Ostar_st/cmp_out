@@ -1,0 +1,289 @@
+mod_lu.f:76:22:
+
+   76 |        DUM = A(IMAX,K)
+      |                      ^
+Warning: ‘imax’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_random_heating.f:110:71:
+
+  110 |         tr1 = dsin((t2 - tb1(Bt1-1)) * dpi / (tb1(Bt1+1) - tb1(Bt1-1)))
+      |                                                                       ^
+Warning: ‘bt1’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_random_heating.f:132:71:
+
+  132 |         tr2 = dsin((t2 - tb2(Bt2-1)) * dpi / (tb2(Bt2+1) - tb2(Bt2-1)))
+      |                                                                       ^
+Warning: ‘bt2’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_random_heating.f:142:51:
+
+  142 |                (va2(Bp+(Bt2+1)*vlim)*(one-va0)+va0)
+      |                                                   ^
+Warning: ‘tr4’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_random_heating.f:142:51: Warning: ‘tr2’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_pfss.f:317:48:
+
+  317 |         integer :: k,j,jj,nfac,kt,np,kk,k1,k2,k3,k4,kspnn
+      |                                                ^
+Warning: ‘k3’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+m_octree_mg_1d.f:2414:31:
+
+ 2414 |        box%cc(nc+1, iv) = gc(1)
+      |                               ^
+Warning: ‘MEM[(real(kind=8)[1] *)&gc][0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+m_octree_mg_1d.f:2259:42:
+
+ 2259 |     real(dp)                      :: gc(1)
+      |                                          ^
+note: ‘MEM[(real(kind=8)[1] *)&gc][0]’ was declared here
+m_octree_mg_1d.f:2414:31:
+
+ 2414 |        box%cc(nc+1, iv) = gc(1)
+      |                               ^
+Warning: ‘MEM[(real(kind=8)[1] *)&gc][0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+m_octree_mg_1d.f:2259:42:
+
+ 2259 |     real(dp)                      :: gc(1)
+      |                                          ^
+note: ‘MEM[(real(kind=8)[1] *)&gc][0]’ was declared here
+mod_selectgrids.f:145:12:
+
+  145 |         if (isafety_neighbor > nsafety) neighbor_active(i1,igrid) = .false.
+      |            ^
+Warning: ‘isafety_neighbor’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_selectgrids.f:123:51:
+
+  123 |   integer :: my_neighbor_type, i1, isafety_neighbor
+      |                                                   ^
+note: ‘isafety_neighbor’ was declared here
+mod_windsim_tools.f:151:28:
+
+  151 |         tau(np1) = dtau(np1)
+      |                            ^
+Warning: ‘MEM[(real(kind=8)[0:D.4373] *)_202][_619]’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_ppm.f:239:55:
+
+  239 |              dabs(dwC(ixOmin1:ixOmax1,iw))>smalldouble)
+      |                                                       ^
+Warning: ‘ixllmin1’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_ppm.f:239:55: Warning: ‘ixllmax1’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_cak_force.f:657:51:
+
+  657 |       w(i)     = 2.0d0*xl / ((1.0d0 - z*z) * pp*pp)
+      |                                                   ^
+Warning: ‘pp’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_radiative_cooling.f:918:38:
+
+  918 |          fl%tcoolmax = t_table(ntable)
+      |                                      ^
+Warning: ‘ntable’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_geometry.f:226:46:
+
+  226 |       s%surfaceC(0,1)=dabs(x(1,1)-half*drs(1))
+      |                                              ^
+Warning: ‘MEM[(real(kind=8)[0:D.11899] *)_250][_3]’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_geometry.f:226:46: Warning: ‘MEM[(real(kind=8)[0:D.11923] *)_235][_3]’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_geometry.f:205:49:
+
+  205 |       s%surfaceC(0,1)=dabs(x(1,1)-half*drs(1))**2
+      |                                                 ^
+Warning: ‘MEM[(real(kind=8)[0:D.11899] *)_250][_3]’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_geometry.f:205:49: Warning: ‘MEM[(real(kind=8)[0:D.11923] *)_235][_3]’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_geometry.f:168:42:
+
+  168 |       xext(ixGmin1-1,1)=x(1,1)-half*drs(1)
+      |                                          ^
+Warning: ‘MEM[(real(kind=8)[0:D.11899] *)_250][_3]’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_geometry.f:168:42: Warning: ‘MEM[(real(kind=8)[0:D.11923] *)_235][_3]’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_viscosity.f:460:36:
+
+  460 |          divergence(ixOmin1:ixOmax1)
+      |                                    ^
+Warning: ‘MEM[(real(kind=8)[0:D.4397] *)_139][_664]’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_boundary_conditions.f:256:8:
+
+  256 |     if (any(typeboundary(1:nwflux+nwaux,iB)==bc_special)) then
+      |        ^
+Warning: ‘ib’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_boundary_conditions.f:27:21:
+
+   27 |     integer :: iw, iB, ix1, ixOmin1,ixOmax1, ixMmin1,ixMmax1, nghostcellsi,&
+      |                     ^
+note: ‘ib’ declared here
+mod_thermal_emission.f:665:34:
+
+  665 |             flux(ix1)=flux(ix1)*GT
+      |                                  ^
+Warning: ‘gt’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_thermal_emission.f:528:24:
+
+  528 |       integer :: n_table
+      |                        ^
+Warning: ‘n_table’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_slice.f:583:20:
+
+  583 |       integer :: ic1
+      |                    ^
+Warning: ‘ic1’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_ghostcells_update.f:1113:44:
+
+ 1113 |             ixRmin1=ixR_r_min1(iib1,n_inc1);ixRmax1=ixR_r_max1(iib1,n_inc1);
+      |                                            ^
+Warning: ‘n_inc1’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_ghostcells_update.f:1171:48:
+
+ 1171 |              ixSmin1=ixS_srl_stg_min1(idir,n_i1)
+      |                                                ^
+Warning: ‘n_i1’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_ghostcells_update.f:945:44:
+
+  945 |             ixRmin1=ixR_srl_min1(iib1,n_i1);ixRmax1=ixR_srl_max1(iib1,n_i1);
+      |                                            ^
+Warning: ‘n_i1’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_ghostcells_update.f:917:23:
+
+  917 |            ixRmax1,n_i1,idir
+      |                       ^
+note: ‘n_i1’ was declared here
+mod_supertimestepping.f:673:39:
+
+  673 |     integer:: iigrid, igrid, j, ixCmin1,ixCmax1, ixGextmin1,ixGextmax1
+      |                                       ^
+Warning: ‘ixcmin1’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_supertimestepping.f:673:47:
+
+  673 |     integer:: iigrid, igrid, j, ixCmin1,ixCmax1, ixGextmin1,ixGextmax1
+      |                                               ^
+Warning: ‘ixcmax1’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_supertimestepping.f:465:39:
+
+  465 |     integer:: iigrid, igrid, j, ixCmin1,ixCmax1
+      |                                       ^
+Warning: ‘ixcmin1’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_supertimestepping.f:465:47:
+
+  465 |     integer:: iigrid, igrid, j, ixCmin1,ixCmax1
+      |                                               ^
+Warning: ‘ixcmax1’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_particle_base.f:1804:41:
+
+ 1804 |     xpmod(phiind) = xp(phiind) + 2.d0*dpi
+      |                                         ^
+Warning: ‘phiind’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_particle_base.f:1714:38:
+
+ 1714 |       rr = sqrt(xx**2 + yy**2 + zz**2)
+      |                                      ^
+Warning: ‘yy’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_particle_base.f:1714:38: Warning: ‘zz’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_particle_base.f:1271:37:
+
+ 1271 |       buff(0) = particle(ipart)%igrid
+      |                                     ^
+Warning: ‘ipart’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_particle_base.f:1146:51:
+
+ 1146 |          MPI_DOUBLE_PRECISION,0,mype,icomm,ierrmpi)
+      |                                                   ^
+Warning: ‘send_n_particles_for_output’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_particle_base.f:1096:35:
+
+ 1096 |         send_n_particles_for_output
+      |                                   ^
+note: ‘send_n_particles_for_output’ declared here
+mod_trace_field.f:457:60:
+
+  457 |     double precision :: Tpre,Tnow,Tnext,dTds,Lt,Lr,ds,T_bott,trac_delta
+      |                                                            ^
+Warning: ‘t_bott’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_rd_phys.f:234:30:
+
+  234 |           iw = species_list(i)
+      |                              ^
+Warning: ‘MEM[(integer(kind=4)[0:D.6333] *)_66][0]’ may be used uninitialized [-Wmaybe-uninitialized]
+mod_input_output.f:2160:24:
+
+ 2160 |         n_values_stagger
+      |                        ^
+Warning: ‘n_values_stagger’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_srhd_phys.f:1941:24:
+
+ 1941 |     v2=sqrs/xicurrent**2
+      |                        ^
+Warning: ‘xicurrent’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_srhd_phys.f:1753:33:
+
+ 1753 |     double precision :: xicurrent,h,dhdp
+      |                                 ^
+note: ‘xicurrent’ was declared here
+mod_srhd_phys.f:1929:7:
+
+ 1929 |     if(niiter==maxitnr)then
+      |       ^
+Warning: ‘niiter’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_srhd_phys.f:1748:33:
+
+ 1748 |     integer          :: ni,niiter,nit,n2it,ni3
+      |                                 ^
+note: ‘niiter’ was declared here
+mod_srhd_phys.f:1587:24:
+
+ 1587 |     v2=sqrs/xicurrent**2
+      |                        ^
+Warning: ‘xicurrent’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_srhd_phys.f:1399:33:
+
+ 1399 |     double precision :: xicurrent,h,dhdp
+      |                                 ^
+note: ‘xicurrent’ was declared here
+mod_srhd_phys.f:1575:7:
+
+ 1575 |     if(niiter==maxitnr)then
+      |       ^
+Warning: ‘niiter’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_srhd_phys.f:1394:33:
+
+ 1394 |     integer          :: ni,niiter,nit,n2it,ni3
+      |                                 ^
+note: ‘niiter’ was declared here
+mod_hd_phys.f:1358:56:
+
+ 1358 |              where (wCT(ixOmin1:ixOmax1, irho) > minrho)
+      |                                                        ^
+Warning: ‘mphi_’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_rhd_phys.f:1619:56:
+
+ 1619 |              where (wCT(ixOmin1:ixOmax1, irho) > minrho)
+      |                                                        ^
+Warning: ‘mphi_’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_twofl_phys.f:3283:46:
+
+ 3283 |     double precision, allocatable:: vHall(:,:)
+      |                                              ^
+Warning: ‘vhall.dim[1].stride’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_twofl_phys.f:3283:46: Warning: ‘vhall.offset’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_twofl_phys.f:7045:55:
+
+ 7045 |     double precision, allocatable :: v_c(:,:), v_n(:,:)
+      |                                                       ^
+Warning: ‘v_n.dim[1].stride’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_twofl_phys.f:7045:55: Warning: ‘v_n.offset’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_twofl_phys.f:7045:45:
+
+ 7045 |     double precision, allocatable :: v_c(:,:), v_n(:,:)
+      |                                             ^
+Warning: ‘v_c.dim[1].stride’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_twofl_phys.f:7045:45: Warning: ‘v_c.offset’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_twofl_phys.f:7305:39:
+
+ 7305 |            * gamma_rec(ixOmin1:ixOmax1)
+      |                                       ^
+Warning: ‘gamma_rec.offset’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mod_twofl_phys.f:7222:49:
+
+ 7222 |     double precision, allocatable :: gamma_rec(:), gamma_ion(:)
+      |                                                 ^
+note: ‘gamma_rec.offset’ was declared here
+mod_twofl_phys.f:7222:63:
+
+ 7222 |     double precision, allocatable :: gamma_rec(:), gamma_ion(:)
+      |                                                               ^
+Warning: ‘gamma_ion.offset’ may be used uninitialized in this function [-Wmaybe-uninitialized]

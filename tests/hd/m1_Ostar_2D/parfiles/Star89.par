@@ -11,5 +11,7 @@
     beta     = 0.5d0
     ic_file = './init_conds/Star89_init.txt'
     len_ic   = 2110
-    fixed_lum = .false.
+    fixed_lum = .true.
+    r_damp   = 1.08d0
+    tau_damp = 5.d-3
  /

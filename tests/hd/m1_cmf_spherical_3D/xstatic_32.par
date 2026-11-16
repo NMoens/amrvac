@@ -1,0 +1,77 @@
+&filelist
+  base_filename = 'output/xstatic_32'
+  typefilelog   = 'default'
+  convert_type  = 'oneblock'
+  level_io      = 1
+  saveprim      = .true.
+/
+
+&savelist
+  itsave(1,1) = 0
+  itsave(1,2) = 0
+  dtsave_log  = 5.d-2
+  dtsave_dat  = 1.d0
+/
+
+&stoplist
+  time_max = 3.d0
+/
+
+&methodlist
+  time_stepper    = 'onestep'
+  time_integrator = 'IMEX_Euler'
+  flux_scheme     = 'tvdlf'
+  limiter         = 'minmod'
+/
+
+&boundlist
+  typeboundary_min1 = 8*'special'
+  typeboundary_max1 = 8*'special'
+  typeboundary_min2 = 8*'special'
+  typeboundary_max2 = 8*'special'
+  typeboundary_min3 = 8*'special'
+  typeboundary_max3 = 8*'special'
+  internalboundary  = .true.
+/
+
+&meshlist
+  iprob            = 5
+  refine_max_level = 1
+  domain_nx1       = 32
+  domain_nx2       = 32
+  domain_nx3       = 32
+  block_nx1        = 16
+  block_nx2        = 16
+  block_nx3        = 16
+  xprobmin1        = 1.d0
+  xprobmax1        = 2.d0
+  xprobmin2        = 0.125d0  ! x 2pi = pi/4
+  xprobmax2        = 0.375d0  ! x 2pi = 3pi/4
+  xprobmin3        = 0.d0
+  xprobmax3        = 0.25d0   ! x 2pi = pi/2
+/
+
+&paramlist
+  courantpar = 0.3d0
+/
+
+&hd_list
+  He_abundance = 0.d0
+  hd_energy    = .false.
+  hd_gamma     = 1.d0
+  hd_adiab     = 0.d0
+  hd_m1        = .true.
+/
+
+&m1_list
+  m1_opacity_type    = 'zero'
+  m1_heatcool        = .false.
+  m1_force           = .false.
+  m1_split_opacities = .false.
+/
+
+&cmf_list
+  beta_max = 0.1d0
+  F_red    = 0.5d0
+  E0       = 1.d0
+/

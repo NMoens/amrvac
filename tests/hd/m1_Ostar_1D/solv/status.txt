@@ -1,0 +1,7 @@
+start 10:24:11
+Euler_tvdlf_minmod exit 0 10:48:20
+Euler_hll_minmod exit 0 10:48:27
+Euler_tvdlf_weno3 exit 0 10:48:32
+Euler_tvdlf_koren exit 0 10:48:37
+Midpoint_tvdlf_minmod exit 0 10:49:32
+ALLDONE

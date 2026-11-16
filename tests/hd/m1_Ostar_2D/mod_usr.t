@@ -23,7 +23,14 @@ module mod_usr
   double precision, allocatable :: r_init(:), rho_init(:), vr_init(:), p_init(:), Er_init(:)
   character(len=32) :: ic_file = 'init_conds/Star89_init.txt'
 
+  !> Equilibrium radiation energy density (Lucy 1971) on the level-1 radial grid
+  double precision, allocatable :: E_eq(:), rc_eq(:)
+  double precision :: Rph_eq
+
   logical :: fixed_lum = .true.
+
+  !> Deep-zone velocity sponge: off if r_damp <= xprobmin1 (code units)
+  double precision :: r_damp = 0.d0, tau_damp = 2.d-2
 
 contains
 
@@ -41,6 +48,7 @@ contains
     ! Specify other user routines, for a list see src/mod_usr_methods.t
     usr_special_bc     => special_bound
     usr_gravity        => stellar_gravity
+    usr_source         => damp_deep
 
     ! Fix negative radiation flux
     usr_internal_bc => Fix_radflux
@@ -94,7 +102,8 @@ contains
     character(len=*), intent(in) :: files(:)
     integer :: n
 
-    namelist /star_list/ mstar, rstar, Tbound, rhobound, beta, fred_bound, gamma_e, ic_file, len_ic, fixed_lum
+    namelist /star_list/ mstar, rstar, Tbound, rhobound, beta, fred_bound, gamma_e, ic_file, len_ic, fixed_lum, &
+                         r_damp, tau_damp
 
     do n = 1,size(files)
        open(unitpar, file=trim(files(n)), status="old")
@@ -163,23 +172,43 @@ contains
       print*, 'rhobound = ', rhobound
       print*, 'asound   = ', asound
       print*, 'Ggrav    = ', Ggrav
+      if (r_damp > xprobmin1) then
+        print*, 'Sponge   : r_damp = ', r_damp, '  tau_damp = ', tau_damp
+      else
+        print*, 'Sponge   : off'
+      end if
     endif
 
-    !> Allocate initial conditions arrays
-    allocate(r_init(len_ic))
-    allocate(rho_init(len_ic))
-    allocate(vr_init(len_ic))
-    allocate(p_init(len_ic))
-    allocate(Er_init(len_ic))
+    !> Initial-condition tables and equilibrium integration are only needed for a new run:
+    !> skip them when converting (-convert) or restarting from a snapshot (-if / -resume)
+    if (.not. convert .and. restart_from_file == undefined) then
 
-    if (mype .eq. 0) &
-      call read_init_conds()
+      !> Allocate initial conditions arrays
+      allocate(r_init(len_ic))
+      allocate(rho_init(len_ic))
+      allocate(vr_init(len_ic))
+      allocate(p_init(len_ic))
+      allocate(Er_init(len_ic))
 
-    call mpi_bcast(r_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
-    call mpi_bcast(rho_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
-    call mpi_bcast(vr_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
-    call mpi_bcast(p_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
-    call mpi_bcast(Er_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+      if (mype .eq. 0) &
+        call read_init_conds()
+
+      call mpi_bcast(r_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+      call mpi_bcast(rho_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+      call mpi_bcast(vr_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+      call mpi_bcast(p_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+      call mpi_bcast(Er_init, len_ic, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+
+      !> Equilibrium radiation field: computed on rank 0, broadcast to all
+      allocate(E_eq(domain_nx1), rc_eq(domain_nx1))
+
+      if (mype .eq. 0) call integrate_init_Erad()
+
+      call mpi_bcast(E_eq,   domain_nx1, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+      call mpi_bcast(rc_eq,  domain_nx1, MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+      call mpi_bcast(Rph_eq, 1,          MPI_DOUBLE_PRECISION, 0, icomm, ierrmpi)
+
+    end if
 
   end subroutine initglobaldata_usr
 
@@ -198,6 +227,135 @@ contains
 
   end subroutine read_init_conds
 
+  !> Radiation energy density from Lucy's (1971) unified atmosphere/wind approximation:
+  !>   E(r) = L/(pi R_ph^2 c) W(r) + (3/c) int_r^rout rho kappa F dr'
+  !> on the actual (possibly stretched) level-1 grid, with the same face-averaged
+  !> rho*kappa as m1_flux_absorbtion. R_ph from tau_bar(R_ph) = 2/3, iterated.
+  !> Called on rank 0 after the table broadcast; E_eq, rc_eq, Rph_eq are broadcast afterwards.
+  subroutine integrate_init_Erad
+    integer, parameter          :: max_pass = 30, max_it = 50
+    double precision, parameter :: tol_R = 1.d-8, tol_E = 1.d-10, relax = 0.7d0
+
+    integer          :: nx, i, k, it_k, ipass
+    logical          :: found
+    double precision :: q, dist, Fface, Lfac, Rph_old, Rph_new, Eold, g_i, g_ip1, wgt
+    double precision :: Teff, Trad_ph, E_ph
+    double precision, allocatable :: rf(:), rho_eq(:), rk(:), S(:)
+
+    nx = domain_nx1
+    allocate(rf(0:nx), rho_eq(nx), rk(nx), S(nx))
+
+    !> Level-1 faces and centres, code units (same construction as mod_amr_solution_node)
+    if (stretched_dim(1)) then
+      if (stretch_type(1) /= stretch_uni) &
+        call mpistop("integrate_init_Erad: only 'uni' stretching supported")
+      q = qstretch(1,1)
+      do i = 0, nx
+        rf(i) = xprobmin1 + dxfirst(1,1)*(1.d0 - q**i)/(1.d0 - q)
+      end do
+    else
+      do i = 0, nx
+        rf(i) = xprobmin1 + i*(xprobmax1 - xprobmin1)/nx
+      end do
+    end if
+    rf(nx) = xprobmax1
+    rc_eq(1:nx) = 0.5d0*(rf(0:nx-1) + rf(1:nx))
+
+    !> Density: same nearest-row lookup as initial_conditions (must stay identical!)
+    do i = 1, nx
+      k = minloc(abs(r_init(1:len_ic-2) - rc_eq(i)), DIM=1)
+      rho_eq(i) = rho_init(k)                                   ! cgs
+    end do
+
+    Rph_eq = xprobmin1                                          ! first guess, code units
+
+    do ipass = 1, max_pass
+      Lfac = lstar/(dpi*(Rph_eq*unit_length)**2*const_c)        ! L/(pi R_ph^2 c), erg cm^-3
+
+      !> Outer cell: pure dilution, S = 0
+      S(nx)    = 0.d0
+      E_eq(nx) = Lfac*lucy_W(rc_eq(nx), Rph_eq)
+      rk(nx)   = rho_eq(nx)*kappa_cgs(rho_eq(nx), E_eq(nx))
+
+      !> Inward integration of S with fixed point on kappa(T_rad)
+      do i = nx-1, 1, -1
+        dist  = (rc_eq(i+1) - rc_eq(i))*unit_length             ! centre-to-centre, cgs
+        Fface = lstar/(4.d0*dpi*(rf(i)*unit_length)**2)         ! flux at shared face
+        E_eq(i) = E_eq(i+1)
+        do it_k = 1, max_it
+          Eold    = E_eq(i)
+          rk(i)   = rho_eq(i)*kappa_cgs(rho_eq(i), E_eq(i))
+          S(i)    = S(i+1) + 3.d0*dist*Fface*0.5d0*(rk(i) + rk(i+1))/const_c
+          E_eq(i) = Lfac*lucy_W(rc_eq(i), Rph_eq) + S(i)
+          if (abs(E_eq(i) - Eold) <= tol_E*E_eq(i)) exit
+        end do
+      end do
+
+      !> New photosphere: S(r) = L/(2 pi r^2 c)  <=>  tau_bar = 2/3
+      found = .false.
+      do i = nx-1, 1, -1
+        g_i   = S(i)   - lstar/(2.d0*dpi*(rc_eq(i)  *unit_length)**2*const_c)
+        g_ip1 = S(i+1) - lstar/(2.d0*dpi*(rc_eq(i+1)*unit_length)**2*const_c)
+        if (g_i >= 0.d0 .and. g_ip1 < 0.d0) then
+          wgt     = g_ip1/(g_ip1 - g_i)
+          Rph_new = rc_eq(i+1) + wgt*(rc_eq(i) - rc_eq(i+1))
+          found   = .true.
+          exit
+        end if
+      end do
+      if (.not. found) then
+        if (S(nx-1) >= lstar/(2.d0*dpi*(rc_eq(nx-1)*unit_length)**2*const_c)) then
+          Rph_new = rc_eq(nx)                                   ! outer edge still thick
+          print*, 'WARNING integrate_init_Erad: outer boundary optically thick'
+        else
+          Rph_new = xprobmin1                                   ! whole domain thin
+          print*, 'WARNING integrate_init_Erad: no photosphere in domain'
+        end if
+      end if
+
+      Rph_old = Rph_eq
+      Rph_eq  = Rph_old + relax*(Rph_new - Rph_old)             ! under-relaxed updat
+      print '(a,i3,a,es14.7,a,es10.3)', ' Lucy pass ', ipass, &
+                          '  R_ph = ', Rph_eq, '  dR = ', Rph_eq - Rph_old
+      if (abs(Rph_new - Rph_old) <= tol_R*Rph_old) exit
+    end do
+    if (ipass > max_pass .and. mype == 0) &
+      print*, 'WARNING integrate_init_Erad: R_ph not converged'
+
+    !> Diagnostics: T_rad at R_ph should be ~ T_eff
+    if (mype == 0) then
+      Teff = (lstar/(4.d0*dpi*(Rph_eq*unit_length)**2*const_rad_a*const_c/4.d0))**0.25d0
+      i = minloc(abs(rc_eq - Rph_eq), DIM=1)
+      E_ph = E_eq(i)
+      Trad_ph = (E_ph/const_rad_a)**0.25d0
+      print*, 'Lucy: R_ph/R* = ', Rph_eq, '  T_eff = ', Teff, '  T_rad(R_ph) = ', Trad_ph
+      print*, 'Lucy: E(base) = ', E_eq(1), '  E(top) = ', E_eq(nx), ' erg/cm^3'
+      print*, 'Lucy: cE/F at top = ', E_eq(nx)*const_c/(lstar/(4.d0*dpi*(rc_eq(nx)*unit_length)**2))
+    end if
+
+    deallocate(rf, rho_eq, rk, S)
+  end subroutine integrate_init_Erad
+
+  !> Lucy dilution factor, W = 1/2 inside the photosphere
+  pure double precision function lucy_W(r, Rph)
+    double precision, intent(in) :: r, Rph
+    if (r <= Rph) then
+      lucy_W = 0.5d0
+    else
+      lucy_W = 0.5d0*(1.d0 - dsqrt(1.d0 - (Rph/r)**2))
+    end if
+  end function lucy_W
+
+  !> OPAL opacity in cgs from cgs rho and E, same T floor as the m1 OPAL case
+  double precision function kappa_cgs(rho_c, E_c)
+    use mod_opal_opacity, only: set_opal_opacity
+    double precision, intent(in) :: rho_c, E_c
+    double precision :: Tr
+    Tr = max((E_c/const_rad_a)**0.25d0, 1.d4)
+    call set_opal_opacity(rho_c, Tr, kappa_cgs)
+  end function kappa_cgs
+
+
   !> A routine for specifying initial conditions
   subroutine initial_conditions(ixI^L, ixO^L, w, x)
 
@@ -206,7 +364,8 @@ contains
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
 
-    integer :: ix1, nearest_i
+    double precision :: wgt, Trad, rloc, Eloc
+    integer :: ix1, nearest_i, ii
 
     do ix1 = ixImin1, ixImax1
       !> Find nearest line in init
@@ -217,7 +376,23 @@ contains
       w(ix1, :, mom(1)) = vr_init(nearest_i)/unit_velocity
       w(ix1, :, mom(2)) = 0.d0
       w(ix1, :, p_) = p_init(nearest_i)/unit_pressure
-      w(ix1, :, Er_) = Er_init(nearest_i)/unit_pressure
+      ! w(ix1, :, Er_) = Er_init(nearest_i)/unit_pressure
+
+      !> Equilibrium E (Lucy), log-linear interpolation on the level-1 centres
+      rloc = x(ix1,ixOmin2,1)
+      ii = minloc(abs(rc_eq - rloc), DIM=1)
+      if (rloc < rc_eq(ii)) ii = ii - 1
+      ii = min(max(ii, 1), domain_nx1-1)
+      wgt = (rloc - rc_eq(ii))/(rc_eq(ii+1) - rc_eq(ii))
+      wgt = min(max(wgt, 0.d0), 1.d0)                      ! ghost cells: clamp
+      Eloc = dexp((1.d0-wgt)*dlog(E_eq(ii)) + wgt*dlog(E_eq(ii+1)))/unit_pressure
+      w(ix1, :, Er_) = Eloc
+
+      !> LTE: gas temperature equal to radiation temperature
+      if (hd_energy) then
+        Trad = (Eloc*unit_pressure/const_rad_a)**0.25d0
+        w(ix1, :, p_) = const_kB/(const_mp*hd_mu)*Trad*w(ix1, :, rho_)*unit_density/unit_pressure
+      end if
     end do
 
     !> Velocity perturbation
@@ -342,6 +517,53 @@ contains
     end select
 
   end subroutine special_bound
+
+  !> Deep-zone velocity sponge: relax v_r towards zero below r_damp,
+  !>   d(m)/dt = -wgt(r) m / tau_damp,  wgt = ((r_damp - r)/(r_damp - R_in))^2,
+  !> integrated exactly over qdt. Only kinetic energy is removed (p, T unchanged);
+  !> rho, E and F are not touched.
+  subroutine damp_deep(qdt,ixI^L,ixO^L,iw^LIM,qtC,wCT,qt,w,x)
+    integer, intent(in)             :: ixI^L, ixO^L, iw^LIM
+    double precision, intent(in)    :: qdt, qtC, qt
+    double precision, intent(in)    :: wCT(ixI^S,1:nw), x(ixI^S,1:ndim)
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+
+    integer          :: nsp
+    double precision :: wgt(ixO^S), fac(ixO^S), ekin(ixO^S), gam(ixO^S)
+    double precision :: gam_mean, rmin
+    logical          :: insp(ixO^S)
+
+    if (r_damp <= xprobmin1) return
+
+    insp(ixO^S) = x(ixO^S,1) < r_damp
+    nsp = count(insp(ixO^S))
+    if (nsp == 0) return
+
+    !> Safety check: the sponge must stay below the radiatively driven zone.
+    !> Mean Gamma = kappa_F F_r / (c G M / r^2) over the sponge cells of this block.
+    gam(ixO^S) = wCT(ixO^S,kF_)*wCT(ixO^S,Fr(1))/m1_c/(Ggrav*mstar/x(ixO^S,1)**2)
+    gam_mean = sum(gam(ixO^S), &
+                   mask=insp(ixO^S))/nsp
+    if (gam_mean > 1.d0) then
+      rmin = minval(x(ixO^S,1))
+      print*, 'damp_deep: mean Gamma = ', gam_mean, ' over ', nsp, &
+              ' sponge cells, r = ', rmin, ' - ', r_damp
+      call mpistop("velocity dampening in radiatively driven zone")
+    end if
+
+    where (insp(ixO^S))
+      wgt(ixO^S) = ((r_damp - x(ixO^S,1))/(r_damp - xprobmin1))**2
+    elsewhere
+      wgt(ixO^S) = 0.d0
+    end where
+    fac(ixO^S) = dexp(-qdt*wgt(ixO^S)/tau_damp)
+
+    !> Radial kinetic energy only: E_kin,r -> fac^2 E_kin,r
+    ekin(ixO^S) = 0.5d0*w(ixO^S,mom(1))**2/w(ixO^S,rho_)
+    w(ixO^S,mom(1)) = w(ixO^S,mom(1))*fac(ixO^S)
+    if (hd_energy) w(ixO^S,e_) = w(ixO^S,e_) - ekin(ixO^S)*(1.d0 - fac(ixO^S)**2)
+
+  end subroutine damp_deep
 
   subroutine Fix_radflux(level,qt,ixI^L,ixO^L,w,x)
     use mod_global_parameters

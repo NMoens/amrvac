@@ -1,0 +1,6 @@
+&savelist
+  ditsave_log = 1
+/
+&stoplist
+  it_max = 5
+/

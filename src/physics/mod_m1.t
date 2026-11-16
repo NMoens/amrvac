@@ -227,7 +227,7 @@ contains
     !> Eddington scalars
     fi(ixI^S) = abs(wLC(ixI^S,iw_Fr(idim))/(m1_c*wLC(ixI^S,iw_r_e)))
     fi(ixI^S) = min(fi(ixI^S),1.d0)
-    mu(ixI^S) = abs(wLC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wLC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
+    mu(ixI^S) = wLC(ixI^S,iw_Fr(idim))/dsqrt(sum(wLC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
     mu(ixI^S) = min(mu(ixI^S),1.d0)
     mu(ixI^S) = max(mu(ixI^S),-1.d0)
 
@@ -235,8 +235,7 @@ contains
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
 
-    !TODO: Using same cell optical depth for both left and right state. Left state should use tau at i-1 i think?
-    tau_c(ixI^S) = block%dx(ixI^S,idim)*wLC(ixI^S,iw_rho)*wLp(ixI^S,kF_)
+    tau_c(ixI^S) = block%ds(ixI^S,idim)*wLC(ixI^S,iw_rho)*wLp(ixI^S,kF_)
 
     ! lam_L_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     ! + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
@@ -246,19 +245,11 @@ contains
     + 2*mu(ixI^S)**2*(2 - ff(ixI^S) - xi(ixI^S))))&
     /xi(ixI^S)
 
-
-    ! if (block%igrid .eq. 1) then
-    ! print*, 'max L'
-    ! print*, lam_L_max(ixO^S)/m1_c
-    ! print*, 'diff L'
-    ! print*, 4.d0*m1_RSOL/(3*tau_c(ixO^S))
-    ! end if
-
     ! Fuksman Melon 2019, Sadowski 20212
     lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 2.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
     ! lam_L_max(ixI^S) = min(lam_L_max(ixI^S), 4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
 
-    if (present(cmin)) then
+    ! if (present(cmin)) then
       ! lam_L_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
       ! - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
       ! /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
@@ -270,7 +261,7 @@ contains
       ! Fuksman Melon 2019, Sadowski 20212
       lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -2.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
       ! lam_L_min(ixI^S) = max(lam_L_min(ixI^S), -4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
-    end if
+    ! end if
 
     !> Right state
     ff(ixI^S) = sum(wRC(ixI^S, iw_Fr(:))**2, dim=ndim+1)/(m1_c*wRC(ixI^S,iw_r_e))**2
@@ -279,7 +270,7 @@ contains
     !> Eddington scalars
     fi(ixI^S) = abs(wRC(ixI^S,iw_Fr(idim))/(m1_c*wRC(ixI^S,iw_r_e)))
     fi(ixI^S) = min(fi(ixI^S),1.d0)
-    mu(ixI^S) = abs(wRC(ixI^S,iw_Fr(idim)))/dsqrt(sum(wRC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
+    mu(ixI^S) = wRC(ixI^S,iw_Fr(idim))/dsqrt(sum(wRC(ixI^S, iw_Fr(:))**2, dim=ndim+1))
     mu(ixI^S) = min(mu(ixI^S),1.d0)
     mu(ixI^S) = max(mu(ixI^S),-1.d0)
 
@@ -287,7 +278,7 @@ contains
 
     xi(ixI^S) = dsqrt(4-3*ff(ixI^S))
 
-    tau_c(ixI^S) = block%dx(ixI^S,idim)*wRC(ixI^S,iw_rho)*wRp(ixI^S,kF_)
+    tau_c(ixI^S) = block%ds(ixI^S,idim)*wRC(ixI^S,iw_rho)*wRp(ixI^S,kF_)
 
     ! lam_R_max(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
     ! + dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
@@ -310,7 +301,7 @@ contains
     lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 2.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
     ! lam_R_max(ixI^S) = min(lam_R_max(ixI^S), 4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
 
-    if (present(cmin)) then
+    ! if (present(cmin)) then
       ! lam_R_min(ixI^S) = m1_c*m1_RSOL*(fi(ixI^S)/xi(ixI^S) &
       ! - dsqrt(2*(xi(ixI^S)-1)*(xi(ixI^S)+2)*(2*(xi(ixI^S)-1)*(xi(ixI^S)+2) + 3*fj(ixI^S)**2)) &
       ! /(dsqrt(3.d0)*xi(ixI^S)*(xi(ixI^S)+2)))
@@ -322,11 +313,17 @@ contains
       ! Fuksman Melon 2019, Sadowski 20212
       ! lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -4.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
       lam_R_min(ixI^S) = max(lam_R_min(ixI^S), -2.d0*m1_c*m1_RSOL/(3*tau_c(ixI^S)))
-    end if
+    ! end if
 
     ! Skinner Ostricker 2013, Eq 39,
     m1_cmax(ixI^S) = max(lam_L_max(ixI^S),lam_R_max(ixI^S))
     m1_cmax(ixI^S) = max(m1_cmax(ixI^S), 0.d0)
+
+
+    if (.not. present(cmin)) then
+       m1_cmax = max(abs(lam_L_max), abs(lam_L_min), abs(lam_R_max), abs(lam_R_min))
+    end if
+
     ! if (block%igrid .eq. 1) then
     ! ! print*, 'max L'
     ! ! print*, lam_L_max(ixO^S)/m1_c
@@ -522,7 +519,9 @@ contains
     jxO^L=ixO^L+kr(idim,^D);
 
     !> Cell optical depth in idim
-    tau_c(ixI^S) = block%dx(ixI^S,idim)*w(ixI^S,iw_rho)*w(ixI^S,kF_)
+    ! tau_c(ixI^S) = block%ds(ixI^S,idim)*w(ixI^S,iw_rho)*w(ixI^S,kF_)
+    tau_c(ixI^S) = minval(block%ds(ixI^S,:),DIM=ndim+1)*w(ixI^S,iw_rho)*w(ixI^S,kF_)
+
 
     !> Reduced flux
     fred(ixI^S) = dsqrt(sum(w(ixI^S, iw_Fr(:))**2,dim=ndim+1))/(m1_c*w(ixI^S,iw_r_e))
@@ -538,7 +537,7 @@ contains
     ! if (block%igrid .eq. 1)  print*, theta
 
     !> Neighbouring cells following
-    theta(ixO^S) = min(theta(hxO^S),theta(ixO^S),theta(jxO^S))
+    ! theta(ixO^S) = min(theta(hxO^S),theta(ixO^S),theta(jxO^S))
 
     !> Physical limits
     theta = max(0.d0, min(1.d0, theta))
@@ -640,7 +639,7 @@ contains
 
         !> Add advection part
         ptt(ixI^S) = m1_c**2 * ptt(ixI^S) + wCT(ixI^S, iw_Fr(2))*wCT(ixI^S, iw_mom(2))/wCT(ixI^S, iw_rho)
-        ptr(ixI^S) = m1_c**2 * ptr(ixI^S) + wCT(ixI^S, iw_Fr(2))*wCT(ixI^S, iw_mom(1))/wCT(ixI^S, iw_rho) !< IS THIS ONE CORRECT?
+        ptr(ixI^S) = m1_c**2 * ptr(ixI^S) + wCT(ixI^S, iw_Fr(1))*wCT(ixI^S, iw_mom(2))/wCT(ixI^S, iw_rho) !< T_theta,r = v_theta F_r
         ppp(ixI^S) = m1_c**2 * ppp(ixI^S)
 
         !> Perform corrections
@@ -662,9 +661,9 @@ contains
         ptt = m1_c**2 * ptt + wCT(ixI^S, iw_Fr(2))*wCT(ixI^S, iw_mom(2))/wCT(ixI^S, iw_rho)
         ppp = m1_c**2 * ppp + wCT(ixI^S, iw_Fr(3))*wCT(ixI^S, iw_mom(3))/wCT(ixI^S, iw_rho)
 
-        ptr = m1_c**2 * ptr + wCT(ixI^S, iw_Fr(2))*wCT(ixI^S, iw_mom(1))/wCT(ixI^S, iw_rho) !< IS THIS ONE CORRECT?
-        ppr = m1_c**2 * ppr + wCT(ixI^S, iw_Fr(3))*wCT(ixI^S, iw_mom(1))/wCT(ixI^S, iw_rho) !< IS THIS ONE CORRECT?
-        ppt = m1_c**2 * ppt + wCT(ixI^S, iw_Fr(3))*wCT(ixI^S, iw_mom(2))/wCT(ixI^S, iw_rho) !< IS THIS ONE CORRECT?
+        ptr = m1_c**2 * ptr + wCT(ixI^S, iw_Fr(1))*wCT(ixI^S, iw_mom(2))/wCT(ixI^S, iw_rho) !< T_theta,r = v_theta F_r
+        ppr = m1_c**2 * ppr + wCT(ixI^S, iw_Fr(1))*wCT(ixI^S, iw_mom(3))/wCT(ixI^S, iw_rho) !< T_phi,r = v_phi F_r
+        ppt = m1_c**2 * ppt + wCT(ixI^S, iw_Fr(2))*wCT(ixI^S, iw_mom(3))/wCT(ixI^S, iw_rho) !< T_phi,theta = v_phi F_theta
 
         !> Perform corrections
         !> SWAP SIGNS AS ACCORDING TO WIKI: F = F - dt*nabla T
@@ -672,7 +671,7 @@ contains
         w(ixO^S, iw_Fr(2)) = w(ixO^S, iw_Fr(2)) + qdt * m1_RSOL * (-ptr(ixO^S)/x(ixO^S, 1)  + ppp(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
 
         !> 2 ptp BELOW: P is symmetric
-        w(ixO^S, iw_Fr(3)) = w(ixO^S, iw_Fr(3)) + qdt * m1_RSOL * (-ppr(ixO^S)/x(ixO^S, 1) - 2*ppt(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
+        w(ixO^S, iw_Fr(3)) = w(ixO^S, iw_Fr(3)) + qdt * m1_RSOL * (-ppr(ixO^S)/x(ixO^S, 1) - ppt(ixO^S)/(x(ixO^S, 1)*dtan(x(ixO^S,2))))
         }
 
       end select
@@ -779,7 +778,7 @@ contains
           end select
           {^NOONED
           !> add correction
-          w(ixO^S,iw_Fr(idim)) = w(ixO^S,iw_Fr(idim)) + qdt*m1_RSOL*geom_corr(ixO^S)
+          w(ixO^S,iw_Fr(idim)) = w(ixO^S,iw_Fr(idim)) - qdt*m1_RSOL*geom_corr(ixO^S)
           }
         end select
       end do
@@ -886,6 +885,93 @@ contains
 
   end subroutine m1_evaluate_implicit
 
+  ! subroutine m1_flux_absorbtion(w_out, w, x, ixI^L, ixO^L, dtfactor, qdt)
+  !   use mod_global_parameters
+  !   use mod_geometry
+  !   use mod_usr_methods, only: usr_set_F0
+  !
+  !   integer, intent(in)             :: ixI^L,ixO^L
+  !   double precision, intent(in)    :: x(ixI^S,1:ndim)
+  !   double precision, intent(in)    :: dtfactor, qdt
+  !   double precision, intent(in)    :: w(ixI^S,1:nw)
+  !   double precision, intent(inout) :: w_out(ixI^S,1:nw)
+  !
+  !   double precision :: F0(ixI^S,1:ndir), theta(ixI^S), tau(ixI^S)
+  !   double precision :: gradE(ixI^S)
+  !
+  !   double precision :: aa(ixI^S), bb(ixI^S)
+  !
+  !   integer :: idim
+  !   integer                         :: jxO^L, hxO^L
+  !
+  !
+  !   ! do idim = 1, ndim
+  !   !
+  !   !
+  !   !   hxO^L=ixO^L-kr(idim,^D);
+  !   !   jxO^L=ixO^L+kr(idim,^D);
+  !   !
+  !   !
+  !   !   ! > Exact solution: dF/dt = - a F - b
+  !   !   !                  <=> F = C1 * exp(-a*t) - b/a
+  !   !   !                  w. C1 = F0 + b/a
+  !   !
+  !   !
+  !   !   ! aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,iw_rho)*w(ixI^S,kF_)
+  !   !   !> rho evaluated at cell face for well-balancing
+  !   !   rho(ixO^S) = (w(hxO^S,iw_rho) + 2*w(ixO^S,iw_rho) + w(jxO^S,iw_rho))/4
+  !   !   aa(ixO^S) = m1_RSOL*m1_c*rho(ixO^S)*w(ixO^S,kF_)
+  !
+  !   ! > Exact solution: dF/dt = - a F - b
+  !   !                  <=> F = C1 * exp(-a*t) - b/a
+  !   !                  w. C1 = F0 + b/a
+  !
+  !   ! do idim = 1, ndim
+  !   !
+  !   !
+  !   !   hxO^L=ixO^L;
+  !   !   jxO^L=ixO^L+kr(idim,^D);
+  !   !
+  !   !   aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,iw_rho)*w(ixI^S,kF_)
+  !   !
+  !   !   call gradientF(w(ixI^S,iw_r_e),x,ixI^L,ixO^L,idim,gradE)
+  !   !
+  !   !   !> Well-balanced flux
+  !   !   aa(ixO^S) = 0.5d0*(aa(hxO^S) + aa(jxO^S))
+  !   !   gradE(ixO^S) = 0.5d0*(gradE(hxO^S) + gradE(jxO^S))
+  !   !
+  !   !   call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
+  !   !
+  !   !   ! call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
+  !   !   bb(ixI^S) = m1_RSOL*m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
+  !   !
+  !   !   w(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
+  !   !   * dexp(-aa(ixO^S)*dtfactor*dt) - bb(ixO^S)/aa(ixO^S)
+  !   !
+  !   ! end do
+  !
+  !   w_out = w
+  !
+  !   aa(ixI^S) = m1_c*w(ixI^S,iw_rho)*w_out(ixI^S,kF_)
+  !   do idim = 1, ndim
+  !     call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
+  !
+  !     call gradientS(theta(ixI^S)*w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
+  !     bb(ixI^S) = m1_c**2*gradE(ixI^S)/3.d0
+  !
+  !     !> Analytic
+  !     ! w_out(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
+  !     ! * dexp(-aa(ixO^S)*m1_RSOL*dtfactor*qdt) - bb(ixO^S)/aa(ixO^S)
+  !
+  !     !> Backward Euler
+  !     w_out(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) &
+  !            - m1_RSOL*dtfactor*qdt*bb(ixO^S)) &
+  !            / (1.d0 + m1_RSOL*dtfactor*qdt*aa(ixO^S))
+  !
+  !   end do
+  !
+  ! end subroutine m1_flux_absorbtion
+
   subroutine m1_flux_absorbtion(w_out, w, x, ixI^L, ixO^L, dtfactor, qdt)
     use mod_global_parameters
     use mod_geometry
@@ -905,66 +991,38 @@ contains
     integer :: idim
     integer                         :: jxO^L, hxO^L
 
+    double precision :: rk(ixI^S), Ff(ixI^S)
+    integer          :: fxO^L, jxF^L
 
-    ! do idim = 1, ndim
-    !
-    !
-    !   hxO^L=ixO^L-kr(idim,^D);
-    !   jxO^L=ixO^L+kr(idim,^D);
-    !
-    !
-    !   ! > Exact solution: dF/dt = - a F - b
-    !   !                  <=> F = C1 * exp(-a*t) - b/a
-    !   !                  w. C1 = F0 + b/a
-    !
-    !
-    !   ! aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,iw_rho)*w(ixI^S,kF_)
-    !   !> rho evaluated at cell face for well-balancing
-    !   rho(ixO^S) = (w(hxO^S,iw_rho) + 2*w(ixO^S,iw_rho) + w(jxO^S,iw_rho))/4
-    !   aa(ixO^S) = m1_RSOL*m1_c*rho(ixO^S)*w(ixO^S,kF_)
-
-    ! > Exact solution: dF/dt = - a F - b
-    !                  <=> F = C1 * exp(-a*t) - b/a
-    !                  w. C1 = F0 + b/a
-
-    ! do idim = 1, ndim
-    !
-    !
-    !   hxO^L=ixO^L;
-    !   jxO^L=ixO^L+kr(idim,^D);
-    !
-    !   aa(ixI^S) = m1_RSOL*m1_c*w(ixI^S,iw_rho)*w(ixI^S,kF_)
-    !
-    !   call gradientF(w(ixI^S,iw_r_e),x,ixI^L,ixO^L,idim,gradE)
-    !
-    !   !> Well-balanced flux
-    !   aa(ixO^S) = 0.5d0*(aa(hxO^S) + aa(jxO^S))
-    !   gradE(ixO^S) = 0.5d0*(gradE(hxO^S) + gradE(jxO^S))
-    !
-    !   call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
-    !
-    !   ! call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
-    !   bb(ixI^S) = m1_RSOL*m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
-    !
-    !   w(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
-    !   * dexp(-aa(ixO^S)*dtfactor*dt) - bb(ixO^S)/aa(ixO^S)
-    !
-    ! end do
 
     w_out = w
 
-    aa(ixI^S) = m1_c*w(ixI^S,iw_rho)*w_out(ixI^S,kF_)
-    do idim = 1, ndim
-      call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
+     rk(ixI^S) = w(ixI^S,iw_rho)*w_out(ixI^S,kF_)
+     aa(ixI^S) = m1_c*rk(ixI^S)
 
-      call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
-      bb(ixI^S) = m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
+     do idim = 1, ndim
+       call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
 
-      !> Analytic
-      w_out(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) + bb(ixO^S)/aa(ixO^S)) &
-      * dexp(-aa(ixO^S)*m1_RSOL*dtfactor*qdt) - bb(ixO^S)/aa(ixO^S)
+       hxO^L=ixO^L-kr(idim,^D);
+       fxOmin^D=ixOmin^D-kr(idim,^D); fxOmax^D=ixOmax^D;   ! faces i-1/2 .. ixOmax+1/2
+       jxF^L=fxO^L+kr(idim,^D);
 
-    end do
+       !> face gradient of theta*E, face i+1/2 stored at index i
+       call gradientF(theta(ixI^S)*w(ixI^S,iw_r_e),x,ixI^L,fxO^L,idim,gradE)
+
+       !> face diffusive flux with face-averaged rho*kappa
+       Ff(fxO^S) = -m1_c/3.d0*gradE(fxO^S) &
+                  / max(0.5d0*(rk(fxO^S)+rk(jxF^S)), smalldouble)
+
+       !> cell target = mean of both faces, written as bb so that -bb/aa = Ftgt
+       bb(ixO^S) = -aa(ixO^S)*0.5d0*(Ff(hxO^S)+Ff(ixO^S))
+
+       !> Backward Euler
+       w_out(ixO^S,iw_Fr(idim)) = (w(ixO^S,iw_Fr(idim)) &
+            - m1_RSOL*dtfactor*qdt*bb(ixO^S)) &
+            / (1.d0 + m1_RSOL*dtfactor*qdt*aa(ixO^S))
+     end do
+
 
   end subroutine m1_flux_absorbtion
 
@@ -992,9 +1050,9 @@ contains
     do idim = 1, ndim
       call m1_get_trapped_fraction(w, x, ixI^L, ixO^L, idim, theta)
       ! call gradient_str(w(ixI^S,iw_r_e)*lambda(ixI^S),x,ixI^L,ixO^L,idim,gradE)
-      call gradientS(w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
+      call gradientS(theta(ixI^S)*w(ixI^S,iw_r_e),ixI^L,ixO^L,idim,gradE)
       bb(ixI^S) = m1_RSOL*m1_c**2*gradE(ixI^S)*theta(ixI^S)/3.d0
-      w(ixO^S,iw_Fr(idim)) = - aa(ixO^S)*w(ixO^S,iw_Fr(idim)) - bb(ixO^S)
+      w(ixO^S,iw_Fr(idim)) = - m1_RSOL*(aa(ixO^S)*w(ixO^S,iw_Fr(idim)) - bb(ixO^S))
     end do
 
   end subroutine m1_flux_absorbtion_evaluate
@@ -1022,7 +1080,7 @@ contains
     w(ixO^S,iw_e) = w(ixO^S,iw_e) - ke(ixO^S)
 
     !> Set polynomial coefficients
-    a4(ixO^S) = alpha_qdot*w(ixO^S,kB_)*(m1_gamma-1.d0)**4/w(ixO^S,iw_rho)**3*dtfactor*dt
+    a4(ixO^S) = alpha_qdot*w(ixO^S,kB_)*(m1_gamma-1.d0)**4/w(ixO^S,iw_rho)**3*dtfactor*qdt
     a0(ixO^S) = m1_c*w(ixO^S,kE_)*w(ixO^S,iw_rho)*dtfactor*qdt
 
     c1(ixO^S) = 1.d0/(a4(ixO^S) - m1_RSOL*a4(ixO^S)*a0(ixO^S)/(1.d0 + m1_RSOL*a0(ixO^S)))
@@ -1438,7 +1496,7 @@ contains
     double precision, intent(in)    :: w(ixI^S,1:nw)
     double precision, intent(inout) :: dtnew
 
-    dtnew = courantpar*minval(block%dx(ixO^S,:)/(m1_c*m1_RSOL))
+    dtnew = courantpar*minval(block%ds(ixO^S,:)/(m1_c*m1_RSOL))
 
   end subroutine m1_get_dt
 

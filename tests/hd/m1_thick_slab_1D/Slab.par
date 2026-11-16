@@ -53,6 +53,7 @@
   hd_gravity = .false.
   hd_energy  = .false.
   hd_gamma   = 1.667d0
+  hd_adiab   = 1.d-20
   hd_m1 = .true.
 /
 

@@ -86,12 +86,23 @@ contains
     integer, intent(in)    :: ixI^L, ixO^L
     double precision, intent(in)    :: x(ixI^S,1:ndim)
     double precision, intent(inout) :: w(ixI^S,1:nw)
+    double precision :: xmid
 
     w(ixI^S, rho_) = rho
     w(ixI^S, mom(:)) = 0.d0
     Ebound = 10*max(kappa_step,1.d0)*(xprobmax1-xprobmin1)*m1_kappa_e*rho*Fbound/m1_c
-    w(ixI^S, Er_) = 1.d-3 * Ebound !Ebound-(x(ixI^S,1)-xprobmin1)*3*w(ixI^S, rho_)*m1_kappa_e*Fbound/m1_c
-    w(ixI^S, Fr(1)) = 0.d0 !Fbound
+
+    xmid = 0.5d0*(xprobmax1 + xprobmin1)
+    where (x(ixI^S,1) .lt. xmid)
+      w(ixI^S, Er_) = Ebound - (x(ixI^S,1)-xprobmin1)*3*w(ixI^S,rho_)*m1_kappa_e*Fbound/m1_c
+    elsewhere
+      w(ixI^S, Er_) = Ebound - (xmid-xprobmin1)*3*w(ixI^S,rho_)*m1_kappa_e*Fbound/m1_c &
+                             - (x(ixI^S,1)-xmid)*3*w(ixI^S,rho_)*kappa_step*m1_kappa_e*Fbound/m1_c
+    end where
+
+
+
+    w(ixI^S, Fr(1)) = Fbound
 
   end subroutine initial_conditions
 
@@ -115,7 +126,7 @@ contains
       w(ixB^S,kE_) = m1_kappa_e
       w(ixB^S,kB_) = m1_kappa_e
 
-      w(ixB^S, Er_) = Ebound !-(x(ixB^S,1)-xprobmin1)*3*w(ixB^S, rho_)*w(ixB^S,kF_)*Fbound/m1_c
+      w(ixB^S, Er_) = Ebound -(x(ixB^S,1)-xprobmin1)*3*w(ixB^S, rho_)*w(ixB^S,kF_)*Fbound/m1_c
       ! w(ixB^S, Fr(1)) = Fbound
 
       do ix1 = ixBmax1, ixBmin1, -1

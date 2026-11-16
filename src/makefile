@@ -116,6 +116,9 @@ mod_cak_force.o: mod_constants.mod
 mod_cak_force.o: mod_global_parameters.mod
 mod_cak_force.o: mod_physics.mod
 mod_cak_force.o: mod_usr_methods.mod
+mod_cak_opacity.o: mod_comm_lib.mod
+mod_cak_opacity.o: mod_global_parameters.mod
+mod_cak_opacity.o: mod_lookup_table.mod
 mod_calculate_xw.o: mod_comm_lib.mod
 mod_calculate_xw.o: mod_geometry.mod
 mod_calculate_xw.o: mod_global_parameters.mod
@@ -445,6 +448,9 @@ mod_nonlinear_roe.o: mod_physics_roe.mod
 mod_odeint.o: mod_comm_lib.mod
 mod_oneblock.o: mod_comm_lib.mod
 mod_oneblock.o: mod_global_parameters.mod
+mod_opal_opacity.o: mod_comm_lib.mod
+mod_opal_opacity.o: mod_global_parameters.mod
+mod_opal_opacity.o: mod_lookup_table.mod
 mod_particle_advect.o: mod_geometry.mod
 mod_particle_advect.o: mod_global_parameters.mod
 mod_particle_advect.o: mod_odeint.mod

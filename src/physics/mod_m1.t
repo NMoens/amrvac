@@ -30,6 +30,10 @@ module mod_m1
   !> Reduced speed of light factor
   double precision, public                :: m1_RSOL = 1.d0
 
+  !> Riemann-solver species index of the radiation variables (Er, Fr),
+  !> set in m1_set_species
+  integer, public, protected              :: m1_species = 1
+
   !> Electron scattering opacity
   double precision, public                :: m1_kappa_e = 0.34d0
 
@@ -90,6 +94,9 @@ contains
     double precision :: sigma_thom
 
     call m1_read_params(par_files)
+
+    !> Radiation variables get their own species in the Riemann solver
+    call m1_set_species()
 
     !> Set index of opacity variables
     kF_ = var_set_extravar("kappa_F", "kappa_F")
@@ -189,6 +196,43 @@ contains
     end if
 
   end subroutine m1_init
+
+  !> Split the radiation variables (Er, Fr) off into their own species, so that
+  !> the Riemann solver uses the radiative signal speed (~RSOL*c) only for them
+  !> and not for the fluid variables. Appends one species to whatever the host
+  !> physics module set up; requires Er, Fr to be the last flux variables.
+  subroutine m1_set_species()
+    use mod_global_parameters
+
+    integer, allocatable :: iws(:), iwe(:)
+    integer :: n
+
+    n = number_species
+
+    if (.not. (allocated(start_indices) .and. allocated(stop_indices))) &
+      call mpistop("m1_set_species: start/stop_indices must be set before m1_init")
+    if (iw_Fr(1) /= iw_r_e + 1 .or. iw_Fr(ndir) /= nwflux .or. &
+        iw_r_e <= start_indices(n) .or. stop_indices(n) /= nwflux) &
+      call mpistop("m1_set_species: M1 variables (Er, Fr) must be the last flux "// &
+                   "variables; register tracers/dust before them")
+
+    iws = start_indices
+    iwe = stop_indices
+
+    number_species = n + 1
+    deallocate(start_indices, stop_indices)
+    allocate(start_indices(number_species), stop_indices(number_species))
+
+    start_indices(1:n) = iws
+    stop_indices(1:n)  = iwe
+
+    stop_indices(n)    = iw_r_e - 1
+    start_indices(n+1) = iw_r_e
+    stop_indices(n+1)  = nwflux
+
+    m1_species = n + 1
+
+  end subroutine m1_set_species
 
 
   subroutine m1_get_cbounds(wLC, wRC, wLp, wRp, x, ixI^L, ixO^L, idim, Hspeed, cmax, cmin)
@@ -338,12 +382,15 @@ contains
     ! print*, 'ratio'
     ! print*, m1_cmax(ixO^S)/cmax(ixO^S,1)
     ! end if
-    cmax(ixI^S,1) = max(cmax(ixI^S,1), m1_cmax(ixI^S))
+    !> Radiation variables are species m1_species (see m1_set_species): the
+    !> radiative signal speed only enters their dissipation, the fluid species
+    !> they were split from keeps its own speeds
+    cmax(ixI^S,m1_species) = max(cmax(ixI^S,m1_species-1), m1_cmax(ixI^S))
 
     if (present(cmin)) then
       m1_cmin(ixI^S) = min(lam_L_min(ixI^S),lam_R_min(ixI^S))
       m1_cmin(ixI^S) = min(m1_cmin(ixI^S), 0.d0)
-      cmin(ixI^S,1) = min(cmin(ixI^S,1), m1_cmin(ixI^S))
+      cmin(ixI^S,m1_species) = min(cmin(ixI^S,m1_species-1), m1_cmin(ixI^S))
     end if
 
   end subroutine m1_get_cbounds
@@ -1089,11 +1136,11 @@ contains
     !> Solve polynomial
     {do ix^D = ixOmin^D,ixOmax^D\}
     w(ix^D,iw_e) = max(w(ix^D,iw_e), m1_small_e)
-    call Bisection_method(w(ix^D,iw_e),w(ix^D,iw_r_e),c0(ix^D),c1(ix^D))
+    call Newton_method(w(ix^D,iw_e),c0(ix^D),c1(ix^D))
     {enddo\}
 
     !> Set radiation energy density
-    w(ixO^S,iw_r_e) = (w(ixO^S,iw_r_e) + m1_RSOL*a4(ixO^S)*w(ixO^S,iw_e)**4.d0)/(1.d0 + m1_RSOL*a0(ixO^S))
+    w(ixO^S,iw_r_e) = (w(ixO^S,iw_r_e) + m1_RSOL*a4(ixO^S)*w(ixO^S,iw_e)**4)/(1.d0 + m1_RSOL*a0(ixO^S))
 
     !> Get gas total energy
     w(ixO^S,iw_e) = w(ixO^S,iw_e) + ke(ixO^S)
@@ -1540,12 +1587,12 @@ contains
 
     !> initialise counters and bisection limits
     n = 0
-    max_its = 50
+    max_its = 20
     e_a = zero
-    e_b = min(abs(c0/c1),abs(c0)**(1.d0/4.d0))+smalldouble
+    e_b = min(abs(c0/c1),sqrt(sqrt(abs(c0))))+smalldouble
 
     !> Start bisection algorithm
-    do while((abs(e_b-e_a) .ge. 1.d-15*min(e_gas,E_rad)) .and. n < max_its)
+    do while((abs(e_b-e_a) .ge. 1.d-10*min(e_gas,E_rad)) .and. n < max_its)
       !> Bisection point
       e_c = (e_a + e_b)/two
 
@@ -1603,13 +1650,53 @@ contains
 
   end subroutine Bisection_method
 
+  !> Solve e**4 + c1*e - c0 = 0 for e > 0 (c0, c1 > 0) with Newton's method.
+  !> The polynomial is increasing and convex for e > 0, so Newton started above
+  !> the root converges monotonically from above (no overshoot, e stays positive).
+  !> With m = min(c0/c1, c0**(1/4)) the root lies in [m/2, m]. The problem is
+  !> solved in scaled form q(y) = A*y**4 + B*y - 1 with e = m*y, A, B <= 1.
+  subroutine Newton_method(e_gas, c0, c1)
+    use mod_global_parameters
+    double precision, intent(in)    :: c0, c1
+    double precision, intent(inout) :: e_gas
+
+    double precision, parameter :: tol = 1.d-12
+    integer, parameter          :: max_its = 20
+
+    double precision :: m, A, B, y, dy, q, dq
+    integer          :: n
+
+    !> Invalid or non-finite coefficients (e.g. a4 = 0): leave e_gas unchanged
+    if (.not. (c0 > 0.d0 .and. c1 > 0.d0 .and. c0 <= huge(c0) .and. c1 <= huge(c1))) return
+
+    !> Upper bound on the root
+    m = min(c0/c1, sqrt(sqrt(c0)))
+
+    !> Scaled coefficients
+    A = (m*m)*(m*m)/c0
+    B = c1*m/c0
+
+    !> Newton iteration starting at the upper bound y = 1
+    y = 1.d0
+    do n = 1, max_its
+      q  = A*(y*y)*(y*y) + B*y - 1.d0
+      dq = 4.d0*A*y*y*y + B
+      dy = q/dq
+      y  = y - dy
+      if (abs(dy) <= tol*y) exit
+    end do
+
+    e_gas = max(m*y, m1_small_e)
+
+  end subroutine Newton_method
+
   function Polynomial_Bisection(e_gas, c0, c1) result(p)
     use mod_global_parameters
     double precision, intent(in) :: e_gas
     double precision, intent(in) :: c0, c1
     double precision :: p
 
-    p = e_gas**4.d0 + c1*e_gas - c0
+    p = e_gas**4 + c1*e_gas - c0
   end function Polynomial_Bisection
 
 end module mod_m1

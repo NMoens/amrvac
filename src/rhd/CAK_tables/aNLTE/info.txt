@@ -1,0 +1,5 @@
+ 10    ! number of T points
+ 10    ! number of D points
+  9    ! number of T2T points
+  9    ! number of W points
+ 0.340 ! fiducial normalisation 

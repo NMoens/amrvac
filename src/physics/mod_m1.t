@@ -1326,7 +1326,52 @@ contains
 
     end select
 
+    !> Ghost cells at physical boundaries (internal ones come from the ghost exchange)
+    call m1_opacity_bc(ixI^L, ixO^L, w)
+
   end subroutine m1_set_opacities
+
+  !> The opacities are extravars: ghost cells at internal block boundaries are
+  !> filled by the ghost-cell exchange (nwgc includes them, see m1_init), but
+  !> bc_phys only treats iw <= nwflux+nwaux, so ghost cells at physical
+  !> boundaries are never set. They enter the trapped fraction (tau_c), the
+  !> face-averaged rho*kappa in m1_flux_absorbtion and the radiative cbounds,
+  !> so fill them here with a zero-gradient copy of the adjacent interior cell.
+  subroutine m1_opacity_bc(ixI^L, ixO^L, w)
+    use mod_global_parameters
+
+    integer, intent(in)             :: ixI^L, ixO^L
+    double precision, intent(inout) :: w(ixI^S,1:nw)
+
+    integer :: idim, ig, ng, ixS^L, ixT^L
+
+    do idim = 1, ndim
+      !> Lower side: source slab is the first interior layer ixOmin in idim
+      if (block%is_physical_boundary(2*idim-1)) then
+        {^D& ixSmin^D = ixImin^D + (ixOmin^D-ixImin^D)*kr(idim,^D); ixSmax^D = ixImax^D + (ixOmin^D-ixImax^D)*kr(idim,^D) \}
+        {^D& if (idim==^D) ng = ixOmin^D-ixImin^D \}
+        do ig = 1, ng
+          ixT^L=ixS^L-ig*kr(idim,^D);
+          w(ixT^S,kF_) = w(ixS^S,kF_)
+          w(ixT^S,kE_) = w(ixS^S,kE_)
+          w(ixT^S,kB_) = w(ixS^S,kB_)
+        end do
+      end if
+
+      !> Upper side: source slab is the last interior layer ixOmax in idim
+      if (block%is_physical_boundary(2*idim)) then
+        {^D& ixSmin^D = ixImin^D + (ixOmax^D-ixImin^D)*kr(idim,^D); ixSmax^D = ixImax^D + (ixOmax^D-ixImax^D)*kr(idim,^D) \}
+        {^D& if (idim==^D) ng = ixImax^D-ixOmax^D \}
+        do ig = 1, ng
+          ixT^L=ixS^L+ig*kr(idim,^D);
+          w(ixT^S,kF_) = w(ixS^S,kF_)
+          w(ixT^S,kE_) = w(ixS^S,kE_)
+          w(ixT^S,kB_) = w(ixS^S,kB_)
+        end do
+      end if
+    end do
+
+  end subroutine m1_opacity_bc
 
   subroutine hybrid1_opacity(ixI^L,ixO^L,w,x)
     use mod_global_parameters
@@ -1375,23 +1420,7 @@ contains
     w(ixO^S,kE_) = max(w(ixO^S,kE_), 1.d-5*m1_kappa_e)
     w(ixO^S,kB_) = max(w(ixO^S,kB_), 1.d-5*m1_kappa_e)
 
-    !> Inner bound opacity
-    if (any(x(ixI^S,1) .lt. xprobmin1)) then
-      {^IFONED w(ixImin1:ixOmin1-1,kF_) = w(ixOmin1,kF_)}
-      {^IFTWOD
-          do ix2 = ixImin2, ixImax2
-            w(ixImin1:ixOmin1-1,ix2,kF_) = w(ixOmin1,ix2,kF_)
-          end do
-      }
-      {^IFTHREED
-      do ix2 = ixImin2, ixImax2
-        do ix3 = ixImin3, ixImax3
-          w(ixImin1:ixOmin1-1,ix2,ix3,kF_) = w(ixOmin1,ix2,ix3,kF_)
-        end do
-      end do
-      }
-      ! {^IFTHREED w(ixOmax1,:,:,kF_) = max(w(ixOmax1-1,:,:,kF_), w(ixOmax1,:,:,kF_))}
-    end if
+    !> Physical-boundary ghost cells are filled in m1_opacity_bc
 
 
     if (any(w(ixO^S,kF_) .ne. w(ixO^S,kF_))) then
@@ -1502,22 +1531,7 @@ contains
       {^IFTHREED w(ixOmax1,:,:,kF_) = max(w(ixOmax1-1,:,:,kF_), w(ixOmax1,:,:,kF_))}
     end if
 
-    if (any(x(ixI^S,1) .lt. xprobmin1)) then
-      {^IFONED w(ixImin1:ixOmin1-1,kF_) = w(ixOmin1,kF_)}
-      {^IFTWOD
-          do ix2 = ixImin2, ixImax2
-            w(ixImin1:ixOmin1-1,ix2,kF_) = w(ixOmin1,ix2,kF_)
-          end do
-      }
-      {^IFTHREED
-      do ix2 = ixImin2, ixImax2
-        do ix3 = ixImin3, ixImax3
-          w(ixImin1:ixOmin1-1,ix2,ix3,kF_) = w(ixOmin1,ix2,ix3,kF_)
-        end do
-      end do
-      }
-      ! {^IFTHREED w(ixOmax1,:,:,kF_) = max(w(ixOmax1-1,:,:,kF_), w(ixOmax1,:,:,kF_))}
-    end if
+    !> Physical-boundary ghost cells are filled in m1_opacity_bc
 
 
     if (any(w(ixO^S,kF_) .ne. w(ixO^S,kF_))) then

@@ -1,0 +1,7 @@
+! Resolution 640 (domain_nx1); 2D-level equivalent: 0320=L1 0640=L2 1280=L3 2560=finer reference
+&filelist
+  base_filename = 'n0640_'
+/
+&meshlist
+  domain_nx1 = 640
+/
